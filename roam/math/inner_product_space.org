@@ -1,0 +1,91 @@
+:PROPERTIES:
+:ID:       8D02B895-719C-42BC-8084-3F7EE98E4D90
+:END:
+#+title: Inner Product Space
+#+date: [2026-01-27 Tue]
+#+filetags: :math:QC:concept:algebra:linear-algebra:
+
+* Inner Product Space 内积空间
+
+- 标量域 $F$：
+  - $\mathbb{R}$（实数）
+  - $\mathbb{C}$（复数）
+
+- $V$ 是定义在域 $(F,+,\times)$ 上的向量空间
+  - 向量加法：$\oplus$
+  - 标量乘法：$\cdot$
+
+- 给定一个二元函数
+\[
+f: V \times V \to F
+\]
+通常记作：
+\[
+f(v,w) = \langle v,w\rangle
+\]
+
+* 内积的公理化定义
+
+若 $\langle\cdot,\cdot\rangle$ 满足下表中的全部条件，则称其为 $V$ 上的一个 *内积*。
+
+| 性质名称 | 前提条件 | 数学表述 |
+|--------+----------+----------|
+| 共轭对称 | $\forall v,w\in V$ | $\langle v,w\rangle = \overline{\langle w,v\rangle}$ |
+| 加法线性 | $\forall v,w,a\in V$ | $\langle v\oplus w, a\rangle = \langle v,a\rangle + \langle w,a\rangle$ |
+| 齐次线性 | $\forall v,w\in V,\ \forall \lambda\in F$ | $\langle \lambda\cdot v, w\rangle = \lambda\,\langle v,w\rangle$ |
+| 非负性 | $\forall v\in V$ | $\langle v,v\rangle \ge 0$ |
+| 非退化性 | $\forall v\in V$ | $\langle v,v\rangle = 0 \iff v=0_V$ |
+
+📌 以上线性条件是指 *对第一个变量线性*。
+
+* 实内积空间与复内积空间
+
+- 若 $F=\mathbb{R}$，称 $V$ 为 *实内积空间*
+- 若 $F=\mathbb{C}$，称 $V$ 为 *复内积空间*
+
+* 正交的定义
+
+若
+\[
+\langle v,w\rangle = 0
+\]
+则记为
+\[
+v \perp w
+\]
+
+称 $v$ 与 $w$ *正交（orthogonal / perpendicular）*
+
+* 定义顺序的分歧（数学 vs 物理）
+
+** 数学上的约定
+
+- 内积对 *第一个变量线性*
+- 对第二个变量共轭线性
+
+这是线性代数、泛函分析中的主流约定。
+
+** 物理学（狄拉克符号）的约定
+
+为配合 $\langle \psi | \phi \rangle$ 的书写顺序，物理学家常采用相反的线性约定：
+
+| 性质 | 数学表述 |
+|-----+----------|
+| 加法线性 | $\langle a, v\oplus w\rangle = \langle a,v\rangle + \langle a,w\rangle$ |
+| 齐次线性 | $\langle v, \lambda\cdot w\rangle = \lambda\,\langle v,w\rangle$ |
+
+即：*对第二个变量线性*。
+
+** 重要说明
+
+- 真正影响定理形式的是“线性作用在哪个变量”
+- 两种定义在数学上是等价的
+- 但使用公式和定理时，必须保持顺序一致
+
+
+1 现有内积
+2 内积又到长度
+3 长度诱导的范数
+4 范数诱导的距离
+5 距离看极限
+6 内积空间的完备性

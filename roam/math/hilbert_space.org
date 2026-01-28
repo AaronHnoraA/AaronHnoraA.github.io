@@ -1,0 +1,140 @@
+:PROPERTIES:
+:ID:       FDD92B78-DF6E-44F5-BF77-425C3CF28720
+:ROAM_REFS: 
+:END:
+#+title: Hilbert Space
+#+date: [2026-01-26 Mon]
+#+filetags: :math:structure:concept:intuition:working:QC:algebra:linear_analysis:
+
+* Hilbert Space 希尔伯特空间
+#+begin_attention
+Hilbert space is a big space.
+                        ----- Carlton Caves
+#+end_attention
+** 1. 数学理解 (Mathematical Understanding)
+本质是将欧几里得空间 ($\mathbb{R}^n$) 推广到*无限维*，并保留几何直观。
+
+- *核心定义*: 一个*完备 (Complete)* 的*内积空间 (Inner Product Space)*。
+  - *内积 ($\langle u, v \rangle$)*: 定义了“角度”和“投影”。若内积为 0，则两向量正交。
+  - *范数 ($||v||$)*: 由内积导出 ($||v|| = \sqrt{\langle v, v \rangle}$)，定义了向量的“长度”。
+  - *完备性*: 空间内的柯西序列收敛于空间内（保证极限存在，微积分可行）。
+- *常见例子*:
+  - $\mathbb{R}^n$ (有限维希尔伯特空间)。
+  - $L^2$ 空间 (平方可积函数空间，量子力学中最常用)。
+
+
+
+** 2. 量子应用 (Quantum Applications)
+量子力学的公理化数学基础。
+
+- *态 (State)*: 物理系统的状态由希尔伯特空间中的*射线*（归一化向量 $|\psi\rangle$）描述。
+- *叠加原理*: 向量的线性组合仍然是空间中的一个有效向量。
+- *可观测量*: 对应于作用在空间上的*厄米算符 (Hermitian Operators)*。
+  - 算符的*本征值*是测量的可能结果。
+  - 算符的*本征态*构成空间的基底。
+- *概率 (Born Rule)*: 概率幅由内积给出，概率为内积的模方 ($P = |\langle \phi | \psi \rangle|^2$)。
+
+
+
+* 有限维必完备
+
+#+begin_theorem
+在有限维内积空间中，所有柯西序列均收敛于该空间内的某个向量。因此，有限维内积空间([[id:8D02B895-719C-42BC-8084-3F7EE98E4D90][Inner Product Space]])天然是完备的，即有限维内积空间即为希尔伯特空间。
+#+end_theorem
+#+begin_proof
+    * 证明思路
+
+    - 选取正交基
+    - 将向量柯西列转化为坐标柯西列
+    - 利用实数/复数的完备性
+    - 再拼回向量极限
+
+    * 证明
+
+    设 $V$ 是 $N$ 维复内积空间。
+
+    ** Step 1：选取正交基
+
+    由 Gram–Schmidt 正交化，存在正交基：
+    \[
+    \{e_1,e_2,\dots,e_N\}
+    \]
+
+    ** Step 2：设 $\{v_i\}$ 为柯西列
+
+    对任意 $\varepsilon>0$，存在 $n$，
+    使得当 $i,j>n$ 时：
+    \[
+    d(v_i,v_j)<\varepsilon
+    \]
+
+    ** Step 3：写成坐标形式
+
+    对每个 $i$，存在唯一的 $z_{ik}\in\mathbb C$，
+    使得：
+    \[
+    v_i=\sum_{k=1}^N z_{ik}e_k
+    \]
+
+    ** Step 4：距离的坐标表达
+
+    由正交性：
+    \[
+    d(v_i,v_j)^2
+    =\sum_{k=1}^N |z_{ik}-z_{jk}|^2
+    <\varepsilon^2
+    \]
+
+    ** Step 5：拆分为实部与虚部
+
+    记：
+    \[
+    z_{ik}=x_{ik}+iy_{ik}
+    \]
+
+    则：
+    \[\sum_{k=1}^N |x_{ik}-x_{jk}|^2
+    +\sum_{k=1}^N |y_{ik}-y_{jk}|^2
+    < \varepsilon^2\]
+
+    ** Step 6：坐标收敛
+
+    对每个 $k$，
+    $\{x_{ik}\}_i,\{y_{ik}\}_i$ 为实数柯西列。
+
+    由 $\mathbb R$ 的完备性，
+    存在 $x_k,y_k\in\mathbb R$，
+    使得：
+    \[
+    x_{ik}\to x_k,\quad y_{ik}\to y_k
+    \]
+
+    ** Step 7：构造极限向量
+
+    令：
+    \[
+    z_k=x_k+iy_k,\quad
+    v=\sum_{k=1}^N z_k e_k
+    \]
+
+    则：
+    \[
+    d(v_i,v)\to 0
+    \]
+
+    故：
+    \[
+    v_i\to v
+    \]
+
+    * 结论
+
+    有限维内积空间是完备的。
+#+end_proof
+* 希尔伯特空间的相互作用
+#+begin_theorem
+希尔伯特空间的相互作用
+给定任意两个（或更多）希尔伯特空间，利用直和或张量积的方式，可以给出一个更大的希尔伯特空间。
+#+end_theorem
+这意味着 这为量子力学中张量积干涉两个量子系统提供了理论支撑.
+

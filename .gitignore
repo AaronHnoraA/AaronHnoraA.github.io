@@ -1,0 +1,67 @@
+
+########################################
+# Org mode generated files
+########################################
+
+# LaTeX 预览缓存（dvipng / dvisvgm / imagemagick）
+ltximg/
+.org-ltximg/
+**/ltximg/
+**/.org-ltximg/
+
+# Org 导出中间文件
+*.aux
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+
+# Org 导出 PDF / HTML 临时目录（如有）
+_export/
+.export/
+exports/
+
+########################################
+# Emacs runtime / cache
+########################################
+
+# Emacs 本地缓存
+.elpa/
+.eln-cache/
+.eshell/
+.tramp/
+.auto-save-list/
+
+# 备份 / 自动保存
+*~
+\#*\#
+.\#*
+
+# 最近文件、会话
+.recentf
+.bookmarks
+.savehist
+.smex-items
+.amx-items
+
+########################################
+# OS / Editor noise
+########################################
+
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.tmp
+
+########################################
+# Optional: build / tooling
+########################################
+
+# 如果你有脚本生成的中间目录
+build/
+dist/
