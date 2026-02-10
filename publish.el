@@ -21,7 +21,9 @@
          (data-path (format "%s/js/data.js" prefix)) ; 确保 data.js 也被引用
          ;; 注入 HTML Head
          (new-head (format 
-                    "<link rel=\"stylesheet\" href=\"%s\" />\n<script src=\"%s\"></script>\n<script src=\"%s\"></script>" 
+                    "<link rel=\"stylesheet\" href=\"%s\" />\n<script src=\"%s\"></script>\n<script src=\"%s\"></script>\n
+  <link rel=\"shortcut icon\" href=\"https://aaron.pwo101.top/css/cv.svg\" type=\"image/x-icon\">
+                    " 
                     css-path data-path js-path)))
     (org-html-publish-to-html
      (plist-put (copy-sequence plist) :html-head new-head)
