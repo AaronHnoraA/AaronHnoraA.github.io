@@ -3,7 +3,7 @@
 :END:
 #+title: Inner Product Space
 #+date: [2026-01-27 Tue]
-#+filetags: :math:QC:concept:algebra:linear-algebra:
+#+filetags: :math:QC:concept:algebra:linear_algebra:
 
 * Inner Product Space 内积空间
 

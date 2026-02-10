@@ -1,0 +1,83 @@
+:PROPERTIES:
+:ID:       1E7730D4-201D-4698-BE32-3B0DF115CEBC
+:END:
+#+title: Variance
+#+date: [2026-01-30 Fri]
+#+filetags: :qc:measurement:statistics:concept:
+
+* 方差 (Variance)
+#+begin_definition
+\begin{align*}
+[\Delta (M)]^{2}
+  &= \langle (M  - \langle M \rangle)^2 \rangle \\
+  &= \langle M^{2}\rangle - \langle M\rangle^{2}
+\end{align*}
+#+end_definition
+
+#+begin_proof
+    设方差 (Variance) 的定义为：
+    \[
+    \text{Var} = \sum_i p_i (m_i - \langle M \rangle)^2
+    \]
+
+    展开括号内的平方项：
+    \begin{align*}
+    &= \sum_i p_i (m_i^2 - 2m_i\langle M \rangle + \langle M \rangle^2) \\
+    &= \sum_i p_i m_i^2 - 2\langle M \rangle \sum_i p_i m_i + \langle M \rangle^2 \sum_i p_i
+    \end{align*}
+
+    #+begin_attention
+    其中利用以下统计性质：
+    1. $\sum_i p_i m_i = \langle M \rangle$ (期望值的定义)
+    2. $\sum_i p_i = 1$ (概率归一化条件)
+    代入上式进行化简：
+    #+end_attention
+
+    \begin{align*}
+    &= \left( \sum_i p_i m_i^2 \right) - 2\langle M \rangle \cdot \langle M \rangle + \langle M \rangle^2 \cdot 1 \\
+    &= \left( \sum_i p_i m_i^2 \right) - 2\langle M \rangle^2 + \langle M \rangle^2 \\
+    &= \left( \sum_i p_i m_i^2 \right) - \langle M \rangle^2
+    \end{align*}
+
+    对于算符 $M^2$，其期望值写作：
+    \[
+    \langle M^2 \rangle = \langle \psi | M^2 | \psi \rangle = \langle \psi | M \cdot M | \psi \rangle
+    \]
+
+    考察算符 $M$ 的本征方程 $M|m_i\rangle = m_i|m_i\rangle$，则 $M^2$ 的作用如下：
+    \[
+    M \cdot M \Rightarrow m_i' = m_i^2
+    \]
+    即 $M^2$ 的本征值为 $m_i^2$。
+
+    此时对应的概率 $p_i'$ 为：
+    \[
+    p_i' = |\langle m_i' | \psi \rangle|^2
+    \]
+
+    但在笔记中特别强调了一个核心性质（红色标注部分）：
+
+
+    这意味着算符平方后，本征态没有改变，因此概率分布保持一致：
+    \[
+    p_i' = |\langle m_i | \psi \rangle|^2 = p_i
+    \]
+
+    因此，$M^2$ 的期望值就是 $m_i^2$ 的加权和：
+    \[
+    \langle M^2 \rangle = \sum m_i^2 p_i = \sum p_i m_i^2
+    \]
+
+    结合第 1 部分的展开结果与第 2 部分的算符期望定义，得证：
+    \[
+    \therefore \text{Var} = \langle M^2 \rangle - \langle M \rangle^2
+    \]
+    ■
+#+end_proof
+
+
+#+INCLUDE: "./quantum_state.org"
+
+
+
+end of file

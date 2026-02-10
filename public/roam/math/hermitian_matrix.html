@@ -1,0 +1,434 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+<!-- 2026-02-11 Wed 04:45 -->
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Hermitian Matrix</title>
+<meta name="author" content="hxejs" />
+<meta name="generator" content="Org Mode" />
+<style type="text/css">
+  #content { max-width: 60em; margin: auto; }
+  .title  { text-align: center;
+             margin-bottom: .2em; }
+  .subtitle { text-align: center;
+              font-size: medium;
+              font-weight: bold;
+              margin-top:0; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { font-family: monospace; color: green; }
+  .priority { font-family: monospace; color: orange; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .org-right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .org-left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .org-center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #e6e6e6;
+    border-radius: 3px;
+    background-color: #f2f2f2;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: auto;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    top: -8px;
+    right: 12px;
+    padding: 3px;
+    color: #555;
+    background-color: #f2f2f299;
+  }
+  pre.src:hover:before { display: inline; margin-top: 14px;}
+  /* Languages per Org manual */
+  pre.src-asymptote:before { content: 'Asymptote'; }
+  pre.src-awk:before { content: 'Awk'; }
+  pre.src-authinfo::before { content: 'Authinfo'; }
+  pre.src-C:before { content: 'C'; }
+  /* pre.src-C++ doesn't work in CSS */
+  pre.src-clojure:before { content: 'Clojure'; }
+  pre.src-css:before { content: 'CSS'; }
+  pre.src-D:before { content: 'D'; }
+  pre.src-ditaa:before { content: 'ditaa'; }
+  pre.src-dot:before { content: 'Graphviz'; }
+  pre.src-calc:before { content: 'Emacs Calc'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-fortran:before { content: 'Fortran'; }
+  pre.src-gnuplot:before { content: 'gnuplot'; }
+  pre.src-haskell:before { content: 'Haskell'; }
+  pre.src-hledger:before { content: 'hledger'; }
+  pre.src-java:before { content: 'Java'; }
+  pre.src-js:before { content: 'Javascript'; }
+  pre.src-latex:before { content: 'LaTeX'; }
+  pre.src-ledger:before { content: 'Ledger'; }
+  pre.src-lisp:before { content: 'Lisp'; }
+  pre.src-lilypond:before { content: 'Lilypond'; }
+  pre.src-lua:before { content: 'Lua'; }
+  pre.src-matlab:before { content: 'MATLAB'; }
+  pre.src-mscgen:before { content: 'Mscgen'; }
+  pre.src-ocaml:before { content: 'Objective Caml'; }
+  pre.src-octave:before { content: 'Octave'; }
+  pre.src-org:before { content: 'Org mode'; }
+  pre.src-oz:before { content: 'OZ'; }
+  pre.src-plantuml:before { content: 'Plantuml'; }
+  pre.src-processing:before { content: 'Processing.js'; }
+  pre.src-python:before { content: 'Python'; }
+  pre.src-R:before { content: 'R'; }
+  pre.src-ruby:before { content: 'Ruby'; }
+  pre.src-sass:before { content: 'Sass'; }
+  pre.src-scheme:before { content: 'Scheme'; }
+  pre.src-screen:before { content: 'Gnu Screen'; }
+  pre.src-sed:before { content: 'Sed'; }
+  pre.src-sh:before { content: 'shell'; }
+  pre.src-sql:before { content: 'SQL'; }
+  pre.src-sqlite:before { content: 'SQLite'; }
+  /* additional languages in org.el's org-babel-load-languages alist */
+  pre.src-forth:before { content: 'Forth'; }
+  pre.src-io:before { content: 'IO'; }
+  pre.src-J:before { content: 'J'; }
+  pre.src-makefile:before { content: 'Makefile'; }
+  pre.src-maxima:before { content: 'Maxima'; }
+  pre.src-perl:before { content: 'Perl'; }
+  pre.src-picolisp:before { content: 'Pico Lisp'; }
+  pre.src-scala:before { content: 'Scala'; }
+  pre.src-shell:before { content: 'Shell Script'; }
+  pre.src-ebnf2ps:before { content: 'ebfn2ps'; }
+  /* additional language identifiers per "defun org-babel-execute"
+       in ob-*.el */
+  pre.src-cpp:before  { content: 'C++'; }
+  pre.src-abc:before  { content: 'ABC'; }
+  pre.src-coq:before  { content: 'Coq'; }
+  pre.src-groovy:before  { content: 'Groovy'; }
+  /* additional language identifiers from org-babel-shell-names in
+     ob-shell.el: ob-shell is the only babel language using a lambda to put
+     the execution function name together. */
+  pre.src-bash:before  { content: 'bash'; }
+  pre.src-csh:before  { content: 'csh'; }
+  pre.src-ash:before  { content: 'ash'; }
+  pre.src-dash:before  { content: 'dash'; }
+  pre.src-ksh:before  { content: 'ksh'; }
+  pre.src-mksh:before  { content: 'mksh'; }
+  pre.src-posh:before  { content: 'posh'; }
+  /* Additional Emacs modes also supported by the LaTeX listings package */
+  pre.src-ada:before { content: 'Ada'; }
+  pre.src-asm:before { content: 'Assembler'; }
+  pre.src-caml:before { content: 'Caml'; }
+  pre.src-delphi:before { content: 'Delphi'; }
+  pre.src-html:before { content: 'HTML'; }
+  pre.src-idl:before { content: 'IDL'; }
+  pre.src-mercury:before { content: 'Mercury'; }
+  pre.src-metapost:before { content: 'MetaPost'; }
+  pre.src-modula-2:before { content: 'Modula-2'; }
+  pre.src-pascal:before { content: 'Pascal'; }
+  pre.src-ps:before { content: 'PostScript'; }
+  pre.src-prolog:before { content: 'Prolog'; }
+  pre.src-simula:before { content: 'Simula'; }
+  pre.src-tcl:before { content: 'tcl'; }
+  pre.src-tex:before { content: 'TeX'; }
+  pre.src-plain-tex:before { content: 'Plain TeX'; }
+  pre.src-verilog:before { content: 'Verilog'; }
+  pre.src-vhdl:before { content: 'VHDL'; }
+  pre.src-xml:before { content: 'XML'; }
+  pre.src-nxml:before { content: 'XML'; }
+  /* add a generic configuration mode; LaTeX export needs an additional
+     (add-to-list 'org-latex-listings-langs '(conf " ")) in .emacs */
+  pre.src-conf:before { content: 'Configuration File'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.org-right  { text-align: center;  }
+  th.org-left   { text-align: center;   }
+  th.org-center { text-align: center; }
+  td.org-right  { text-align: right;  }
+  td.org-left   { text-align: left;   }
+  td.org-center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara { display: inline; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .equation-container {
+    display: table;
+    text-align: center;
+    width: 100%;
+  }
+  .equation {
+    vertical-align: middle;
+  }
+  .equation-label {
+    display: table-cell;
+    text-align: right;
+    vertical-align: middle;
+  }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  .org-svg { }
+</style>
+<link rel="stylesheet" href="../../css/style.css" />
+<script src="../../js/data.js"></script>
+<script src="../../js/app.js"></script>
+<script>
+  window.MathJax = {
+    tex: {
+      ams: {
+        multlineWidth: '85%'
+      },
+      tags: 'ams',
+      tagSide: 'right',
+      tagIndent: '.8em'
+    },
+    chtml: {
+      scale: 1.0,
+      displayAlign: 'center',
+      displayIndent: '0em'
+    },
+    svg: {
+      scale: 1.0,
+      displayAlign: 'center',
+      displayIndent: '0em'
+    },
+    output: {
+      font: 'mathjax-modern',
+      displayOverflow: 'overflow'
+    }
+  };
+</script>
+
+<script
+  id="MathJax-script"
+  async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+</script>
+</head>
+<body>
+<div id="content" class="content">
+<h1 class="title">Hermitian Matrix</h1>
+<div id="table-of-contents" role="doc-toc">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents" role="doc-toc">
+<ul>
+<li><a href="#orgd968df2">1. Hermitian Matrix 厄米矩阵</a></li>
+<li><a href="#org95d2caf">2. 性质</a></li>
+<li><a href="#orgbba685c">3. Hermitian Operators 自伴算子|厄米算符</a>
+<ul>
+<li><a href="#org7e6077e">3.1. 物理量的算符化表示</a></li>
+<li><a href="#orgd9da37d">3.2. 统计意义下的期望值</a></li>
+<li><a href="#orgda65796">3.3. 量子态与概率权重</a></li>
+<li><a href="#org7a45e9a">3.4. 期望值的算符形式</a></li>
+<li><a href="#orga18619e">3.5. 量化建模的视角</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<div id="outline-container-orgd968df2" class="outline-2">
+<h2 id="orgd968df2"><span class="section-number-2">1.</span> Hermitian Matrix 厄米矩阵</h2>
+<div class="outline-text-2" id="text-1">
+<p>
+埃尔米特矩阵（英语：Hermitian matrix，又译作厄米特矩阵，厄米矩阵），也称自伴随矩阵，是共轭对称的方阵。埃尔米特矩阵中每一个第 \(i\) 行第 \(j\) 列的元素都与第 \(j\) 行第 \(i\) 列的元素的复共轭。例如\(\begin{bmatrix}3&2+i\\2-i&1\end{bmatrix}\) 就是一个埃尔米特矩阵。
+</p>
+
+<p>
+显然，埃尔米特矩阵主对角线上的元素都是实数，其特征值也是实数。对于实矩阵，如果它是对称矩阵，则它也满足埃尔米特矩阵的定义，即，实对称矩阵是埃尔米特矩阵的特例。
+</p>
+</div>
+</div>
+<div id="outline-container-org95d2caf" class="outline-2">
+<h2 id="org95d2caf"><span class="section-number-2">2.</span> 性质</h2>
+<div class="outline-text-2" id="text-2">
+<ul class="org-ul">
+<li>若 \(A\) 和 \(B\) 是埃尔米特矩阵，那么它们的和 \(A+B\) 也是埃尔米特矩阵；而只有在 \(A\) 和 \(B\) 满足交换性（即 \(AB=BA\)）时，它们的积才是埃尔米特矩阵。</li>
+<li>可逆的埃尔米特矩阵 \(A\) 的逆矩阵 \(A^{-1}\) 仍然是埃尔米特矩阵。</li>
+<li>如果 \(A\) 是埃尔米特矩阵，对于正整数 \(n\)，\(A^{n}\) 是埃尔米特矩阵。</li>
+<li>方阵 \(C\) 与其共轭转置的和 \(C+C^{*}\) 是埃尔米特矩阵，方阵 \(C\) 与其共轭转置的差 \(C-C^{*}\) 是斜埃尔米特矩阵。</li>
+<li>任意方阵 \(C\) 都可以用一个埃尔米特矩阵 \(A\) 与一个斜埃尔米特矩阵 \(B\) 的和表示：
+\[ C=A+B \quad \text{with} \quad A=\frac{1}{2}(C+C^{*}) \quad \text{and} \quad B=\frac{1}{2}(C-C^{*}) \]</li>
+<li>埃尔米特矩阵是正规矩阵，因此埃尔米特矩阵可被酉对角化，而且得到的对角阵的元素都是实数。这意味着埃尔米特矩阵的特征值都是实的，而且不同的特征值所对应的特征向量相互正交，因此可以在这些特征向量中找出一组 \(\mathbb{C}^n\) 的正交基。</li>
+<li>\(n\) -阶埃尔米特矩阵的元素构成维数为 \(n^{2}\) 的实向量空间，因为主对角线上的元素有一个自由度，而主对角线之上的元素有两个自由度。</li>
+<li>如果埃尔米特矩阵的特征值都是正数，那么这个矩阵是正定矩阵；若它们是非负的，则这个矩阵是半正定矩阵.</li>
+</ul>
+</div>
+</div>
+<div id="outline-container-orgbba685c" class="outline-2">
+<h2 id="orgbba685c"><span class="section-number-2">3.</span> Hermitian Operators 自伴算子|厄米算符</h2>
+<div class="outline-text-2" id="text-3">
+<p>
+在量子力学里，自伴算子，又称为自伴算符，或厄米算符（Hermitian operator），是一种等于自己的厄米共轭的算符。给予算符 \(\hat{O}\)  和其伴随算符\(\hat {O}^{\dagger}\)，假设\(\hat{O} = \hat {O}^{\dagger}\)，则称 \(\hat {O}\)为厄米算符。厄米算符的期望可以表示量子力学中的物理量。
+</p>
+
+<p>
+这是因为
+</p>
+<div class="proof" id="orgd4c1378">
+<p>
+每一个物理量测出来都是实数, 因此我们有:
+\[
+ \langle O \rangle = \langle O \rangle^*
+\]  
+对于任意量子态 \(|\psi\rangle \)，有
+\[
+    \langle \psi | \hat{O} | \psi \rangle = \langle \psi | \hat{O}^{\dagger} | \psi \rangle
+\]
+根据厄米共轭的定义，我们有:
+\[
+    \langle \psi | \hat{O} | \psi \rangle = \langle \psi | \hat{O} | \psi \rangle ^{\dagger}
+\]  
+Hence,   \(\hat{O} = \hat{O}^{{\dagger}} \).                     
+</p>
+
+</div>
+<p>
+这便是厄米算符的定义.
+</p>
+</div>
+<div id="outline-container-org7e6077e" class="outline-3">
+<h3 id="org7e6077e"><span class="section-number-3">3.1.</span> 物理量的算符化表示</h3>
+<div class="outline-text-3" id="text-3-1">
+<p>
+在量子力学中，物理量（observable）并不再被视为系统在某一时刻所“具有”的确定数值，
+而是被建模为作用在态空间上的一个 <b>厄米算符</b> \(\hat A\)。
+</p>
+
+<p>
+这一建模选择的核心思想在于：
+</p>
+<ul class="org-ul">
+<li>厄米算符保证测量结果为实数；</li>
+<li>算符的谱结构（本征值）给出该物理量在测量中 *所有可能出现的结果集合*。</li>
+</ul>
+
+<p>
+若 \(\hat A\) 的本征值与本征态满足
+\[
+\hat A |a_n \rangle = a_n |a_n \rangle,
+\]
+则 \(\{a_n\}\) 构成了对物理量 \(A\) 的一次测量所能得到的全部可能结果。
+</p>
+
+<p>
+在此意义下，算符 \(\hat A\) 并不直接等同于测量结果，
+而是作为一种 *结果空间的生成机制*。
+</p>
+</div>
+</div>
+<div id="outline-container-orgd9da37d" class="outline-3">
+<h3 id="orgd9da37d"><span class="section-number-3">3.2.</span> 统计意义下的期望值</h3>
+<div class="outline-text-3" id="text-3-2">
+<p>
+从朴素的统计学角度出发，若测量结果 \(a_n\) 出现的概率为 \(p_n\)，
+则物理量 \(A\) 的实验平均值自然定义为
+\[
+\langle A \rangle = \sum_n a_n\, p_n,
+\]
+该量反映了在大量重复实验下测量结果的统计稳定值，
+而非单次实验中的确定结果。
+</p>
+</div>
+</div>
+<div id="outline-container-orgda65796" class="outline-3">
+<h3 id="orgda65796"><span class="section-number-3">3.3.</span> 量子态与概率权重</h3>
+<div class="outline-text-3" id="text-3-3">
+<p>
+在量子力学中，系统的状态由态向量 \(|\psi\rangle\) 描述。
+当对物理量 \(A\) 进行测量时，态 \(|\psi\rangle\) 并不指定某个确定的结果，
+而是为算符 \(\hat A\) 的谱提供一组概率权重。
+</p>
+
+<p>
+具体而言，测得本征值 \(a_n\) 的概率由
+\[
+p_n = |\langle a_n|\psi \rangle|^2
+\]
+给出。
+</p>
+
+<p>
+由此，量子态的角色并非“物理量的真实取值”，
+而是 *对可能测量结果的统计分布规则*。
+</p>
+</div>
+</div>
+<div id="outline-container-org7a45e9a" class="outline-3">
+<h3 id="org7a45e9a"><span class="section-number-3">3.4.</span> 期望值的算符形式</h3>
+<div class="outline-text-3" id="text-3-4">
+<p>
+将量子力学给出的概率 \(p_n\) 代入统计平均的定义，
+并利用本征态的完备性关系
+\[
+\sum_n | a_n \rangle \langle a_n | = I,
+\]
+可以得到
+\[
+\langle A \rangle = \langle\psi| \hat A| \psi \rangle.
+\]
+</p>
+
+<p>
+该公式并非新的物理假设，
+而是对“结果 × 概率”这一统计平均的紧凑线性代数表达。
+</p>
+</div>
+</div>
+<div id="outline-container-orga18619e" class="outline-3">
+<h3 id="orga18619e"><span class="section-number-3">3.5.</span> 量化建模的视角</h3>
+<div class="outline-text-3" id="text-3-5">
+<p>
+从建模角度看，
+量子力学对物理量的处理并非试图刻画微观系统的“即时真实状态”，
+而是将原本连续、不可控的物理过程
+映射为一个谱问题与一个概率分布的组合：
+</p>
+
+<ul class="org-ul">
+<li>算符的谱刻画 *可观测结果的结构*；</li>
+<li>量子态刻画 *结果在统计意义下的权重分配*；</li>
+<li>期望值刻画 *实验上可复现的统计量*。</li>
+</ul>
+
+<p>
+在这一意义下，
+将物理量表示为厄米算符并以其本征值作为测量结果，
+是一种对现实世界高度抽象但极为有效的量化方式，
+其目标并非还原“真实值”，
+而是实现可预测、可重复、可统计的实验描述。
+</p>
+</div>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="date">Date: 2026-01-27 Tue 00:00</p>
+<p class="author">Author: hxejs</p>
+<p class="date">Created: 2026-02-11 Wed 04:45</p>
+</div>
+</body>
+</html>

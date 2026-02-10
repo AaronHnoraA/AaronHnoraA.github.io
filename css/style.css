@@ -1,0 +1,593 @@
+/* ==========================================================================
+   1. CSS Variables & Configuration (核心配置)
+   ========================================================================== */
+:root {
+  /* 基础主题色 */
+  --bg-gradient-start: #e0f7fa;
+  --bg-gradient-end:   #e1bee7;
+  --text-main:         #333333;
+  --primary-purple:    #6a1b9a; /* 标题颜色 */
+  --link-teal:         #00796b; /* 链接颜色 */
+  --link-hover:        #004d40;
+  
+  /* Block 颜色定义 (对应你的 Elisp 配置) */
+  --c-def:      #e0af68;
+  --c-thm:      #9ece6a;
+  --c-lemma:    #7aa2f7;
+  --c-cor:      #bb9af7;
+  --c-prop:     #ff75a0;
+  --c-proof:    #7aa2f7;
+  --c-example:  #d08770;
+  --c-attend:   #f7768e;
+  --c-note:     #0db9d7;
+}
+
+/* ==========================================================================
+   2. Base Layout & Typography (全局布局)
+   ========================================================================== */
+html {
+  /* 保证页面高度至少填满屏幕 */
+  min-height: 100%; 
+}
+
+body {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  /* 蓝紫渐变背景 */
+  background: linear-gradient(to right, var(--bg-gradient-start), var(--bg-gradient-end));
+  color: var(--text-main);
+  line-height: 1.6;
+  margin: 0;
+  padding: 40px 20px; /* 给移动端留出边距 */
+}
+
+/* Org-mode 的主容器 (类似一张纸的效果) */
+#content {
+  max-width: 850px;
+  margin: 0 auto;
+  padding: 50px;
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+/* ==========================================================================
+   3. Headers & Links (标题与链接)
+   ========================================================================== */
+/* 文章大标题 */
+.title {
+  text-align: center;
+  font-size: 2.8em;
+  margin-bottom: 0.2em;
+  color: #222;
+}
+
+/* 作者信息 */
+.author, .date {
+  text-align: center;
+  color: var(--primary-purple);
+  font-weight: 600;
+  margin-top: 0;
+  font-size: 0.95em;
+}
+
+/* 正文标题 */
+h2, h3, h4, h5 {
+  color: var(--primary-purple);
+  margin-top: 1.8em;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+h2 {
+  font-size: 1.8em;
+  border-bottom: 2px solid #f0f0f0;
+  padding-bottom: 12px;
+  margin-bottom: 20px;
+}
+
+h3 { font-size: 1.4em; }
+
+/* 链接样式 */
+a {
+  color: var(--link-teal);
+  text-decoration: none;
+  font-weight: 600;
+  border-bottom: 1px dotted transparent;
+  transition: all 0.2s ease;
+}
+
+a:hover {
+  color: var(--link-hover);
+  border-bottom-color: var(--link-hover);
+}
+
+/* ==========================================================================
+   4. Standard Org Elements (标准组件: 目录, 代码, 表格)
+   ========================================================================== */
+/* 目录 (TOC) */
+#table-of-contents {
+  background-color: #fcfcfc;
+  border: 1px solid #eeeeee;
+  border-radius: 8px;
+  padding: 20px 30px;
+  margin: 30px 0;
+}
+
+#table-of-contents h2 {
+  margin-top: 0;
+  border-bottom: none;
+  font-size: 1.4em;
+  text-align: center;
+  color: #444;
+}
+
+#text-table-of-contents ul {
+  padding-left: 1.5em;
+}
+
+/* 代码块 */
+pre {
+  background-color: #f5f7f9; /* 极淡的灰蓝色 */
+  border: 1px solid #e1e4e8;
+  border-radius: 6px;
+  padding: 15px;
+  overflow-x: auto;
+  font-family: "Consolas", "Monaco", monospace;
+  font-size: 0.9em;
+  color: #24292e;
+}
+
+code {
+  background-color: #f0f0f0;
+  padding: 2px 5px;
+  border-radius: 4px;
+  color: #d63384; /* 行内代码高亮色 */
+  font-family: "Consolas", monospace;
+  font-size: 0.9em;
+}
+
+/* 表格 */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 25px 0;
+  font-size: 0.95em;
+}
+
+th {
+  background-color: #f3e5f5; /* 淡紫色表头 */
+  color: var(--primary-purple);
+  font-weight: bold;
+  text-align: left;
+  padding: 12px;
+  border: 1px solid #e0e0e0;
+}
+
+td {
+  padding: 10px 12px;
+  border: 1px solid #e0e0e0;
+}
+
+tr:nth-child(even) {
+  background-color: #fafafa;
+}
+
+/* 引用 */
+blockquote {
+  border-left: 4px solid var(--primary-purple);
+  margin: 20px 0;
+  padding-left: 20px;
+  color: #555;
+  background-color: #fafafa;
+  padding: 15px 20px;
+  font-style: italic;
+}
+
+/* ==========================================================================
+   5. Special Blocks Logic (复刻 Emacs Overlay 效果)
+   ========================================================================== */
+
+/* --- 5.1 变量映射 (将类名映射到颜色和标签) --- */
+.definition, .defn { --block-c: var(--c-def);    --block-l: "定义"; }
+.theorem, .thm     { --block-c: var(--c-thm);    --block-l: "定理"; }
+.lemma             { --block-c: var(--c-lemma);  --block-l: "引理"; }
+.cor               { --block-c: var(--c-cor);    --block-l: "推论"; }
+.prop, .property   { --block-c: var(--c-prop);   --block-l: "性质"; }
+.proof             { --block-c: var(--c-proof);  --block-l: "证明"; }
+.example           { --block-c: var(--c-example);--block-l: "例子"; }
+.attention         { --block-c: var(--c-attend); --block-l: "注意"; }
+.note              { --block-c: var(--c-note);   --block-l: "笔记"; }
+.info              { --block-c: var(--c-note);   --block-l: "信息"; }
+.warning           { --block-c: var(--c-attend); --block-l: "警告"; }
+
+/* --- 5.2 容器通用样式 --- */
+.definition, .defn, .theorem, .thm, .lemma, .cor, 
+.prop, .property, .proof, .example, .attention, 
+.note, .info, .warning {
+  margin: 1.8em 0;
+  border-radius: 6px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+  overflow: hidden; /* 裁剪圆角 */
+  position: relative;
+  
+  /* 左侧加粗边框 (对应 Overlay 的 "▍") */
+  border-left: 5px solid var(--block-c);
+  
+  /* 整体背景设为白色，具体颜色由子元素覆盖，或者使用极淡的混合色 */
+  background-color: #fff; 
+}
+
+/* --- 5.3 Header 样式 (对应 #+begin 行) --- */
+/* 使用 ::before 伪元素模拟标题栏 */
+[class*="definition"]::before, [class*="defn"]::before,
+[class*="theorem"]::before,    [class*="thm"]::before,
+[class*="lemma"]::before,      [class*="cor"]::before,
+[class*="prop"]::before,       [class*="property"]::before,
+[class*="proof"]::before,      [class*="example"]::before,
+[class*="attention"]::before,  [class*="note"]::before,
+[class*="info"]::before,       [class*="warning"]::before {
+  
+  content: var(--block-l); /* 自动填充标签文字 */
+  display: block;
+  font-weight: bold;
+  font-family: "Segoe UI", sans-serif;
+  padding: 8px 15px;
+  color: var(--block-c);
+  
+  /* 背景色逻辑：
+     Emacs: (blend-colors color default-bg 0.15) 
+     CSS: 使用 color-mix 将主题色与背景(白色)混合，保留 15% 主题色
+  */
+  background-color: color-mix(in srgb, var(--block-c), transparent 85%);
+  border-bottom: 1px solid rgba(0,0,0,0.03);
+}
+
+/* --- 5.4 Body 样式 (内容区域) --- */
+/* Emacs: (blend-colors color default-bg 0.05)
+   CSS: 针对 p 标签或其他块级元素应用 5% 的混合背景
+*/
+.definition > p, .defn > p, .theorem > p, .thm > p, 
+.lemma > p, .cor > p, .prop > p, .property > p, 
+.proof > p, .example > p, .attention > p, .note > p, 
+.info > p, .warning > p {
+  
+  margin: 0;
+  padding: 12px 18px;
+  color: #444;
+  
+  /* 背景色：5% 的主题色混合 */
+  background-color: color-mix(in srgb, var(--block-c), transparent 95%);
+}
+
+/* 处理 Block 内包含列表或其他元素的情况，确保背景一致 */
+.definition > ul, .theorem > ul, .note > ul, 
+.definition > ol, .theorem > ol, .note > ol {
+  background-color: color-mix(in srgb, var(--block-c), transparent 95%);
+  margin: 0;
+  padding: 10px 40px;
+}
+
+/* --- 5.5 Footer 样式 (对应 #+end 行) --- */
+/* 使用 ::after 模拟底部的结束线 (┗━━━) */
+.definition::after, .defn::after, .theorem::after, .thm::after, 
+.lemma::after, .cor::after, .prop::after, .property::after, 
+.proof::after, .example::after, .attention::after, .note::after, 
+.info::after, .warning::after {
+  content: "";
+  display: block;
+  height: 2px;
+  width: 100%;
+  
+  /* 颜色稍浅，作为装饰 */
+  background-color: var(--block-c);
+  opacity: 0.3;
+}
+
+/* ==========================================================================
+   6. Footer / Postamble (页脚)
+   ========================================================================== */
+#postamble {
+  margin-top: 60px;
+  padding-top: 20px;
+  border-top: 1px solid #ddd;
+  text-align: center;
+  color: #777;
+  font-size: 0.85em;
+}
+
+
+
+/* 简单的 Tab 样式 */
+.tab-container { margin-top: 20px; }
+.tab-buttons { display: flex; border-bottom: 2px solid #ddd; gap: 10px; flex-wrap: wrap; }
+.tab-btn {
+    padding: 10px 20px; border: none; background: #f5f5f5; cursor: pointer;
+    border-radius: 5px 5px 0 0; font-weight: bold; color: #666;
+}
+.tab-btn.active { background: #007bff; color: white; }
+.tab-content { display: none; padding: 20px; border: 1px solid #ddd; border-top: none; }
+.tab-content.active { display: block; }
+.file-list { list-style: none; padding: 0; }
+.file-list li { margin-bottom: 8px; }
+.file-list a { text-decoration: none; color: #333; font-size: 1.1em; }
+.file-list a:hover { color: #007bff; text-decoration: underline; }
+.file-date { font-size: 0.8em; color: #999; margin-left: 10px; }
+
+
+
+:root {
+  --bg-body: #f4f7f6;
+  --bg-card: #ffffff;
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --accent-color: #007bff;
+  --accent-hover: #0056b3;
+  --border-color: #ddd;
+  --tag-bg: #e0f2f1;
+  --tag-text: #00695c;
+  --header-grad-1: #e0f7fa;
+  --header-grad-2: #e1bee7;
+}
+
+/* 暗色模式变量覆盖 */
+body.dark-mode {
+  --bg-body: #121212;
+  --bg-card: #1e1e1e;
+  --text-primary: #e0e0e0;
+  --text-secondary: #a0a0a0;
+  --accent-color: #64b5f6;
+  --accent-hover: #42a5f5;
+  --border-color: #333;
+  --tag-bg: #263238;
+  --tag-text: #80cbc4;
+  --header-grad-1: #311b92;
+  --header-grad-2: #004d40;
+}
+
+body {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--bg-body);
+  color: var(--text-primary);
+  margin: 0; padding: 20px;
+  transition: background 0.3s, color 0.3s;
+}
+
+/* 暗色模式开关 */
+#theme-toggle {
+  position: fixed; top: 20px; right: 20px;
+  background: var(--bg-card); color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 10px; border-radius: 50%; cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  z-index: 1000;
+}
+
+header {
+  text-align: center; padding: 40px 20px;
+  background: linear-gradient(to right, var(--header-grad-1), var(--header-grad-2));
+  border-radius: 8px; margin-bottom: 20px;
+}
+
+h1, h2, h3 { color: var(--text-primary); }
+h2 { font-weight: normal; font-size: 1.2em; color: var(--text-secondary); }
+
+nav { text-align: center; margin-bottom: 30px; }
+nav a {
+  margin: 0 10px; text-decoration: none; color: var(--accent-color);
+  font-weight: bold; transition: color 0.2s;
+}
+nav a:hover { color: var(--accent-hover); }
+
+.section {
+  max-width: 900px; margin: auto; padding: 25px;
+  background: var(--bg-card); border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); margin-bottom: 30px;
+}
+
+/* --- 工具栏 (搜索 & 排序) --- */
+.toolbar {
+  display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;
+}
+.search-wrapper {
+  flex: 2; position: relative; display: flex; align-items: center;
+}
+.search-icon {
+  position: absolute; left: 10px; color: var(--text-secondary);
+}
+#note-search {
+  width: 100%; padding: 10px 10px 10px 35px;
+  border: 1px solid var(--border-color); border-radius: 6px;
+  background: var(--bg-body); color: var(--text-primary);
+}
+#reset-search {
+  position: absolute; right: 10px; background: none; border: none;
+  color: var(--text-secondary); cursor: pointer;
+}
+.sort-wrapper {
+  flex: 1; display: flex; align-items: center; gap: 10px;
+}
+select {
+  padding: 10px; border-radius: 6px; border: 1px solid var(--border-color);
+  background: var(--bg-body); color: var(--text-primary);
+}
+
+/* --- 标签云 --- */
+#tag-cloud { margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 8px; }
+.tag-chip {
+  background: var(--tag-bg); color: var(--tag-text);
+  padding: 5px 12px; border-radius: 20px; font-size: 0.85em;
+  cursor: pointer; border: 1px solid transparent; user-select: none;
+}
+.tag-chip:hover { border-color: var(--tag-text); }
+.tag-chip.active { background: var(--tag-text); color: var(--bg-card); }
+
+/* --- Tabs --- */
+.tab-buttons {
+  display: flex; border-bottom: 2px solid var(--border-color);
+  gap: 5px; overflow-x: auto;
+}
+.tab-btn {
+  padding: 10px 20px; border: none; background: transparent;
+  cursor: pointer; font-weight: bold; color: var(--text-secondary);
+  border-bottom: 3px solid transparent; transition: all 0.2s;
+}
+.tab-btn:hover { color: var(--accent-color); background: rgba(0,0,0,0.02); }
+.tab-btn.active { color: var(--accent-color); border-bottom-color: var(--accent-color); }
+.badge {
+  background: var(--border-color); color: var(--text-secondary);
+  font-size: 0.7em; padding: 2px 6px; border-radius: 10px; margin-left: 5px;
+}
+
+.tab-content { display: none; padding-top: 20px; animation: fadeIn 0.3s; }
+.tab-content.active { display: block; }
+
+/* --- 文件列表 --- */
+.file-list { list-style: none; padding: 0; }
+.file-list li {
+  padding: 12px 0; border-bottom: 1px solid var(--border-color);
+}
+.file-info { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+.file-link {
+  font-size: 1.1em; text-decoration: none; color: var(--text-primary);
+  font-weight: 500;
+}
+.file-link:hover { color: var(--accent-color); }
+.file-meta { display: flex; gap: 10px; align-items: center; font-size: 0.85em; color: var(--text-secondary); }
+.tag-small { color: var(--accent-color); opacity: 0.8; }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+/* --- 搜索框父容器 (确保 relative 定位) --- */
+.search-wrapper {
+  position: relative; /* 关键：让下拉菜单相对于它定位 */
+}
+
+/* --- 自动补全下拉菜单 --- */
+.autocomplete-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  
+  /* --- 修复透明问题的核心代码 --- */
+  background-color: #ffffff; /* 亮色模式强制纯白背景 */
+  /* 如果你的变量本身包含颜色，可以作为回退，但为了不透明，建议直接写死颜色 */
+  
+  border: 1px solid #ddd;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15); /*稍微加深阴影增加层次感*/
+  z-index: 9999; /* 提高层级，防止被其他元素盖住 */
+  display: none;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* --- 适配暗色模式 (Dark Mode) --- */
+/* 假设你的 JS 是给 body 添加 'dark-mode' 类 */
+body.dark-mode .autocomplete-suggestions {
+  background-color: #2d2d2d; /* 暗色模式下的深灰背景，不透明 */
+  border-color: #444;       /* 边框颜色变深 */
+  box-shadow: 0 4px 15px rgba(0,0,0,0.5); /* 暗色模式下阴影加重 */
+  color: #e0e0e0;           /* 确保文字颜色是亮的 */
+}
+
+/* --- 可选：鼠标悬停在建议项上的效果 --- */
+.suggestion-item:hover {
+  background-color: #f0f0f0;
+}
+
+body.dark-mode .suggestion-item:hover {
+  background-color: #3d3d3d;
+}
+body.dark-mode .autocomplete-suggestions {
+  border-color: #444;
+  background: #2d2d2d;
+}
+
+.suggestion-item {
+  padding: 10px 15px;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+  transition: background 0.2s;
+  font-size: 0.9rem;
+  color: var(--text-main);
+}
+
+body.dark-mode .suggestion-item {
+  border-bottom-color: #444;
+}
+
+.suggestion-item:hover {
+  background-color: rgba(0,0,0,0.05);
+}
+body.dark-mode .suggestion-item:hover {
+  background-color: rgba(255,255,255,0.1);
+}
+
+.suggestion-item i {
+  margin-right: 8px;
+  color: #666;
+  width: 16px;
+  text-align: center;
+}
+
+/* 区分标签建议和笔记建议 */
+.tag-suggestion { color: #007bff; }
+.note-suggestion { color: var(--text-main); }
+.suggestion-divider {
+  padding: 4px 12px;
+  font-size: 0.75rem;
+  color: #888;
+  background: rgba(0,0,0,0.03);
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* --- 多选标签样式 --- */
+.clear-tags-btn {
+  font-size: 0.8rem;
+  padding: 4px 10px;
+  margin-right: 8px;
+  border: 1px solid #ff4d4f;
+  color: #ff4d4f;
+  background: transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.clear-tags-btn:hover {
+  background: #ff4d4f;
+  color: white;
+}
+
+/* 标签选中状态（多选） */
+.tag-chip.active {
+  background-color: #007bff;
+  color: white;
+  border-color: #007bff;
+  box-shadow: 0 2px 4px rgba(0,123,255,0.3);
+}
+
+/* 列表中高亮的标签 (匹配筛选时) */
+.tag-small.highlight {
+  background-color: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeeba;
+}
+body.dark-mode .tag-small.highlight {
+  background-color: #494e2a;
+  color: #d4bc74;
+  border-color: #666;
+}
+
+/* 搜索高亮文字 */
+mark {
+  background-color: rgba(255, 255, 0, 0.4);
+  color: inherit;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+body.dark-mode mark {
+  background-color: rgba(255, 215, 0, 0.3);
+}

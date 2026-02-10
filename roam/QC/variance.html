@@ -1,0 +1,469 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+<!-- 2026-02-11 Wed 01:00 -->
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Variance Quantum State</title>
+<meta name="author" content="Chang He (Aaron)" />
+<meta name="generator" content="Org Mode" />
+<style type="text/css">
+  #content { max-width: 60em; margin: auto; }
+  .title  { text-align: center;
+             margin-bottom: .2em; }
+  .subtitle { text-align: center;
+              font-size: medium;
+              font-weight: bold;
+              margin-top:0; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { font-family: monospace; color: green; }
+  .priority { font-family: monospace; color: orange; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .org-right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .org-left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .org-center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #e6e6e6;
+    border-radius: 3px;
+    background-color: #f2f2f2;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: auto;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    top: -8px;
+    right: 12px;
+    padding: 3px;
+    color: #555;
+    background-color: #f2f2f299;
+  }
+  pre.src:hover:before { display: inline; margin-top: 14px;}
+  /* Languages per Org manual */
+  pre.src-asymptote:before { content: 'Asymptote'; }
+  pre.src-awk:before { content: 'Awk'; }
+  pre.src-authinfo::before { content: 'Authinfo'; }
+  pre.src-C:before { content: 'C'; }
+  /* pre.src-C++ doesn't work in CSS */
+  pre.src-clojure:before { content: 'Clojure'; }
+  pre.src-css:before { content: 'CSS'; }
+  pre.src-D:before { content: 'D'; }
+  pre.src-ditaa:before { content: 'ditaa'; }
+  pre.src-dot:before { content: 'Graphviz'; }
+  pre.src-calc:before { content: 'Emacs Calc'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-fortran:before { content: 'Fortran'; }
+  pre.src-gnuplot:before { content: 'gnuplot'; }
+  pre.src-haskell:before { content: 'Haskell'; }
+  pre.src-hledger:before { content: 'hledger'; }
+  pre.src-java:before { content: 'Java'; }
+  pre.src-js:before { content: 'Javascript'; }
+  pre.src-latex:before { content: 'LaTeX'; }
+  pre.src-ledger:before { content: 'Ledger'; }
+  pre.src-lisp:before { content: 'Lisp'; }
+  pre.src-lilypond:before { content: 'Lilypond'; }
+  pre.src-lua:before { content: 'Lua'; }
+  pre.src-matlab:before { content: 'MATLAB'; }
+  pre.src-mscgen:before { content: 'Mscgen'; }
+  pre.src-ocaml:before { content: 'Objective Caml'; }
+  pre.src-octave:before { content: 'Octave'; }
+  pre.src-org:before { content: 'Org mode'; }
+  pre.src-oz:before { content: 'OZ'; }
+  pre.src-plantuml:before { content: 'Plantuml'; }
+  pre.src-processing:before { content: 'Processing.js'; }
+  pre.src-python:before { content: 'Python'; }
+  pre.src-R:before { content: 'R'; }
+  pre.src-ruby:before { content: 'Ruby'; }
+  pre.src-sass:before { content: 'Sass'; }
+  pre.src-scheme:before { content: 'Scheme'; }
+  pre.src-screen:before { content: 'Gnu Screen'; }
+  pre.src-sed:before { content: 'Sed'; }
+  pre.src-sh:before { content: 'shell'; }
+  pre.src-sql:before { content: 'SQL'; }
+  pre.src-sqlite:before { content: 'SQLite'; }
+  /* additional languages in org.el's org-babel-load-languages alist */
+  pre.src-forth:before { content: 'Forth'; }
+  pre.src-io:before { content: 'IO'; }
+  pre.src-J:before { content: 'J'; }
+  pre.src-makefile:before { content: 'Makefile'; }
+  pre.src-maxima:before { content: 'Maxima'; }
+  pre.src-perl:before { content: 'Perl'; }
+  pre.src-picolisp:before { content: 'Pico Lisp'; }
+  pre.src-scala:before { content: 'Scala'; }
+  pre.src-shell:before { content: 'Shell Script'; }
+  pre.src-ebnf2ps:before { content: 'ebfn2ps'; }
+  /* additional language identifiers per "defun org-babel-execute"
+       in ob-*.el */
+  pre.src-cpp:before  { content: 'C++'; }
+  pre.src-abc:before  { content: 'ABC'; }
+  pre.src-coq:before  { content: 'Coq'; }
+  pre.src-groovy:before  { content: 'Groovy'; }
+  /* additional language identifiers from org-babel-shell-names in
+     ob-shell.el: ob-shell is the only babel language using a lambda to put
+     the execution function name together. */
+  pre.src-bash:before  { content: 'bash'; }
+  pre.src-csh:before  { content: 'csh'; }
+  pre.src-ash:before  { content: 'ash'; }
+  pre.src-dash:before  { content: 'dash'; }
+  pre.src-ksh:before  { content: 'ksh'; }
+  pre.src-mksh:before  { content: 'mksh'; }
+  pre.src-posh:before  { content: 'posh'; }
+  /* Additional Emacs modes also supported by the LaTeX listings package */
+  pre.src-ada:before { content: 'Ada'; }
+  pre.src-asm:before { content: 'Assembler'; }
+  pre.src-caml:before { content: 'Caml'; }
+  pre.src-delphi:before { content: 'Delphi'; }
+  pre.src-html:before { content: 'HTML'; }
+  pre.src-idl:before { content: 'IDL'; }
+  pre.src-mercury:before { content: 'Mercury'; }
+  pre.src-metapost:before { content: 'MetaPost'; }
+  pre.src-modula-2:before { content: 'Modula-2'; }
+  pre.src-pascal:before { content: 'Pascal'; }
+  pre.src-ps:before { content: 'PostScript'; }
+  pre.src-prolog:before { content: 'Prolog'; }
+  pre.src-simula:before { content: 'Simula'; }
+  pre.src-tcl:before { content: 'tcl'; }
+  pre.src-tex:before { content: 'TeX'; }
+  pre.src-plain-tex:before { content: 'Plain TeX'; }
+  pre.src-verilog:before { content: 'Verilog'; }
+  pre.src-vhdl:before { content: 'VHDL'; }
+  pre.src-xml:before { content: 'XML'; }
+  pre.src-nxml:before { content: 'XML'; }
+  /* add a generic configuration mode; LaTeX export needs an additional
+     (add-to-list 'org-latex-listings-langs '(conf " ")) in .emacs */
+  pre.src-conf:before { content: 'Configuration File'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.org-right  { text-align: center;  }
+  th.org-left   { text-align: center;   }
+  th.org-center { text-align: center; }
+  td.org-right  { text-align: right;  }
+  td.org-left   { text-align: left;   }
+  td.org-center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara { display: inline; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .equation-container {
+    display: table;
+    text-align: center;
+    width: 100%;
+  }
+  .equation {
+    vertical-align: middle;
+  }
+  .equation-label {
+    display: table-cell;
+    text-align: right;
+    vertical-align: middle;
+  }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  .org-svg { }
+</style>
+<script>
+  window.MathJax = {
+    tex: {
+      ams: {
+        multlineWidth: '85%'
+      },
+      tags: 'ams',
+      tagSide: 'right',
+      tagIndent: '.8em'
+    },
+    chtml: {
+      scale: 1.0,
+      displayAlign: 'center',
+      displayIndent: '0em'
+    },
+    svg: {
+      scale: 1.0,
+      displayAlign: 'center',
+      displayIndent: '0em'
+    },
+    output: {
+      font: 'mathjax-modern',
+      displayOverflow: 'overflow'
+    }
+  };
+</script>
+
+<script
+  id="MathJax-script"
+  async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+</script>
+</head>
+<body>
+<div id="content" class="content">
+<h1 class="title">Variance Quantum State</h1>
+<div id="table-of-contents" role="doc-toc">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents" role="doc-toc">
+<ul>
+<li><a href="#org178c112">1. 方差 (Variance)</a>
+<ul>
+<li><a href="#org0959621">1.1. 1. 量子态的数学载体：希尔伯特空间(Hilbert Space)</a></li>
+<li><a href="#org0be47a9">1.2. 2. 量子态不是矢量，而是“束”</a></li>
+<li><a href="#orgbb6ee16">1.3. 3. 为什么平时还在用“态矢”这个说法？</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<div id="outline-container-org178c112" class="outline-2">
+<h2 id="org178c112"><span class="section-number-2">1.</span> 方差 (Variance)</h2>
+<div class="outline-text-2" id="text-1">
+<div class="definition" id="org2c04da7">
+\begin{align*}
+[\Delta (M)]^{2}
+  &= \langle (M  - \langle M \rangle)^2 \rangle \\
+  &= \langle M^{2}\rangle - \langle M\rangle^{2}
+\end{align*}
+
+</div>
+
+<div class="proof" id="org4b49902">
+<p>
+设方差 (Variance) 的定义为：
+\[
+    \text{Var} = \sum_i p_i (m_i - \langle M \rangle)^2
+    \]
+</p>
+
+<p>
+展开括号内的平方项：
+</p>
+\begin{align*}
+&= \sum_i p_i (m_i^2 - 2m_i\langle M \rangle + \langle M \rangle^2) \\
+&= \sum_i p_i m_i^2 - 2\langle M \rangle \sum_i p_i m_i + \langle M \rangle^2 \sum_i p_i
+\end{align*}
+
+<div class="attention" id="orgc10d6da">
+<p>
+其中利用以下统计性质：
+</p>
+<ol class="org-ol">
+<li>\(\sum_i p_i m_i = \langle M \rangle\) (期望值的定义)</li>
+<li>\(\sum_i p_i = 1\) (概率归一化条件)</li>
+</ol>
+<p>
+代入上式进行化简：
+</p>
+
+</div>
+
+\begin{align*}
+&= \left( \sum_i p_i m_i^2 \right) - 2\langle M \rangle \cdot \langle M \rangle + \langle M \rangle^2 \cdot 1 \\
+&= \left( \sum_i p_i m_i^2 \right) - 2\langle M \rangle^2 + \langle M \rangle^2 \\
+&= \left( \sum_i p_i m_i^2 \right) - \langle M \rangle^2
+\end{align*}
+
+<p>
+对于算符 \(M^2\)，其期望值写作：
+\[
+    \langle M^2 \rangle = \langle \psi | M^2 | \psi \rangle = \langle \psi | M \cdot M | \psi \rangle
+    \]
+</p>
+
+<p>
+考察算符 \(M\) 的本征方程 \(M|m_i\rangle = m_i|m_i\rangle\)，则 \(M^2\) 的作用如下：
+\[
+    M \cdot M \Rightarrow m_i' = m_i^2
+    \]
+即 \(M^2\) 的本征值为 \(m_i^2\)。
+</p>
+
+<p>
+此时对应的概率 \(p_i'\) 为：
+\[
+    p_i' = |\langle m_i' | \psi \rangle|^2
+    \]
+</p>
+
+<p>
+但在笔记中特别强调了一个核心性质（红色标注部分）：
+</p>
+
+
+<p>
+这意味着算符平方后，本征态没有改变，因此概率分布保持一致：
+\[
+    p_i' = |\langle m_i | \psi \rangle|^2 = p_i
+    \]
+</p>
+
+<p>
+因此，\(M^2\) 的期望值就是 \(m_i^2\) 的加权和：
+\[
+    \langle M^2 \rangle = \sum m_i^2 p_i = \sum p_i m_i^2
+    \]
+</p>
+
+<p>
+结合第 1 部分的展开结果与第 2 部分的算符期望定义，得证：
+\[
+    \therefore \text{Var} = \langle M^2 \rangle - \langle M \rangle^2
+    \]
+■
+</p>
+
+</div>
+
+
+<p>
+:ID:       ABBA184F-F2BA-40FD-B44F-3A99A7A0F493
+</p>
+</div>
+<div id="outline-container-org0959621" class="outline-3">
+<h3 id="org0959621"><span class="section-number-3">1.1.</span> 1. 量子态的数学载体：希尔伯特空间(<a href="../math/hilbert_space.html#ID-FDD92B78-DF6E-44F5-BF77-425C3CF28720">Hilbert Space</a>)</h3>
+<div class="outline-text-3" id="text-1-1">
+<p>
+在量子力学中，每一个物理系统，都对应一个 <b>复希尔伯特空间</b> H。
+</p>
+
+<p>
+H 具备三个关键结构：
+</p>
+<ul class="org-ul">
+<li>线性结构（可以相加、数乘）</li>
+<li>内积 ⟨·,·⟩（用来算概率与期望值）</li>
+<li>完备性（极限不会“跑丢”）</li>
+</ul>
+
+<p>
+在实际物理中，我们通常假设 H 是 *可分的*，
+意思是：它有一个可数的正交基，
+这与“有限次实验可以确定状态”这一物理事实相匹配。
+</p>
+</div>
+</div>
+<div id="outline-container-org0be47a9" class="outline-3">
+<h3 id="org0be47a9"><span class="section-number-3">1.2.</span> 2. 量子态不是矢量，而是“束”</h3>
+<div class="outline-text-3" id="text-1-2">
+<p>
+<b><b>关键结论：</b></b>
+量子态 ≠ 希尔伯特空间中的某一个具体矢量  
+量子态 = *一维子空间*（又叫“束”）
+</p>
+
+<p>
+原因是：
+如果两个矢量只差一个整体相位
+</p>
+<table border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+
+
+<colgroup>
+<col  class="org-left" />
+
+<col  class="org-left" />
+</colgroup>
+<tbody>
+<tr>
+<td class="org-left">ψ⟩ 和 e<sup>iθ</sup></td>
+<td class="org-left">ψ⟩</td>
+</tr>
+</tbody>
+</table>
+
+<p>
+那么：
+</p>
+<ul class="org-ul">
+<li>所有可观测量的概率</li>
+<li>所有期望值</li>
+</ul>
+
+<p>
+完全一样，实验无法区分。
+</p>
+
+<p>
+因此，真正的物理状态是：
+</p>
+<ul class="org-ul">
+<li>所有长度为 1 的矢量</li>
+<li>按“相差一个相位”分成的等价类</li>
+</ul>
+
+<p>
+数学上，这叫：
+<b>射影希尔伯特空间</b> P(H)
+</p>
+</div>
+</div>
+<div id="outline-container-orgbb6ee16" class="outline-3">
+<h3 id="orgbb6ee16"><span class="section-number-3">1.3.</span> 3. 为什么平时还在用“态矢”这个说法？</h3>
+<div class="outline-text-3" id="text-1-3">
+<p>
+虽然严格来说量子态是“束”，
+但在很多情形下：
+</p>
+<ul class="org-ul">
+<li>选定一个代表元 |ψ⟩ 计算</li>
+<li>最终结果与相位无关</li>
+</ul>
+
+<p>
+所以物理学家常常：
+</p>
+<ul class="org-ul">
+<li>用 |ψ⟩ 代指这个束</li>
+<li>称之为“态矢”</li>
+</ul>
+
+<p>
+这是一个 *计算上的简化*，
+而不是概念上的严格等价。
+</p>
+
+
+
+<p>
+end of file
+</p>
+</div>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="date">Date: <span class="timestamp-wrapper"><span class="timestamp">[2026-01-30 Fri]</span></span> <span class="timestamp-wrapper"><span class="timestamp">[2026-01-28 Wed]</span></span></p>
+<p class="author">Author: Chang He (Aaron)</p>
+<p class="date">Created: 2026-02-11 Wed 01:00</p>
+<p class="validation"><a href="https://validator.w3.org/check?uri=referer">Validate</a></p>
+</div>
+</body>
+</html>

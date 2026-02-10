@@ -4,13 +4,15 @@
 :END:
 #+title: Hilbert Space
 #+date: [2026-01-26 Mon]
-#+filetags: :math:structure:concept:intuition:working:QC:algebra:linear_analysis:
+#+filetags: :math:structure:concept:intuition:working:QC:algebra:linear_algebra:
 
 * Hilbert Space 希尔伯特空间
 #+begin_attention
 Hilbert space is a big space.
                         ----- Carlton Caves
 #+end_attention
+
+
 ** 1. 数学理解 (Mathematical Understanding)
 本质是将欧几里得空间 ($\mathbb{R}^n$) 推广到*无限维*，并保留几何直观。
 
@@ -41,8 +43,10 @@ Hilbert space is a big space.
 #+begin_theorem
 在有限维内积空间中，所有柯西序列均收敛于该空间内的某个向量。因此，有限维内积空间([[id:8D02B895-719C-42BC-8084-3F7EE98E4D90][Inner Product Space]])天然是完备的，即有限维内积空间即为希尔伯特空间。
 #+end_theorem
+
 #+begin_proof
     * 证明思路
+
 
     - 选取正交基
     - 将向量柯西列转化为坐标柯西列
@@ -73,7 +77,7 @@ Hilbert space is a big space.
     对每个 $i$，存在唯一的 $z_{ik}\in\mathbb C$，
     使得：
     \[
-    v_i=\sum_{k=1}^N z_{ik}e_k
+    v_i=\sum_{k=1}^N z_{ik}e_k 
     \]
 
     ** Step 4：距离的坐标表达
@@ -131,6 +135,7 @@ Hilbert space is a big space.
 
     有限维内积空间是完备的。
 #+end_proof
+
 * 希尔伯特空间的相互作用
 #+begin_theorem
 希尔伯特空间的相互作用
