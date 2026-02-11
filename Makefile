@@ -8,6 +8,9 @@ force:
 sync:
 	rsync -avh --progress -e ssh ./ Aaron-nas:/volume1/web
 
+git:
+	lazygit
+
 clean:
 	rm -rf public/*
 	rm -f index.org

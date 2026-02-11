@@ -22,7 +22,7 @@
          ;; 注入 HTML Head
          (new-head (format 
                     "<link rel=\"stylesheet\" href=\"%s\" />\n<script src=\"%s\"></script>\n<script src=\"%s\"></script>\n
-  <link rel=\"shortcut icon\" href=\"https://aaron.pwo101.top/css/cv.svg\" type=\"image/x-icon\">
+  <link rel=\"shortcut icon\" href=\"https://raw.githubusercontent.com/AaronHnoraA/AaronHnoraA.github.io/refs/heads/master/css/cv.svg\" type=\"image/x-icon\">
                     " 
                     css-path data-path js-path)))
     (org-html-publish-to-html
