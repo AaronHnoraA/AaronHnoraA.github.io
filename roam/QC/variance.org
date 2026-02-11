@@ -79,5 +79,4 @@
 #+INCLUDE: "./quantum_state.org"
 
 
-
 end of file
