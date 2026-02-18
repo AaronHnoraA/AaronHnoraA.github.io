@@ -136,6 +136,7 @@ Hilbert space is a big space.
     有限维内积空间是完备的。
 #+end_proof
 
+
 * 希尔伯特空间的相互作用
 #+begin_theorem
 希尔伯特空间的相互作用
