@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2026-04-10 Fri 01:20 -->
+<!-- 2026-04-10 Fri 01:22 -->
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Hermitian Matrix</title>
@@ -54,23 +54,23 @@
 <h2>Table of Contents</h2>
 <div id="text-table-of-contents" role="doc-toc">
 <ul>
-<li><a href="#org56319fc">Hermitian Matrix 厄米矩阵</a></li>
-<li><a href="#orgd05f29f">性质</a></li>
-<li><a href="#orgf26b6b6">Hermitian Operators 自伴算子|厄米算符</a>
+<li><a href="#org7db21e1">Hermitian Matrix 厄米矩阵</a></li>
+<li><a href="#orge27edd5">性质</a></li>
+<li><a href="#org82dc536">Hermitian Operators 自伴算子|厄米算符</a>
 <ul>
-<li><a href="#orgab290fa">物理量的算符化表示</a></li>
-<li><a href="#org3837daa">统计意义下的期望值</a></li>
-<li><a href="#org1ac5738">量子态与概率权重</a></li>
-<li><a href="#org4c4138c">期望值的算符形式</a></li>
-<li><a href="#orgef48b42">量化建模的视角</a></li>
+<li><a href="#org897f194">物理量的算符化表示</a></li>
+<li><a href="#orgfe60222">统计意义下的期望值</a></li>
+<li><a href="#org89d5818">量子态与概率权重</a></li>
+<li><a href="#org3164b2a">期望值的算符形式</a></li>
+<li><a href="#org99d05dd">量化建模的视角</a></li>
 </ul>
 </li>
 </ul>
 </div>
 </nav>
-<div id="outline-container-org56319fc" class="outline-2">
-<h2 id="org56319fc">Hermitian Matrix 厄米矩阵</h2>
-<div class="outline-text-2" id="text-org56319fc">
+<div id="outline-container-org7db21e1" class="outline-2">
+<h2 id="org7db21e1">Hermitian Matrix 厄米矩阵</h2>
+<div class="outline-text-2" id="text-org7db21e1">
 <p>
 埃尔米特矩阵（英语：Hermitian matrix，又译作厄米特矩阵，厄米矩阵），也称自伴随矩阵，是共轭对称的方阵。埃尔米特矩阵中每一个第 \(i\) 行第 \(j\) 列的元素都与第 \(j\) 行第 \(i\) 列的元素的复共轭。例如\(\begin{bmatrix}3&2+i\\2-i&1\end{bmatrix}\) 就是一个埃尔米特矩阵。
 </p>
@@ -80,9 +80,9 @@
 </p>
 </div>
 </div>
-<div id="outline-container-orgd05f29f" class="outline-2">
-<h2 id="orgd05f29f">性质</h2>
-<div class="outline-text-2" id="text-orgd05f29f">
+<div id="outline-container-orge27edd5" class="outline-2">
+<h2 id="orge27edd5">性质</h2>
+<div class="outline-text-2" id="text-orge27edd5">
 <ul class="org-ul">
 <li>若 \(A\) 和 \(B\) 是埃尔米特矩阵，那么它们的和 \(A+B\) 也是埃尔米特矩阵；而只有在 \(A\) 和 \(B\) 满足交换性（即 \(AB=BA\)）时，它们的积才是埃尔米特矩阵。</li>
 <li>可逆的埃尔米特矩阵 \(A\) 的逆矩阵 \(A^{-1}\) 仍然是埃尔米特矩阵。</li>
@@ -96,9 +96,9 @@
 </ul>
 </div>
 </div>
-<div id="outline-container-orgf26b6b6" class="outline-2">
-<h2 id="orgf26b6b6">Hermitian Operators 自伴算子|厄米算符</h2>
-<div class="outline-text-2" id="text-orgf26b6b6">
+<div id="outline-container-org82dc536" class="outline-2">
+<h2 id="org82dc536">Hermitian Operators 自伴算子|厄米算符</h2>
+<div class="outline-text-2" id="text-org82dc536">
 <p>
 在量子力学里，自伴算子，又称为自伴算符，或厄米算符（Hermitian operator），是一种等于自己的厄米共轭的算符。给予算符 \(\hat{O}\)  和其伴随算符\(\hat {O}^{\dagger}\)，假设\(\hat{O} = \hat {O}^{\dagger}\)，则称 \(\hat {O}\)为厄米算符。厄米算符的期望可以表示量子力学中的物理量。
 </p>
@@ -106,7 +106,7 @@
 <p>
 这是因为
 </p>
-<div class="proof" id="orgc140f45">
+<div class="proof" id="org35c0473">
 <p>
 每一个物理量测出来都是实数, 因此我们有:
 \[
@@ -128,9 +128,9 @@ Hence,   \(\hat{O} = \hat{O}^{{\dagger}} \).
 这便是厄米算符的定义.
 </p>
 </div>
-<div id="outline-container-orgab290fa" class="outline-3">
-<h3 id="orgab290fa">物理量的算符化表示</h3>
-<div class="outline-text-3" id="text-orgab290fa">
+<div id="outline-container-org897f194" class="outline-3">
+<h3 id="org897f194">物理量的算符化表示</h3>
+<div class="outline-text-3" id="text-org897f194">
 <p>
 在量子力学中，物理量（observable）并不再被视为系统在某一时刻所“具有”的确定数值，
 而是被建模为作用在态空间上的一个 <b>厄米算符</b> \(\hat A\)。
@@ -158,9 +158,9 @@ Hence,   \(\hat{O} = \hat{O}^{{\dagger}} \).
 </p>
 </div>
 </div>
-<div id="outline-container-org3837daa" class="outline-3">
-<h3 id="org3837daa">统计意义下的期望值</h3>
-<div class="outline-text-3" id="text-org3837daa">
+<div id="outline-container-orgfe60222" class="outline-3">
+<h3 id="orgfe60222">统计意义下的期望值</h3>
+<div class="outline-text-3" id="text-orgfe60222">
 <p>
 从朴素的统计学角度出发，若测量结果 \(a_n\) 出现的概率为 \(p_n\)，
 则物理量 \(A\) 的实验平均值自然定义为
@@ -172,9 +172,9 @@ Hence,   \(\hat{O} = \hat{O}^{{\dagger}} \).
 </p>
 </div>
 </div>
-<div id="outline-container-org1ac5738" class="outline-3">
-<h3 id="org1ac5738">量子态与概率权重</h3>
-<div class="outline-text-3" id="text-org1ac5738">
+<div id="outline-container-org89d5818" class="outline-3">
+<h3 id="org89d5818">量子态与概率权重</h3>
+<div class="outline-text-3" id="text-org89d5818">
 <p>
 在量子力学中，系统的状态由态向量 \(|\psi\rangle\) 描述。
 当对物理量 \(A\) 进行测量时，态 \(|\psi\rangle\) 并不指定某个确定的结果，
@@ -195,9 +195,9 @@ p_n = |\langle a_n|\psi \rangle|^2
 </p>
 </div>
 </div>
-<div id="outline-container-org4c4138c" class="outline-3">
-<h3 id="org4c4138c">期望值的算符形式</h3>
-<div class="outline-text-3" id="text-org4c4138c">
+<div id="outline-container-org3164b2a" class="outline-3">
+<h3 id="org3164b2a">期望值的算符形式</h3>
+<div class="outline-text-3" id="text-org3164b2a">
 <p>
 将量子力学给出的概率 \(p_n\) 代入统计平均的定义，
 并利用本征态的完备性关系
@@ -216,9 +216,9 @@ p_n = |\langle a_n|\psi \rangle|^2
 </p>
 </div>
 </div>
-<div id="outline-container-orgef48b42" class="outline-3">
-<h3 id="orgef48b42">量化建模的视角</h3>
-<div class="outline-text-3" id="text-orgef48b42">
+<div id="outline-container-org99d05dd" class="outline-3">
+<h3 id="org99d05dd">量化建模的视角</h3>
+<div class="outline-text-3" id="text-org99d05dd">
 <p>
 从建模角度看，
 量子力学对物理量的处理并非试图刻画微观系统的“即时真实状态”，
