@@ -369,18 +369,28 @@ header {
   border-radius: 8px; margin-bottom: 20px;
 }
 
-.stone-badge {
+.stone-inline {
   position: relative;
   display: inline-block;
+  vertical-align: baseline;
+  white-space: nowrap;
+  padding-right: 21px;
+}
+
+.stone-badge {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  display: block;
   width: 15px;
   height: 15px;
   margin-left: 6px;
   padding: 0;
-  vertical-align: baseline;
   line-height: 0;
   overflow: hidden;
   opacity: 0.88;
-  transform: translateY(10px) rotate(-6deg) !important;
+  pointer-events: none;
+  transform: translateY(-5%) rotate(-6deg) !important;
   box-shadow: none;
   transition: transform 0.18s ease, opacity 0.18s ease;
 }
@@ -395,7 +405,7 @@ header {
 .stone-badge:hover,
 .stone-badge:focus-visible {
   opacity: 1;
-  transform: translateY(9px) rotate(0deg) scale(1.04) !important;
+  transform: translateY(-5%) rotate(0deg) scale(1.04) !important;
   outline: none;
 }
 
@@ -624,11 +634,15 @@ body.dark-mode mark {
 }
 
 @media (max-width: 640px) {
+  .stone-inline {
+    padding-right: 18px;
+  }
+
   .stone-badge {
     width: 13px;
     height: 13px;
     margin-left: 5px;
-    transform: translateY(8px) rotate(-6deg) !important;
+    transform: translateY(-8%) rotate(-6deg) !important;
   }
 }
 
