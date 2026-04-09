@@ -371,8 +371,8 @@ header {
 
 .stone-inline {
   position: relative;
-  display: inline-block;
-  vertical-align: baseline;
+  display: inline;
+  line-height: inherit;
   white-space: nowrap;
   padding-right: 21px;
 }
@@ -380,7 +380,7 @@ header {
 .stone-badge {
   position: absolute;
   left: 100%;
-  top: 50%;
+  top: 0.9em;
   display: block;
   width: 15px;
   height: 15px;
@@ -390,7 +390,7 @@ header {
   overflow: hidden;
   opacity: 0.88;
   pointer-events: none;
-  transform: translateY(-5%) rotate(-6deg) !important;
+  transform: translateY(-10%) rotate(-6deg) !important;
   box-shadow: none;
   transition: transform 0.18s ease, opacity 0.18s ease;
 }
@@ -405,7 +405,7 @@ header {
 .stone-badge:hover,
 .stone-badge:focus-visible {
   opacity: 1;
-  transform: translateY(-5%) rotate(0deg) scale(1.04) !important;
+  transform: translateY(-10%) rotate(0deg) scale(1.04) !important;
   outline: none;
 }
 
@@ -642,7 +642,8 @@ body.dark-mode mark {
     width: 13px;
     height: 13px;
     margin-left: 5px;
-    transform: translateY(-8%) rotate(-6deg) !important;
+    top: 0.92em;
+    transform: translateY(-6%) rotate(-6deg) !important;
   }
 }
 
