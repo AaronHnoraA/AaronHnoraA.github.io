@@ -369,47 +369,47 @@ header {
   border-radius: 8px; margin-bottom: 20px;
 }
 
-.stone-widget {
-  position: absolute;
-  top: 18px;
-  right: 20px;
-}
-
-.stone-link {
+.stone-badge {
   position: relative;
-  display: block;
-  width: 30px;
-  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-left: 10px;
+  padding: 0;
+  vertical-align: middle;
+  border: none;
+  background: transparent;
   border-radius: 10px;
   overflow: hidden;
   opacity: 0.78;
   transform: rotate(-6deg);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.10);
   transition: transform 0.18s ease, opacity 0.18s ease, box-shadow 0.18s ease;
+  cursor: default;
 }
 
-.stone-link img {
+.stone-badge img {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.stone-link:hover,
-.stone-link:focus-visible,
-.stone-widget:hover .stone-link,
-.stone-widget:focus-within .stone-link {
+.stone-badge:hover,
+.stone-badge:focus-visible {
   opacity: 1;
   transform: translateY(-1px) rotate(0deg) scale(1.06);
   box-shadow: 0 10px 20px rgba(0, 0, 0, 0.16);
   outline: none;
 }
 
-.stone-link::after {
+.stone-badge::after {
   content: "stone";
   position: absolute;
   top: 50%;
-  right: calc(100% + 8px);
+  left: calc(100% + 8px);
   transform: translateY(-50%) translateX(4px);
   white-space: nowrap;
   border-radius: 999px;
@@ -425,8 +425,8 @@ header {
   backdrop-filter: blur(8px);
 }
 
-.stone-link:hover::after,
-.stone-link:focus-visible::after {
+.stone-badge:hover::after,
+.stone-badge:focus-visible::after {
   opacity: 1;
   transform: translateY(-50%) translateX(0);
 }
@@ -567,11 +567,11 @@ body.dark-mode .autocomplete-suggestions {
   background: #2d2d2d;
 }
 
-body.dark-mode .stone-link {
+body.dark-mode .stone-badge {
   box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28);
 }
 
-body.dark-mode .stone-link::after {
+body.dark-mode .stone-badge::after {
   background: rgba(24, 24, 24, 0.78);
   box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28);
 }
@@ -665,25 +665,21 @@ body.dark-mode mark {
 }
 
 @media (max-width: 640px) {
-  .stone-widget {
-    right: 12px;
-    top: 12px;
-  }
-
-  .stone-link {
-    width: 26px;
-    height: 26px;
+  .stone-badge {
+    width: 20px;
+    height: 20px;
+    margin-left: 8px;
     border-radius: 9px;
   }
 
-  .stone-link::after {
+  .stone-badge::after {
     display: none;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .stone-link,
-  .stone-link::after {
+  .stone-badge,
+  .stone-badge::after {
     transition: none;
   }
 }
