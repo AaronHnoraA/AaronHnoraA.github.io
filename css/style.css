@@ -420,6 +420,7 @@ nav a {
 nav a:hover { color: var(--accent-hover); }
 
 .site-footer {
+  width: 100%;
   max-width: 900px;
   margin: 36px auto 0;
   padding: 8px 0 18px;
@@ -435,12 +436,14 @@ nav a:hover { color: var(--accent-hover); }
 
 .footer-text {
   display: block;
+  margin: 0 auto;
 }
 
 .footer-stone {
   display: inline-block;
   width: 15px;
   height: 15px;
+  margin: 0 auto;
   opacity: 0.88;
 }
 
