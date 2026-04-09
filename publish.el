@@ -6,7 +6,7 @@
 (require 'seq)
 (require 'subr-x)
 
-(defconst my/site-asset-version "20260410-8")
+(defconst my/site-asset-version "20260410-9")
 
 (defun my/site-html-head (plist filename pub-dir)
   "Publish FILENAME to PUB-DIR with assets referenced relative to the output path."
@@ -23,12 +23,14 @@
           (mapconcat
            #'identity
            (list
-            "<meta name=\"color-scheme\" content=\"light\" />"
+           "<meta name=\"color-scheme\" content=\"light\" />"
             (format "<link rel=\"stylesheet\" href=\"%s/css/style.css?v=%s\" />" prefix my/site-asset-version)
             "<link rel=\"shortcut icon\" href=\"https://raw.githubusercontent.com/AaronHnoraA/AaronHnoraA.github.io/refs/heads/master/css/cv.svg\" type=\"image/x-icon\">"
+            "<script src=\"https://d3js.org/d3.v7.min.js\"></script>"
             (format "<script>window.SITE_ROOT_PATH=%S;window.CURRENT_NOTE_LINK=%S;</script>" site-root current-link)
             (format "<script defer src=\"%s/js/data.js?v=%s\"></script>" prefix my/site-asset-version)
             (format "<script defer src=\"%s/js/knowledge.js?v=%s\"></script>" prefix my/site-asset-version)
+            (format "<script defer src=\"%s/js/graph.js?v=%s\"></script>" prefix my/site-asset-version)
             (format "<script defer src=\"%s/js/note-page.js?v=%s\"></script>" prefix my/site-asset-version))
            "\n")))
     (org-html-publish-to-html

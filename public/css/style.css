@@ -8,17 +8,17 @@
 
   --text-primary: #2d2430;
   --text-secondary: #6f6170;
-  --accent-color: #b85c8a;
-  --accent-hover: #8e3f68;
-  --border-color: #e2d6df;
-  --bg-body: #f5eef4;
-  --bg-card: #fffdf8;
+  --accent-color: #5f77ab;
+  --accent-hover: #39557d;
+  --border-color: #d8dfeb;
+  --bg-body: #edf2f8;
+  --bg-card: #fffefe;
   --bg-card-strong: #ffffff;
-  --tag-bg: #f5e2ec;
-  --tag-text: #8e3f68;
-  --hero-grad-1: #f8e4ef;
-  --hero-grad-2: #f2d9ea;
-  --hero-grad-3: #ebddf7;
+  --tag-bg: #e7eefb;
+  --tag-text: #39557d;
+  --hero-grad-1: #dfeffc;
+  --hero-grad-2: #e7ebfb;
+  --hero-grad-3: #eee5f8;
 
   --c-def: #b7791f;
   --c-thm: #2f855a;
@@ -28,11 +28,12 @@
   --c-proof: #2563eb;
   --c-example: #9c4221;
   --c-attend: #c53030;
-  --c-note: #c06c9b;
+  --c-note: #8094c6;
 }
 
 html {
   min-height: 100%;
+  scroll-behavior: smooth;
 }
 
 body {
@@ -40,8 +41,8 @@ body {
   min-height: 100%;
   padding: 48px 18px 64px;
   background:
-    radial-gradient(circle at top left, rgba(248, 228, 239, 0.96), transparent 24%),
-    radial-gradient(circle at top right, rgba(235, 221, 247, 0.92), transparent 26%),
+    radial-gradient(circle at top left, rgba(222, 239, 250, 0.96), transparent 24%),
+    radial-gradient(circle at top right, rgba(236, 228, 247, 0.92), transparent 26%),
     linear-gradient(180deg, #fbf7fb 0%, var(--bg-body) 100%);
   color: var(--text-primary);
   font-family: var(--font-serif);
@@ -113,10 +114,18 @@ a:hover {
   font-size: 1.3rem;
 }
 
+.site-home .section {
+  scroll-margin-top: 8.5rem;
+}
+
+#content :is(h2[id], h3[id], h4[id], h5[id]) {
+  scroll-margin-top: 1.5rem;
+}
+
 #table-of-contents {
   margin: 0 0 2rem;
   padding: 1.3rem 1.4rem;
-  border: 1px solid rgba(184, 92, 138, 0.16);
+  border: 1px solid rgba(95, 119, 171, 0.16);
   border-radius: 20px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(249, 240, 246, 0.96));
 }
@@ -139,6 +148,10 @@ a:hover {
   margin-top: 0.35rem;
 }
 
+.note-inline-toc {
+  margin-top: 1.35rem;
+}
+
 pre,
 code {
   font-family: var(--font-mono);
@@ -159,8 +172,8 @@ pre {
 code {
   padding: 0.12rem 0.38rem;
   border-radius: 8px;
-  background: rgba(184, 92, 138, 0.10);
-  color: #8e3f68;
+  background: rgba(95, 119, 171, 0.10);
+  color: #39557d;
   font-size: 0.92em;
 }
 
@@ -182,7 +195,7 @@ td {
 }
 
 th {
-  background: rgba(184, 92, 138, 0.09);
+  background: rgba(95, 119, 171, 0.09);
   color: var(--text-primary);
   font-family: var(--font-sans);
   font-weight: 700;
@@ -195,9 +208,9 @@ tr:nth-child(even) {
 blockquote {
   margin: 1.5rem 0;
   padding: 1rem 1.2rem;
-  border-left: 4px solid rgba(184, 92, 138, 0.45);
+  border-left: 4px solid rgba(95, 119, 171, 0.45);
   border-radius: 0 16px 16px 0;
-  background: rgba(184, 92, 138, 0.06);
+  background: rgba(95, 119, 171, 0.06);
   color: #3c4a4d;
 }
 
@@ -277,7 +290,7 @@ blockquote {
   width: 100%;
   height: 4px;
   z-index: 50;
-  background: rgba(184, 92, 138, 0.08);
+  background: rgba(95, 119, 171, 0.08);
 }
 
 .note-reading-progress-bar {
@@ -286,7 +299,7 @@ blockquote {
   height: 100%;
   transform-origin: left center;
   transform: scaleX(0);
-  background: linear-gradient(90deg, #b85c8a, #a764c5);
+  background: linear-gradient(90deg, #5f77ab, #8f9dd4);
 }
 
 .note-toolbar {
@@ -300,7 +313,7 @@ blockquote {
   flex-wrap: wrap;
   margin: 0 0 1.4rem;
   padding: 0.9rem 1rem;
-  border: 1px solid rgba(184, 92, 138, 0.12);
+  border: 1px solid rgba(95, 119, 171, 0.12);
   border-radius: 18px;
   background: rgba(255, 253, 248, 0.84);
   box-shadow: 0 14px 36px rgba(53, 64, 71, 0.08);
@@ -324,7 +337,7 @@ blockquote {
   justify-content: center;
   min-height: 2.2rem;
   padding: 0.5rem 0.82rem;
-  border: 1px solid rgba(184, 92, 138, 0.12);
+  border: 1px solid rgba(95, 119, 171, 0.12);
   border-radius: 999px;
   background: #ffffff;
   color: var(--text-primary);
@@ -338,8 +351,8 @@ blockquote {
 .note-tool-link:hover,
 .note-tool-btn:hover,
 .note-chip:hover {
-  border-color: rgba(184, 92, 138, 0.28);
-  background: rgba(184, 92, 138, 0.08);
+  border-color: rgba(95, 119, 171, 0.28);
+  background: rgba(95, 119, 171, 0.08);
   color: var(--accent-color);
 }
 
@@ -356,7 +369,7 @@ blockquote {
   width: 300px;
   max-height: calc(100vh - 120px);
   overflow: hidden;
-  border: 1px solid rgba(184, 92, 138, 0.12);
+  border: 1px solid rgba(95, 119, 171, 0.12);
   border-radius: 24px;
   background: rgba(255, 253, 248, 0.9);
   box-shadow: 0 22px 48px rgba(53, 64, 71, 0.12);
@@ -370,7 +383,7 @@ blockquote {
   justify-content: space-between;
   gap: 12px;
   padding: 1rem 1.1rem 0.9rem;
-  border-bottom: 1px solid rgba(184, 92, 138, 0.10);
+  border-bottom: 1px solid rgba(95, 119, 171, 0.10);
 }
 
 .note-floating-toc-title {
@@ -389,7 +402,7 @@ blockquote {
   min-width: 54px;
   min-height: 2rem;
   padding: 0.35rem 0.7rem;
-  border: 1px solid rgba(184, 92, 138, 0.12);
+  border: 1px solid rgba(95, 119, 171, 0.12);
   border-radius: 999px;
   background: #ffffff;
   color: var(--text-secondary);
@@ -401,7 +414,7 @@ blockquote {
 
 .note-floating-toc-toggle:hover {
   color: var(--accent-color);
-  border-color: rgba(184, 92, 138, 0.28);
+  border-color: rgba(95, 119, 171, 0.28);
 }
 
 .note-floating-toc-list {
@@ -461,7 +474,7 @@ blockquote {
 }
 
 .note-floating-toc-branch:hover {
-  background: rgba(184, 92, 138, 0.08);
+  background: rgba(95, 119, 171, 0.08);
   color: var(--accent-color);
 }
 
@@ -492,8 +505,102 @@ blockquote {
 
 .note-floating-toc-link:hover,
 .note-floating-toc-link.active {
-  background: rgba(184, 92, 138, 0.08);
+  background: rgba(95, 119, 171, 0.08);
   color: var(--accent-color);
+}
+
+.note-graph-window {
+  position: fixed;
+  right: max(20px, calc((100vw - 1260px) / 2 + 8px));
+  bottom: 24px;
+  width: min(420px, calc(100vw - 32px));
+  max-height: min(76vh, 760px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  border: 1px solid rgba(95, 119, 171, 0.14);
+  border-radius: 24px;
+  background: rgba(255, 254, 255, 0.95);
+  box-shadow: 0 24px 54px rgba(55, 71, 102, 0.18);
+  backdrop-filter: blur(16px);
+  overflow: hidden;
+  z-index: 26;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(14px) scale(0.98);
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.note-graph-window.is-open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+
+.note-graph-window-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1rem 0.9rem;
+  border-bottom: 1px solid rgba(95, 119, 171, 0.10);
+}
+
+.note-graph-window-header strong {
+  display: block;
+  margin-top: 0.18rem;
+  font-family: var(--font-sans);
+  font-size: 1rem;
+}
+
+.note-graph-window-kicker {
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.note-graph-window-close {
+  border: 1px solid rgba(95, 119, 171, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.42rem 0.82rem;
+  cursor: pointer;
+}
+
+.note-graph-window-close:hover {
+  color: var(--accent-color);
+  border-color: rgba(95, 119, 171, 0.28);
+}
+
+.note-graph-window-body {
+  display: grid;
+  grid-template-rows: minmax(280px, 42vh) auto;
+  gap: 0.9rem;
+  padding: 0.95rem;
+  min-height: 0;
+}
+
+.note-graph-container {
+  min-height: 280px;
+  border: 1px solid rgba(95, 119, 171, 0.10);
+  border-radius: 18px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(223, 239, 252, 0.82), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(238, 229, 248, 0.72), transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 247, 252, 0.98));
+}
+
+.note-graph-window .graph-focus {
+  margin-top: 0;
+  max-height: 190px;
+  overflow: auto;
 }
 
 .note-sequence-nav {
@@ -508,7 +615,7 @@ blockquote {
   flex-direction: column;
   gap: 0.3rem;
   padding: 1rem 1.05rem;
-  border: 1px solid rgba(184, 92, 138, 0.12);
+  border: 1px solid rgba(95, 119, 171, 0.12);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.86);
   border-bottom: none;
@@ -546,7 +653,7 @@ blockquote {
   flex-direction: column;
   gap: 0.9rem;
   padding: 1rem 1.05rem;
-  border: 1px solid rgba(184, 92, 138, 0.12);
+  border: 1px solid rgba(95, 119, 171, 0.12);
   border-radius: 18px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 242, 247, 0.98));
 }
@@ -580,7 +687,7 @@ blockquote {
   flex-direction: column;
   gap: 0.25rem;
   padding: 0.8rem 0.9rem;
-  border: 1px solid rgba(184, 92, 138, 0.10);
+  border: 1px solid rgba(95, 119, 171, 0.10);
   border-bottom: none;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.85);
@@ -598,9 +705,9 @@ blockquote {
 }
 
 .note-chip {
-  background: rgba(184, 92, 138, 0.08);
+  background: rgba(95, 119, 171, 0.08);
   color: var(--tag-text);
-  border-color: rgba(184, 92, 138, 0.08);
+  border-color: rgba(95, 119, 171, 0.08);
 }
 
 .note-chip-static {
@@ -608,7 +715,7 @@ blockquote {
 }
 
 .note-chip-static:hover {
-  background: rgba(184, 92, 138, 0.08);
+  background: rgba(95, 119, 171, 0.08);
   color: var(--tag-text);
 }
 
@@ -730,8 +837,8 @@ body.site-home {
 }
 
 .site-home .site-nav a:hover {
-  border-color: rgba(184, 92, 138, 0.16);
-  background: rgba(184, 92, 138, 0.08);
+  border-color: rgba(95, 119, 171, 0.16);
+  background: rgba(95, 119, 171, 0.08);
 }
 
 .site-home .site-main {
@@ -941,7 +1048,7 @@ select {
 
 .suggestion-item.is-active,
 .suggestion-item:focus-visible {
-  background-color: rgba(184, 92, 138, 0.10);
+  background-color: rgba(95, 119, 171, 0.10);
   outline: none;
 }
 
@@ -1027,7 +1134,7 @@ mark {
   flex-wrap: wrap;
   margin-bottom: 18px;
   padding: 12px 14px;
-  border: 1px solid rgba(184, 92, 138, 0.10);
+  border: 1px solid rgba(95, 119, 171, 0.10);
   border-radius: 16px;
   background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(250,242,247,0.92));
 }
@@ -1045,7 +1152,7 @@ mark {
   justify-content: center;
   min-height: 2.3rem;
   padding: 0.55rem 0.9rem;
-  border: 1px solid rgba(184, 92, 138, 0.12);
+  border: 1px solid rgba(95, 119, 171, 0.12);
   border-radius: 999px;
   background: #ffffff;
   color: var(--text-primary);
@@ -1056,8 +1163,8 @@ mark {
 }
 
 .quick-action-btn:hover:not(:disabled) {
-  border-color: rgba(184, 92, 138, 0.28);
-  background: rgba(184, 92, 138, 0.08);
+  border-color: rgba(95, 119, 171, 0.28);
+  background: rgba(95, 119, 171, 0.08);
   color: var(--accent-color);
 }
 
@@ -1083,7 +1190,7 @@ mark {
 
 .quick-action-shortcuts kbd {
   padding: 0.18rem 0.38rem;
-  border: 1px solid rgba(184, 92, 138, 0.12);
+  border: 1px solid rgba(95, 119, 171, 0.12);
   border-radius: 6px;
   background: #ffffff;
   font-family: var(--font-mono);
@@ -1103,9 +1210,9 @@ mark {
   justify-content: center;
   min-height: 2rem;
   padding: 0.45rem 0.7rem;
-  border: 1px solid rgba(184, 92, 138, 0.10);
+  border: 1px solid rgba(95, 119, 171, 0.10);
   border-radius: 999px;
-  background: rgba(184, 92, 138, 0.07);
+  background: rgba(95, 119, 171, 0.07);
   color: var(--tag-text);
   font: inherit;
   font-size: 0.82rem;
@@ -1114,8 +1221,8 @@ mark {
 }
 
 .quick-inline-tag:hover {
-  border-color: rgba(184, 92, 138, 0.26);
-  background: rgba(184, 92, 138, 0.12);
+  border-color: rgba(95, 119, 171, 0.26);
+  background: rgba(95, 119, 171, 0.12);
 }
 
 .summary-card {
@@ -1183,8 +1290,8 @@ mark {
   border-radius: 18px;
   overflow: hidden;
   background:
-    radial-gradient(circle at top left, rgba(184,92,138,0.10), transparent 26%),
-    radial-gradient(circle at bottom right, rgba(245,158,11,0.14), transparent 28%),
+    radial-gradient(circle at top left, rgba(95,119,171,0.10), transparent 26%),
+    radial-gradient(circle at bottom right, rgba(143,157,216,0.16), transparent 28%),
     linear-gradient(180deg, rgba(255,255,255,0.98), rgba(243,247,252,0.98));
 }
 
@@ -1241,7 +1348,7 @@ mark {
 
 .graph-focus-type,
 .group-pill {
-  background: rgba(184,92,138,0.10);
+  background: rgba(95,119,171,0.10);
   color: var(--accent-color);
 }
 
@@ -1321,7 +1428,7 @@ mark {
   background: var(--accent-color);
   color: #ffffff;
   border-color: var(--accent-color);
-  box-shadow: 0 10px 22px rgba(184,92,138,0.18);
+  box-shadow: 0 10px 22px rgba(95,119,171,0.18);
 }
 
 .tag-chip.muted {
@@ -1372,9 +1479,9 @@ mark {
 #app-tabs .tab-btn.active,
 #app-tabs .tab-buttons .tab-btn.active {
   color: var(--text-primary) !important;
-  border-color: rgba(184,92,138,0.22) !important;
-  background: rgba(184,92,138,0.08) !important;
-  box-shadow: inset 0 -2px 0 rgba(184,92,138,0.38);
+  border-color: rgba(95,119,171,0.22) !important;
+  background: rgba(95,119,171,0.08) !important;
+  box-shadow: inset 0 -2px 0 rgba(95,119,171,0.38);
 }
 
 .tab-btn-label {
@@ -1399,7 +1506,7 @@ mark {
 
 #app-tabs .tab-btn.active .badge,
 #app-tabs .tab-buttons .tab-btn.active .badge {
-  background: rgba(184,92,138,0.14);
+  background: rgba(95,119,171,0.14);
 }
 
 .tab-contents {
@@ -1428,8 +1535,8 @@ mark {
 }
 
 .file-list li.is-focused .file-card {
-  border-color: rgba(184,92,138,0.40);
-  box-shadow: 0 10px 28px rgba(184,92,138,0.12);
+  border-color: rgba(95,119,171,0.40);
+  box-shadow: 0 10px 28px rgba(95,119,171,0.12);
 }
 
 .file-card {
@@ -1477,8 +1584,8 @@ mark {
 }
 
 .tag-small.highlight {
-  border-color: rgba(184,92,138,0.24);
-  background: rgba(184,92,138,0.08);
+  border-color: rgba(95,119,171,0.24);
+  background: rgba(95,119,171,0.08);
   color: var(--accent-color);
 }
 
@@ -1566,6 +1673,16 @@ mark {
     grid-template-columns: 1fr;
   }
 
+  .note-graph-window {
+    right: 16px;
+    bottom: 16px;
+    width: min(440px, calc(100vw - 32px));
+  }
+
+  .note-graph-window-body {
+    grid-template-rows: minmax(240px, 36vh) auto;
+  }
+
   #content {
     padding: 36px 28px;
   }
@@ -1600,6 +1717,20 @@ mark {
   .note-toolbar {
     top: 10px;
     padding: 0.8rem;
+  }
+
+  .note-graph-window {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: auto;
+    max-height: 78vh;
+    border-radius: 20px;
+  }
+
+  .note-graph-window-body {
+    padding: 0.8rem;
+    grid-template-rows: minmax(220px, 34vh) auto;
   }
 
   .note-toolbar-main,
@@ -1638,5 +1769,11 @@ mark {
   .file-row,
   .file-meta {
     align-items: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
   }
 }

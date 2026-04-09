@@ -203,9 +203,9 @@ document.addEventListener("DOMContentLoaded", () => {
   function applyTabButtonStyles(button, isActive) {
     if (isActive) {
       button.style.color = "var(--text-primary)";
-      button.style.background = "rgba(23,86,255,0.08)";
-      button.style.borderColor = "rgba(23,86,255,0.22)";
-      button.style.boxShadow = "inset 0 -2px 0 rgba(23,86,255,0.38)";
+      button.style.background = "rgba(95,119,171,0.08)";
+      button.style.borderColor = "rgba(95,119,171,0.22)";
+      button.style.boxShadow = "inset 0 -2px 0 rgba(95,119,171,0.38)";
     } else {
       button.style.color = "var(--text-secondary)";
       button.style.background = "rgba(255,255,255,0.62)";

@@ -63,6 +63,15 @@
     document.body.appendChild(progressBar);
     const progressBarFill = progressBar.querySelector(".note-reading-progress-bar");
 
+    function getScrollBehavior() {
+      return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+    }
+
+    function scrollToTarget(target, offset = 20) {
+      const top = Math.max(0, window.scrollY + target.getBoundingClientRect().top - offset);
+      window.scrollTo({ top, behavior: getScrollBehavior() });
+    }
+
     function updateProgress() {
       const scrollable = document.documentElement.scrollHeight - window.innerHeight;
       const ratio = scrollable > 0 ? Math.min(1, Math.max(0, window.scrollY / scrollable)) : 0;
@@ -138,6 +147,7 @@
         <a class="note-tool-link" href="${escapeHtml(`${siteRoot}index.html#notes-section`)}">All Notes</a>
         <button type="button" class="note-tool-btn" data-note-action="copy-page">Copy Link</button>
         <button type="button" class="note-tool-btn" data-note-action="random-note">Random Note</button>
+        <button type="button" class="note-tool-btn" data-note-action="relations" aria-pressed="false">Relations</button>
         <button type="button" class="note-tool-btn" data-note-action="top">Top</button>
       </div>
       <div class="note-toolbar-side">
@@ -151,6 +161,112 @@
       header.insertAdjacentElement("afterend", toolbar);
     } else {
       content.prepend(toolbar);
+    }
+
+    const relationButton = toolbar.querySelector('[data-note-action="relations"]');
+    let noteGraphWindow = null;
+    let noteGraphInstance = null;
+    let noteGraphVisibleKeys = [];
+
+    function buildNoteGraphVisibleKeys() {
+      if (!knowledge || !currentNote) {
+        return [];
+      }
+
+      const keys = new Set([currentNote.key, ...(currentNote.refs || []), ...(currentNote.backlinks || [])]);
+
+      if (keys.size <= 1 && Array.isArray(currentNote.tags) && currentNote.tags.length > 0) {
+        knowledge.notes
+          .filter((note) => note.key !== currentNote.key && note.tags.some((tag) => currentNote.tags.includes(tag)))
+          .slice(0, 6)
+          .forEach((note) => keys.add(note.key));
+      }
+
+      return Array.from(keys);
+    }
+
+    function setNoteGraphOpen(isOpen) {
+      if (!noteGraphWindow || !relationButton) {
+        return;
+      }
+
+      noteGraphWindow.classList.toggle("is-open", isOpen);
+      noteGraphWindow.setAttribute("aria-hidden", isOpen ? "false" : "true");
+      relationButton.setAttribute("aria-pressed", isOpen ? "true" : "false");
+    }
+
+    function ensureNoteGraph() {
+      if (!noteGraphWindow || noteGraphInstance) {
+        return;
+      }
+
+      const graphContainer = noteGraphWindow.querySelector("[data-note-graph-container]");
+      const graphFocus = noteGraphWindow.querySelector("[data-note-graph-focus]");
+
+      if (typeof window.initKnowledgeGraph === "function" && typeof d3 !== "undefined") {
+        noteGraphInstance = window.initKnowledgeGraph({
+          container: graphContainer,
+          focusPanel: graphFocus,
+          linkPrefix: siteRoot,
+          initialVisibleKeys: noteGraphVisibleKeys,
+          initialSelectedId: currentNote?.key || "",
+          listenForGlobalFilters: false,
+          dispatchTagEvents: false,
+          dispatchFocusEvents: false,
+          emptyMessage: "Select a node to inspect linked notes.",
+        });
+      } else if (graphContainer) {
+        graphContainer.innerHTML = '<div class="graph-message">Graph view is unavailable right now.</div>';
+      }
+    }
+
+    function toggleNoteGraph(forceOpen) {
+      if (!noteGraphWindow) {
+        return;
+      }
+
+      const nextOpen = typeof forceOpen === "boolean"
+        ? forceOpen
+        : !noteGraphWindow.classList.contains("is-open");
+
+      if (nextOpen) {
+        ensureNoteGraph();
+      }
+
+      setNoteGraphOpen(nextOpen);
+    }
+
+    if (knowledge && currentNote) {
+      noteGraphVisibleKeys = buildNoteGraphVisibleKeys();
+      noteGraphWindow = document.createElement("aside");
+      noteGraphWindow.className = "note-graph-window";
+      noteGraphWindow.setAttribute("aria-label", "Note relationships");
+      noteGraphWindow.setAttribute("aria-hidden", "true");
+      noteGraphWindow.innerHTML = `
+        <div class="note-graph-window-header">
+          <div>
+            <span class="note-graph-window-kicker">Knowledge Graph</span>
+            <strong>Related Notes</strong>
+          </div>
+          <button type="button" class="note-graph-window-close" data-note-graph-close aria-label="Close relationships window">Close</button>
+        </div>
+        <div class="note-graph-window-body">
+          <div class="note-graph-container" data-note-graph-container></div>
+          <div class="graph-focus empty" data-note-graph-focus aria-live="polite">
+            <p class="graph-focus-copy">Select a node to inspect linked notes.</p>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(noteGraphWindow);
+
+      noteGraphWindow.addEventListener("click", (event) => {
+        if (event.target.closest("[data-note-graph-close]")) {
+          toggleNoteGraph(false);
+        }
+      });
+    } else if (relationButton) {
+      relationButton.disabled = true;
+      relationButton.textContent = "Relations NA";
     }
 
     toolbar.addEventListener("click", (event) => {
@@ -176,12 +292,17 @@
       }
 
       if (action === "top") {
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        window.scrollTo({ top: 0, behavior: getScrollBehavior() });
         return;
       }
 
       if (action === "random-note" && randomNote) {
         window.location.href = `${siteRoot}${randomNote.link}`;
+        return;
+      }
+
+      if (action === "relations") {
+        toggleNoteGraph();
       }
     });
 
@@ -283,7 +404,7 @@
         }
 
         event.preventDefault();
-        target.scrollIntoView({ behavior: "smooth", block: "start" });
+        scrollToTarget(target);
         window.history.replaceState(null, "", `#${target.id}`);
         updateActiveHeading();
       });
@@ -300,7 +421,23 @@
     }
 
     if (toc) {
-      toc.remove();
+      toc.classList.add("note-inline-toc");
+      toc.addEventListener("click", (event) => {
+        const link = event.target.closest('a[href^="#"]');
+        if (!link) {
+          return;
+        }
+
+        const targetId = decodeURIComponent(link.getAttribute("href").slice(1));
+        const target = document.getElementById(targetId);
+        if (!target) {
+          return;
+        }
+
+        event.preventDefault();
+        scrollToTarget(target);
+        window.history.replaceState(null, "", `#${target.id}`);
+      });
     }
 
     function renderNoteList(keys, emptyText) {
@@ -378,7 +515,9 @@
       </article>
     `;
 
-    if (toolbar) {
+    if (toc) {
+      toc.insertAdjacentElement("afterend", context);
+    } else if (toolbar) {
       toolbar.insertAdjacentElement("afterend", context);
     } else {
       content.prepend(context);
@@ -421,8 +560,12 @@
         window.location.href = `${siteRoot}${nextNote.link}`;
       } else if (event.key.toLowerCase() === "t") {
         document.querySelector(".note-floating-toc-toggle")?.click();
+      } else if (event.key.toLowerCase() === "r" && noteGraphWindow) {
+        toggleNoteGraph();
       } else if (event.key.toLowerCase() === "g") {
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        window.scrollTo({ top: 0, behavior: getScrollBehavior() });
+      } else if (event.key === "Escape" && noteGraphWindow?.classList.contains("is-open")) {
+        toggleNoteGraph(false);
       }
     });
 
