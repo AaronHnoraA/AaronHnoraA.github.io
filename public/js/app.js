@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const sortSelect = document.getElementById("sort-select");
   const summary = document.getElementById("notes-summary");
   const activeFilters = document.getElementById("active-filters");
+  const actions = document.getElementById("notes-actions");
 
   if (!knowledge || !app || !searchWrapper || !searchInput || !resetBtn || !tagCloud || !sortSelect) {
     return;
@@ -16,7 +17,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const collator = new Intl.Collator(undefined, { sensitivity: "base", numeric: true });
   const suggestionBox = document.createElement("div");
   suggestionBox.className = "autocomplete-suggestions";
+  suggestionBox.id = "note-search-suggestions";
+  suggestionBox.setAttribute("role", "listbox");
   searchWrapper.appendChild(suggestionBox);
+  searchInput.setAttribute("role", "combobox");
+  searchInput.setAttribute("aria-autocomplete", "list");
+  searchInput.setAttribute("aria-controls", suggestionBox.id);
+  searchInput.setAttribute("aria-expanded", "false");
 
   const state = {
     text: "",
@@ -29,6 +36,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let isComposing = false;
   let debounceTimer = null;
   let pendingScrollKey = "";
+  let activeSuggestionIndex = -1;
 
   function escapeHtml(value) {
     return String(value)
@@ -71,6 +79,43 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   }
 
+  function suggestionItems() {
+    return Array.from(suggestionBox.querySelectorAll("[data-suggestion-index]"));
+  }
+
+  function closeSuggestions() {
+    activeSuggestionIndex = -1;
+    suggestionBox.style.display = "none";
+    searchInput.setAttribute("aria-expanded", "false");
+    searchInput.removeAttribute("aria-activedescendant");
+  }
+
+  function openSuggestions() {
+    suggestionBox.style.display = "block";
+    searchInput.setAttribute("aria-expanded", "true");
+  }
+
+  function setActiveSuggestion(index) {
+    const items = suggestionItems();
+
+    if (items.length === 0) {
+      closeSuggestions();
+      return;
+    }
+
+    activeSuggestionIndex = ((index % items.length) + items.length) % items.length;
+    items.forEach((item, itemIndex) => {
+      const isActive = itemIndex === activeSuggestionIndex;
+      item.classList.toggle("is-active", isActive);
+      item.setAttribute("aria-selected", isActive ? "true" : "false");
+
+      if (isActive) {
+        searchInput.setAttribute("aria-activedescendant", item.id);
+        item.scrollIntoView({ block: "nearest" });
+      }
+    });
+  }
+
   function readUrlState() {
     const params = new URLSearchParams(window.location.search);
     state.text = params.get("q") || "";
@@ -104,6 +149,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function sortFiles(files) {
     return files.slice().sort((a, b) => {
+      if (state.text && a._score !== b._score) return b._score - a._score;
+      if (state.tags.size > 0 && a._tagScore !== b._tagScore) return b._tagScore - a._tagScore;
       if (state.sort === "date-desc") return b.dateValue - a.dateValue || collator.compare(a.title, b.title);
       if (state.sort === "date-asc") return a.dateValue - b.dateValue || collator.compare(a.title, b.title);
       return collator.compare(a.title, b.title);
@@ -111,19 +158,79 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function filterFiles() {
-    return knowledge.filterNotes({ text: state.text, tags: Array.from(state.tags) });
+    const terms = state.text.toLowerCase().split(/\s+/).filter(Boolean);
+    const filtered = knowledge.filterNotes({ text: state.text, tags: Array.from(state.tags) });
+
+    return filtered.map((note) => {
+      let score = 0;
+      let tagScore = 0;
+
+      terms.forEach((term) => {
+        if (note.title.toLowerCase().includes(term)) score += 5;
+        if (note.tags.some((tag) => tag.includes(term))) score += 3;
+        if (note.summary.toLowerCase().includes(term)) score += 2;
+        if (note.groupLabel.toLowerCase().includes(term)) score += 1;
+      });
+
+      Array.from(state.tags).forEach((tag) => {
+        if (note.tags.includes(tag)) {
+          tagScore += 2;
+        }
+      });
+
+      return {
+        ...note,
+        _score: score,
+        _tagScore: tagScore,
+      };
+    });
   }
 
   function switchTab(groupKey) {
     state.tab = groupKey;
 
     document.querySelectorAll(".tab-btn").forEach((button) => {
-      button.classList.toggle("active", button.dataset.tab === groupKey);
+      const isActive = button.dataset.tab === groupKey;
+      button.classList.toggle("active", isActive);
+      applyTabButtonStyles(button, isActive);
     });
 
     document.querySelectorAll(".tab-content").forEach((pane) => {
       pane.classList.toggle("active", pane.dataset.tab === groupKey);
     });
+  }
+
+  function applyTabButtonStyles(button, isActive) {
+    if (isActive) {
+      button.style.color = "var(--text-primary)";
+      button.style.background = "rgba(23,86,255,0.08)";
+      button.style.borderColor = "rgba(23,86,255,0.22)";
+      button.style.boxShadow = "inset 0 -2px 0 rgba(23,86,255,0.38)";
+    } else {
+      button.style.color = "var(--text-secondary)";
+      button.style.background = "rgba(255,255,255,0.62)";
+      button.style.borderColor = "rgba(148,163,184,0.18)";
+      button.style.boxShadow = "none";
+    }
+  }
+
+  function formatGroupLabel(group) {
+    if (!group) {
+      return "";
+    }
+
+    const fallback = knowledge.inferGroupLabel(group.key || "");
+    const explicit = String(group.label || "").trim();
+
+    if (explicit) {
+      return explicit;
+    }
+
+    if (fallback) {
+      return fallback;
+    }
+
+    return String(group.key || "").replace(/^roam\//, "");
   }
 
   function renderSummary(filtered) {
@@ -167,12 +274,97 @@ document.addEventListener("DOMContentLoaded", () => {
       .join("");
   }
 
-  function renderActiveFilters() {
+  function renderQuickActions(filtered) {
+    if (!actions) {
+      return;
+    }
+
+    const latestNote = filtered
+      .slice()
+      .sort((a, b) => b.dateValue - a.dateValue || collator.compare(a.title, b.title))[0];
+    const randomPool = filtered.length > 0 ? filtered : knowledge.notes;
+    const randomNote = randomPool[Math.floor(Math.random() * randomPool.length)] || null;
+    const focusNote = state.focusedKey ? knowledge.byKey.get(state.focusedKey) : null;
+    const visibleTagCounts = new Map();
+
+    filtered.forEach((note) => {
+      note.tags.forEach((tag) => {
+        visibleTagCounts.set(tag, (visibleTagCounts.get(tag) || 0) + 1);
+      });
+    });
+
+    const topTags = Array.from(visibleTagCounts.entries())
+      .sort((a, b) => b[1] - a[1] || collator.compare(a[0], b[0]))
+      .slice(0, 3);
+
+    actions.innerHTML = `
+      <div class="quick-action-group">
+        <button type="button" class="quick-action-btn" data-action="random-note">Random Note</button>
+        <button type="button" class="quick-action-btn" data-action="latest-note" ${latestNote ? "" : "disabled"}>Latest Note</button>
+        <button type="button" class="quick-action-btn" data-action="copy-view">Copy View Link</button>
+      </div>
+      <div class="quick-action-status">
+        ${
+          focusNote
+            ? `<span class="quick-action-hint">Focused: ${escapeHtml(focusNote.title)}</span>`
+            : latestNote
+              ? `<span class="quick-action-hint">Newest visible: ${escapeHtml(latestNote.title)}</span>`
+              : `<span class="quick-action-hint">Use filters or graph focus to narrow your notes.</span>`
+        }
+        <span class="quick-action-shortcuts">Shortcuts: <kbd>/</kbd> search, <kbd>R</kbd> random</span>
+        ${
+          topTags.length > 0
+            ? `<span class="quick-action-tags">Top tags: ${topTags.map(([tag, count]) => `<button type="button" class="quick-inline-tag" data-quick-tag="${escapeHtml(tag)}">#${escapeHtml(tag)} · ${count}</button>`).join("")}</span>`
+            : ""
+        }
+      </div>
+    `;
+
+    actions.querySelector('[data-action="random-note"]')?.addEventListener("click", () => {
+      if (randomNote) {
+        window.location.href = randomNote.link;
+      }
+    });
+
+    actions.querySelector('[data-action="latest-note"]')?.addEventListener("click", () => {
+      if (latestNote) {
+        window.location.href = latestNote.link;
+      }
+    });
+
+    actions.querySelector('[data-action="copy-view"]')?.addEventListener("click", () => {
+      const url = window.location.href;
+      const button = actions.querySelector('[data-action="copy-view"]');
+      const original = button ? button.textContent : "";
+
+      navigator.clipboard?.writeText(url).then(() => {
+        if (button) {
+          button.textContent = "Copied";
+          window.setTimeout(() => {
+            button.textContent = original;
+          }, 1200);
+        }
+      }).catch(() => {});
+    });
+
+    actions.querySelectorAll("[data-quick-tag]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const tag = button.dataset.quickTag || "";
+        if (tag) {
+          state.tags.add(tag);
+          render();
+        }
+      });
+    });
+  }
+
+  function renderActiveFilters(filtered) {
     if (!activeFilters) {
       return;
     }
 
     const chips = [];
+    const groupCount = new Set(filtered.map((note) => note.groupKey)).size;
 
     if (state.text) {
       chips.push(`
@@ -194,8 +386,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     activeFilters.innerHTML =
       chips.length > 0
-        ? `<div class="active-filter-list">${chips.join("")}</div>`
-        : `<div class="active-filter-empty">No active filters.</div>`;
+        ? `
+          <div class="active-filter-bar">
+            <span class="active-filter-stats">${filtered.length} notes in ${groupCount} groups</span>
+            <div class="active-filter-list">
+              ${chips.join("")}
+              <button class="filter-chip filter-chip-clear" type="button" data-filter-kind="clear-all">Clear all</button>
+            </div>
+          </div>
+        `
+        : `<div class="active-filter-empty">${filtered.length} notes available.</div>`;
 
     activeFilters.querySelectorAll("[data-filter-kind='tag']").forEach((button) => {
       button.addEventListener("click", () => {
@@ -212,6 +412,17 @@ document.addEventListener("DOMContentLoaded", () => {
         render();
       });
     }
+
+    const clearAllChip = activeFilters.querySelector("[data-filter-kind='clear-all']");
+    if (clearAllChip) {
+      clearAllChip.addEventListener("click", () => {
+        state.text = "";
+        state.tags.clear();
+        state.focusedKey = "";
+        searchInput.value = "";
+        render();
+      });
+    }
   }
 
   function renderTags(filtered) {
@@ -223,7 +434,23 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
 
-    tagCloud.innerHTML = knowledge.tags
+    const orderedTags = knowledge.tags
+      .slice()
+      .sort((a, b) => {
+        const aActive = state.tags.has(a.name) ? 1 : 0;
+        const bActive = state.tags.has(b.name) ? 1 : 0;
+        if (aActive !== bActive) return bActive - aActive;
+
+        const aVisible = visibleTagCounts.get(a.name) || 0;
+        const bVisible = visibleTagCounts.get(b.name) || 0;
+        if (aVisible !== bVisible) return bVisible - aVisible;
+
+        if (a.count !== b.count) return b.count - a.count;
+        return collator.compare(a.name, b.name);
+      })
+      .filter((tag) => state.tags.has(tag.name) || !state.text || (visibleTagCounts.get(tag.name) || 0) > 0);
+
+    tagCloud.innerHTML = orderedTags
       .map((tag) => {
         const isActive = state.tags.has(tag.name);
         const visibleCount = visibleTagCounts.get(tag.name) || 0;
@@ -285,7 +512,10 @@ document.addEventListener("DOMContentLoaded", () => {
       grouped.get(file.groupKey).push(file);
     });
 
-    const groups = knowledge.groups.filter((group) => grouped.has(group.key));
+    const groups = knowledge.groups
+      .filter((group) => grouped.has(group.key))
+      .slice()
+      .sort((a, b) => grouped.get(b.key).length - grouped.get(a.key).length || collator.compare(a.label, b.label));
     const btnContainer = document.createElement("div");
     btnContainer.className = "tab-buttons";
     const contentContainer = document.createElement("div");
@@ -299,11 +529,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     groups.forEach((group) => {
+      const groupLabel = formatGroupLabel(group);
       const button = document.createElement("button");
       button.type = "button";
       button.className = `tab-btn ${group.key === state.tab ? "active" : ""}`;
       button.dataset.tab = group.key;
-      button.innerHTML = `${escapeHtml(group.label)} <span class="badge">${grouped.get(group.key).length}</span>`;
+      button.innerHTML = `
+        <span class="tab-btn-label">${escapeHtml(groupLabel)}</span>
+        <span class="badge">${grouped.get(group.key).length}</span>
+      `;
+      applyTabButtonStyles(button, group.key === state.tab);
       button.addEventListener("click", () => {
         switchTab(group.key);
         syncUrlState();
@@ -373,9 +608,10 @@ document.addEventListener("DOMContentLoaded", () => {
   function showSuggestions(query) {
     const trimmed = query.trim().toLowerCase();
     suggestionBox.innerHTML = "";
+    activeSuggestionIndex = -1;
 
     if (!trimmed) {
-      suggestionBox.style.display = "none";
+      closeSuggestions();
       return;
     }
 
@@ -388,23 +624,30 @@ document.addEventListener("DOMContentLoaded", () => {
       .slice(0, 6);
 
     if (matchedTags.length === 0 && matchedNotes.length === 0) {
-      suggestionBox.style.display = "none";
+      closeSuggestions();
       return;
     }
+
+    let suggestionIndex = 0;
 
     matchedTags.forEach((tag) => {
       const option = document.createElement("button");
       option.type = "button";
       option.className = "suggestion-item tag-suggestion";
+      option.id = `note-search-suggestion-${suggestionIndex}`;
+      option.dataset.suggestionIndex = String(suggestionIndex);
+      option.setAttribute("role", "option");
+      option.setAttribute("aria-selected", "false");
       option.innerHTML = `<span>#${escapeHtml(tag.name)}</span><span>${tag.count}</span>`;
       option.addEventListener("click", () => {
         state.tags.add(tag.name);
         state.text = "";
         searchInput.value = "";
-        suggestionBox.style.display = "none";
+        closeSuggestions();
         render();
       });
       suggestionBox.appendChild(option);
+      suggestionIndex += 1;
     });
 
     if (matchedTags.length > 0 && matchedNotes.length > 0) {
@@ -417,12 +660,20 @@ document.addEventListener("DOMContentLoaded", () => {
     matchedNotes.forEach((note) => {
       const option = document.createElement("a");
       option.className = "suggestion-item note-suggestion";
+      option.id = `note-search-suggestion-${suggestionIndex}`;
+      option.dataset.suggestionIndex = String(suggestionIndex);
+      option.setAttribute("role", "option");
+      option.setAttribute("aria-selected", "false");
       option.href = note.link;
       option.innerHTML = `<span>${escapeHtml(note.title)}</span><span>${escapeHtml(note.groupLabel)}</span>`;
+      option.addEventListener("click", () => {
+        closeSuggestions();
+      });
       suggestionBox.appendChild(option);
+      suggestionIndex += 1;
     });
 
-    suggestionBox.style.display = "block";
+    openSuggestions();
   }
 
   function emitState(filtered) {
@@ -459,13 +710,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     renderSummary(filtered);
-    renderActiveFilters();
+    renderQuickActions(filtered);
+    renderActiveFilters(filtered);
     renderTags(filtered);
     renderTabs(filtered);
 
     resetBtn.style.display = state.text || state.tags.size > 0 ? "block" : "none";
     if (!state.text) {
-      suggestionBox.style.display = "none";
+      closeSuggestions();
     }
 
     syncUrlState();
@@ -497,15 +749,61 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   searchInput.addEventListener("keydown", (event) => {
+    const items = suggestionItems();
+
+    if (event.key === "ArrowDown" && items.length > 0) {
+      event.preventDefault();
+      setActiveSuggestion(activeSuggestionIndex + 1);
+      return;
+    }
+
+    if (event.key === "ArrowUp" && items.length > 0) {
+      event.preventDefault();
+      setActiveSuggestion(activeSuggestionIndex - 1);
+      return;
+    }
+
+    if (event.key === "Enter" && activeSuggestionIndex >= 0 && items[activeSuggestionIndex]) {
+      event.preventDefault();
+      items[activeSuggestionIndex].click();
+      return;
+    }
+
     if (event.key === "Escape") {
-      suggestionBox.style.display = "none";
+      closeSuggestions();
       searchInput.blur();
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    const tagName = (event.target && event.target.tagName) || "";
+    const isTypingTarget = ["INPUT", "TEXTAREA", "SELECT"].includes(tagName) || event.target?.isContentEditable;
+
+    if (event.key === "/" && !isTypingTarget) {
+      event.preventDefault();
+      searchInput.focus();
+      searchInput.select();
+      return;
+    }
+
+    if ((event.key === "r" || event.key === "R") && !isTypingTarget) {
+      const pool = knowledge.filterNotes({ text: state.text, tags: Array.from(state.tags) });
+      const randomNote = (pool.length > 0 ? pool : knowledge.notes)[Math.floor(Math.random() * (pool.length > 0 ? pool.length : knowledge.notes.length))];
+      if (randomNote) {
+        window.location.href = randomNote.link;
+      }
+    }
+  });
+
+  searchInput.addEventListener("focus", () => {
+    if (searchInput.value.trim()) {
+      showSuggestions(searchInput.value);
     }
   });
 
   document.addEventListener("click", (event) => {
     if (!searchWrapper.contains(event.target)) {
-      suggestionBox.style.display = "none";
+      closeSuggestions();
     }
   });
 

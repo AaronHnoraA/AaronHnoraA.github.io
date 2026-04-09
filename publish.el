@@ -6,6 +6,8 @@
 (require 'seq)
 (require 'subr-x)
 
+(defconst my/site-asset-version "20260410-8")
+
 (defun my/site-html-head (plist filename pub-dir)
   "Publish FILENAME to PUB-DIR with assets referenced relative to the output path."
   (let* ((root (expand-file-name (plist-get plist :base-directory)))
@@ -15,16 +17,32 @@
          (prefix (if (> depth 0)
                      (mapconcat (lambda (_) "..") (number-sequence 1 depth) "/")
                    "."))
+         (site-root (if (string= prefix ".") "./" (concat prefix "/")))
+         (current-link (concat (file-name-sans-extension rel-path) ".html"))
          (head-snippet
           (mapconcat
            #'identity
            (list
-            (format "<link rel=\"stylesheet\" href=\"%s/css/style.css\" />" prefix)
-            (format "<script src=\"%s/js/common.js\"></script>" prefix)
-            "<link rel=\"shortcut icon\" href=\"https://raw.githubusercontent.com/AaronHnoraA/AaronHnoraA.github.io/refs/heads/master/css/cv.svg\" type=\"image/x-icon\">")
+            "<meta name=\"color-scheme\" content=\"light\" />"
+            (format "<link rel=\"stylesheet\" href=\"%s/css/style.css?v=%s\" />" prefix my/site-asset-version)
+            "<link rel=\"shortcut icon\" href=\"https://raw.githubusercontent.com/AaronHnoraA/AaronHnoraA.github.io/refs/heads/master/css/cv.svg\" type=\"image/x-icon\">"
+            (format "<script>window.SITE_ROOT_PATH=%S;window.CURRENT_NOTE_LINK=%S;</script>" site-root current-link)
+            (format "<script defer src=\"%s/js/data.js?v=%s\"></script>" prefix my/site-asset-version)
+            (format "<script defer src=\"%s/js/knowledge.js?v=%s\"></script>" prefix my/site-asset-version)
+            (format "<script defer src=\"%s/js/note-page.js?v=%s\"></script>" prefix my/site-asset-version))
            "\n")))
     (org-html-publish-to-html
-     (plist-put (copy-sequence plist) :html-head head-snippet)
+     (let ((export-plist (copy-sequence plist)))
+       (setq export-plist (plist-put export-plist :html-head head-snippet))
+       (setq export-plist (plist-put export-plist :html-doctype "html5"))
+       (setq export-plist (plist-put export-plist :html-html5-fancy t))
+       (setq export-plist (plist-put export-plist :html-head-include-default-style nil))
+       (setq export-plist (plist-put export-plist :html-postamble nil))
+       (setq export-plist (plist-put export-plist :with-author nil))
+       (setq export-plist (plist-put export-plist :with-creator nil))
+       (setq export-plist (plist-put export-plist :with-date nil))
+       (setq export-plist (plist-put export-plist :section-numbers nil))
+       export-plist)
      filename pub-dir)))
 
 (defun my/site-clean-text (text)
@@ -33,9 +51,22 @@
     (setq clean (replace-regexp-in-string "\\[\\[id:[^]]+\\]\\[\\([^]]+\\)\\]\\]" "\\1" clean))
     (setq clean (replace-regexp-in-string "\\[\\[[^]]+\\]\\[\\([^]]+\\)\\]\\]" "\\1" clean))
     (setq clean (replace-regexp-in-string "\\[\\[[^]]+\\]\\]" "" clean))
+    (setq clean (replace-regexp-in-string "\\\\[()\\[\\]]" " " clean))
+    (setq clean (replace-regexp-in-string "\\\\[[:alpha:]]+\\*?" " " clean))
+    (setq clean (replace-regexp-in-string "[{}]" "" clean))
     (setq clean (replace-regexp-in-string "[=*~/+]" "" clean))
     (setq clean (replace-regexp-in-string "[[:space:]\n\r]+" " " clean))
     (string-trim clean)))
+
+(defun my/site-prose-line-p (line)
+  "Return non-nil when LINE looks like readable prose for summaries."
+  (let* ((clean (my/site-clean-text line))
+         (letters (length (replace-regexp-in-string "[^[:alpha:][:multibyte:]]" "" clean)))
+         (symbols (length (replace-regexp-in-string "[[:alpha:][:multibyte:][:digit:][:space:][:punct:]]" "" clean))))
+    (and (>= (length clean) 18)
+         (>= letters 6)
+         (<= symbols (/ (max letters 1) 2))
+         (not (string-match-p "\\`[-=+*/^_(){}<>.,:;0-9 ]+\\'" clean)))))
 
 (defun my/site-normalize-tags (tags)
   "Normalize TAGS into a sorted unique vector."
@@ -123,16 +154,46 @@
                     (string-match-p "\\`[-+][ \t]" line)
                     (string-match-p "\\`[0-9]+[.)][ \t]" line))
                 nil)
-               (t
+               ((my/site-prose-line-p line)
                 (setq started t)
-                (push line lines))))
+                (push line lines))
+               (t
+                nil)))
             (forward-line 1))
           (unless summary
-            (setq summary (mapconcat #'identity (nreverse lines) " ")))))
+            (setq summary (mapconcat #'identity (nreverse lines) " "))))
+
+        (unless (and summary (not (string-empty-p summary)))
+          (goto-char (point-min))
+          (let ((lines '())
+                (started nil))
+            (while (and (not (eobp)) (< (length lines) 4) (not summary))
+              (let ((line (string-trim (buffer-substring-no-properties
+                                        (line-beginning-position)
+                                        (line-end-position)))))
+                (cond
+                 ((string-empty-p line)
+                  (when started
+                    (setq summary (mapconcat #'identity (nreverse lines) " "))))
+                 ((or (string-prefix-p "#+" line)
+                      (string-prefix-p ":" line)
+                      (string-prefix-p "*" line)
+                      (string-prefix-p "|" line)
+                      (string-prefix-p "\\begin" line)
+                      (string-prefix-p "\\end" line)
+                      (string-match-p "\\`[-+][ \t]" line)
+                      (string-match-p "\\`[0-9]+[.)][ \t]" line))
+                  nil)
+                 (t
+                  (setq started t)
+                  (push line lines))))
+              (forward-line 1))
+            (unless summary
+              (setq summary (mapconcat #'identity (nreverse lines) " ")))))
 
       (list :id id
             :summary (truncate-string-to-width (my/site-clean-text summary) 180 nil nil t)
-            :outgoing (delete-dups (nreverse outgoing))))))
+            :outgoing (delete-dups (nreverse outgoing)))))))
 
 (defun my/site-note-json (note)
   "Convert NOTE plist to a JSON-friendly alist."

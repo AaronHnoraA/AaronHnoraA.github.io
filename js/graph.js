@@ -2,8 +2,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const knowledge = window.KNOWLEDGE_DATA;
   const container = document.getElementById("graph-container");
   const focusPanel = document.getElementById("graph-focus");
-  const resetButton = document.getElementById("graph-reset");
-  const focusVisibleButton = document.getElementById("graph-focus-visible");
 
   if (!container) {
     return;
@@ -391,19 +389,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!visibleKeys.has(selectedId) && selectedId && !String(selectedId).startsWith("tag:")) {
       setSelected(null);
-      return;
+    } else {
+      applyStyles();
     }
 
-    applyStyles();
+    window.clearTimeout(refitGraph.timerId);
+    refitGraph.timerId = window.setTimeout(() => {
+      refitGraph((node) => isNodeVisible(node) || visibleKeys.size === knowledge.notes.length, false);
+    }, 120);
   });
-
-  if (resetButton) {
-    resetButton.addEventListener("click", () => refitGraph(() => true, true));
-  }
-
-  if (focusVisibleButton) {
-    focusVisibleButton.addEventListener("click", () => refitGraph((node) => isNodeVisible(node)));
-  }
 
   const resizeObserver = new ResizeObserver(() => resizeGraph());
   resizeObserver.observe(container);
