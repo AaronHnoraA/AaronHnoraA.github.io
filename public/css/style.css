@@ -376,7 +376,7 @@ header {
   height: 15px;
   margin-left: 6px;
   padding: 0;
-  vertical-align: -1px;
+  vertical-align: -4px;
   line-height: 0;
   overflow: hidden;
   opacity: 0.88;
@@ -628,6 +628,7 @@ body.dark-mode mark {
     width: 13px;
     height: 13px;
     margin-left: 5px;
+    vertical-align: -3px;
   }
 }
 
