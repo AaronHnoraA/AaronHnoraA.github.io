@@ -146,7 +146,7 @@
     nekoEl.style.imageRendering = "pixelated"; // 像素风关键样式
     nekoEl.style.left = `${nekoPosX - 16}px`;
     nekoEl.style.top = `${nekoPosY - 16}px`;
-    nekoEl.style.zIndex = 2147483647;
+    nekoEl.style.zIndex = 40;
 
     nekoEl.style.backgroundImage = `url("${nekoFile}")`; // 注意这里加了引号，防止路径中有特殊字符
 

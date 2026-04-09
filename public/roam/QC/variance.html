@@ -3,7 +3,7 @@
 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
 <head>
-<!-- 2026-04-10 Fri 00:25 -->
+<!-- 2026-04-10 Fri 00:38 -->
 <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Variance Quantum State</title>
@@ -194,10 +194,8 @@
   .org-svg { }
 </style>
 <link rel="stylesheet" href="../../css/style.css" />
-<script src="../../js/data.js"></script>
-<script src="../../js/app.js"></script>
-
-  <link rel="shortcut icon" href="https://raw.githubusercontent.com/AaronHnoraA/AaronHnoraA.github.io/refs/heads/master/css/cv.svg" type="image/x-icon">
+<script src="../../js/common.js"></script>
+<link rel="shortcut icon" href="https://raw.githubusercontent.com/AaronHnoraA/AaronHnoraA.github.io/refs/heads/master/css/cv.svg" type="image/x-icon">
 <script>
   window.MathJax = {
     tex: {
@@ -238,20 +236,20 @@
 <h2>Table of Contents</h2>
 <div id="text-table-of-contents" role="doc-toc">
 <ul>
-<li><a href="#org0795f6d">1. 方差 (Variance)</a>
+<li><a href="#orgfe00ae4">1. 方差 (Variance)</a>
 <ul>
-<li><a href="#org83ccc63">1.1. 1. 量子态的数学载体：希尔伯特空间(Hilbert Space)</a></li>
-<li><a href="#org96e21e0">1.2. 2. 量子态不是矢量，而是“束”</a></li>
-<li><a href="#org6fb940c">1.3. 3. 为什么平时还在用“态矢”这个说法？</a></li>
+<li><a href="#orga835700">1.1. 1. 量子态的数学载体：希尔伯特空间(Hilbert Space)</a></li>
+<li><a href="#org724f6c4">1.2. 2. 量子态不是矢量，而是“束”</a></li>
+<li><a href="#orgc8937ef">1.3. 3. 为什么平时还在用“态矢”这个说法？</a></li>
 </ul>
 </li>
 </ul>
 </div>
 </div>
-<div id="outline-container-org0795f6d" class="outline-2">
-<h2 id="org0795f6d"><span class="section-number-2">1.</span> 方差 (Variance)</h2>
+<div id="outline-container-orgfe00ae4" class="outline-2">
+<h2 id="orgfe00ae4"><span class="section-number-2">1.</span> 方差 (Variance)</h2>
 <div class="outline-text-2" id="text-1">
-<div class="definition" id="org5fe6c6c">
+<div class="definition" id="orgf6f3388">
 \begin{align*}
 [\Delta (M)]^{2}
   &= \langle (M  - \langle M \rangle)^2 \rangle \\
@@ -260,7 +258,7 @@
 
 </div>
 
-<div class="proof" id="orgaaca074">
+<div class="proof" id="orgaf44a84">
 <p>
 设方差 (Variance) 的定义为：
 \[
@@ -276,7 +274,7 @@
 &= \sum_i p_i m_i^2 - 2\langle M \rangle \sum_i p_i m_i + \langle M \rangle^2 \sum_i p_i
 \end{align*}
 
-<div class="attention" id="org40d8de3">
+<div class="attention" id="org761398f">
 <p>
 其中利用以下统计性质：
 </p>
@@ -352,8 +350,8 @@
 :ID:       ABBA184F-F2BA-40FD-B44F-3A99A7A0F493
 </p>
 </div>
-<div id="outline-container-org83ccc63" class="outline-3">
-<h3 id="org83ccc63"><span class="section-number-3">1.1.</span> 1. 量子态的数学载体：希尔伯特空间(<a href="../math/hilbert_space.html#ID-FDD92B78-DF6E-44F5-BF77-425C3CF28720">Hilbert Space</a>)</h3>
+<div id="outline-container-orga835700" class="outline-3">
+<h3 id="orga835700"><span class="section-number-3">1.1.</span> 1. 量子态的数学载体：希尔伯特空间(<a href="../math/hilbert_space.html#ID-FDD92B78-DF6E-44F5-BF77-425C3CF28720">Hilbert Space</a>)</h3>
 <div class="outline-text-3" id="text-1-1">
 <p>
 在量子力学中，每一个物理系统，都对应一个 <b>复希尔伯特空间</b> H。
@@ -375,8 +373,8 @@ H 具备三个关键结构：
 </p>
 </div>
 </div>
-<div id="outline-container-org96e21e0" class="outline-3">
-<h3 id="org96e21e0"><span class="section-number-3">1.2.</span> 2. 量子态不是矢量，而是“束”</h3>
+<div id="outline-container-org724f6c4" class="outline-3">
+<h3 id="org724f6c4"><span class="section-number-3">1.2.</span> 2. 量子态不是矢量，而是“束”</h3>
 <div class="outline-text-3" id="text-1-2">
 <p>
 <b><b>关键结论：</b></b>
@@ -430,8 +428,8 @@ H 具备三个关键结构：
 </p>
 </div>
 </div>
-<div id="outline-container-org6fb940c" class="outline-3">
-<h3 id="org6fb940c"><span class="section-number-3">1.3.</span> 3. 为什么平时还在用“态矢”这个说法？</h3>
+<div id="outline-container-orgc8937ef" class="outline-3">
+<h3 id="orgc8937ef"><span class="section-number-3">1.3.</span> 3. 为什么平时还在用“态矢”这个说法？</h3>
 <div class="outline-text-3" id="text-1-3">
 <p>
 虽然严格来说量子态是“束”，
@@ -466,7 +464,7 @@ end of file
 <div id="postamble" class="status">
 <p class="date">Date: <span class="timestamp-wrapper"><span class="timestamp">[2026-01-30 Fri]</span></span> <span class="timestamp-wrapper"><span class="timestamp">[2026-01-28 Wed]</span></span></p>
 <p class="author">Author: hxejs</p>
-<p class="date">Created: 2026-04-10 Fri 00:25</p>
+<p class="date">Created: 2026-04-10 Fri 00:38</p>
 </div>
 </body>
 </html>
