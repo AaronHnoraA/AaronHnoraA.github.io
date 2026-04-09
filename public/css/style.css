@@ -372,11 +372,11 @@ header {
 .stone-badge {
   position: relative;
   display: inline-block;
-  width: 18px;
-  height: 18px;
-  margin-left: 8px;
+  width: 15px;
+  height: 15px;
+  margin-left: 6px;
   padding: 0;
-  vertical-align: middle;
+  vertical-align: -1px;
   line-height: 0;
   overflow: hidden;
   opacity: 0.88;
@@ -625,9 +625,9 @@ body.dark-mode mark {
 
 @media (max-width: 640px) {
   .stone-badge {
-    width: 16px;
-    height: 16px;
-    margin-left: 6px;
+    width: 13px;
+    height: 13px;
+    margin-left: 5px;
   }
 }
 
