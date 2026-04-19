@@ -110,7 +110,7 @@ Hilbert space is a big space.
     存在 $x_k,y_k\in\mathbb R$，
     使得：
     \[
-    x_{ik}\to x_k,\quad y_{ik}\to y_k
+    x_{ik}\to x_k,\quad y_{ik}\to y_{k}
     \]
 
     ** Step 7：构造极限向量
@@ -143,4 +143,3 @@ Hilbert space is a big space.
 给定任意两个（或更多）希尔伯特空间，利用直和或张量积的方式，可以给出一个更大的希尔伯特空间。
 #+end_theorem
 这意味着 这为量子力学中张量积干涉两个量子系统提供了理论支撑.
-

@@ -3,10 +3,15 @@
 (require 'json)
 (require 'ox-publish)
 (require 'org)
+(require 'org-id)
 (require 'seq)
 (require 'subr-x)
 
 (defconst my/site-asset-version "20260410-9")
+(defconst my/site-timestamp-directory
+  (expand-file-name ".cache/org-timestamps/" (file-name-directory load-file-name)))
+(defconst my/site-org-id-locations-file
+  (expand-file-name ".cache/org-id-locations" (file-name-directory load-file-name)))
 
 (defun my/site-html-head (plist filename pub-dir)
   "Publish FILENAME to PUB-DIR with assets referenced relative to the output path."
@@ -245,16 +250,16 @@
                  (note (list
                         :key key
                         :id (plist-get buffer-data :id)
-                        :title (or (org-publish-find-title file project-plist)
+                        :title (or (org-publish-find-title file project-entry)
                                    (file-name-base file))
                         :link (concat (file-name-sans-extension rel-path) ".html")
-                        :date (format-time-string "%Y-%m-%d" (org-publish-find-date file project-plist))
+                        :date (format-time-string "%Y-%m-%d" (org-publish-find-date file project-entry))
                         :summary (plist-get buffer-data :summary)
                         :group-key group-key
                         :group-label (my/site-group-label group-key)
                         :section (my/site-section-name group-key)
                         :tags (append (my/site-normalize-tags
-                                       (org-publish-find-property file :filetags project-plist))
+                                       (org-publish-find-property file :filetags project-entry))
                                       nil)
                         :refs '()
                         :raw-refs (plist-get buffer-data :outgoing)
@@ -342,3 +347,5 @@
 
 (setq org-export-with-broken-links t)
 (setq org-html-validation-link nil)
+(setq org-publish-timestamp-directory my/site-timestamp-directory)
+(setq org-id-locations-file my/site-org-id-locations-file)
