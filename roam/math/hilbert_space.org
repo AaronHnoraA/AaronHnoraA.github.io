@@ -77,8 +77,9 @@ Hilbert space is a big space.
     对每个 $i$，存在唯一的 $z_{ik}\in\mathbb C$，
     使得：
     \[
-    v_i=\sum_{k=1}^N z_{ik}e_k 
+    v_i=\sum_{k=1}^N z_{ik}e_k
     \]
+
 
     ** Step 4：距离的坐标表达
 
