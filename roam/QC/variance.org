@@ -5,11 +5,11 @@
 #+title: Variance
 #+date: [2026-01-30 Fri]
 #+filetags: :qc:measurement:statistics:concept:
-
-
 #+begin_overview :toc t :depth 3
 - [[*方差 (Variance)][方差 (Variance)]]
 #+end_overview
+
+
 
 * 方差 (Variance)
 #+begin_definition

@@ -5,8 +5,6 @@
 #+title: Inner Product Space
 #+date: [2026-01-27 Tue]
 #+filetags: :math:QC:concept:algebra:linear_algebra:
-
-
 #+begin_overview :toc t :depth 3
 - [[*Inner Product Space 内积空间][Inner Product Space 内积空间]]
 - [[*内积的公理化定义][内积的公理化定义]]
@@ -17,6 +15,10 @@
   - [[*物理学（狄拉克符号）的约定][物理学（狄拉克符号）的约定]]
   - [[*重要说明][重要说明]]
 #+end_overview
+
+
+
+
 
 * Inner Product Space 内积空间
 

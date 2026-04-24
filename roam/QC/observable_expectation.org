@@ -5,13 +5,13 @@
 #+title: Observable & Expectation
 #+date: [2026-01-28 Wed]
 #+filetags: :quantum:observable:expectation:operator:
-
-
 #+begin_overview :toc t :depth 3
 - [[*1. 可观测量为什么是厄米算符(\[\[id:20BE5DF6-29D8-4B26-AA52-BFD8AB02A02F\]\[Hermitian Matrix\]\])][1. 可观测量为什么是厄米算符(Hermitian Matrix)]]
 - [[*2. 期望值的物理意义][2. 期望值的物理意义]]
 - [[*3. 谱理论的核心结论][3. 谱理论的核心结论]]
 #+end_overview
+
+
 
 * 1. 可观测量为什么是厄米算符([[id:20BE5DF6-29D8-4B26-AA52-BFD8AB02A02F][Hermitian Matrix]])
 
