@@ -1,9 +1,18 @@
+
 :PROPERTIES:
 :ID:       35CB5287-89BD-4C89-A9AC-AF09CE758331
 :END:
 #+title: Density Operator
 #+date: [2026-01-28 Wed]
 #+filetags: :quantum:density:state:operator:
+
+
+#+begin_overview :toc t :depth 3
+- [[*1. 为什么要引入密度算符][1. 为什么要引入密度算符]]
+- [[*2. 密度算符的定义][2. 密度算符的定义]]
+- [[*3. 纯态是特殊的密度算符][3. 纯态是特殊的密度算符]]
+- [[*4. 纯态与混合态的几何结构][4. 纯态与混合态的几何结构]]
+#+end_overview
 
 * 1. 为什么要引入密度算符
 

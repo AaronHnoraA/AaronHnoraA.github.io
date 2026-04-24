@@ -1,17 +1,124 @@
 ;;; publish.el --- org-publish config -*- lexical-binding: t; -*-
 
 (require 'json)
+(require 'ox-html)
 (require 'ox-publish)
 (require 'org)
+(require 'org-element)
 (require 'org-id)
 (require 'seq)
 (require 'subr-x)
 
 (defconst my/site-asset-version "20260410-9")
+(defconst my/site-roam-directory
+  (expand-file-name "roam/" (file-name-directory load-file-name)))
+(defconst my/site-roam-html-asset-directory "assets")
+(defconst my/site-roam-image-extensions
+  '("png" "jpg" "jpeg" "gif" "svg" "webp" "avif"))
 (defconst my/site-timestamp-directory
   (expand-file-name ".cache/org-timestamps/" (file-name-directory load-file-name)))
 (defconst my/site-org-id-locations-file
   (expand-file-name ".cache/org-id-locations" (file-name-directory load-file-name)))
+
+(defun my/site-managed-special-block-p (block)
+  "Return non-nil when BLOCK is generated for local display only."
+  (let ((type (downcase (or (org-element-property :type block) "")))
+        (parameters (or (org-element-property :parameters block) "")))
+    (or (string= type "toc")
+        (and (string= type "overview")
+             (string-match-p "\\_<:toc\\_>" parameters)))))
+
+(defun my/site-remove-managed-blocks (tree _backend _info)
+  "Remove generated overview/toc blocks from export TREE."
+  (org-element-map tree 'special-block
+    (lambda (block)
+      (when (my/site-managed-special-block-p block)
+        (org-element-extract-element block))))
+  tree)
+
+(defun my/site-file-in-directory-p (file directory)
+  "Return non-nil when FILE is inside DIRECTORY."
+  (and file directory
+       (file-exists-p file)
+       (file-directory-p directory)
+       (file-in-directory-p (file-truename file) (file-truename directory))))
+
+(defun my/site-image-file-p (file)
+  "Return non-nil when FILE should be treated as a publishable image."
+  (member (downcase (or (file-name-extension file) ""))
+          my/site-roam-image-extensions))
+
+(defun my/site-export-source-file (info)
+  "Return the source Org file from export INFO."
+  (or (plist-get info :input-file)
+      (buffer-file-name (buffer-base-buffer))))
+
+(defun my/site-export-output-directory (info)
+  "Return output directory for export INFO."
+  (file-name-directory
+   (expand-file-name
+    (or (plist-get info :output-file)
+        (org-export-output-file-name ".html" nil)))))
+
+(defun my/site-resolve-file-link (path info)
+  "Resolve local file link PATH against source file in export INFO."
+  (let ((expanded (substitute-in-file-name path)))
+    (if (file-name-absolute-p expanded)
+        (expand-file-name expanded)
+      (expand-file-name
+       expanded
+       (file-name-directory
+        (or (my/site-export-source-file info)
+            (expand-file-name "publish.org" default-directory)))))))
+
+(defun my/site-roam-asset-relative-path (source-file image-file)
+  "Return a stable copied asset path for IMAGE-FILE linked from SOURCE-FILE."
+  (let* ((source-dir (and source-file (file-name-directory source-file)))
+         (local-rel (and source-dir (file-relative-name image-file source-dir))))
+    (if (and local-rel
+             (not (string-prefix-p "../" local-rel))
+             (not (string= local-rel "..")))
+        local-rel
+      (file-relative-name image-file (file-truename my/site-roam-directory)))))
+
+(defun my/site-copy-roam-image-asset (image-file info)
+  "Copy org-roam IMAGE-FILE for HTML export described by INFO."
+  (let* ((source-file (my/site-export-source-file info))
+         (output-dir (my/site-export-output-directory info))
+         (asset-rel (my/site-roam-asset-relative-path source-file image-file))
+         (target-file (expand-file-name
+                       asset-rel
+                       (expand-file-name my/site-roam-html-asset-directory
+                                         output-dir))))
+    (make-directory (file-name-directory target-file) t)
+    (unless (and (file-exists-p target-file)
+                 (file-equal-p image-file target-file))
+      (copy-file image-file target-file t))
+    (file-relative-name target-file output-dir)))
+
+(defun my/site-copy-roam-image-links (tree backend info)
+  "Copy org-roam local image links and rewrite them for HTML export TREE."
+  (when (and (org-export-derived-backend-p backend 'html)
+             (my/site-file-in-directory-p
+              (my/site-export-source-file info)
+              my/site-roam-directory))
+    (org-element-map tree 'link
+      (lambda (link)
+        (when (string= (org-element-property :type link) "file")
+          (let* ((path (org-element-property :path link))
+                 (image-file (and path (my/site-resolve-file-link path info))))
+            (when (and image-file
+                       (file-regular-p image-file)
+                       (my/site-image-file-p image-file)
+                       (my/site-file-in-directory-p image-file my/site-roam-directory))
+              (org-element-put-property
+               link :path
+               (my/site-copy-roam-image-asset image-file info))))))))
+  tree)
+
+(dolist (filter '(my/site-remove-managed-blocks
+                  my/site-copy-roam-image-links))
+  (add-to-list 'org-export-filter-parse-tree-functions filter))
 
 (defun my/site-html-head (plist filename pub-dir)
   "Publish FILENAME to PUB-DIR with assets referenced relative to the output path."
@@ -337,7 +444,7 @@
          :sitemap-function my/generate-data-and-index)
         ("site-static"
          :base-directory "~/HC/Org/"
-         :base-extension "css\\|js\\|png\\|jpg\\|gif\\|svg\\|pdf"
+         :base-extension "css\\|js\\|png\\|jpg\\|jpeg\\|gif\\|svg\\|webp\\|avif\\|pdf"
          :publishing-directory "~/HC/Org/public/"
          :recursive t
          :exclude "public/\\|ltximg/"

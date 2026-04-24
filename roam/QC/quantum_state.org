@@ -1,9 +1,17 @@
+
 :PROPERTIES:
 :ID:       ABBA184F-F2BA-40FD-B44F-3A99A7A0F493
 :END:
 #+title: Quantum State
 #+date: [2026-01-28 Wed]
 #+filetags: :qc:state:hilbert:geometry:
+
+
+#+begin_overview :toc t :depth 3
+- [[*1. 量子态的数学载体：希尔伯特空间(\[\[id:FDD92B78-DF6E-44F5-BF77-425C3CF28720\]\[Hilbert Space\]\])][1. 量子态的数学载体：希尔伯特空间(Hilbert Space)]]
+- [[*2. 量子态不是矢量，而是“束”][2. 量子态不是矢量，而是“束”]]
+- [[*3. 为什么平时还在用“态矢”这个说法？][3. 为什么平时还在用“态矢”这个说法？]]
+#+end_overview
 
 * 1. 量子态的数学载体：希尔伯特空间([[id:FDD92B78-DF6E-44F5-BF77-425C3CF28720][Hilbert Space]])
 
