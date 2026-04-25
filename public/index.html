@@ -15,13 +15,37 @@
 <body class="site-home">
   <div class="site-shell">
   <header class="hero">
-    <p class="hero-kicker">Aaron He</p>
-    <h1>Mathematics, Computer Science, and Study Notes</h1>
-    <p class="hero-subtitle">Undergraduate work in mathematics and theoretical computer science, with a growing archive of notes on algebra, analysis, and quantum computing.</p>
-    <div class="hero-meta" aria-label="Profile highlights">
-      <span>UNSW Sydney</span>
-      <span>Talented Students Program</span>
-      <span>Research Notes and Coursework</span>
+    <div class="hero-grid">
+      <div class="hero-main">
+        <p class="hero-kicker">Aaron He</p>
+        <h1>Mathematics, Computer Science, and Study Notes</h1>
+        <p class="hero-subtitle">Undergraduate work in mathematics and theoretical computer science, with notes on algebra, analysis, and quantum computing.</p>
+        <div class="hero-meta" aria-label="Profile highlights">
+          <span>UNSW Sydney</span>
+          <span>Talented Students Program</span>
+          <span>Research Notes and Coursework</span>
+        </div>
+      </div>
+      <aside class="hero-aside" aria-label="Profile summary">
+        <dl class="hero-facts">
+          <div>
+            <dt>Affiliation</dt>
+            <dd>UNSW Sydney</dd>
+          </div>
+          <div>
+            <dt>Focus</dt>
+            <dd>Algebra, algorithms, quantum computing</dd>
+          </div>
+          <div>
+            <dt>Email</dt>
+            <dd><a href="mailto:aaron.he@student.unsw.edu.au">aaron.he@student.unsw.edu.au</a></dd>
+          </div>
+          <div>
+            <dt>GitHub</dt>
+            <dd><a href="https://github.com/AaronHnoraA" target="_blank" rel="noreferrer">AaronHnoraA</a></dd>
+          </div>
+        </dl>
+      </aside>
     </div>
   </header>
 
@@ -36,17 +60,17 @@
   </nav>
 
   <main class="site-main">
+    <div class="home-grid">
     <section id="about" class="section">
       <h2>About</h2>
       <p>
-        I am a second-year Mathematics student at UNSW Sydney, Australia, with continuing interests in computer science,
-        algebra, algorithms, and quantum computation.
+        I am a second-year Mathematics student at UNSW Sydney, working across mathematics, algorithms, and quantum computation.
       </p>
       <p>
-        I'm a member of the <a
+        I am a member of the <a
           href="https://www.unsw.edu.au/science/student-life-resources/student-opportunities/talented-students-program">UNSW
           Science Talented Students Program (TSP)</a>,
-        and I'm currently working with Associate Professor Youming Qiao
+        and currently work with Associate Professor Youming Qiao
         <span class="stone-inline">(<a href="https://sites.google.com/site/jimmyqiao86/">homepage</a>).
         </span>
       </p>
@@ -65,16 +89,16 @@
     <section id="projects" class="section">
       <h2>Projects</h2>
       <ul>
-        <li><strong>Comp1010:</strong> Python</li>
+        <li><strong>Comp1010</strong> — Python coursework and exercises</li>
       </ul>
     </section>
 
-    <section id="notes-section" class="section">
+    <section id="notes-section" class="section section-wide">
       <div id="notes-summary" class="notes-summary" aria-live="polite"></div>
       <div id="notes-actions" class="notes-actions" aria-label="Knowledge tools"></div>
 
       <h2>Notes</h2>
-      <p class="section-intro">A searchable index of study notes and links between topics.</p>
+      <p class="section-intro">A searchable archive of notes, references, and topic relations.</p>
 
       <h3>Knowledge Graph</h3>
       <div id="graph-container" aria-label="Interactive knowledge graph"></div>
@@ -129,6 +153,7 @@
       <p>Email: <a href="mailto:aaron.he@student.unsw.edu.au">aaron.he@student.unsw.edu.au</a> (UNSW School Email)
       </p>
     </section>
+    </div>
   </main>
   <footer class="site-footer">
     <span class="footer-text">&copy; 2026 Chang He (Aaron) | Built with Emacs Org Mode.</span>

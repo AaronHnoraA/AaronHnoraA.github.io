@@ -1681,12 +1681,23 @@ body.site-home {
 }
 
 .site-home .hero {
-  padding: 0 0 2rem;
+  padding: 0 0 2.4rem;
   border: none;
   border-bottom: 1px solid rgba(31, 29, 26, 0.22);
   border-radius: 0;
   background: transparent;
   box-shadow: none;
+}
+
+.site-home .hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.75fr) minmax(240px, 0.9fr);
+  gap: 2.5rem;
+  align-items: end;
+}
+
+.site-home .hero-main {
+  min-width: 0;
 }
 
 .site-home .hero-kicker {
@@ -1716,7 +1727,7 @@ body.site-home {
 
 .site-home .hero-meta {
   gap: 1.25rem;
-  margin-top: 1.3rem;
+  margin-top: 1.5rem;
 }
 
 .site-home .hero-meta span {
@@ -1736,12 +1747,45 @@ body.site-home {
   color: rgba(31, 29, 26, 0.38);
 }
 
+.site-home .hero-aside {
+  align-self: stretch;
+  padding-left: 1.4rem;
+  border-left: 1px solid rgba(31, 29, 26, 0.14);
+}
+
+.site-home .hero-facts {
+  margin: 0;
+}
+
+.site-home .hero-facts div + div {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(31, 29, 26, 0.08);
+}
+
+.site-home .hero-facts dt {
+  margin: 0 0 0.35rem;
+  color: rgba(31, 29, 26, 0.54);
+  font-family: var(--font-sans);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.site-home .hero-facts dd {
+  margin: 0;
+  color: #1f1d1a;
+  font-size: 0.96rem;
+  line-height: 1.7;
+}
+
 .site-home .site-nav {
   top: 0;
   justify-content: flex-start;
-  gap: 1rem;
+  gap: 1.3rem;
   margin-top: 1.1rem;
-  padding: 0.9rem 0;
+  padding: 1rem 0 0.95rem;
   border: none;
   border-bottom: 1px solid rgba(31, 29, 26, 0.14);
   border-radius: 0;
@@ -1756,8 +1800,10 @@ body.site-home {
   border-radius: 0;
   color: rgba(31, 29, 26, 0.72);
   font-family: var(--font-sans);
-  font-size: 0.92rem;
-  font-weight: 600;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .site-home .site-nav a:hover {
@@ -1771,8 +1817,14 @@ body.site-home {
   margin-top: 2rem;
 }
 
+.site-home .home-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 3.25rem;
+}
+
 .site-home .section {
-  padding: 1.7rem 0 1.9rem;
+  padding: 1.5rem 0 1.7rem;
   border: none;
   border-top: 1px solid rgba(31, 29, 26, 0.12);
   border-radius: 0;
@@ -1780,9 +1832,13 @@ body.site-home {
   box-shadow: none;
 }
 
-.site-home .section:first-child {
+.site-home .home-grid > .section:nth-child(-n + 2) {
   border-top: none;
   padding-top: 0;
+}
+
+.site-home .section-wide {
+  grid-column: 1 / -1;
 }
 
 .site-home .section h2,
@@ -1793,8 +1849,10 @@ body.site-home {
 
 .site-home .section h2 {
   margin: 0 0 0.8rem;
-  font-size: 1.08rem;
+  font-size: 0.84rem;
   font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .site-home .section h3 {
@@ -1813,31 +1871,37 @@ body.site-home {
 }
 
 .site-home .section ul {
-  margin: 0;
+  margin: 0.1rem 0 0;
   padding-left: 1.1rem;
 }
 
+.site-home .section li + li {
+  margin-top: 0.35rem;
+}
+
 .site-home .section-intro {
-  margin: -0.1rem 0 1.2rem;
+  max-width: 48rem;
+  margin: -0.15rem 0 1.35rem;
   color: rgba(31, 29, 26, 0.72);
 }
 
 .site-home .notes-summary {
-  gap: 0;
-  margin-bottom: 1.5rem;
-  border-top: 1px solid rgba(31, 29, 26, 0.12);
-  border-bottom: 1px solid rgba(31, 29, 26, 0.12);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1.2rem;
+  margin-bottom: 1.6rem;
+  border: none;
 }
 
 .site-home .summary-card {
-  padding: 1rem 0;
-  border: none;
+  min-height: 7.4rem;
+  padding: 1rem 1rem 0.95rem;
+  border: 1px solid rgba(31, 29, 26, 0.12);
   border-radius: 0;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .site-home .summary-card + .summary-card {
-  border-top: 1px solid rgba(31, 29, 26, 0.08);
+  border-top: 1px solid rgba(31, 29, 26, 0.12);
 }
 
 .site-home .summary-label,
@@ -1853,7 +1917,7 @@ body.site-home {
 
 .site-home .summary-value {
   font-family: var(--font-serif);
-  font-size: 1.85rem;
+  font-size: 1.65rem;
   font-weight: 600;
 }
 
@@ -1863,13 +1927,13 @@ body.site-home {
 .site-home .empty-state {
   border: 1px solid rgba(31, 29, 26, 0.12);
   border-radius: 0;
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.42);
   box-shadow: none;
   backdrop-filter: none;
 }
 
 .site-home .notes-actions {
-  padding: 0.95rem 1rem;
+  padding: 1rem;
 }
 
 .site-home .quick-action-btn,
@@ -1886,6 +1950,21 @@ body.site-home {
   box-shadow: none;
   color: #1f1d1a;
   font-weight: 600;
+}
+
+.site-home .quick-action-group {
+  gap: 0.6rem;
+}
+
+.site-home .quick-action-status {
+  gap: 0.65rem 1rem;
+  align-items: center;
+}
+
+.site-home .quick-action-hint,
+.site-home .quick-action-shortcuts,
+.site-home .quick-action-tags {
+  font-size: 0.86rem;
 }
 
 .site-home .quick-action-btn:hover:not(:disabled),
@@ -1907,7 +1986,7 @@ body.site-home {
 }
 
 .site-home #graph-container {
-  height: 500px;
+  height: 560px;
   border: 1px solid rgba(31, 29, 26, 0.12);
   border-radius: 0;
   background: #f2efe7;
@@ -1982,6 +2061,9 @@ body.site-home {
 .site-home .toolbar {
   gap: 0.85rem;
   margin-bottom: 1rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid rgba(31, 29, 26, 0.12);
+  background: rgba(255, 255, 255, 0.28);
 }
 
 .site-home #note-search,
@@ -1997,9 +2079,107 @@ body.site-home {
   border: 1px solid rgba(31, 29, 26, 0.14);
 }
 
+.site-home .search-wrapper {
+  min-width: 0;
+}
+
+.site-home .sort-wrapper {
+  justify-content: flex-end;
+}
+
+.site-home .sort-wrapper label {
+  color: rgba(31, 29, 26, 0.58);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.site-home .active-filters {
+  margin-bottom: 1rem;
+}
+
+.site-home .active-filter-bar {
+  padding: 0.75rem 0 0.9rem;
+  border-bottom: 1px solid rgba(31, 29, 26, 0.1);
+}
+
+.site-home .active-filter-empty {
+  padding: 0.35rem 0 0.85rem;
+  color: rgba(31, 29, 26, 0.58);
+}
+
 .site-home .suggestion-item,
 .site-home .note-suggestion {
   border-bottom-color: rgba(31, 29, 26, 0.08);
+}
+
+.site-home #tag-cloud {
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.95rem;
+  border-bottom: 1px solid rgba(31, 29, 26, 0.1);
+}
+
+.site-home .tab-buttons {
+  gap: 0;
+  padding: 0 0 0.7rem;
+  margin-bottom: 1rem;
+}
+
+.site-home .tab-btn {
+  min-width: 0;
+  padding: 0.65rem 0.85rem;
+  border-left-width: 0;
+}
+
+.site-home .tab-btn:first-child {
+  border-left-width: 1px;
+}
+
+.site-home .file-list {
+  gap: 0;
+  border-top: 1px solid rgba(31, 29, 26, 0.12);
+}
+
+.site-home .file-card {
+  padding: 1rem 0;
+  border-width: 0 0 1px;
+  background: transparent;
+}
+
+.site-home .file-row {
+  align-items: baseline;
+}
+
+.site-home .file-link {
+  font-family: var(--font-serif);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.site-home .file-summary {
+  max-width: 56rem;
+}
+
+.site-home .file-meta {
+  gap: 0.5rem 0.85rem;
+}
+
+.site-home .group-pill,
+.site-home .relation-pill {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: rgba(31, 29, 26, 0.56);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.site-home .file-tags {
+  margin-top: 0.75rem;
 }
 
 .site-home .site-footer {
@@ -2007,6 +2187,10 @@ body.site-home {
   padding-top: 1rem;
   border-top: 1px solid rgba(31, 29, 26, 0.12);
   color: rgba(31, 29, 26, 0.6);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .site-home .footer-stone,
@@ -2358,6 +2542,28 @@ body.note-page {
     gap: 0.75rem 1rem;
   }
 
+  .site-home .hero-grid,
+  .site-home .home-grid {
+    grid-template-columns: 1fr;
+    gap: 1.6rem;
+  }
+
+  .site-home .notes-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .site-home .hero-aside {
+    padding-left: 0;
+    border-left: none;
+    border-top: 1px solid rgba(31, 29, 26, 0.12);
+    padding-top: 1rem;
+  }
+
+  .site-home .home-grid > .section:nth-child(2) {
+    border-top: 1px solid rgba(31, 29, 26, 0.12);
+    padding-top: 1.5rem;
+  }
+
   .note-page #content {
     padding: 36px 32px 44px;
   }
@@ -2442,12 +2648,16 @@ body.note-page {
     gap: 0.7rem 1rem;
   }
 
+  .site-home .notes-summary {
+    grid-template-columns: 1fr;
+  }
+
   .site-home .hero {
     padding-bottom: 1.5rem;
   }
 
   .site-home #graph-container {
-    height: 360px;
+    height: 380px;
   }
 
   .note-page #content {

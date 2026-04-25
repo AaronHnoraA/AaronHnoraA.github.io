@@ -240,17 +240,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const cards = [
       {
-        label: "Notes",
+        label: "Archive",
         value: knowledge.stats.totalNotes,
         hint: `${knowledge.stats.connectedNotes} connected`,
       },
       {
         label: "Visible",
         value: filtered.length,
-        hint: state.text || state.tags.size ? "current filter" : "all notes",
+        hint: state.text || state.tags.size ? "filtered selection" : "full archive",
       },
       {
-        label: "Tags",
+        label: "Topics",
         value: knowledge.stats.totalTags,
         hint: `${knowledge.stats.totalReferenceEdges} references`,
       },
@@ -299,22 +299,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
     actions.innerHTML = `
       <div class="quick-action-group">
-        <button type="button" class="quick-action-btn" data-action="random-note">Random Note</button>
-        <button type="button" class="quick-action-btn" data-action="latest-note" ${latestNote ? "" : "disabled"}>Latest Note</button>
-        <button type="button" class="quick-action-btn" data-action="copy-view">Copy View Link</button>
+        <button type="button" class="quick-action-btn" data-action="random-note">Open Random</button>
+        <button type="button" class="quick-action-btn" data-action="latest-note" ${latestNote ? "" : "disabled"}>Open Latest</button>
+        <button type="button" class="quick-action-btn" data-action="copy-view">Copy Link</button>
       </div>
       <div class="quick-action-status">
         ${
           focusNote
-            ? `<span class="quick-action-hint">Focused: ${escapeHtml(focusNote.title)}</span>`
+            ? `<span class="quick-action-hint">Focused note: ${escapeHtml(focusNote.title)}</span>`
             : latestNote
-              ? `<span class="quick-action-hint">Newest visible: ${escapeHtml(latestNote.title)}</span>`
-              : `<span class="quick-action-hint">Use filters or graph focus to narrow your notes.</span>`
+              ? `<span class="quick-action-hint">Latest visible note: ${escapeHtml(latestNote.title)}</span>`
+              : `<span class="quick-action-hint">Use search, topic filters, or graph focus to narrow the archive.</span>`
         }
-        <span class="quick-action-shortcuts">Shortcuts: <kbd>/</kbd> search, <kbd>R</kbd> random</span>
+        <span class="quick-action-shortcuts">Keys: <kbd>/</kbd> search, <kbd>R</kbd> random</span>
         ${
           topTags.length > 0
-            ? `<span class="quick-action-tags">Top tags: ${topTags.map(([tag, count]) => `<button type="button" class="quick-inline-tag" data-quick-tag="${escapeHtml(tag)}">#${escapeHtml(tag)} · ${count}</button>`).join("")}</span>`
+            ? `<span class="quick-action-tags">Common topics: ${topTags.map(([tag, count]) => `<button type="button" class="quick-inline-tag" data-quick-tag="${escapeHtml(tag)}">#${escapeHtml(tag)} · ${count}</button>`).join("")}</span>`
             : ""
         }
       </div>
@@ -388,10 +388,10 @@ document.addEventListener("DOMContentLoaded", () => {
       chips.length > 0
         ? `
           <div class="active-filter-bar">
-            <span class="active-filter-stats">${filtered.length} notes in ${groupCount} groups</span>
+            <span class="active-filter-stats">${filtered.length} notes across ${groupCount} sections</span>
             <div class="active-filter-list">
               ${chips.join("")}
-              <button class="filter-chip filter-chip-clear" type="button" data-filter-kind="clear-all">Clear all</button>
+              <button class="filter-chip filter-chip-clear" type="button" data-filter-kind="clear-all">Clear filters</button>
             </div>
           </div>
         `
