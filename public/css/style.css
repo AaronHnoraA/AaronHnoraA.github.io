@@ -6,19 +6,19 @@
   --font-serif: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
   --font-mono: "JetBrains Mono", "SFMono-Regular", "Consolas", monospace;
 
-  --text-primary: #2d2430;
-  --text-secondary: #6f6170;
-  --accent-color: #5f77ab;
-  --accent-hover: #39557d;
-  --border-color: #d8dfeb;
-  --bg-body: #edf2f8;
-  --bg-card: #fffefe;
-  --bg-card-strong: #ffffff;
-  --tag-bg: #e7eefb;
-  --tag-text: #39557d;
-  --hero-grad-1: #dfeffc;
-  --hero-grad-2: #e7ebfb;
-  --hero-grad-3: #eee5f8;
+  --text-primary: #1f1d1a;
+  --text-secondary: rgba(31, 29, 26, 0.64);
+  --accent-color: #1f1d1a;
+  --accent-hover: #000000;
+  --border-color: rgba(31, 29, 26, 0.12);
+  --bg-body: #f7f5f0;
+  --bg-card: #f3efe7;
+  --bg-card-strong: #f3efe7;
+  --tag-bg: #f1ede4;
+  --tag-text: #1f1d1a;
+  --hero-grad-1: #f7f5f0;
+  --hero-grad-2: #f7f5f0;
+  --hero-grad-3: #f7f5f0;
 
   --site-paper: #f7f5f0;
   --c-def: #f9e2af;
@@ -41,10 +41,7 @@ body {
   margin: 0;
   min-height: 100%;
   padding: 48px 18px 64px;
-  background:
-    radial-gradient(circle at top left, rgba(222, 239, 250, 0.96), transparent 24%),
-    radial-gradient(circle at top right, rgba(236, 228, 247, 0.92), transparent 26%),
-    linear-gradient(180deg, #fbf7fb 0%, var(--bg-body) 100%);
+  background: var(--site-paper);
   color: var(--text-primary);
   font-family: var(--font-serif);
   line-height: 1.75;
@@ -71,18 +68,18 @@ a:hover {
   margin: 0 auto;
   padding: 48px 52px;
   font-size: calc(1rem * var(--note-font-scale, 1));
-  background: color-mix(in srgb, var(--bg-card-strong), transparent 4%);
-  border: 1px solid rgba(216, 221, 215, 0.85);
-  border-radius: 28px;
-  box-shadow: 0 28px 70px rgba(53, 64, 71, 0.10);
+  background: rgba(255, 255, 255, 0.52);
+  border: 1px solid rgba(31, 29, 26, 0.12);
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .title {
   margin: 0 0 1.2rem;
-  font-family: var(--font-sans);
-  font-size: clamp(2.2rem, 4vw, 3.4rem);
-  line-height: 1.05;
-  letter-spacing: -0.04em;
+  font-family: var(--font-serif);
+  font-size: clamp(2rem, 4.1vw, 3rem);
+  line-height: 1.08;
+  letter-spacing: 0;
   text-align: left;
   color: var(--text-primary);
 }
@@ -125,10 +122,12 @@ a:hover {
 
 #table-of-contents {
   margin: 0 0 2rem;
-  padding: 1.3rem 1.4rem;
-  border: 1px solid rgba(95, 119, 171, 0.16);
-  border-radius: 20px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(249, 240, 246, 0.96));
+  padding: 1rem 0 1.05rem;
+  border: none;
+  border-top: 1px solid rgba(31, 29, 26, 0.12);
+  border-bottom: 1px solid rgba(31, 29, 26, 0.12);
+  border-radius: 0;
+  background: transparent;
 }
 
 #table-of-contents h2 {
@@ -749,8 +748,9 @@ blockquote {
    3. Home Page Layout
    ========================================================================== */
 body.site-home {
-  padding: 24px 18px 48px;
-  font-family: var(--font-sans);
+  padding: 32px 20px 48px;
+  background: var(--site-paper);
+  font-family: var(--font-serif);
 }
 
 .site-shell {
@@ -760,14 +760,13 @@ body.site-home {
 
 .site-home .hero {
   position: relative;
-  overflow: hidden;
-  padding: 3.2rem clamp(1.4rem, 4vw, 3rem);
-  border: 1px solid rgba(216, 221, 215, 0.9);
-  border-radius: 32px;
-  background:
-    radial-gradient(circle at top right, rgba(255, 255, 255, 0.92), transparent 28%),
-    linear-gradient(135deg, var(--hero-grad-1), var(--hero-grad-2) 55%, var(--hero-grad-3));
-  box-shadow: 0 30px 70px rgba(53, 64, 71, 0.12);
+  overflow: visible;
+  padding: 0 0 2.4rem;
+  border: none;
+  border-bottom: 1px solid rgba(31, 29, 26, 0.22);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .hero-kicker {
@@ -816,19 +815,20 @@ body.site-home {
 
 .site-home .site-nav {
   position: sticky;
-  top: 16px;
+  top: 0;
   z-index: 30;
   display: flex;
-  gap: 0.65rem;
+  gap: 1.3rem;
   flex-wrap: wrap;
-  justify-content: center;
-  margin: 1.2rem auto 0;
-  padding: 0.8rem;
-  border: 1px solid rgba(216, 221, 215, 0.9);
-  border-radius: 22px;
-  background: rgba(255, 253, 248, 0.78);
-  box-shadow: 0 18px 40px rgba(53, 64, 71, 0.10);
-  backdrop-filter: blur(14px);
+  justify-content: flex-start;
+  margin: 1.1rem auto 0;
+  padding: 1rem 0 0.95rem;
+  border: none;
+  border-bottom: 1px solid rgba(31, 29, 26, 0.14);
+  border-radius: 0;
+  background: rgba(247, 245, 240, 0.94);
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 .site-home .site-nav a {
@@ -844,16 +844,17 @@ body.site-home {
 
 .site-home .site-main {
   display: grid;
-  gap: 1.4rem;
-  margin-top: 1.4rem;
+  gap: 0;
+  margin-top: 2rem;
 }
 
 .site-home .section {
-  padding: 1.6rem;
-  border: 1px solid rgba(216, 221, 215, 0.9);
-  border-radius: 26px;
-  background: color-mix(in srgb, var(--bg-card-strong), transparent 4%);
-  box-shadow: 0 20px 44px rgba(53, 64, 71, 0.08);
+  padding: 1.5rem 0 1.7rem;
+  border: none;
+  border-top: 1px solid rgba(31, 29, 26, 0.12);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .site-home .section h3 {
@@ -1135,9 +1136,9 @@ mark {
   flex-wrap: wrap;
   margin-bottom: 18px;
   padding: 12px 14px;
-  border: 1px solid rgba(95, 119, 171, 0.10);
-  border-radius: 16px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(250,242,247,0.92));
+  border: 1px solid rgba(31, 29, 26, 0.12);
+  border-radius: 0;
+  background: #f3efe7;
 }
 
 .quick-action-group {
@@ -1153,9 +1154,9 @@ mark {
   justify-content: center;
   min-height: 2.3rem;
   padding: 0.55rem 0.9rem;
-  border: 1px solid rgba(95, 119, 171, 0.12);
-  border-radius: 999px;
-  background: #ffffff;
+  border: 1px solid rgba(31, 29, 26, 0.14);
+  border-radius: 0;
+  background: transparent;
   color: var(--text-primary);
   font: inherit;
   font-size: 0.88rem;
@@ -1232,8 +1233,8 @@ mark {
   gap: 4px;
   padding: 14px 16px;
   border: 1px solid var(--border-color);
-  border-radius: 14px;
-  background: linear-gradient(135deg, rgba(255,255,255,0.92), rgba(245,248,255,0.92));
+  border-radius: 0;
+  background: #f1ede4;
 }
 
 .summary-label,
@@ -1288,12 +1289,11 @@ mark {
   width: 100%;
   height: 520px;
   border: 1px solid var(--border-color);
-  border-radius: 18px;
+  border-radius: 0;
   overflow: hidden;
   background:
-    radial-gradient(circle at top left, rgba(95,119,171,0.10), transparent 26%),
-    radial-gradient(circle at bottom right, rgba(143,157,216,0.16), transparent 28%),
-    linear-gradient(180deg, rgba(255,255,255,0.98), rgba(243,247,252,0.98));
+    linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0)),
+    #f2efe7;
 }
 
 .graph-message {
@@ -1317,9 +1317,9 @@ mark {
   margin-top: 14px;
   padding: 16px 18px;
   border: 1px solid var(--border-color);
-  border-radius: 16px;
-  background: rgba(255,255,255,0.74);
-  backdrop-filter: blur(12px);
+  border-radius: 0;
+  background: #f3efe7;
+  backdrop-filter: none;
 }
 
 .graph-focus.empty {
@@ -1468,10 +1468,10 @@ mark {
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  border-radius: 999px;
+  border-radius: 0;
   border: 1px solid rgba(148,163,184,0.18);
   padding: 10px 14px;
-  background: rgba(255,255,255,0.62);
+  background: transparent;
   color: var(--text-secondary);
   font-weight: 700;
   min-width: 132px;
@@ -1546,8 +1546,8 @@ mark {
   gap: 12px;
   padding: 16px 18px;
   border: 1px solid var(--border-color);
-  border-radius: 16px;
-  background: var(--bg-card);
+  border-radius: 0;
+  background: #f3efe7;
 }
 
 .file-card-main {

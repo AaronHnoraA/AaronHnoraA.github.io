@@ -1,4 +1,8 @@
 (function () {
+  if (document.body) {
+    document.body.classList.add("note-page");
+  }
+
   function escapeHtml(value) {
     return String(value)
       .replace(/&/g, "&amp;")
@@ -30,8 +34,6 @@
     if (!content) {
       return;
     }
-
-    document.body.classList.add("note-page");
 
     const knowledge = window.KNOWLEDGE_DATA || null;
     const currentLink = normalizePath(window.CURRENT_NOTE_LINK || window.location.pathname);
