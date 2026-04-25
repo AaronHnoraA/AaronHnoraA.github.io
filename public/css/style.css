@@ -20,15 +20,16 @@
   --hero-grad-2: #e7ebfb;
   --hero-grad-3: #eee5f8;
 
-  --c-def: #b7791f;
-  --c-thm: #2f855a;
-  --c-lemma: #2b6cb0;
-  --c-cor: #a764c5;
-  --c-prop: #c05621;
-  --c-proof: #2563eb;
-  --c-example: #9c4221;
-  --c-attend: #c53030;
-  --c-note: #8094c6;
+  --site-paper: #f7f5f0;
+  --c-def: #f9e2af;
+  --c-thm: #bbf7b8;
+  --c-lemma: #a9cbff;
+  --c-cor: #b4befe;
+  --c-prop: #f5e0dc;
+  --c-proof: #9de7ff;
+  --c-example: #d8b27f;
+  --c-attend: #d79a9a;
+  --c-note: #a8f0e3;
 }
 
 html {
@@ -2299,7 +2300,7 @@ body.site-home {
    9. Note Page Refinement
    ========================================================================== */
 body.note-page {
-  background: #f7f5f0;
+  background: var(--site-paper);
   color: #1f1d1a;
 }
 
@@ -2469,7 +2470,7 @@ body.note-page {
   border: 1px solid rgba(31, 29, 26, 0.14);
   border-left-width: 2px;
   border-radius: 0;
-  background: #f3efe7;
+  background: color-mix(in srgb, var(--block-c) 7.5%, var(--site-paper));
   box-shadow: none;
 }
 
@@ -2488,8 +2489,8 @@ body.note-page {
 .note-page .info::before,
 .note-page .warning::before {
   padding: 0.52rem 0.9rem;
-  background: #ebe6dc;
-  color: rgba(31, 29, 26, 0.72);
+  background: color-mix(in srgb, var(--block-c) 18%, var(--site-paper));
+  color: color-mix(in srgb, var(--block-c) 58%, #2b2621);
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -2537,6 +2538,47 @@ body.note-page {
 .note-page .info > :last-child,
 .note-page .warning > :last-child {
   padding-bottom: 0.9rem;
+}
+
+.note-page .definition,
+.note-page .defn {
+  border-color: color-mix(in srgb, var(--c-def) 38%, rgba(31, 29, 26, 0.14));
+}
+
+.note-page .theorem,
+.note-page .thm {
+  border-color: color-mix(in srgb, var(--c-thm) 38%, rgba(31, 29, 26, 0.14));
+}
+
+.note-page .lemma {
+  border-color: color-mix(in srgb, var(--c-lemma) 38%, rgba(31, 29, 26, 0.14));
+}
+
+.note-page .cor {
+  border-color: color-mix(in srgb, var(--c-cor) 38%, rgba(31, 29, 26, 0.14));
+}
+
+.note-page .prop,
+.note-page .property {
+  border-color: color-mix(in srgb, var(--c-prop) 38%, rgba(31, 29, 26, 0.14));
+}
+
+.note-page .proof {
+  border-color: color-mix(in srgb, var(--c-proof) 38%, rgba(31, 29, 26, 0.14));
+}
+
+.note-page .example {
+  border-color: color-mix(in srgb, var(--c-example) 38%, rgba(31, 29, 26, 0.14));
+}
+
+.note-page .attention,
+.note-page .warning {
+  border-color: color-mix(in srgb, var(--c-attend) 42%, rgba(31, 29, 26, 0.14));
+}
+
+.note-page .note,
+.note-page .info {
+  border-color: color-mix(in srgb, var(--c-note) 38%, rgba(31, 29, 26, 0.14));
 }
 
 .note-page .note-reading-progress {
