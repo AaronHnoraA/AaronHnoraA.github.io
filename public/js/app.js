@@ -9,6 +9,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const summary = document.getElementById("notes-summary");
   const activeFilters = document.getElementById("active-filters");
   const actions = document.getElementById("notes-actions");
+  const currentInterestsPanel = document.getElementById("current-interests-panel");
+  const selectedNotesPanel = document.getElementById("selected-notes-panel");
 
   if (!knowledge || !app || !searchWrapper || !searchInput || !resetBtn || !tagCloud || !sortSelect) {
     return;
@@ -231,6 +233,50 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     return String(group.key || "").replace(/^roam\//, "");
+  }
+
+  function renderAcademicPanels() {
+    const topTags = knowledge.tags.slice(0, 6);
+    const selectedNotes = knowledge.notes
+      .slice()
+      .sort((a, b) => {
+        const aScore = a.backlinks.length + a.refs.length;
+        const bScore = b.backlinks.length + b.refs.length;
+        return bScore - aScore || b.dateValue - a.dateValue || collator.compare(a.title, b.title);
+      })
+      .slice(0, 4);
+
+    if (currentInterestsPanel) {
+      currentInterestsPanel.innerHTML = `
+        <div class="academic-tag-list">
+          ${topTags
+            .map((tag) => `<a class="academic-tag" href="index.html?tags=${encodeURIComponent(tag.name)}#notes-section">#${escapeHtml(tag.name)}</a>`)
+            .join("")}
+        </div>
+        <p class="academic-panel-copy">Topics appearing most often in the current note archive.</p>
+      `;
+    }
+
+    if (selectedNotesPanel) {
+      selectedNotesPanel.innerHTML = `
+        <div class="selected-note-list">
+          ${selectedNotes
+            .map(
+              (note) => `
+                <article class="selected-note-item">
+                  <div class="selected-note-meta">
+                    <span>${escapeHtml(note.groupLabel || note.section || "Note")}</span>
+                    <span>${escapeHtml(note.date || "--")}</span>
+                  </div>
+                  <h3><a href="${escapeHtml(note.link)}">${escapeHtml(note.title)}</a></h3>
+                  <p>${escapeHtml(note.summary || "Part of the published note archive.")}</p>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      `;
+    }
   }
 
   function renderSummary(filtered) {
@@ -709,6 +755,7 @@ document.addEventListener("DOMContentLoaded", () => {
       state.focusedKey = "";
     }
 
+    renderAcademicPanels();
     renderSummary(filtered);
     renderQuickActions(filtered);
     renderActiveFilters(filtered);

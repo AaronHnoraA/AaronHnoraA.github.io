@@ -157,9 +157,21 @@
     `;
 
     const header = content.querySelector("header") || titleEl?.parentElement || content.firstElementChild;
+    const noteHeader = document.createElement("section");
+    noteHeader.className = "note-header-panel";
+    noteHeader.innerHTML = `
+      <div class="note-header-meta">
+        <span>${escapeHtml(currentNote?.groupLabel || "Note")}</span>
+        <span>${escapeHtml(currentNote?.date || "Undated")}</span>
+        <span>${readingMinutes} min read</span>
+      </div>
+      <p class="note-header-summary">${escapeHtml(currentNote?.summary || "Part of the published note archive.")}</p>
+    `;
     if (header) {
+      header.insertAdjacentElement("afterend", noteHeader);
       header.insertAdjacentElement("afterend", toolbar);
     } else {
+      content.prepend(noteHeader);
       content.prepend(toolbar);
     }
 
@@ -245,7 +257,7 @@
       noteGraphWindow.innerHTML = `
         <div class="note-graph-window-header">
           <div>
-            <span class="note-graph-window-kicker">Knowledge Graph</span>
+            <span class="note-graph-window-kicker">Relations</span>
             <strong>Related Notes</strong>
           </div>
           <button type="button" class="note-graph-window-close" data-note-graph-close aria-label="Close relationships window">Close</button>
@@ -317,7 +329,7 @@
       floatingToc.setAttribute("aria-label", "Floating table of contents");
       floatingToc.innerHTML = `
         <div class="note-floating-toc-header">
-          <span class="note-floating-toc-title">On This Page</span>
+          <span class="note-floating-toc-title">Contents</span>
           <button type="button" class="note-floating-toc-toggle" aria-expanded="${shouldStartCollapsed ? "false" : "true"}">
             ${shouldStartCollapsed ? "TOC" : "Hide"}
           </button>
@@ -495,7 +507,7 @@
 
     context.innerHTML = `
       <article class="note-panel note-panel-summary">
-        <span class="note-panel-label">Overview</span>
+        <span class="note-panel-label">Summary</span>
         <p class="note-panel-copy">${escapeHtml(summaryText)}</p>
         <div class="note-chip-row">
           ${metaChips.map((item) => `<span class="note-chip note-chip-static">${escapeHtml(item)}</span>`).join("")}
