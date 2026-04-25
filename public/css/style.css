@@ -1982,13 +1982,13 @@ body.site-home {
 .site-home .research-panel-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  gap: 1.25rem;
 }
 
 .site-home .research-card,
 .site-home .placeholder-card,
 .site-home .academic-track-card {
-  padding: 1rem;
+  padding: 1.25rem 1.3rem;
   border: 1px solid rgba(31, 29, 26, 0.12);
   background: #f3efe7;
 }
@@ -2009,11 +2009,12 @@ body.site-home {
 .site-home .academic-track-card h3 {
   margin: 0 0 0.45rem;
   font-family: var(--font-serif);
-  font-size: 1.16rem;
+  font-size: 1.1rem;
   font-weight: 600;
   text-transform: none;
   letter-spacing: 0;
   color: #1f1d1a;
+  line-height: 1.18;
 }
 
 .site-home .research-card p,
@@ -2022,10 +2023,19 @@ body.site-home {
   margin: 0;
   color: rgba(31, 29, 26, 0.7);
   font-size: 0.93rem;
+  line-height: 1.7;
 }
 
 .site-home .academic-track-card .academic-tag {
   margin-top: 0.9rem;
+}
+
+.site-home #current-interests-panel {
+  padding: 1.1rem;
+}
+
+.site-home #current-interests-panel .research-panel-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
 .site-home .academic-tag-muted {
