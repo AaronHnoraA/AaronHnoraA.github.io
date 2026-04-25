@@ -11,6 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const actions = document.getElementById("notes-actions");
   const currentInterestsPanel = document.getElementById("current-interests-panel");
   const selectedNotesPanel = document.getElementById("selected-notes-panel");
+  const recentUpdatesPanel = document.getElementById("recent-updates-panel");
 
   if (!knowledge || !app || !searchWrapper || !searchInput || !resetBtn || !tagCloud || !sortSelect) {
     return;
@@ -236,24 +237,33 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function renderAcademicPanels() {
-    const topTags = knowledge.tags.slice(0, 6);
-    const selectedNotes = knowledge.notes
+    const qcNotes = knowledge.notes.filter((note) => note.groupLabel === "QC" || note.tags.includes("qc"));
+    const tcsNotes = knowledge.notes.filter((note) => note.tags.includes("tcs") || /tcs|complexity|algorithm/i.test(note.groupLabel));
+    const selectedTitles = ["Quantum State", "Density Operator", "Observable & Expectation", "Hilbert Space"];
+    const selectedNotes = selectedTitles
+      .map((title) => knowledge.notes.find((note) => note.title === title))
+      .filter(Boolean);
+    const recentNotes = knowledge.notes
       .slice()
-      .sort((a, b) => {
-        const aScore = a.backlinks.length + a.refs.length;
-        const bScore = b.backlinks.length + b.refs.length;
-        return bScore - aScore || b.dateValue - a.dateValue || collator.compare(a.title, b.title);
-      })
+      .sort((a, b) => b.dateValue - a.dateValue || collator.compare(a.title, b.title))
       .slice(0, 4);
 
     if (currentInterestsPanel) {
       currentInterestsPanel.innerHTML = `
-        <div class="academic-tag-list">
-          ${topTags
-            .map((tag) => `<a class="academic-tag" href="index.html?tags=${encodeURIComponent(tag.name)}#notes-section">#${escapeHtml(tag.name)}</a>`)
-            .join("")}
+        <div class="research-panel-grid">
+          <article class="academic-track-card">
+            <span class="research-kicker">QC</span>
+            <h3>Quantum Computing</h3>
+            <p>Active note stream with ${qcNotes.length} published notes.</p>
+            <a class="academic-tag" href="notes.html?tags=qc#notes-section">Open QC archive</a>
+          </article>
+          <article class="academic-track-card">
+            <span class="research-kicker">TCS</span>
+            <h3>Theoretical Computer Science</h3>
+            <p>${tcsNotes.length > 0 ? `${tcsNotes.length} notes currently published.` : "Archive in preparation. Placeholder section for future notes."}</p>
+            <span class="academic-tag academic-tag-muted">Placeholder</span>
+          </article>
         </div>
-        <p class="academic-panel-copy">Topics appearing most often in the current note archive.</p>
       `;
     }
 
@@ -266,6 +276,35 @@ document.addEventListener("DOMContentLoaded", () => {
                 <article class="selected-note-item">
                   <div class="selected-note-meta">
                     <span>${escapeHtml(note.groupLabel || note.section || "Note")}</span>
+                    <span>${escapeHtml(note.date || "--")}</span>
+                  </div>
+                  <h3><a href="${escapeHtml(note.link)}">${escapeHtml(note.title)}</a></h3>
+                  <p>${escapeHtml(note.summary || "Part of the published note archive.")}</p>
+                </article>
+              `,
+            )
+            .join("")}
+          <article class="selected-note-item placeholder-note-item">
+            <div class="selected-note-meta">
+              <span>TCS</span>
+              <span>Placeholder</span>
+            </div>
+            <h3>Communication Complexity</h3>
+            <p>Planned expository note on models, lower bounds, and matrix viewpoints.</p>
+          </article>
+        </div>
+      `;
+    }
+
+    if (recentUpdatesPanel) {
+      recentUpdatesPanel.innerHTML = `
+        <div class="selected-note-list">
+          ${recentNotes
+            .map(
+              (note) => `
+                <article class="selected-note-item">
+                  <div class="selected-note-meta">
+                    <span>${escapeHtml(note.groupLabel || "Note")}</span>
                     <span>${escapeHtml(note.date || "--")}</span>
                   </div>
                   <h3><a href="${escapeHtml(note.link)}">${escapeHtml(note.title)}</a></h3>

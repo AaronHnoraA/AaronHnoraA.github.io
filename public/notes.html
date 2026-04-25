@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aaron He | Notes Archive</title>
+  <link rel="stylesheet" href="css/style.css?v=20260410-9" />
+  <link rel="shortcut icon"
+    href="https://raw.githubusercontent.com/AaronHnoraA/AaronHnoraA.github.io/refs/heads/master/css/cv.svg"
+    type="image/x-icon">
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+
+<body class="site-home site-archive">
+  <div class="site-shell">
+    <header class="hero archive-hero">
+      <div class="hero-grid">
+        <div class="hero-main">
+          <p class="hero-kicker">Aaron He</p>
+          <h1>Notes Archive</h1>
+          <p class="hero-subtitle">A searchable archive of notes in quantum computing, mathematics, and related foundations for future work in theoretical computer science.</p>
+        </div>
+        <aside class="hero-aside" aria-label="Archive summary">
+          <dl class="hero-facts">
+            <div>
+              <dt>Scope</dt>
+              <dd>QC, mathematics, and future TCS notes</dd>
+            </div>
+            <div>
+              <dt>Format</dt>
+              <dd>Linked notes, graph view, and topic filters</dd>
+            </div>
+            <div>
+              <dt>Home</dt>
+              <dd><a href="index.html">Return to homepage</a></dd>
+            </div>
+          </dl>
+        </aside>
+      </div>
+    </header>
+
+    <nav class="site-nav" aria-label="Primary">
+      <a href="index.html">Home</a>
+      <a href="#notes-section">Archive</a>
+      <a href="index.html#research">Research</a>
+      <a href="index.html#selected-notes">Selected Notes</a>
+      <a href="index.html#contact">Contact</a>
+    </nav>
+
+    <main class="site-main">
+      <section id="notes-section" class="section section-wide">
+        <div id="notes-summary" class="notes-summary" aria-live="polite"></div>
+        <div id="notes-actions" class="notes-actions" aria-label="Knowledge tools"></div>
+
+        <h2>Archive</h2>
+        <p class="section-intro">Browse notes by relation, topic, and section.</p>
+
+        <h3>Knowledge Graph</h3>
+        <div id="graph-container" aria-label="Interactive knowledge graph"></div>
+        <div id="graph-focus" class="graph-focus empty" aria-live="polite"></div>
+
+        <h3>Knowledge Base</h3>
+
+        <div class="toolbar">
+          <div class="search-wrapper">
+            <label class="sr-only" for="note-search">Search notes</label>
+            <span class="search-icon" aria-hidden="true">/</span>
+            <input type="text" id="note-search" placeholder="Search title or tags..." autocomplete="off" />
+            <button id="reset-search" type="button" style="display:none" aria-label="Clear search">
+              <span aria-hidden="true">x</span>
+            </button>
+          </div>
+
+          <div class="sort-wrapper">
+            <label for="sort-select">Sort by:</label>
+            <select id="sort-select">
+              <option value="date-desc">Newest First</option>
+              <option value="date-asc">Oldest First</option>
+              <option value="title-asc">Title A-Z</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="active-filters" class="active-filters" aria-live="polite"></div>
+        <div id="tag-cloud"></div>
+        <div id="app-tabs"></div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span class="footer-text">&copy; 2026 Chang He (Aaron) | Built with Emacs Org Mode.</span>
+    </footer>
+  </div>
+  <script src="js/data.js?v=20260410-9"></script>
+  <script src="js/knowledge.js?v=20260410-9"></script>
+  <script src="js/app.js?v=20260410-9"></script>
+  <script src="js/graph.js?v=20260410-9"></script>
+  <script src="js/oneko.js?v=20260410-9"></script>
+</body>
+
+</html>

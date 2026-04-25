@@ -1977,6 +1977,83 @@ body.site-home {
   font-size: 0.92rem;
 }
 
+.site-home .research-grid,
+.site-home .placeholder-list,
+.site-home .research-panel-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.site-home .research-card,
+.site-home .placeholder-card,
+.site-home .academic-track-card {
+  padding: 1rem;
+  border: 1px solid rgba(31, 29, 26, 0.12);
+  background: #f3efe7;
+}
+
+.site-home .research-kicker,
+.site-home .placeholder-label {
+  display: inline-block;
+  margin-bottom: 0.6rem;
+  color: rgba(31, 29, 26, 0.54);
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.site-home .research-card h3,
+.site-home .academic-track-card h3 {
+  margin: 0 0 0.45rem;
+  font-family: var(--font-serif);
+  font-size: 1.16rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  color: #1f1d1a;
+}
+
+.site-home .research-card p,
+.site-home .placeholder-card p,
+.site-home .academic-track-card p {
+  margin: 0;
+  color: rgba(31, 29, 26, 0.7);
+  font-size: 0.93rem;
+}
+
+.site-home .academic-track-card .academic-tag {
+  margin-top: 0.9rem;
+}
+
+.site-home .academic-tag-muted {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.site-home .placeholder-list.single-column {
+  grid-template-columns: 1fr;
+}
+
+.site-home .placeholder-note-item {
+  background: #f1ede4;
+}
+
+.site-home.site-archive .site-main {
+  display: block;
+}
+
+.site-home.site-archive .section {
+  border-top: none;
+  padding-top: 0;
+}
+
+.site-home.site-archive .archive-hero {
+  padding-bottom: 2rem;
+}
+
 .site-home .notes-summary {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1.2rem;
@@ -2758,12 +2835,15 @@ body.note-page {
     gap: 1.6rem;
   }
 
-  .site-home .notes-summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
+  .site-home .research-grid,
+  .site-home .placeholder-list,
+  .site-home .research-panel-grid,
   .site-home .selected-note-list {
     grid-template-columns: 1fr;
+  }
+
+  .site-home .notes-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .site-home .selected-note-item:nth-child(odd) {
