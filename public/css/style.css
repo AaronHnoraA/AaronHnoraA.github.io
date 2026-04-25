@@ -1699,10 +1699,10 @@ body.site-home {
 }
 
 .site-home h1 {
-  max-width: 11ch;
+  max-width: 13ch;
   font-family: var(--font-serif);
-  font-size: clamp(2.7rem, 6vw, 4.6rem);
-  line-height: 1.02;
+  font-size: clamp(2.25rem, 4.9vw, 3.7rem);
+  line-height: 1.08;
   letter-spacing: 0;
 }
 
@@ -1710,8 +1710,8 @@ body.site-home {
   max-width: 42rem;
   margin-top: 1.2rem;
   color: rgba(31, 29, 26, 0.78);
-  font-size: 1.08rem;
-  line-height: 1.8;
+  font-size: 1rem;
+  line-height: 1.75;
 }
 
 .site-home .hero-meta {
@@ -1808,8 +1808,8 @@ body.site-home {
 
 .site-home .section p,
 .site-home .section li {
-  font-size: 1.02rem;
-  line-height: 1.85;
+  font-size: 0.98rem;
+  line-height: 1.8;
 }
 
 .site-home .section ul {
@@ -2014,6 +2014,304 @@ body.site-home {
   display: none;
 }
 
+/* ==========================================================================
+   9. Note Page Refinement
+   ========================================================================== */
+body.note-page {
+  background: #f7f5f0;
+  color: #1f1d1a;
+}
+
+.note-page a {
+  color: #1f1d1a;
+  font-weight: 500;
+}
+
+.note-page a:hover {
+  color: #000000;
+}
+
+.note-page #content {
+  max-width: 920px;
+  padding: 44px 48px 56px;
+  background: rgba(255, 255, 255, 0.58);
+  border: 1px solid rgba(31, 29, 26, 0.12);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.note-page .title {
+  margin-bottom: 0.75rem;
+  font-family: var(--font-serif);
+  font-size: clamp(2rem, 4.1vw, 3rem);
+  line-height: 1.08;
+  letter-spacing: 0;
+}
+
+.note-page #content p,
+.note-page #content li,
+.note-page #content dd {
+  font-size: 1rem;
+  line-height: 1.82;
+}
+
+.note-page #content h2,
+.note-page #content h3,
+.note-page #content h4,
+.note-page #content h5 {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.note-page #content h2 {
+  margin-top: 2.5rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid rgba(31, 29, 26, 0.14);
+  font-size: 1.34rem;
+}
+
+.note-page #content h3 {
+  font-size: 1.08rem;
+}
+
+.note-page .overview {
+  display: none;
+}
+
+.note-page #table-of-contents {
+  margin: 0 0 1.7rem;
+  padding: 1rem 0 1.05rem;
+  border: none;
+  border-top: 1px solid rgba(31, 29, 26, 0.12);
+  border-bottom: 1px solid rgba(31, 29, 26, 0.12);
+  border-radius: 0;
+  background: transparent;
+}
+
+.note-page #table-of-contents h2 {
+  margin-bottom: 0.7rem;
+  padding-bottom: 0;
+  border-bottom: none;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(31, 29, 26, 0.58);
+}
+
+.note-page #text-table-of-contents ul {
+  padding-left: 1rem;
+}
+
+.note-page pre {
+  padding: 0.95rem 1rem;
+  border: 1px solid rgba(31, 29, 26, 0.12);
+  border-radius: 0;
+  background: #f1eee7;
+  color: #1f1d1a;
+  box-shadow: none;
+}
+
+.note-page code {
+  border-radius: 0;
+  background: rgba(31, 29, 26, 0.08);
+  color: #1f1d1a;
+}
+
+.note-page table {
+  border-radius: 0;
+  box-shadow: 0 0 0 1px rgba(31, 29, 26, 0.12);
+}
+
+.note-page th,
+.note-page td {
+  border-color: rgba(31, 29, 26, 0.12);
+}
+
+.note-page th {
+  background: rgba(31, 29, 26, 0.05);
+}
+
+.note-page tr:nth-child(even) {
+  background: rgba(31, 29, 26, 0.025);
+}
+
+.note-page blockquote {
+  border-left: 3px solid rgba(31, 29, 26, 0.28);
+  border-radius: 0;
+  background: rgba(31, 29, 26, 0.04);
+  color: rgba(31, 29, 26, 0.82);
+}
+
+.note-page .definition,
+.note-page .defn,
+.note-page .theorem,
+.note-page .thm,
+.note-page .lemma,
+.note-page .cor,
+.note-page .prop,
+.note-page .property,
+.note-page .proof,
+.note-page .example,
+.note-page .attention,
+.note-page .note,
+.note-page .info,
+.note-page .warning {
+  border: 1px solid rgba(31, 29, 26, 0.14);
+  border-left-width: 3px;
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.44);
+  box-shadow: none;
+}
+
+.note-page .definition::before,
+.note-page .defn::before,
+.note-page .theorem::before,
+.note-page .thm::before,
+.note-page .lemma::before,
+.note-page .cor::before,
+.note-page .prop::before,
+.note-page .property::before,
+.note-page .proof::before,
+.note-page .example::before,
+.note-page .attention::before,
+.note-page .note::before,
+.note-page .info::before,
+.note-page .warning::before {
+  padding: 0.6rem 0.9rem;
+  background: rgba(31, 29, 26, 0.05);
+  color: rgba(31, 29, 26, 0.72);
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.note-page .note-reading-progress {
+  height: 2px;
+  background: rgba(31, 29, 26, 0.08);
+}
+
+.note-page .note-reading-progress-bar {
+  background: #1f1d1a;
+}
+
+.note-page .note-toolbar {
+  top: 14px;
+  margin-bottom: 1.2rem;
+  padding: 0.75rem 0 0.85rem;
+  border: none;
+  border-top: 1px solid rgba(31, 29, 26, 0.12);
+  border-bottom: 1px solid rgba(31, 29, 26, 0.12);
+  border-radius: 0;
+  background: rgba(247, 245, 240, 0.94);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.note-page .note-tool-link,
+.note-page .note-tool-btn,
+.note-page .note-chip {
+  min-height: auto;
+  padding: 0.28rem 0.55rem;
+  border: 1px solid rgba(31, 29, 26, 0.14);
+  border-radius: 0;
+  background: transparent;
+  color: #1f1d1a;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.note-page .note-tool-link:hover,
+.note-page .note-tool-btn:hover,
+.note-page .note-chip:hover {
+  border-color: rgba(31, 29, 26, 0.28);
+  background: rgba(31, 29, 26, 0.04);
+  color: #000000;
+}
+
+.note-page .note-progress-badge {
+  font-size: 0.8rem;
+  color: rgba(31, 29, 26, 0.62);
+}
+
+.note-page .note-floating-toc,
+.note-page .note-graph-window,
+.note-page .note-panel,
+.note-page .note-sequence-link,
+.note-page .note-link-card,
+.note-page .note-graph-container {
+  border: 1px solid rgba(31, 29, 26, 0.12);
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.56);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.note-page .note-floating-toc-header,
+.note-page .note-graph-window-header {
+  border-bottom: 1px solid rgba(31, 29, 26, 0.1);
+}
+
+.note-page .note-floating-toc-title,
+.note-page .note-graph-window-kicker,
+.note-page .note-panel-label,
+.note-page .note-sequence-label {
+  color: rgba(31, 29, 26, 0.58);
+}
+
+.note-page .note-floating-toc-toggle,
+.note-page .note-graph-window-close {
+  border: 1px solid rgba(31, 29, 26, 0.14);
+  border-radius: 0;
+  background: transparent;
+}
+
+.note-page .note-floating-toc-link {
+  border-radius: 0;
+  color: rgba(31, 29, 26, 0.72);
+}
+
+.note-page .note-floating-toc-link:hover,
+.note-page .note-floating-toc-link.active {
+  background: rgba(31, 29, 26, 0.04);
+  color: #1f1d1a;
+}
+
+.note-page .note-floating-toc-branch:hover {
+  background: rgba(31, 29, 26, 0.04);
+  color: #1f1d1a;
+}
+
+.note-page .graph-focus {
+  border: 1px solid rgba(31, 29, 26, 0.12);
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.48);
+}
+
+.note-page .graph-focus-type,
+.note-page .group-pill,
+.note-page .relation-pill {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: rgba(31, 29, 26, 0.58);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.note-page .graph-inline-tag,
+.note-page .filter-chip {
+  padding: 0.35rem 0.55rem;
+  border-radius: 0;
+  border-color: rgba(31, 29, 26, 0.14);
+}
+
+.note-page .heading-anchor {
+  color: rgba(31, 29, 26, 0.44);
+}
+
 @media (max-width: 900px) {
   .note-floating-toc {
     position: static;
@@ -2058,6 +2356,10 @@ body.site-home {
 
   .site-home .hero-meta {
     gap: 0.75rem 1rem;
+  }
+
+  .note-page #content {
+    padding: 36px 32px 44px;
   }
 }
 
@@ -2146,6 +2448,18 @@ body.site-home {
 
   .site-home #graph-container {
     height: 360px;
+  }
+
+  .note-page #content {
+    padding: 28px 18px 36px;
+  }
+
+  .note-page .title {
+    font-size: clamp(1.7rem, 8vw, 2.2rem);
+  }
+
+  .note-page .note-toolbar {
+    top: 8px;
   }
 }
 
