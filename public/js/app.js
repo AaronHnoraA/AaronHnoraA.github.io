@@ -250,18 +250,26 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (currentInterestsPanel) {
       currentInterestsPanel.innerHTML = `
-        <div class="research-panel-grid">
-          <article class="academic-track-card">
-            <span class="research-kicker">QC</span>
-            <h3>Quantum Computing</h3>
-            <p>Active note stream with ${qcNotes.length} published notes.</p>
-            <a class="academic-tag" href="notes.html?tags=qc#notes-section">Open QC archive</a>
+        <div class="academic-track-list">
+          <article class="academic-track-row">
+            <div class="academic-track-copy">
+              <span class="research-kicker">QC</span>
+              <h3>Quantum Computing</h3>
+              <p>Active note stream with ${qcNotes.length} published notes on states, observables, density operators, and Hilbert-space foundations.</p>
+            </div>
+            <div class="academic-track-actions">
+              <a class="academic-tag" href="notes.html?tags=qc#notes-section">Open QC archive</a>
+            </div>
           </article>
-          <article class="academic-track-card">
-            <span class="research-kicker">TCS</span>
-            <h3>Theoretical Computer Science</h3>
-            <p>${tcsNotes.length > 0 ? `${tcsNotes.length} notes currently published.` : "Archive in preparation. Placeholder section for future notes."}</p>
-            <span class="academic-tag academic-tag-muted">Placeholder</span>
+          <article class="academic-track-row">
+            <div class="academic-track-copy">
+              <span class="research-kicker">TCS</span>
+              <h3>Theoretical Computer Science</h3>
+              <p>${tcsNotes.length > 0 ? `${tcsNotes.length} notes currently published.` : "Archive in preparation, with planned notes on complexity, algorithms, and communication complexity."}</p>
+            </div>
+            <div class="academic-track-actions">
+              <span class="academic-tag academic-tag-muted">Placeholder</span>
+            </div>
           </article>
         </div>
       `;
