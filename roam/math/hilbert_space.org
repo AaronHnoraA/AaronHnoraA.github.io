@@ -16,7 +16,6 @@
 
 
 
-
 * Hilbert Space 希尔伯特空间
 #+begin_attention
 Hilbert space is a big space.
@@ -46,7 +45,6 @@ Hilbert space is a big space.
   - 算符的*本征值*是测量的可能结果。
   - 算符的*本征态*构成空间的基底。
 - *概率 (Born Rule)*: 概率幅由内积给出，概率为内积的模方 ($P = |\langle \phi | \psi \rangle|^2$)。
-
 
 
 * 有限维必完备

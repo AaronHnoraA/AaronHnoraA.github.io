@@ -1657,6 +1657,363 @@ mark {
   background: rgba(245, 158, 11, 0.30);
 }
 
+/* ==========================================================================
+   8. Home Page Refinement
+   ========================================================================== */
+body.site-home {
+  padding: 32px 20px 48px;
+  background: #f7f5f0;
+  color: #1f1d1a;
+  font-family: var(--font-serif);
+}
+
+.site-home .site-shell {
+  max-width: 980px;
+}
+
+.site-home a {
+  color: #1f1d1a;
+  font-weight: 500;
+}
+
+.site-home a:hover {
+  color: #000000;
+}
+
+.site-home .hero {
+  padding: 0 0 2rem;
+  border: none;
+  border-bottom: 1px solid rgba(31, 29, 26, 0.22);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.site-home .hero-kicker {
+  margin-bottom: 1rem;
+  color: rgba(31, 29, 26, 0.7);
+  font-family: var(--font-sans);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+
+.site-home h1 {
+  max-width: 11ch;
+  font-family: var(--font-serif);
+  font-size: clamp(2.7rem, 6vw, 4.6rem);
+  line-height: 1.02;
+  letter-spacing: 0;
+}
+
+.site-home .hero-subtitle {
+  max-width: 42rem;
+  margin-top: 1.2rem;
+  color: rgba(31, 29, 26, 0.78);
+  font-size: 1.08rem;
+  line-height: 1.8;
+}
+
+.site-home .hero-meta {
+  gap: 1.25rem;
+  margin-top: 1.3rem;
+}
+
+.site-home .hero-meta span {
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: rgba(31, 29, 26, 0.72);
+  font-family: var(--font-sans);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.site-home .hero-meta span::before {
+  content: "/";
+  margin-right: 0.55rem;
+  color: rgba(31, 29, 26, 0.38);
+}
+
+.site-home .site-nav {
+  top: 0;
+  justify-content: flex-start;
+  gap: 1rem;
+  margin-top: 1.1rem;
+  padding: 0.9rem 0;
+  border: none;
+  border-bottom: 1px solid rgba(31, 29, 26, 0.14);
+  border-radius: 0;
+  background: rgba(247, 245, 240, 0.94);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.site-home .site-nav a {
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  color: rgba(31, 29, 26, 0.72);
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.site-home .site-nav a:hover {
+  border: none;
+  background: transparent;
+  color: #1f1d1a;
+}
+
+.site-home .site-main {
+  gap: 0;
+  margin-top: 2rem;
+}
+
+.site-home .section {
+  padding: 1.7rem 0 1.9rem;
+  border: none;
+  border-top: 1px solid rgba(31, 29, 26, 0.12);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.site-home .section:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.site-home .section h2,
+.site-home .section h3 {
+  font-family: var(--font-sans);
+  letter-spacing: 0;
+}
+
+.site-home .section h2 {
+  margin: 0 0 0.8rem;
+  font-size: 1.08rem;
+  font-weight: 700;
+}
+
+.site-home .section h3 {
+  margin: 1.8rem 0 0.8rem;
+  font-size: 0.94rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(31, 29, 26, 0.65);
+}
+
+.site-home .section p,
+.site-home .section li {
+  font-size: 1.02rem;
+  line-height: 1.85;
+}
+
+.site-home .section ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.site-home .section-intro {
+  margin: -0.1rem 0 1.2rem;
+  color: rgba(31, 29, 26, 0.72);
+}
+
+.site-home .notes-summary {
+  gap: 0;
+  margin-bottom: 1.5rem;
+  border-top: 1px solid rgba(31, 29, 26, 0.12);
+  border-bottom: 1px solid rgba(31, 29, 26, 0.12);
+}
+
+.site-home .summary-card {
+  padding: 1rem 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.site-home .summary-card + .summary-card {
+  border-top: 1px solid rgba(31, 29, 26, 0.08);
+}
+
+.site-home .summary-label,
+.site-home .summary-hint,
+.site-home .quick-action-hint,
+.site-home .graph-focus-copy,
+.site-home .file-date,
+.site-home .file-summary,
+.site-home .active-filter-stats,
+.site-home .graph-related-empty {
+  color: rgba(31, 29, 26, 0.62);
+}
+
+.site-home .summary-value {
+  font-family: var(--font-serif);
+  font-size: 1.85rem;
+  font-weight: 600;
+}
+
+.site-home .notes-actions,
+.site-home .graph-focus,
+.site-home .file-card,
+.site-home .empty-state {
+  border: 1px solid rgba(31, 29, 26, 0.12);
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.5);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.site-home .notes-actions {
+  padding: 0.95rem 1rem;
+}
+
+.site-home .quick-action-btn,
+.site-home .quick-inline-tag,
+.site-home .filter-chip,
+.site-home .tag-chip,
+.site-home .tag-small,
+.site-home .graph-inline-tag,
+.site-home .empty-state-action,
+.site-home .tab-btn {
+  border: 1px solid rgba(31, 29, 26, 0.14);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #1f1d1a;
+  font-weight: 600;
+}
+
+.site-home .quick-action-btn:hover:not(:disabled),
+.site-home .quick-inline-tag:hover,
+.site-home .filter-chip:hover,
+.site-home .tag-chip:hover,
+.site-home .tag-small:hover,
+.site-home .graph-inline-tag:hover,
+.site-home .empty-state-action:hover,
+.site-home .tab-btn:hover {
+  border-color: rgba(31, 29, 26, 0.32);
+  background: rgba(31, 29, 26, 0.04);
+  color: #000000;
+}
+
+.site-home .quick-action-shortcuts kbd {
+  border-radius: 0;
+  background: transparent;
+}
+
+.site-home #graph-container {
+  height: 500px;
+  border: 1px solid rgba(31, 29, 26, 0.12);
+  border-radius: 0;
+  background: #f2efe7;
+}
+
+.site-home .graph-labels text {
+  stroke: rgba(247, 245, 240, 0.96);
+}
+
+.site-home .graph-focus.empty {
+  min-height: 64px;
+}
+
+.site-home .graph-focus-type,
+.site-home .group-pill,
+.site-home .relation-pill {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: rgba(31, 29, 26, 0.6);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.site-home .graph-focus-meta,
+.site-home .graph-inline-tags,
+.site-home .graph-related-list,
+.site-home .active-filter-list,
+.site-home .file-tags {
+  gap: 0.55rem;
+}
+
+.site-home #tag-cloud {
+  gap: 0.6rem;
+}
+
+.site-home .tag-chip.active,
+.site-home #app-tabs .tab-btn.active,
+.site-home #app-tabs .tab-buttons .tab-btn.active {
+  border-color: #1f1d1a !important;
+  background: rgba(31, 29, 26, 0.05) !important;
+  color: #1f1d1a !important;
+}
+
+.site-home .tab-buttons {
+  gap: 0.6rem;
+  padding: 0 0 0.85rem;
+}
+
+.site-home .badge,
+.site-home .tag-chip-count {
+  border-radius: 0;
+  background: rgba(31, 29, 26, 0.07);
+}
+
+.site-home .file-list {
+  gap: 0.85rem;
+}
+
+.site-home .file-list li.is-focused .file-card {
+  border-color: rgba(31, 29, 26, 0.32);
+  box-shadow: none;
+}
+
+.site-home .file-link {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+}
+
+.site-home .toolbar {
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.site-home #note-search,
+.site-home select,
+.site-home .autocomplete-suggestions {
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: none;
+}
+
+.site-home #note-search,
+.site-home select {
+  border: 1px solid rgba(31, 29, 26, 0.14);
+}
+
+.site-home .suggestion-item,
+.site-home .note-suggestion {
+  border-bottom-color: rgba(31, 29, 26, 0.08);
+}
+
+.site-home .site-footer {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(31, 29, 26, 0.12);
+  color: rgba(31, 29, 26, 0.6);
+}
+
+.site-home .footer-stone,
+.site-home .stone-inline {
+  display: none;
+}
+
 @media (max-width: 900px) {
   .note-floating-toc {
     position: static;
@@ -1697,6 +2054,10 @@ mark {
 
   #graph-container {
     height: 460px;
+  }
+
+  .site-home .hero-meta {
+    gap: 0.75rem 1rem;
   }
 }
 
@@ -1769,6 +2130,22 @@ mark {
   .file-row,
   .file-meta {
     align-items: flex-start;
+  }
+
+  .site-home {
+    padding-inline: 14px;
+  }
+
+  .site-home .site-nav {
+    gap: 0.7rem 1rem;
+  }
+
+  .site-home .hero {
+    padding-bottom: 1.5rem;
+  }
+
+  .site-home #graph-container {
+    height: 360px;
   }
 }
 
