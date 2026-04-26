@@ -59,11 +59,43 @@
     let previousNote = null;
     let nextNote = null;
 
+    if (document.body) {
+      document.body.dataset.noteTitle = (titleEl?.textContent || currentNote?.title || "Working Note").trim();
+      document.body.dataset.noteGroup = String(currentNote?.groupLabel || "Note");
+      document.body.dataset.noteDate = String(currentNote?.date || "Undated");
+    }
+
+    content.dataset.noteTitle = (titleEl?.textContent || currentNote?.title || "Working Note").trim();
+    content.dataset.noteGroup = String(currentNote?.groupLabel || "Note");
+
     const progressBar = document.createElement("div");
     progressBar.className = "note-reading-progress";
     progressBar.innerHTML = '<span class="note-reading-progress-bar"></span>';
     document.body.appendChild(progressBar);
     const progressBarFill = progressBar.querySelector(".note-reading-progress-bar");
+
+    const marginRail = document.createElement("aside");
+    marginRail.className = "note-margin-rail";
+    marginRail.setAttribute("aria-label", "Note margin");
+    marginRail.innerHTML = `
+      <div class="note-margin-card">
+        <span class="note-margin-label">Collection</span>
+        <strong>${escapeHtml(currentNote?.groupLabel || "Note")}</strong>
+      </div>
+      <div class="note-margin-card">
+        <span class="note-margin-label">Date</span>
+        <strong>${escapeHtml(currentNote?.date || "Undated")}</strong>
+      </div>
+      <div class="note-margin-card">
+        <span class="note-margin-label">Reading</span>
+        <strong>${readingMinutes} min</strong>
+      </div>
+      <div class="note-margin-card">
+        <span class="note-margin-label">Section</span>
+        <strong data-running-section>Opening</strong>
+      </div>
+    `;
+    content.insertAdjacentElement("beforebegin", marginRail);
 
     function getScrollBehavior() {
       return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
@@ -81,6 +113,29 @@
       const progressText = document.querySelector("[data-reading-progress]");
       if (progressText) {
         progressText.textContent = `${Math.round(ratio * 100)}%`;
+      }
+    }
+
+    function updateRunningSection() {
+      if (headings.length === 0) {
+        return;
+      }
+
+      let activeHeading = headings[0];
+      headings.forEach((heading) => {
+        if (heading.getBoundingClientRect().top <= 150) {
+          activeHeading = heading;
+        }
+      });
+
+      const label = (activeHeading?.textContent || "").trim().replace(/\s*#\s*$/, "");
+      if (document.body) {
+        document.body.dataset.currentSection = label || "Opening";
+      }
+
+      const runningSection = document.querySelector("[data-running-section]");
+      if (runningSection) {
+        runningSection.textContent = label || "Opening";
       }
     }
 
@@ -606,7 +661,10 @@
     });
 
     updateProgress();
+    updateRunningSection();
     window.addEventListener("scroll", updateProgress, { passive: true });
     window.addEventListener("resize", updateProgress);
+    window.addEventListener("scroll", updateRunningSection, { passive: true });
+    window.addEventListener("resize", updateRunningSection);
   });
 })();

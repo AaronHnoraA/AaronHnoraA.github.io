@@ -1,17 +1,19 @@
 :root {
-  --retro-bg: #e6dac2;
-  --retro-paper: #f9f2e3;
-  --retro-paper-strong: #f3e7d2;
+  --retro-bg: #ddd0b6;
+  --retro-paper: #f7efde;
+  --retro-paper-strong: #efe1c9;
   --retro-ink: #23180f;
-  --retro-muted: #5d4a37;
-  --retro-line: #8a6f4b;
-  --retro-line-soft: rgba(97, 74, 46, 0.26);
-  --retro-link: #173f74;
-  --retro-link-hover: #8d261f;
-  --retro-accent: #6d5234;
-  --retro-accent-soft: rgba(109, 82, 52, 0.12);
-  --retro-shadow: rgba(85, 63, 37, 0.12);
-  --retro-mark: #f4e8a3;
+  --retro-muted: #5a4837;
+  --retro-line: #7e6241;
+  --retro-line-soft: rgba(90, 69, 42, 0.24);
+  --retro-link: #1d3f66;
+  --retro-link-hover: #7d241c;
+  --retro-accent: #654a2f;
+  --retro-accent-soft: rgba(101, 74, 47, 0.11);
+  --retro-shadow: rgba(76, 55, 31, 0.12);
+  --retro-mark: #ecdfa1;
+  --retro-olive: #5e6242;
+  --retro-olive-soft: rgba(94, 98, 66, 0.12);
   --retro-mono: "Iosevka", "JetBrains Mono", "SFMono-Regular", "Consolas", monospace;
   --retro-serif: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", "Songti SC", serif;
   --retro-sans: "Avenir Next", "Helvetica Neue", "Segoe UI", sans-serif;
@@ -35,8 +37,8 @@ body {
   margin: 0;
   min-height: 100%;
   background:
-    radial-gradient(circle at top left, rgba(255, 249, 232, 0.85), transparent 24%),
-    linear-gradient(180deg, #e9dec8 0%, #dccdb5 100%);
+    radial-gradient(circle at top left, rgba(255, 249, 232, 0.76), transparent 22%),
+    linear-gradient(180deg, #e6d8bf 0%, #d7c6ab 100%);
   color: var(--retro-ink);
   font-family: var(--retro-serif);
   line-height: 1.72;
@@ -98,11 +100,11 @@ body.site-home {
   position: relative;
   max-width: 1160px;
   margin: 0 auto;
-  padding: 24px 28px 30px;
+  padding: 24px 32px 32px;
   border: 1px solid rgba(88, 67, 42, 0.42);
   background:
-    linear-gradient(180deg, rgba(252, 247, 236, 0.96), rgba(243, 233, 216, 0.97)),
-    repeating-linear-gradient(0deg, rgba(121, 95, 63, 0.035) 0, rgba(121, 95, 63, 0.035) 1px, transparent 1px, transparent 32px);
+    linear-gradient(180deg, rgba(251, 246, 235, 0.97), rgba(240, 229, 209, 0.98)),
+    repeating-linear-gradient(0deg, rgba(109, 82, 52, 0.032) 0, rgba(109, 82, 52, 0.032) 1px, transparent 1px, transparent 30px);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.74) inset,
     0 0 0 4px rgba(123, 100, 71, 0.07),
@@ -117,19 +119,31 @@ body.site-home {
   pointer-events: none;
 }
 
+.site-shell::after {
+  content: "Mathematics Reading Room";
+  position: absolute;
+  right: 24px;
+  bottom: 10px;
+  color: rgba(90, 72, 55, 0.42);
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
 .hero,
 .archive-hero {
   margin: 0 0 1rem;
-  padding: 0 0 1.15rem;
+  padding: 0 0 1.2rem;
   border-bottom: 3px double rgba(86, 65, 42, 0.6);
 }
 
 .hero-kicker {
   margin: 0 0 0.45rem;
   color: var(--retro-muted);
-  font-family: var(--retro-sans);
+  font-family: var(--retro-mono);
   font-size: 0.82rem;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -155,6 +169,7 @@ body.site-home {
   font-weight: 700;
   line-height: 0.98;
   letter-spacing: -0.03em;
+  max-width: 14ch;
 }
 
 .hero-subtitle,
@@ -167,6 +182,7 @@ body.site-home {
 .hero-subtitle {
   margin: 0.8rem 0 0;
   font-size: 1.06rem;
+  max-width: 45rem;
 }
 
 .hero-affil {
@@ -188,13 +204,13 @@ body.site-home {
 .hero-meta span {
   display: inline-flex;
   align-items: center;
-  padding: 0.34rem 0.58rem;
-  border: 1px solid rgba(107, 83, 54, 0.34);
-  background: rgba(252, 247, 237, 0.88);
-  box-shadow: 2px 2px 0 rgba(115, 90, 60, 0.12);
-  color: #4f3a27;
-  font-size: 0.85rem;
-  font-style: italic;
+  padding: 0.22rem 0.48rem;
+  border: 1px dotted rgba(107, 83, 54, 0.4);
+  background: rgba(252, 247, 237, 0.52);
+  box-shadow: none;
+  color: #5b4633;
+  font-size: 0.8rem;
+  letter-spacing: 0.03em;
 }
 
 .site-nav {
@@ -208,7 +224,7 @@ body.site-home {
   padding: 0.72rem 0 0.78rem;
   border-top: 1px solid rgba(104, 79, 49, 0.28);
   border-bottom: 1px solid rgba(104, 79, 49, 0.28);
-  background: rgba(248, 241, 226, 0.94);
+  background: rgba(247, 240, 225, 0.96);
   backdrop-filter: blur(6px);
 }
 
@@ -245,6 +261,7 @@ body.site-home {
   margin: 0;
   padding: 1.15rem 0 1.35rem;
   border-top: 1px solid var(--retro-line-soft);
+  position: relative;
 }
 
 .section h2 {
@@ -255,9 +272,19 @@ body.site-home {
 }
 
 .section h2::before {
-  content: "§ ";
+  content: attr(data-fallback);
   color: #7b5a38;
 }
+
+#about h2::before { content: "I. "; }
+#research h2::before { content: "II. "; }
+#current-interests h2::before { content: "III. "; }
+#notes-section h2::before { content: "IV. "; }
+#selected-notes h2::before { content: "V. "; }
+#recent-updates h2::before { content: "VI. "; }
+#materials h2::before { content: "VII. "; }
+#reading-list h2::before { content: "VIII. "; }
+#contact h2::before { content: "IX. "; }
 
 .section h3 {
   margin: 1rem 0 0.35rem;
@@ -279,11 +306,21 @@ body.site-home {
   max-width: 34rem;
   margin: 0 0 0.8rem;
   padding: 0.55rem 0.75rem;
-  border-left: 3px solid rgba(128, 95, 55, 0.7);
-  background: rgba(122, 94, 60, 0.08);
+  border-left: 2px solid rgba(94, 98, 66, 0.62);
+  background: rgba(94, 98, 66, 0.08);
   color: #5a4631;
   font-size: 0.95rem;
   font-style: italic;
+}
+
+.site-home .section-prose:not(#notes-section)::before {
+  content: "";
+  position: absolute;
+  left: -16px;
+  top: 1.25rem;
+  bottom: 1.25rem;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, rgba(94, 98, 66, 0.22), transparent);
 }
 
 .prose-defs {
@@ -321,6 +358,28 @@ body.site-home {
   height: 0.35rem;
 }
 
+.department-card {
+  padding: 0.95rem 1rem 1.05rem;
+}
+
+.department-list {
+  margin: 0.35rem 0 0;
+}
+
+.department-list dt {
+  margin: 0.55rem 0 0.1rem;
+  color: var(--retro-olive);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.department-list dd {
+  margin: 0;
+  color: #3d3023;
+}
+
 .plain-list {
   margin: 0.4rem 0;
   padding-left: 1.35rem;
@@ -339,7 +398,7 @@ body.site-home {
 .graph-focus,
 .empty-state {
   border: 1px solid rgba(106, 82, 53, 0.28);
-  background: rgba(250, 245, 235, 0.78);
+  background: rgba(248, 242, 231, 0.8);
   box-shadow: 2px 2px 0 rgba(119, 93, 61, 0.08);
 }
 
@@ -379,6 +438,7 @@ body.site-home {
 .summary-value {
   font-size: 1rem;
   color: var(--retro-ink);
+  font-variant-numeric: tabular-nums;
 }
 
 .notes-actions {
@@ -416,6 +476,14 @@ body.site-home {
 .active-filter-empty {
   color: var(--retro-muted);
   font-size: 0.94rem;
+}
+
+.quick-action-hint::before,
+.active-filter-stats::before,
+.active-filter-empty::before {
+  content: "folio: ";
+  color: rgba(93, 74, 55, 0.72);
+  font-style: italic;
 }
 
 .quick-action-shortcuts kbd {
@@ -624,6 +692,7 @@ select {
   flex-wrap: wrap;
   gap: 0.45rem;
   margin: 0 0 0.85rem;
+  align-items: center;
 }
 
 .tab-btn {
@@ -641,17 +710,34 @@ select {
 .file-list {
   margin: 0;
   padding-left: 1.35rem;
+  counter-reset: archive-entry;
 }
 
 .file-list li {
   margin: 0 0 0.8rem;
+  position: relative;
+  counter-increment: archive-entry;
+}
+
+.file-list li::marker {
+  color: transparent;
 }
 
 .file-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 0.35rem;
-  padding: 0.45rem 0.55rem 0.5rem 0;
+  padding: 0.45rem 0.55rem 0.5rem 2rem;
+}
+
+.file-card::before {
+  content: counter(archive-entry, lower-roman) ".";
+  position: absolute;
+  left: 0;
+  top: 0.42rem;
+  color: var(--retro-muted);
+  font-size: 0.9rem;
+  font-style: italic;
 }
 
 .file-link {
@@ -745,7 +831,7 @@ select {
 }
 
 .graph-focus-type {
-  color: var(--retro-muted);
+  color: var(--retro-olive);
   font-size: 0.86rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -789,6 +875,93 @@ select {
   font-size: 0.93rem;
 }
 
+.footer-text::before {
+  content: "Shelf mark: ";
+  font-style: italic;
+}
+
+body.site-home:not(.site-archive) .home-grid {
+  position: relative;
+}
+
+body.site-home:not(.site-archive) .home-grid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, transparent 8.3rem, rgba(99, 72, 45, 0.18) 8.3rem, rgba(99, 72, 45, 0.18) 8.9rem, transparent 8.9rem),
+    linear-gradient(180deg, transparent 23.4rem, rgba(99, 72, 45, 0.18) 23.4rem, rgba(99, 72, 45, 0.18) 24rem, transparent 24rem),
+    linear-gradient(180deg, transparent 38.4rem, rgba(99, 72, 45, 0.18) 38.4rem, rgba(99, 72, 45, 0.18) 39rem, transparent 39rem),
+    linear-gradient(180deg, transparent 53.2rem, rgba(99, 72, 45, 0.18) 53.2rem, rgba(99, 72, 45, 0.18) 53.8rem, transparent 53.8rem);
+  pointer-events: none;
+}
+
+body.site-home:not(.site-archive) .shelf-book {
+  position: relative;
+  padding: 0.95rem 1rem 1.1rem;
+  border: 1px solid rgba(91, 68, 43, 0.48);
+  background:
+    linear-gradient(180deg, rgba(248, 241, 227, 0.98), rgba(235, 224, 204, 0.98));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.55) inset,
+    6px 6px 0 rgba(85, 63, 37, 0.1);
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+}
+
+body.site-home:not(.site-archive) .shelf-book::after {
+  content: attr(data-book);
+  position: absolute;
+  right: 0.8rem;
+  top: 0.72rem;
+  color: rgba(88, 67, 42, 0.46);
+  font-size: 0.74rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+body.site-home:not(.site-archive) .shelf-book::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0.8rem;
+  background: linear-gradient(180deg, rgba(58, 38, 21, 0.18), rgba(255, 255, 255, 0.12), rgba(58, 38, 21, 0.26));
+}
+
+body.site-home:not(.site-archive) .shelf-book:hover {
+  transform: translateX(18px) translateY(-4px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.55) inset,
+    14px 10px 0 rgba(85, 63, 37, 0.12);
+  border-color: rgba(91, 68, 43, 0.62);
+  z-index: 5;
+}
+
+body.site-home:not(.site-archive) .shelf-book h2 {
+  padding-right: 5.6rem;
+}
+
+body.site-home:not(.site-archive) .shelf-book-ledger {
+  background:
+    linear-gradient(180deg, rgba(242, 230, 206, 0.98), rgba(229, 215, 189, 0.98));
+}
+
+body.site-home:not(.site-archive) .shelf-book-ledger:hover {
+  transform: translateX(14px) translateY(-3px);
+}
+
+body.site-home:not(.site-archive) .shelf-book-sienna { border-left: 12px solid #7d4e33; }
+body.site-home:not(.site-archive) .shelf-book-olive { border-left: 12px solid #606347; }
+body.site-home:not(.site-archive) .shelf-book-umber { border-left: 12px solid #76563d; }
+body.site-home:not(.site-archive) .shelf-book-ledger { border-left: 14px solid #5c402c; }
+body.site-home:not(.site-archive) .shelf-book-slate { border-left: 12px solid #51606f; }
+body.site-home:not(.site-archive) .shelf-book-green { border-left: 12px solid #54684f; }
+body.site-home:not(.site-archive) .shelf-book-brown { border-left: 12px solid #835f3f; }
+body.site-home:not(.site-archive) .shelf-book-clay { border-left: 12px solid #8d604d; }
+body.site-home:not(.site-archive) .shelf-book-charcoal { border-left: 12px solid #464341; }
+body.site-home:not(.site-archive) .shelf-book-catalog { border-left: 12px solid #7d6f4d; }
+
 .footer-stone img {
   display: block;
 }
@@ -805,10 +978,36 @@ body.note-page {
   padding: 24px 16px 64px;
 }
 
+body.note-page::before {
+  content: attr(data-note-group) " / " attr(data-note-title);
+  position: fixed;
+  top: 10px;
+  left: max(24px, calc((100vw - 1380px) / 2 + 18px));
+  z-index: 35;
+  color: rgba(90, 72, 55, 0.76);
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+body.note-page::after {
+  content: "folio " attr(data-note-date);
+  position: fixed;
+  top: 10px;
+  right: max(24px, calc((100vw - 1380px) / 2 + 18px));
+  z-index: 35;
+  color: rgba(90, 72, 55, 0.62);
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
 #content {
   max-width: 1080px;
   margin: 0 auto;
-  padding: 42px 56px 56px;
+  padding: 42px 62px 56px;
   border: 1px solid rgba(83, 63, 42, 0.38);
   background:
     linear-gradient(180deg, rgba(253, 248, 237, 0.96), rgba(242, 233, 215, 0.96)),
@@ -817,6 +1016,7 @@ body.note-page {
     0 1px 0 rgba(255, 255, 255, 0.7) inset,
     0 0 0 4px rgba(123, 100, 71, 0.07),
     0 26px 64px rgba(69, 53, 35, 0.14);
+  counter-reset: note-page 1;
 }
 
 .title {
@@ -826,6 +1026,15 @@ body.note-page {
   font-size: clamp(2rem, 4vw, 3rem);
   line-height: 1.02;
   color: var(--retro-ink);
+}
+
+.title::after {
+  content: " / working note";
+  color: rgba(90, 72, 55, 0.6);
+  font-size: 0.36em;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 #content p,
@@ -926,6 +1135,38 @@ body.note-page {
   z-index: 90;
 }
 
+.note-margin-rail {
+  position: fixed;
+  top: 88px;
+  left: max(18px, calc((100vw - 1500px) / 2 + 8px));
+  width: 200px;
+  display: grid;
+  gap: 0.55rem;
+  z-index: 17;
+}
+
+.note-margin-card {
+  padding: 0.7rem 0.75rem;
+  border: 1px solid rgba(106, 82, 53, 0.24);
+  background:
+    linear-gradient(180deg, rgba(248, 242, 231, 0.95), rgba(239, 229, 210, 0.96));
+  box-shadow: 2px 2px 0 rgba(118, 92, 61, 0.08);
+}
+
+.note-margin-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--retro-olive);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.note-margin-card strong {
+  color: #35281b;
+  font-size: 0.95rem;
+}
+
 .note-reading-progress-bar {
   display: block;
   width: 100%;
@@ -954,6 +1195,18 @@ body.note-page {
 .note-header-panel {
   margin: 0 0 1.15rem;
   padding: 0.85rem 1rem;
+  position: relative;
+}
+
+.note-header-panel::after {
+  content: "folio copy";
+  position: absolute;
+  right: 0.9rem;
+  top: 0.8rem;
+  color: rgba(90, 72, 55, 0.42);
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .note-header-meta {
@@ -990,7 +1243,7 @@ body.note-page {
 .note-sequence-label,
 .note-floating-toc-title,
 .note-graph-window-kicker {
-  color: var(--retro-muted);
+  color: var(--retro-olive);
   font-size: 0.8rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -999,6 +1252,12 @@ body.note-page {
 .note-panel-copy,
 .note-panel-empty {
   margin: 0;
+}
+
+.note-panel-copy,
+.note-header-summary,
+blockquote {
+  hanging-punctuation: first;
 }
 
 .note-link-list {
@@ -1050,6 +1309,8 @@ body.note-page {
   max-height: calc(100vh - 120px);
   overflow: hidden;
   z-index: 18;
+  background:
+    linear-gradient(180deg, rgba(248, 242, 231, 0.97), rgba(239, 229, 210, 0.98));
 }
 
 .note-floating-toc-header {
@@ -1058,6 +1319,7 @@ body.note-page {
   gap: 0.7rem;
   padding: 0.8rem 0.9rem;
   border-bottom: 1px solid rgba(106, 82, 53, 0.18);
+  background: rgba(94, 98, 66, 0.06);
 }
 
 .note-floating-toc-list {
@@ -1123,12 +1385,14 @@ body.note-page {
   padding: 0.36rem 0.45rem;
   color: #3d2f22;
   text-decoration: none;
+  border-left: 2px solid transparent;
 }
 
 .note-floating-toc-link:hover,
 .note-floating-toc-link.active {
   background: rgba(121, 95, 63, 0.1);
   color: var(--retro-link-hover);
+  border-left-color: rgba(94, 98, 66, 0.6);
 }
 
 .note-graph-window {
@@ -1159,6 +1423,7 @@ body.note-page {
   gap: 1rem;
   padding: 0.9rem 0.95rem 0.8rem;
   border-bottom: 1px solid rgba(106, 82, 53, 0.18);
+  background: rgba(94, 98, 66, 0.05);
 }
 
 .note-graph-window-header strong {
@@ -1198,6 +1463,42 @@ code {
   padding: 0.08rem 0.26rem;
   background: rgba(121, 95, 63, 0.08);
   color: #5c241f;
+}
+
+sup a,
+a.footref,
+.footref {
+  color: var(--retro-olive);
+  text-decoration: none;
+  font-size: 0.82em;
+}
+
+#footnotes,
+.footdef,
+div[id^="fn."],
+div[id^="text-footnotes"] {
+  margin-top: 2rem;
+  padding: 0.9rem 1rem 1rem;
+  border-top: 3px double rgba(101, 74, 47, 0.45);
+  background: rgba(94, 98, 66, 0.05);
+}
+
+#footnotes h2,
+#footnotes h3 {
+  margin-top: 0;
+  border: 0;
+  padding: 0;
+  font-size: 0.96rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--retro-olive);
+}
+
+.footpara,
+#footnotes p,
+#footnotes li {
+  color: #453527;
+  font-size: 0.96rem;
 }
 
 table {
@@ -1297,17 +1598,19 @@ blockquote {
 
 @media (min-width: 980px) {
   .home-grid {
-    grid-template-columns: 18.5rem minmax(0, 1fr);
-    column-gap: 2.25rem;
+    grid-template-columns: 19.5rem minmax(0, 1fr);
+    column-gap: 2.75rem;
     align-items: start;
   }
 
   #about,
+  .department-card,
   #research,
   #materials,
   #reading-list,
   #contact {
     grid-column: 1;
+    padding-right: 1rem;
   }
 
   #current-interests,
@@ -1317,8 +1620,12 @@ blockquote {
     grid-column: 2;
   }
 
-  #about {
+  .department-card {
     grid-row: 1;
+  }
+
+  #about {
+    grid-row: 2;
   }
 
   #current-interests {
@@ -1326,35 +1633,35 @@ blockquote {
   }
 
   #research {
-    grid-row: 2;
-  }
-
-  #notes-section {
-    grid-row: 2 / span 3;
-  }
-
-  #materials {
     grid-row: 3;
   }
 
-  #selected-notes {
-    grid-row: 5;
+  #notes-section {
+    grid-row: 2 / span 4;
   }
 
-  #reading-list {
+  #materials {
     grid-row: 4;
   }
 
-  #recent-updates {
+  #selected-notes {
     grid-row: 6;
   }
 
-  #contact {
+  #reading-list {
     grid-row: 5;
   }
 
+  #recent-updates {
+    grid-row: 7;
+  }
+
+  #contact {
+    grid-row: 6;
+  }
+
   body.note-page #content {
-    margin-left: max(300px, calc((100vw - 1380px) / 2 + 290px));
+    margin-left: max(360px, calc((100vw - 1500px) / 2 + 350px));
     margin-right: max(24px, calc((100vw - 1380px) / 2));
   }
 }
@@ -1388,6 +1695,13 @@ blockquote {
     position: static;
   }
 
+  body.note-page::before,
+  body.note-page::after {
+    position: static;
+    display: block;
+    padding: 0 0 0.45rem;
+  }
+
   #content {
     padding: 32px 24px 42px;
   }
@@ -1399,6 +1713,13 @@ blockquote {
 
   .note-toolbar {
     position: static;
+  }
+
+  .note-margin-rail {
+    position: static;
+    width: auto;
+    margin: 0 auto 1rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .note-floating-toc {
@@ -1423,6 +1744,10 @@ blockquote {
     padding: 14px 14px 18px;
   }
 
+  body.site-home:not(.site-archive) .home-grid::before {
+    display: none;
+  }
+
   .hero-meta,
   .site-nav,
   .search-wrapper,
@@ -1444,6 +1769,10 @@ blockquote {
 
   #content {
     padding: 24px 14px 34px;
+  }
+
+  .note-margin-rail {
+    grid-template-columns: 1fr;
   }
 
   .site-footer {
