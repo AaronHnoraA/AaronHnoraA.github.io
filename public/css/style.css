@@ -3021,3 +3021,788 @@ body.note-page {
     scroll-behavior: auto;
   }
 }
+
+/* ==========================================================================
+   10. Quiet — single column, low chrome, typographic
+   Overrides the framing in section 8 to bring back a "plain page of text"
+   feel without losing modern niceties (selection color, optical sizing,
+   text-wrap balance, dark-mode adapt).
+   ========================================================================== */
+:root {
+  --rule: rgba(31, 29, 26, 0.16);
+  --rule-soft: rgba(31, 29, 26, 0.08);
+  --ink: #1c1a17;
+  --ink-soft: rgba(31, 29, 26, 0.62);
+}
+
+::selection {
+  background: rgba(95, 119, 171, 0.22);
+  color: inherit;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ----- Body & shell ----- */
+body.site-home {
+  padding: clamp(28px, 4vw, 56px) clamp(20px, 5vw, 64px) 64px;
+  font-feature-settings: "kern", "liga", "onum" 1;
+}
+
+.site-home .site-shell {
+  max-width: 720px;
+}
+
+.site-home.site-archive .site-shell {
+  max-width: 980px;
+}
+
+.site-home a,
+.note-page a {
+  border-bottom: none;
+  text-decoration: underline;
+  text-decoration-color: rgba(31, 29, 26, 0.30);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+  transition: text-decoration-color 0.18s ease, color 0.18s ease;
+}
+
+.site-home a:hover,
+.note-page a:hover {
+  text-decoration-color: currentColor;
+}
+
+/* ----- Hero ----- */
+.site-home .hero {
+  padding: clamp(1.4rem, 4vw, 3rem) 0 1.6rem;
+  border-bottom: 1px solid var(--rule-soft);
+  background: transparent;
+}
+
+.site-home .hero-kicker {
+  margin: 0 0 0.55rem;
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: 0.84rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.site-home .hero-kicker a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.site-home .hero-kicker a:hover {
+  color: var(--ink);
+}
+
+.hero-kicker-soft {
+  font-family: var(--font-serif);
+  font-style: italic;
+}
+
+.hero-kicker-sep {
+  margin: 0 0.3rem;
+  color: rgba(31, 29, 26, 0.36);
+}
+
+.site-home h1 {
+  max-width: 28ch;
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(1.8rem, 3.4vw, 2.55rem);
+  font-weight: 500;
+  line-height: 1.18;
+  letter-spacing: -0.005em;
+  text-wrap: balance;
+}
+
+.site-home .hero-subtitle {
+  max-width: 42rem;
+  margin-top: 1rem;
+  font-family: var(--font-serif);
+  font-size: 1.02rem;
+  font-style: normal;
+  line-height: 1.78;
+  color: var(--ink);
+  text-wrap: pretty;
+}
+
+/* ----- Nav ----- */
+.site-home .site-nav {
+  position: static;
+  margin: 0;
+  padding: 0.85rem 0 1.1rem;
+  border-top: none;
+  border-bottom: 1px solid var(--rule-soft);
+  background: transparent;
+  gap: 0.4rem 1.4rem;
+  backdrop-filter: none;
+}
+
+.site-home .site-nav a {
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 0.86rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+
+.site-home .site-nav a:hover {
+  background: transparent;
+  color: var(--ink);
+  border: none;
+}
+
+/* ----- Sections ----- */
+.site-home .site-main {
+  margin-top: 0;
+}
+
+.site-home .home-grid {
+  display: block;
+}
+
+.site-home .section,
+.site-home .home-grid > .section:first-child {
+  padding: 1.85rem 0 0.4rem;
+  border: none;
+  background: transparent;
+}
+
+.site-home .section h2 {
+  margin: 0 0 0.85rem;
+  padding: 0;
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  font-weight: 600;
+  font-style: italic;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-soft);
+}
+
+.site-home .section h2::before {
+  content: "§ ";
+  margin-right: 0.12rem;
+  font-family: var(--font-mono);
+  font-style: normal;
+  font-weight: 400;
+  color: rgba(31, 29, 26, 0.4);
+}
+
+.site-home .section h3 {
+  margin: 1.5rem 0 0.55rem;
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  font-weight: 600;
+  font-style: normal;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink);
+}
+
+.site-home .section.section-prose p,
+.site-home .section.section-prose li,
+.site-home .section.section-prose dd {
+  font-family: var(--font-serif);
+  font-size: 1.02rem;
+  line-height: 1.78;
+  color: var(--ink);
+  text-wrap: pretty;
+}
+
+.site-home .section-intro {
+  font-family: var(--font-serif);
+  font-style: italic;
+  color: var(--ink-soft);
+}
+
+/* ----- Prose definition list & plain list ----- */
+.prose-defs {
+  margin: 0;
+  display: grid;
+  gap: 0.55rem 1.2rem;
+}
+
+.prose-defs dt {
+  margin: 0.15rem 0 0;
+  font-family: var(--font-serif);
+  font-size: 1.02rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.prose-defs dd {
+  margin: 0.05rem 0 0.45rem 1.4rem;
+  color: var(--ink);
+}
+
+.prose-defs-tag {
+  display: inline-block;
+  margin-right: 0.45rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--ink-soft);
+  border-bottom: 1px dotted rgba(31, 29, 26, 0.35);
+  padding: 0 0.05rem;
+}
+
+.plain-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.plain-list li {
+  padding: 0.2rem 0;
+}
+
+.plain-list li::before {
+  content: "—";
+  margin-right: 0.55rem;
+  color: rgba(31, 29, 26, 0.4);
+}
+
+.contact-line {
+  margin: 0;
+  font-family: var(--font-serif);
+}
+
+.contact-sep {
+  margin: 0 0.45rem;
+  color: rgba(31, 29, 26, 0.4);
+}
+
+/* ----- Strip card chrome from JS-rendered panels ----- */
+.site-home .academic-panel,
+.site-home .academic-panel::before {
+  border: none;
+  background: transparent;
+  display: revert;
+}
+
+.site-home .academic-panel::before {
+  content: none;
+}
+
+/* selected-note-list and recent-updates: hairline-separated single column,
+   metadata in a hanging left column on wider screens */
+.site-home .selected-note-list {
+  display: block;
+  grid-template-columns: none;
+  margin: 0;
+}
+
+.site-home .selected-note-item {
+  display: grid;
+  grid-template-columns: 8.5rem minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  gap: 0 1.4rem;
+  padding: 0.95rem 0;
+  border: none;
+  border-top: 1px solid var(--rule-soft);
+}
+
+.site-home .selected-note-item:first-child {
+  border-top: none;
+  padding-top: 0.4rem;
+}
+
+.site-home .selected-note-item:nth-child(odd) {
+  border-right: none;
+}
+
+.site-home .selected-note-item:nth-child(2) {
+  border-top: 1px solid var(--rule-soft);
+}
+
+.site-home .selected-note-meta {
+  grid-column: 1;
+  grid-row: 1 / 3;
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  margin: 0.18rem 0 0;
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.site-home .selected-note-item h3 {
+  grid-column: 2;
+  grid-row: 1;
+  margin: 0 0 0.3rem;
+  font-family: var(--font-serif);
+  font-size: 1.06rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink);
+}
+
+.site-home .selected-note-item h3 a {
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.site-home .selected-note-item h3 a:hover {
+  border-bottom-color: var(--ink);
+  text-decoration: none;
+}
+
+.site-home .selected-note-item p {
+  grid-column: 2;
+  grid-row: 2;
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 0.96rem;
+  line-height: 1.7;
+  color: var(--ink);
+}
+
+.site-home .placeholder-note-item {
+  opacity: 0.55;
+  background: transparent;
+}
+
+/* academic-track-row -> hanging tag prose */
+.site-home .academic-track-list {
+  display: block;
+}
+
+.site-home .academic-track-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1.3rem;
+  padding: 1rem 0;
+  border-top: 1px solid var(--rule-soft);
+  align-items: baseline;
+}
+
+.site-home .academic-track-row:first-child {
+  border-top: none;
+  padding-top: 0.4rem;
+}
+
+.site-home .academic-track-copy .research-kicker {
+  display: inline-block;
+  margin-bottom: 0.3rem;
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: lowercase;
+  color: var(--ink-soft);
+  border-bottom: 1px dotted rgba(31, 29, 26, 0.35);
+}
+
+.site-home .academic-track-copy h3 {
+  margin: 0 0 0.32rem;
+  font-family: var(--font-serif);
+  font-size: 1.06rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.site-home .academic-track-copy p {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 0.98rem;
+  line-height: 1.72;
+}
+
+.site-home .academic-track-actions {
+  align-self: center;
+}
+
+.site-home .academic-tag,
+.site-home .academic-tag:visited {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: 0.84rem;
+  font-weight: 400;
+  text-decoration: underline;
+  text-decoration-color: rgba(31, 29, 26, 0.32);
+  text-underline-offset: 0.22em;
+  min-height: 0;
+}
+
+.site-home .academic-tag:hover {
+  background: transparent;
+  text-decoration-color: currentColor;
+}
+
+.site-home .academic-tag-muted {
+  text-decoration: none;
+  color: var(--ink-soft);
+}
+
+/* ----- Notes summary cards -> stat row ----- */
+.site-home .notes-summary {
+  display: flex;
+  grid-template-columns: none;
+  gap: 0.4rem 2.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.3rem;
+  padding: 0.5rem 0 1rem;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.site-home .summary-card {
+  min-height: 0;
+  padding: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  background: transparent;
+  border: none;
+}
+
+.site-home .summary-card + .summary-card {
+  border-top: none;
+}
+
+.site-home .summary-value {
+  font-family: var(--font-serif);
+  font-size: 1.18rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.site-home .summary-label,
+.site-home .summary-hint {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: var(--ink-soft);
+}
+
+/* ----- Notes actions (quick-action buttons row) ----- */
+.site-home .notes-actions {
+  margin-bottom: 1rem;
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+
+.site-home .notes-actions::before {
+  display: none;
+}
+
+.site-home .quick-action-btn {
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 400;
+  text-transform: lowercase;
+  letter-spacing: 0;
+}
+
+.site-home .quick-action-btn:hover:not(:disabled) {
+  background: rgba(31, 29, 26, 0.04);
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.site-home .quick-action-shortcuts,
+.site-home .quick-action-hint,
+.site-home .quick-action-tags,
+.site-home .quick-action-status {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+
+/* ----- Toolbar (search + sort) ----- */
+.site-home .toolbar {
+  margin-bottom: 1.1rem;
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+
+.site-home .toolbar::before {
+  display: none;
+}
+
+.site-home #note-search {
+  border: 1px solid var(--rule);
+  background: transparent;
+  font-family: var(--font-serif);
+  font-size: 0.96rem;
+}
+
+.site-home #note-search:focus {
+  outline: none;
+  border-color: var(--ink);
+}
+
+.site-home select {
+  border: 1px solid var(--rule);
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 0.84rem;
+}
+
+.site-home .sort-wrapper label {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ink-soft);
+}
+
+/* ----- Tag cloud and tabs ----- */
+.site-home #tag-cloud {
+  margin-bottom: 1.05rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.site-home .tag-chip,
+.site-home .filter-chip,
+.site-home .tag-small,
+.site-home .empty-state-action,
+.site-home .quick-inline-tag {
+  border: 1px solid var(--rule);
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 400;
+  text-transform: lowercase;
+  border-radius: 0;
+  color: var(--ink);
+}
+
+.site-home .tag-chip:hover,
+.site-home .filter-chip:hover,
+.site-home .tag-small:hover,
+.site-home .quick-inline-tag:hover {
+  background: rgba(31, 29, 26, 0.04);
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.site-home .tab-btn {
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0 !important;
+  padding: 0.55rem 0.7rem;
+  background: transparent !important;
+  font-family: var(--font-mono);
+  font-size: 0.84rem;
+  font-weight: 400;
+  text-transform: lowercase;
+  color: var(--ink-soft);
+  min-width: 0;
+}
+
+.site-home .tab-btn:first-child {
+  border-left-width: 0;
+}
+
+.site-home .tab-btn:hover {
+  color: var(--ink);
+  background: transparent !important;
+  border-color: transparent;
+}
+
+.site-home #app-tabs .tab-btn.active,
+.site-home #app-tabs .tab-buttons .tab-btn.active {
+  border: none !important;
+  border-bottom: 2px solid var(--ink) !important;
+  background: transparent !important;
+  color: var(--ink) !important;
+  box-shadow: none;
+}
+
+.site-home .badge,
+.site-home .tag-chip-count {
+  background: transparent;
+  border: 1px solid var(--rule-soft);
+  font-family: var(--font-mono);
+  font-weight: 400;
+  border-radius: 999px;
+}
+
+.site-home .tab-buttons {
+  border-bottom: 1px solid var(--rule-soft);
+  padding: 0 0 0.4rem;
+}
+
+/* ----- Graph ----- */
+.site-home #graph-container {
+  border: 1px solid var(--rule-soft);
+  border-radius: 0;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 28px,
+      rgba(31, 29, 26, 0.025) 28px,
+      rgba(31, 29, 26, 0.025) 29px
+    ),
+    rgba(255, 254, 250, 0.5);
+}
+
+.site-home .graph-focus {
+  margin-top: 12px;
+  padding: 0.85rem 0 0.2rem;
+  border: none;
+  border-top: 1px solid var(--rule-soft);
+  background: transparent;
+}
+
+.site-home .graph-focus-type,
+.site-home .group-pill,
+.site-home .relation-pill {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: lowercase;
+  color: var(--ink-soft);
+}
+
+/* ----- File list (notes) ----- */
+.site-home .file-list {
+  border-top: 1px solid var(--rule-soft);
+  margin-top: 0;
+}
+
+.site-home .file-card {
+  padding: 0.95rem 0;
+  border: none;
+  border-bottom: 1px solid var(--rule-soft);
+  background: transparent;
+}
+
+.site-home .file-card::before {
+  display: none;
+}
+
+.site-home .file-link {
+  font-family: var(--font-serif);
+  font-size: 1.06rem;
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.site-home .file-link:hover {
+  border-bottom-color: var(--ink);
+  text-decoration: none;
+}
+
+.site-home .file-date,
+.site-home .file-summary {
+  font-family: var(--font-serif);
+  color: var(--ink-soft);
+}
+
+.site-home .file-date {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+/* ----- Active filters ----- */
+.site-home .active-filter-stats {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+
+/* ----- Footer ----- */
+.site-home .site-footer {
+  margin-top: 2.4rem;
+  padding-top: 0.95rem;
+  border-top: 1px solid var(--rule-soft);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ink-soft);
+}
+
+/* ----- Responsive ----- */
+@media (max-width: 720px) {
+  .site-home .selected-note-item {
+    grid-template-columns: 1fr;
+    gap: 0.4rem 0;
+  }
+  .site-home .selected-note-item h3,
+  .site-home .selected-note-item p,
+  .site-home .selected-note-meta {
+    grid-column: 1;
+  }
+  .site-home .selected-note-meta {
+    grid-row: auto;
+    flex-direction: row;
+    gap: 0.7rem;
+  }
+  .site-home .academic-track-row {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+}
+
+/* ----- Subtle dark mode ----- */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --site-paper: #14130f;
+    --rule: rgba(228, 222, 210, 0.18);
+    --rule-soft: rgba(228, 222, 210, 0.10);
+    --ink: #e6dfd0;
+    --ink-soft: rgba(230, 223, 208, 0.62);
+  }
+  body.site-home {
+    background: var(--site-paper);
+    color: var(--ink);
+  }
+  .site-home a,
+  .note-page a {
+    color: var(--ink);
+    text-decoration-color: rgba(230, 223, 208, 0.32);
+  }
+  .site-home #note-search,
+  .site-home select {
+    color: var(--ink);
+  }
+  .site-home #graph-container {
+    background:
+      repeating-linear-gradient(
+        0deg,
+        transparent 0,
+        transparent 28px,
+        rgba(228, 222, 210, 0.04) 28px,
+        rgba(228, 222, 210, 0.04) 29px
+      ),
+      rgba(20, 19, 15, 0.5);
+  }
+  ::selection {
+    background: rgba(230, 223, 208, 0.22);
+  }
+}

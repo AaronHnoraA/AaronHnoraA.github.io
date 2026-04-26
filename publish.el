@@ -339,6 +339,7 @@
          (pub-dir (expand-file-name (plist-get project-plist :publishing-directory)))
          (js-dir (expand-file-name "js" pub-dir))
          (template-file (expand-file-name "homepage.html" base-dir))
+         (notes-template-file (expand-file-name "notes.html" base-dir))
          (files (seq-filter
                  (lambda (file)
                    (let ((rel (file-relative-name file base-dir)))
@@ -433,6 +434,10 @@
       (if (file-exists-p template-file)
           (copy-file template-file (expand-file-name "index.html" pub-dir) t)
         (message "homepage.html not found, skipping public/index.html"))
+
+      (if (file-exists-p notes-template-file)
+          (copy-file notes-template-file (expand-file-name "notes.html" pub-dir) t)
+        (message "notes.html not found, skipping public/notes.html"))
 
       "* Sitemap generation log (ignore this file)")))
 

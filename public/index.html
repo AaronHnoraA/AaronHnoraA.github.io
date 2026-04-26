@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Aaron He | Math & Code</title>
-  <link rel="stylesheet" href="css/style.css?v=20260410-9" />
+  <link rel="stylesheet" href="css/style.css?v=20260426-1" />
   <link rel="shortcut icon"
     href="https://raw.githubusercontent.com/AaronHnoraA/AaronHnoraA.github.io/refs/heads/master/css/cv.svg"
     type="image/x-icon">
@@ -15,96 +15,47 @@
 <body class="site-home">
   <div class="site-shell">
   <header class="hero">
-    <div class="hero-grid">
-      <div class="hero-main">
-        <p class="hero-kicker">Aaron He</p>
-        <h1>Mathematics, Computer Science, and Study Notes</h1>
-        <p class="hero-subtitle">An undergraduate academic homepage and working archive of notes in mathematics, quantum computing, and theoretical computer science.</p>
-        <div class="hero-meta" aria-label="Profile highlights">
-          <span>UNSW Sydney</span>
-          <span>Talented Students Program</span>
-          <span>Research Notes and Coursework</span>
-        </div>
-      </div>
-      <aside class="hero-aside" aria-label="Profile summary">
-        <dl class="hero-facts">
-          <div>
-            <dt>Affiliation</dt>
-            <dd>UNSW Sydney</dd>
-          </div>
-          <div>
-            <dt>Focus</dt>
-            <dd>Algebra, algorithms, quantum computing</dd>
-          </div>
-          <div>
-            <dt>Supervisor</dt>
-            <dd><a href="https://sites.google.com/site/jimmyqiao86/" target="_blank" rel="noreferrer">Youming Qiao</a></dd>
-          </div>
-          <div>
-            <dt>Email</dt>
-            <dd><a href="mailto:aaron.he@student.unsw.edu.au">aaron.he@student.unsw.edu.au</a></dd>
-          </div>
-          <div>
-            <dt>GitHub</dt>
-            <dd><a href="https://github.com/AaronHnoraA" target="_blank" rel="noreferrer">AaronHnoraA</a></dd>
-          </div>
-        </dl>
-      </aside>
-    </div>
+    <p class="hero-kicker">Aaron He <span class="hero-kicker-sep">·</span> <span class="hero-kicker-soft">何畅</span></p>
+    <h1>A working notebook in mathematics, quantum&nbsp;computing, and theory.</h1>
+    <p class="hero-subtitle">
+      Second-year mathematics undergraduate at <a href="https://www.unsw.edu.au/">UNSW Sydney</a>,
+      member of the <a href="https://www.unsw.edu.au/science/student-life-resources/student-opportunities/talented-students-program">Talented Students Program</a>,
+      working with <a href="https://sites.google.com/site/jimmyqiao86/" target="_blank" rel="noreferrer">Youming Qiao</a>.
+      Reading, writing, and re-deriving — mostly in public.
+    </p>
   </header>
 
   <nav class="site-nav" aria-label="Primary">
-    <a href="#about">About</a>
-    <a href="#short-bio">Bio</a>
-    <a href="#research">Research</a>
-    <a href="#current-interests">Current Work</a>
-    <a href="#selected-notes">Selected Notes</a>
-    <a href="notes.html">Archive</a>
-    <a href="#publications">Publications</a>
-    <a href="#materials">Materials</a>
-    <a href="#reading-list">Reading List</a>
-    <a href="#contact">Contact</a>
+    <a href="#about">about</a>
+    <a href="#research">research</a>
+    <a href="#current-interests">current</a>
+    <a href="#selected-notes">selected</a>
+    <a href="notes.html">archive</a>
+    <a href="#materials">materials</a>
+    <a href="#reading-list">reading</a>
+    <a href="#contact">contact</a>
   </nav>
 
   <main class="site-main">
     <div class="home-grid">
-    <section id="about" class="section">
+    <section id="about" class="section section-prose">
       <h2>About</h2>
       <p>
-        I am a second-year Mathematics student at UNSW Sydney, with interests in mathematics, quantum computing, and theoretical computer science.
+        This site is part homepage, part open notebook. I write notes here while studying, mostly to force myself to re-derive things until they make sense; if anyone else finds them useful, that's a bonus.
       </p>
       <p>
-        I am a member of the <a
-          href="https://www.unsw.edu.au/science/student-life-resources/student-opportunities/talented-students-program">UNSW
-          Science Talented Students Program (TSP)</a>,
-        and I currently work with Associate Professor <a href="https://sites.google.com/site/jimmyqiao86/" target="_blank" rel="noreferrer">Youming Qiao</a>.
+        Right now the focus is quantum computing — quantum states, observables, density operators — and the algebra and linear algebra they sit on. Theoretical computer science is the long horizon: complexity, algorithms, communication complexity. Those notes will appear as I write them.
       </p>
     </section>
 
-    <section id="short-bio" class="section">
-      <h2>Short Bio</h2>
-      <p>
-        I am currently building a personal archive of mathematical notes, with present emphasis on quantum computing and its algebraic and linear-algebraic foundations.
-      </p>
-      <p>
-        This site functions both as a study record and as a long-term working notebook for future research in QC and TCS.
-      </p>
-    </section>
-
-    <section id="research" class="section">
-      <h2>Research Areas</h2>
-      <div class="research-grid">
-        <article class="research-card">
-          <span class="research-kicker">QC</span>
-          <h3>Quantum Computing</h3>
-          <p>Current reading and note-writing focus on quantum states, observables, density operators, and the linear-algebraic language of quantum information.</p>
-        </article>
-        <article class="research-card">
-          <span class="research-kicker">TCS</span>
-          <h3>Theoretical Computer Science</h3>
-          <p>A planned direction of study. Notes on complexity theory, algorithms, combinatorics, and communication complexity will be added as the archive develops.</p>
-        </article>
-      </div>
+    <section id="research" class="section section-prose">
+      <h2>Research</h2>
+      <dl class="prose-defs">
+        <dt><span class="prose-defs-tag">qc</span> Quantum computing</dt>
+        <dd>Active note stream. Quantum states, observables, density operators; the linear-algebraic vocabulary that holds it together.</dd>
+        <dt><span class="prose-defs-tag">tcs</span> Theoretical computer science</dt>
+        <dd>Planned. Complexity, algorithms, combinatorics, communication complexity — added as the archive grows.</dd>
+      </dl>
     </section>
 
     <section id="current-interests" class="section section-wide">
@@ -150,58 +101,45 @@
       <div id="app-tabs"></div>
     </section>
 
-    <section id="publications" class="section">
-      <h2>Publications</h2>
-      <ul>
-        <li>
-          No publications listed yet.
-        </li>
-      </ul>
-    </section>
-
-    <section id="selected-notes" class="section">
-      <h2>Selected Notes</h2>
+    <section id="selected-notes" class="section section-prose">
+      <h2>Selected notes</h2>
       <div id="selected-notes-panel" class="academic-panel" aria-live="polite"></div>
     </section>
 
-    <section id="recent-updates" class="section">
-      <h2>Recent Updates</h2>
+    <section id="recent-updates" class="section section-prose">
+      <h2>Recent updates</h2>
       <div id="recent-updates-panel" class="academic-panel" aria-live="polite"></div>
     </section>
 
-    <section id="materials" class="section">
+    <section id="materials" class="section section-prose">
       <h2>Materials</h2>
-      <div class="placeholder-list">
-        <article class="placeholder-card">
-          <span class="placeholder-label">Coursework</span>
-          <p>Course notes and worked summaries in QC and TCS will be listed here.</p>
-        </article>
-        <article class="placeholder-card">
-          <span class="placeholder-label">Writing</span>
-          <p>Expository notes, essays, and longer drafts will appear here.</p>
-        </article>
-        <article class="placeholder-card">
-          <span class="placeholder-label">Talks</span>
-          <p>No public talks are listed at present.</p>
-        </article>
-        <article class="placeholder-card">
-          <span class="placeholder-label">CV</span>
-          <p>A formal curriculum vitae will be added here.</p>
-        </article>
-      </div>
+      <dl class="prose-defs">
+        <dt>Coursework</dt>
+        <dd>Course notes and worked summaries in QC and TCS will be listed here.</dd>
+        <dt>Writing</dt>
+        <dd>Expository notes, essays, and longer drafts will appear here.</dd>
+        <dt>Talks</dt>
+        <dd>None at present.</dd>
+        <dt>CV</dt>
+        <dd>A formal curriculum vitae will be added here.</dd>
+      </dl>
     </section>
-    <section id="reading-list" class="section">
-      <h2>Reading List</h2>
-      <ul>
-        <li><strong>近世代数引论（第四版）</strong> — （冯克勤）</li>
-        <li><strong>伽罗瓦理论：天才的激情</strong> — 章璞</li>
-        <li><strong>Nielsen & Chuang</strong> — <em>Quantum Computation and Quantum Information</em></li>
+
+    <section id="reading-list" class="section section-prose">
+      <h2>Reading</h2>
+      <ul class="plain-list">
+        <li>冯克勤, <cite>近世代数引论（第四版）</cite>.</li>
+        <li>章璞, <cite>伽罗瓦理论：天才的激情</cite>.</li>
+        <li>Nielsen &amp; Chuang, <cite>Quantum Computation and Quantum Information</cite>.</li>
       </ul>
     </section>
-    <section id="contact" class="section">
-      <h2>Contact</h2>
-      <p>GitHub: <a href="https://github.com/AaronHnoraA" target="_blank" rel="noreferrer">AaronHnoraA</a></p>
-      <p>Email: <a href="mailto:aaron.he@student.unsw.edu.au">aaron.he@student.unsw.edu.au</a> (UNSW School Email)
+
+    <section id="contact" class="section section-prose">
+      <h2>Elsewhere</h2>
+      <p class="contact-line">
+        <a href="mailto:aaron.he@student.unsw.edu.au">aaron.he@student.unsw.edu.au</a>
+        <span class="contact-sep">·</span>
+        <a href="https://github.com/AaronHnoraA" target="_blank" rel="noreferrer">github / AaronHnoraA</a>
       </p>
     </section>
     </div>
@@ -216,11 +154,11 @@
     </span>
   </footer>
   </div>
-  <script src="js/data.js?v=20260410-9"></script>
-  <script src="js/knowledge.js?v=20260410-9"></script>
-  <script src="js/app.js?v=20260410-9"></script>
-  <script src="js/graph.js?v=20260410-9"></script>
-  <script src="js/oneko.js?v=20260410-9"></script>
+  <script src="js/data.js?v=20260426-1"></script>
+  <script src="js/knowledge.js?v=20260426-1"></script>
+  <script src="js/app.js?v=20260426-1"></script>
+  <script src="js/graph.js?v=20260426-1"></script>
+  <script src="js/oneko.js?v=20260426-1"></script>
 </body>
 
 </html>
