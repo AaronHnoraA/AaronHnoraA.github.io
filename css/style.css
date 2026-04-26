@@ -3023,72 +3023,75 @@ body.note-page {
 }
 
 /* ==========================================================================
-   10. Quiet — single column, low chrome, typographic
-   Overrides the framing in section 8 to bring back a "plain page of text"
-   feel without losing modern niceties (selection color, optical sizing,
-   text-wrap balance, dark-mode adapt).
+   10. Plain — old-school academic homepage
+   White paper, Times/Georgia, blue underlined links, default <h2>.
+   No ornaments, no italics, no uppercase, no boxes. The dynamic
+   panels (selected-notes, file-list, graph) are demoted to plain
+   bullet lists or simple bordered widgets so they sit in the page
+   like text, not like a product UI.
    ========================================================================== */
-:root {
-  --rule: rgba(31, 29, 26, 0.16);
-  --rule-soft: rgba(31, 29, 26, 0.08);
-  --ink: #1c1a17;
-  --ink-soft: rgba(31, 29, 26, 0.62);
-}
-
-::selection {
-  background: rgba(95, 119, 171, 0.22);
-  color: inherit;
-}
-
-html {
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-}
-
-/* ----- Body & shell ----- */
 body.site-home {
-  padding: clamp(28px, 4vw, 56px) clamp(20px, 5vw, 64px) 64px;
-  font-feature-settings: "kern", "liga", "onum" 1;
+  margin: 0;
+  padding: 28px clamp(14px, 4vw, 36px) 64px;
+  background: #ffffff;
+  color: #111111;
+  font-family: Georgia, "Times New Roman", Times, serif;
+  font-size: 17px;
+  line-height: 1.55;
 }
 
 .site-home .site-shell {
   max-width: 720px;
+  margin: 0;
 }
 
 .site-home.site-archive .site-shell {
-  max-width: 980px;
+  max-width: 900px;
 }
 
 .site-home a,
-.note-page a {
-  border-bottom: none;
+.site-home a:visited {
+  color: #00529b;
+  font-weight: normal;
+  border: none;
   text-decoration: underline;
-  text-decoration-color: rgba(31, 29, 26, 0.30);
   text-decoration-thickness: 1px;
-  text-underline-offset: 0.18em;
-  transition: text-decoration-color 0.18s ease, color 0.18s ease;
+  text-underline-offset: 2px;
+  transition: color 0.12s ease;
 }
 
-.site-home a:hover,
-.note-page a:hover {
-  text-decoration-color: currentColor;
+.site-home a:visited {
+  color: #6a3d9a;
+}
+
+.site-home a:hover {
+  color: #c00;
+}
+
+::selection {
+  background: #fff3a3;
+  color: inherit;
 }
 
 /* ----- Hero ----- */
-.site-home .hero {
-  padding: clamp(1.4rem, 4vw, 3rem) 0 1.6rem;
-  border-bottom: 1px solid var(--rule-soft);
-  background: transparent;
+.site-home .hero,
+.site-home .archive-hero {
+  margin: 0;
+  padding: 0 0 0.6rem;
+  border: none;
+  background: none;
 }
 
 .site-home .hero-kicker {
-  margin: 0 0 0.55rem;
-  color: var(--ink-soft);
-  font-family: var(--font-mono);
-  font-size: 0.84rem;
-  font-weight: 400;
+  margin: 0 0 0.15rem;
+  padding: 0;
+  font-family: Georgia, serif;
+  font-size: 0.92rem;
+  font-weight: normal;
+  font-style: normal;
   letter-spacing: 0;
   text-transform: none;
+  color: #444;
 }
 
 .site-home .hero-kicker a {
@@ -3097,73 +3100,108 @@ body.site-home {
 }
 
 .site-home .hero-kicker a:hover {
-  color: var(--ink);
+  color: #00529b;
+  text-decoration: underline;
 }
 
 .hero-kicker-soft {
-  font-family: var(--font-serif);
+  font-family: Georgia, serif;
   font-style: italic;
+  color: #444;
 }
 
 .hero-kicker-sep {
-  margin: 0 0.3rem;
-  color: rgba(31, 29, 26, 0.36);
+  margin: 0 0.25rem;
+  color: #999;
 }
 
 .site-home h1 {
-  max-width: 28ch;
-  margin: 0;
-  font-family: var(--font-serif);
-  font-size: clamp(1.8rem, 3.4vw, 2.55rem);
-  font-weight: 500;
-  line-height: 1.18;
-  letter-spacing: -0.005em;
-  text-wrap: balance;
+  margin: 0.1rem 0 0.4rem;
+  padding: 0;
+  font-family: Georgia, "Times New Roman", Times, serif;
+  font-size: 1.75rem;
+  font-weight: bold;
+  font-style: normal;
+  line-height: 1.2;
+  letter-spacing: 0;
+  color: #111;
+  max-width: none;
+  text-wrap: normal;
 }
 
 .site-home .hero-subtitle {
-  max-width: 42rem;
-  margin-top: 1rem;
-  font-family: var(--font-serif);
-  font-size: 1.02rem;
+  margin: 0.4rem 0 0;
+  max-width: none;
+  font-family: Georgia, serif;
+  font-size: 1rem;
   font-style: normal;
-  line-height: 1.78;
-  color: var(--ink);
-  text-wrap: pretty;
+  line-height: 1.55;
+  color: #111;
+  text-wrap: normal;
 }
 
-/* ----- Nav ----- */
+.site-home .hero-cn {
+  font-family: Georgia, "Songti SC", "宋体", serif;
+  font-weight: normal;
+  font-size: 1.35rem;
+  margin-left: 0.35rem;
+  color: #444;
+}
+
+.site-home .hero-affil,
+.site-home .hero-contact {
+  margin: 0.25rem 0 0;
+  font-family: Georgia, serif;
+  font-size: 1rem;
+  line-height: 1.55;
+  color: #111;
+  max-width: none;
+}
+
+.site-home .hero-contact {
+  margin-top: 0.45rem;
+  color: #333;
+}
+
+/* ----- Nav: simple inline text links ----- */
 .site-home .site-nav {
   position: static;
-  margin: 0;
-  padding: 0.85rem 0 1.1rem;
-  border-top: none;
-  border-bottom: 1px solid var(--rule-soft);
-  background: transparent;
-  gap: 0.4rem 1.4rem;
+  display: block;
+  margin: 0.6rem 0 0;
+  padding: 0.3rem 0 0.6rem;
+  border: none;
+  background: none;
   backdrop-filter: none;
 }
 
 .site-home .site-nav a {
+  display: inline;
+  margin: 0;
   padding: 0;
   border: none;
   border-radius: 0;
-  font-family: var(--font-mono);
-  font-size: 0.86rem;
-  font-weight: 400;
+  background: none;
+  font-family: Georgia, serif;
+  font-size: 1rem;
+  font-weight: normal;
   letter-spacing: 0;
   text-transform: none;
-  color: var(--ink-soft);
-  text-decoration: none;
+  color: #00529b;
+}
+
+.site-home .site-nav a + a::before {
+  content: " · ";
+  color: #999;
+  margin: 0 0.2rem;
 }
 
 .site-home .site-nav a:hover {
-  background: transparent;
-  color: var(--ink);
+  color: #c00;
+  background: none;
   border: none;
 }
 
-/* ----- Sections ----- */
+/* ----- Sections: no borders, no decoration ----- */
 .site-home .site-main {
   margin-top: 0;
 }
@@ -3174,635 +3212,823 @@ body.site-home {
 
 .site-home .section,
 .site-home .home-grid > .section:first-child {
-  padding: 1.85rem 0 0.4rem;
+  margin: 1.2rem 0 0;
+  padding: 0;
   border: none;
-  background: transparent;
+  background: none;
 }
 
 .site-home .section h2 {
-  margin: 0 0 0.85rem;
+  margin: 1.2rem 0 0.35rem;
   padding: 0;
-  font-family: var(--font-serif);
-  font-size: 1.05rem;
-  font-weight: 600;
-  font-style: italic;
+  border: none;
+  font-family: Georgia, "Times New Roman", Times, serif;
+  font-size: 1.18rem;
+  font-weight: bold;
+  font-style: normal;
   letter-spacing: 0;
   text-transform: none;
-  color: var(--ink-soft);
+  color: #111;
 }
 
 .site-home .section h2::before {
-  content: "§ ";
-  margin-right: 0.12rem;
-  font-family: var(--font-mono);
-  font-style: normal;
-  font-weight: 400;
-  color: rgba(31, 29, 26, 0.4);
+  content: none;
 }
 
 .site-home .section h3 {
-  margin: 1.5rem 0 0.55rem;
-  font-family: var(--font-serif);
-  font-size: 1.05rem;
-  font-weight: 600;
+  margin: 0.9rem 0 0.3rem;
+  padding: 0;
+  font-family: Georgia, serif;
+  font-size: 1.04rem;
+  font-weight: bold;
   font-style: normal;
   letter-spacing: 0;
   text-transform: none;
-  color: var(--ink);
+  color: #111;
 }
 
-.site-home .section.section-prose p,
-.site-home .section.section-prose li,
-.site-home .section.section-prose dd {
-  font-family: var(--font-serif);
-  font-size: 1.02rem;
-  line-height: 1.78;
-  color: var(--ink);
-  text-wrap: pretty;
+.site-home .section p,
+.site-home .section li,
+.site-home .section dd,
+.site-home .section dt {
+  font-family: Georgia, serif;
+  font-size: 1rem;
+  line-height: 1.55;
+  color: #111;
+  text-wrap: normal;
+}
+
+.site-home .section ul {
+  margin: 0.3rem 0;
+  padding-left: 1.5rem;
+  list-style: disc;
+}
+
+.site-home .section li + li {
+  margin-top: 0.05rem;
 }
 
 .site-home .section-intro {
-  font-family: var(--font-serif);
-  font-style: italic;
-  color: var(--ink-soft);
+  margin: 0;
+  font-family: Georgia, serif;
+  font-style: normal;
+  color: #444;
 }
 
-/* ----- Prose definition list & plain list ----- */
+/* ----- Prose definition list ----- */
 .prose-defs {
-  margin: 0;
-  display: grid;
-  gap: 0.55rem 1.2rem;
+  margin: 0.4rem 0;
+  padding-left: 1.5rem;
+  list-style: disc;
+}
+
+.prose-defs dt,
+.prose-defs dd {
+  display: inline;
+  font-family: Georgia, serif;
+  font-size: 1rem;
 }
 
 .prose-defs dt {
-  margin: 0.15rem 0 0;
-  font-family: var(--font-serif);
-  font-size: 1.02rem;
-  font-weight: 600;
-  color: var(--ink);
+  font-weight: bold;
+  margin: 0;
+}
+
+.prose-defs dt::before {
+  content: "• ";
+  display: inline;
+  margin-left: -0.85rem;
+  color: #111;
+  font-weight: normal;
+}
+
+.prose-defs dt::after {
+  content: " — ";
+  font-weight: normal;
+  color: #444;
 }
 
 .prose-defs dd {
-  margin: 0.05rem 0 0.45rem 1.4rem;
-  color: var(--ink);
+  margin: 0;
+  color: #111;
+}
+
+.prose-defs dd::after {
+  content: "";
+  display: block;
+  height: 0.25rem;
 }
 
 .prose-defs-tag {
-  display: inline-block;
-  margin-right: 0.45rem;
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  font-weight: 400;
-  letter-spacing: 0;
-  color: var(--ink-soft);
-  border-bottom: 1px dotted rgba(31, 29, 26, 0.35);
-  padding: 0 0.05rem;
-}
-
-.plain-list {
-  list-style: none;
+  display: inline;
   margin: 0;
   padding: 0;
+  border: none;
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-size: 0.95rem;
+  font-weight: normal;
+  color: #444;
+}
+
+.prose-defs-tag::after {
+  content: " ";
+}
+
+/* ----- Plain list (Reading) ----- */
+.plain-list {
+  margin: 0.4rem 0;
+  padding-left: 1.5rem;
+  list-style: disc;
 }
 
 .plain-list li {
-  padding: 0.2rem 0;
+  padding: 0;
 }
 
 .plain-list li::before {
-  content: "—";
-  margin-right: 0.55rem;
-  color: rgba(31, 29, 26, 0.4);
+  content: none;
+  margin: 0;
 }
 
 .contact-line {
   margin: 0;
-  font-family: var(--font-serif);
+  font-family: Georgia, serif;
 }
 
 .contact-sep {
   margin: 0 0.45rem;
-  color: rgba(31, 29, 26, 0.4);
+  color: #999;
+}
+
+cite {
+  font-style: italic;
 }
 
 /* ----- Strip card chrome from JS-rendered panels ----- */
-.site-home .academic-panel,
-.site-home .academic-panel::before {
+.site-home .academic-panel {
   border: none;
-  background: transparent;
-  display: revert;
+  background: none;
+  padding: 0;
 }
 
 .site-home .academic-panel::before {
   content: none;
+  display: none;
 }
 
-/* selected-note-list and recent-updates: hairline-separated single column,
-   metadata in a hanging left column on wider screens */
+/* selected-note-list & recent-updates as bullet lists */
 .site-home .selected-note-list {
   display: block;
   grid-template-columns: none;
-  margin: 0;
+  margin: 0.4rem 0;
+  padding-left: 1.5rem;
+  list-style: disc;
 }
 
 .site-home .selected-note-item {
-  display: grid;
-  grid-template-columns: 8.5rem minmax(0, 1fr);
-  grid-template-rows: auto auto;
-  gap: 0 1.4rem;
-  padding: 0.95rem 0;
-  border: none;
-  border-top: 1px solid var(--rule-soft);
-}
-
-.site-home .selected-note-item:first-child {
-  border-top: none;
-  padding-top: 0.4rem;
-}
-
-.site-home .selected-note-item:nth-child(odd) {
-  border-right: none;
-}
-
-.site-home .selected-note-item:nth-child(2) {
-  border-top: 1px solid var(--rule-soft);
-}
-
-.site-home .selected-note-meta {
-  grid-column: 1;
-  grid-row: 1 / 3;
-  display: flex;
-  flex-direction: column;
-  gap: 0.18rem;
-  margin: 0.18rem 0 0;
-  color: var(--ink-soft);
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  font-weight: 400;
-  letter-spacing: 0;
-  text-transform: none;
+  display: list-item;
+  list-style: disc outside;
+  grid-template-columns: none;
+  grid-template-rows: none;
+  gap: 0;
+  padding: 0.15rem 0;
+  margin: 0;
+  border: none !important;
+  background: none;
 }
 
 .site-home .selected-note-item h3 {
-  grid-column: 2;
-  grid-row: 1;
-  margin: 0 0 0.3rem;
-  font-family: var(--font-serif);
-  font-size: 1.06rem;
-  font-weight: 600;
+  display: inline;
+  grid-column: auto;
+  grid-row: auto;
+  margin: 0;
+  font-family: Georgia, serif;
+  font-size: 1rem;
+  font-weight: bold;
   letter-spacing: 0;
   text-transform: none;
-  color: var(--ink);
+  color: #111;
+  line-height: 1.55;
 }
 
 .site-home .selected-note-item h3 a {
-  text-decoration: none;
-  border-bottom: 1px solid transparent;
+  color: #00529b;
+  font-weight: normal;
+  text-decoration: underline;
+  border-bottom: none;
 }
 
 .site-home .selected-note-item h3 a:hover {
-  border-bottom-color: var(--ink);
-  text-decoration: none;
+  color: #c00;
+  border: none;
 }
 
 .site-home .selected-note-item p {
-  grid-column: 2;
-  grid-row: 2;
-  margin: 0;
-  font-family: var(--font-serif);
-  font-size: 0.96rem;
-  line-height: 1.7;
-  color: var(--ink);
+  display: block;
+  grid-column: auto;
+  grid-row: auto;
+  margin: 0 0 0.1rem;
+  font-family: Georgia, serif;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #444;
+}
+
+.site-home .selected-note-meta {
+  display: inline;
+  grid-column: auto;
+  grid-row: auto;
+  margin: 0 0.4rem 0 0;
+  flex-direction: row;
+  gap: 0.35rem;
+  font-family: Georgia, serif;
+  font-size: 0.92rem;
+  font-style: italic;
+  font-weight: normal;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #666;
+}
+
+.site-home .selected-note-meta span {
+  display: inline;
+}
+
+.site-home .selected-note-meta span + span::before {
+  content: ", ";
+  font-style: normal;
+  color: #999;
+  margin-right: 0.15rem;
+}
+
+.site-home .selected-note-meta::after {
+  content: " — ";
+  font-style: normal;
+  color: #999;
+  margin-right: 0.15rem;
 }
 
 .site-home .placeholder-note-item {
   opacity: 0.55;
-  background: transparent;
+  background: none;
 }
 
-/* academic-track-row -> hanging tag prose */
+/* academic-track-row -> plain prose */
 .site-home .academic-track-list {
   display: block;
+  margin: 0.4rem 0;
+  padding: 0;
 }
 
 .site-home .academic-track-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 1.3rem;
-  padding: 1rem 0;
-  border-top: 1px solid var(--rule-soft);
+  display: block;
+  grid-template-columns: none;
+  gap: 0;
+  margin: 0.6rem 0;
+  padding: 0;
+  border: none;
   align-items: baseline;
 }
 
-.site-home .academic-track-row:first-child {
-  border-top: none;
-  padding-top: 0.4rem;
+.site-home .academic-track-copy .research-kicker {
+  display: inline;
+  margin: 0 0.4rem 0 0;
+  padding: 0;
+  border: none;
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-size: 0.95rem;
+  font-weight: normal;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #666;
 }
 
-.site-home .academic-track-copy .research-kicker {
-  display: inline-block;
-  margin-bottom: 0.3rem;
-  padding: 0;
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  font-weight: 400;
-  letter-spacing: 0;
-  text-transform: lowercase;
-  color: var(--ink-soft);
-  border-bottom: 1px dotted rgba(31, 29, 26, 0.35);
+.site-home .academic-track-copy .research-kicker::after {
+  content: ".";
+  font-style: normal;
 }
 
 .site-home .academic-track-copy h3 {
-  margin: 0 0 0.32rem;
-  font-family: var(--font-serif);
-  font-size: 1.06rem;
-  font-weight: 600;
-  text-transform: none;
+  display: inline;
+  margin: 0 0.3rem 0 0;
+  font-family: Georgia, serif;
+  font-size: 1rem;
+  font-weight: bold;
   letter-spacing: 0;
+  text-transform: none;
+}
+
+.site-home .academic-track-copy h3::after {
+  content: " — ";
+  font-weight: normal;
+  color: #444;
 }
 
 .site-home .academic-track-copy p {
+  display: inline;
   margin: 0;
-  font-family: var(--font-serif);
-  font-size: 0.98rem;
-  line-height: 1.72;
+  font-family: Georgia, serif;
+  font-size: 1rem;
+  line-height: 1.55;
+  color: #111;
 }
 
 .site-home .academic-track-actions {
-  align-self: center;
+  display: inline;
+  margin-left: 0.4rem;
+  align-self: auto;
 }
 
 .site-home .academic-tag,
 .site-home .academic-tag:visited {
-  border: none;
-  background: transparent;
-  padding: 0;
-  font-family: var(--font-mono);
-  font-size: 0.84rem;
-  font-weight: 400;
-  text-decoration: underline;
-  text-decoration-color: rgba(31, 29, 26, 0.32);
-  text-underline-offset: 0.22em;
+  display: inline;
   min-height: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: Georgia, serif;
+  font-size: 0.95rem;
+  font-weight: normal;
+  color: #00529b;
+  text-decoration: underline;
 }
 
 .site-home .academic-tag:hover {
-  background: transparent;
-  text-decoration-color: currentColor;
+  background: none;
+  color: #c00;
 }
 
 .site-home .academic-tag-muted {
   text-decoration: none;
-  color: var(--ink-soft);
+  color: #999;
+  font-style: italic;
 }
 
-/* ----- Notes summary cards -> stat row ----- */
+.site-home .academic-tag-muted::before {
+  content: "[";
+}
+
+.site-home .academic-tag-muted::after {
+  content: "]";
+}
+
+/* ----- Notes summary ("3 notes, 12 tags") -> one-liner ----- */
 .site-home .notes-summary {
-  display: flex;
+  display: block;
   grid-template-columns: none;
-  gap: 0.4rem 2.4rem;
-  flex-wrap: wrap;
-  margin-bottom: 1.3rem;
-  padding: 0.5rem 0 1rem;
-  border-bottom: 1px solid var(--rule-soft);
+  margin: 0 0 0.6rem;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: Georgia, serif;
+  font-size: 0.95rem;
+  color: #444;
 }
 
 .site-home .summary-card {
+  display: inline;
   min-height: 0;
+  margin: 0 1rem 0 0;
   padding: 0;
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  background: transparent;
   border: none;
+  background: none;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.3rem;
 }
 
 .site-home .summary-card + .summary-card {
-  border-top: none;
+  border: none;
 }
 
 .site-home .summary-value {
-  font-family: var(--font-serif);
-  font-size: 1.18rem;
-  font-weight: 600;
-  color: var(--ink);
+  font-family: Georgia, serif;
+  font-size: 1rem;
+  font-weight: bold;
+  color: #111;
 }
 
 .site-home .summary-label,
 .site-home .summary-hint {
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  font-weight: 400;
-  color: var(--ink-soft);
+  font-family: Georgia, serif;
+  font-size: 0.95rem;
+  font-weight: normal;
+  font-style: italic;
+  color: #666;
 }
 
-/* ----- Notes actions (quick-action buttons row) ----- */
+/* ----- Quick action buttons ----- */
 .site-home .notes-actions {
-  margin-bottom: 1rem;
+  display: block;
+  margin: 0.4rem 0 0.6rem;
   padding: 0;
-  background: transparent;
+  background: none;
   border: none;
 }
 
 .site-home .notes-actions::before {
+  content: none;
   display: none;
 }
 
 .site-home .quick-action-btn {
-  border: 1px solid var(--rule);
+  border: 1px solid #bbb;
   border-radius: 0;
-  background: transparent;
-  font-family: var(--font-mono);
-  font-size: 0.82rem;
-  font-weight: 400;
-  text-transform: lowercase;
+  padding: 2px 8px;
+  background: #f5f5f5;
+  color: #111;
+  font-family: Georgia, serif;
+  font-size: 0.95rem;
+  font-weight: normal;
+  text-transform: none;
   letter-spacing: 0;
+  min-height: 0;
 }
 
 .site-home .quick-action-btn:hover:not(:disabled) {
-  background: rgba(31, 29, 26, 0.04);
-  border-color: var(--ink);
-  color: var(--ink);
+  background: #ebebeb;
+  border-color: #888;
+  color: #111;
 }
 
 .site-home .quick-action-shortcuts,
 .site-home .quick-action-hint,
 .site-home .quick-action-tags,
 .site-home .quick-action-status {
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  color: var(--ink-soft);
+  font-family: Georgia, serif;
+  font-size: 0.92rem;
+  color: #444;
+}
+
+.site-home .quick-action-shortcuts kbd {
+  font-family: "Courier New", Courier, monospace;
+  font-size: 0.82rem;
+  padding: 0 0.25rem;
+  border: 1px solid #bbb;
+  background: #fafafa;
+  color: #111;
+  border-radius: 0;
 }
 
 /* ----- Toolbar (search + sort) ----- */
 .site-home .toolbar {
-  margin-bottom: 1.1rem;
+  margin: 0.6rem 0;
   padding: 0;
-  background: transparent;
+  background: none;
   border: none;
 }
 
 .site-home .toolbar::before {
+  content: none;
   display: none;
 }
 
 .site-home #note-search {
-  border: 1px solid var(--rule);
-  background: transparent;
-  font-family: var(--font-serif);
-  font-size: 0.96rem;
+  border: 1px solid #bbb;
+  border-radius: 0;
+  padding: 4px 8px 4px 32px;
+  background: #ffffff;
+  color: #111;
+  font-family: Georgia, serif;
+  font-size: 1rem;
 }
 
 .site-home #note-search:focus {
   outline: none;
-  border-color: var(--ink);
+  border-color: #00529b;
 }
 
 .site-home select {
-  border: 1px solid var(--rule);
-  background: transparent;
-  font-family: var(--font-mono);
-  font-size: 0.84rem;
+  border: 1px solid #bbb;
+  border-radius: 0;
+  padding: 3px 6px;
+  background: #ffffff;
+  color: #111;
+  font-family: Georgia, serif;
+  font-size: 0.95rem;
 }
 
 .site-home .sort-wrapper label {
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  font-weight: 400;
+  font-family: Georgia, serif;
+  font-size: 0.95rem;
+  font-weight: normal;
+  font-style: italic;
   text-transform: none;
   letter-spacing: 0;
-  color: var(--ink-soft);
+  color: #444;
 }
 
-/* ----- Tag cloud and tabs ----- */
+/* ----- Tags & filters ----- */
 .site-home #tag-cloud {
-  margin-bottom: 1.05rem;
-  padding-bottom: 0.85rem;
-  border-bottom: 1px solid var(--rule-soft);
+  margin: 0.4rem 0 0.8rem;
+  padding: 0 0 0.5rem;
+  border-bottom: 1px solid #ddd;
 }
 
 .site-home .tag-chip,
 .site-home .filter-chip,
 .site-home .tag-small,
-.site-home .empty-state-action,
-.site-home .quick-inline-tag {
-  border: 1px solid var(--rule);
-  background: transparent;
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  font-weight: 400;
-  text-transform: lowercase;
+.site-home .quick-inline-tag,
+.site-home .empty-state-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid #bbb;
   border-radius: 0;
-  color: var(--ink);
+  padding: 1px 6px;
+  background: #f5f5f5;
+  color: #111;
+  font-family: Georgia, serif;
+  font-size: 0.92rem;
+  font-weight: normal;
+  text-transform: none;
+  letter-spacing: 0;
+  min-height: 0;
 }
 
 .site-home .tag-chip:hover,
 .site-home .filter-chip:hover,
 .site-home .tag-small:hover,
-.site-home .quick-inline-tag:hover {
-  background: rgba(31, 29, 26, 0.04);
-  border-color: var(--ink);
-  color: var(--ink);
+.site-home .quick-inline-tag:hover,
+.site-home .empty-state-action:hover {
+  background: #ebebeb;
+  border-color: #888;
+  color: #111;
 }
 
-.site-home .tab-btn {
+.site-home .tag-chip.active {
+  background: #111 !important;
+  border-color: #111 !important;
+  color: #ffffff !important;
+  box-shadow: none;
+}
+
+.site-home .tag-chip-count,
+.site-home .badge {
+  background: #e2e2e2;
   border: none;
-  border-bottom: 2px solid transparent;
-  border-radius: 0 !important;
-  padding: 0.55rem 0.7rem;
-  background: transparent !important;
-  font-family: var(--font-mono);
-  font-size: 0.84rem;
-  font-weight: 400;
-  text-transform: lowercase;
-  color: var(--ink-soft);
+  color: #444;
+  font-family: Georgia, serif;
+  font-weight: normal;
+  border-radius: 0;
+  padding: 0 4px;
+  height: auto;
   min-width: 0;
 }
 
-.site-home .tab-btn:first-child {
-  border-left-width: 0;
+.site-home .tag-chip.active .tag-chip-count {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+/* ----- Tabs ----- */
+.site-home .tab-buttons {
+  border-bottom: 1px solid #ccc;
+  padding: 0;
+  gap: 0;
+  margin: 0.4rem 0 0.6rem;
+}
+
+.site-home .tab-btn {
+  border: none !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  padding: 4px 12px;
+  background: transparent !important;
+  color: #00529b;
+  font-family: Georgia, serif;
+  font-size: 1rem;
+  font-weight: normal;
+  text-transform: none;
+  letter-spacing: 0;
+  min-width: 0;
+  box-shadow: none !important;
 }
 
 .site-home .tab-btn:hover {
-  color: var(--ink);
+  color: #c00;
   background: transparent !important;
-  border-color: transparent;
 }
 
 .site-home #app-tabs .tab-btn.active,
 .site-home #app-tabs .tab-buttons .tab-btn.active {
   border: none !important;
-  border-bottom: 2px solid var(--ink) !important;
+  border-bottom: 2px solid #111 !important;
   background: transparent !important;
-  color: var(--ink) !important;
-  box-shadow: none;
-}
-
-.site-home .badge,
-.site-home .tag-chip-count {
-  background: transparent;
-  border: 1px solid var(--rule-soft);
-  font-family: var(--font-mono);
-  font-weight: 400;
-  border-radius: 999px;
-}
-
-.site-home .tab-buttons {
-  border-bottom: 1px solid var(--rule-soft);
-  padding: 0 0 0.4rem;
+  color: #111 !important;
+  box-shadow: none !important;
+  font-weight: bold;
 }
 
 /* ----- Graph ----- */
 .site-home #graph-container {
-  border: 1px solid var(--rule-soft);
+  border: 1px solid #ccc;
   border-radius: 0;
-  background:
-    repeating-linear-gradient(
-      0deg,
-      transparent 0,
-      transparent 28px,
-      rgba(31, 29, 26, 0.025) 28px,
-      rgba(31, 29, 26, 0.025) 29px
-    ),
-    rgba(255, 254, 250, 0.5);
+  background: #ffffff;
+  height: 420px;
 }
 
 .site-home .graph-focus {
-  margin-top: 12px;
-  padding: 0.85rem 0 0.2rem;
+  margin: 0.4rem 0;
+  padding: 0.4rem 0;
   border: none;
-  border-top: 1px solid var(--rule-soft);
-  background: transparent;
+  border-top: 1px solid #ddd;
+  background: none;
+}
+
+.site-home .graph-focus.empty {
+  min-height: 0;
+  color: #666;
+  font-style: italic;
 }
 
 .site-home .graph-focus-type,
 .site-home .group-pill,
 .site-home .relation-pill {
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  font-weight: 400;
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-size: 0.92rem;
+  font-weight: normal;
   letter-spacing: 0;
-  text-transform: lowercase;
-  color: var(--ink-soft);
+  text-transform: none;
+  color: #666;
+  background: none;
+  padding: 0;
+  border-radius: 0;
 }
 
-/* ----- File list (notes) ----- */
+/* ----- File list (notes archive) -> bulleted ----- */
 .site-home .file-list {
-  border-top: 1px solid var(--rule-soft);
-  margin-top: 0;
+  border-top: none;
+  margin: 0.4rem 0;
+  padding-left: 1.5rem;
+  list-style: disc;
+  display: block;
+  gap: 0;
+}
+
+.site-home .file-list li {
+  display: list-item;
+  list-style: disc outside;
+  padding: 0.15rem 0;
+  border: none;
 }
 
 .site-home .file-card {
-  padding: 0.95rem 0;
+  display: block;
+  padding: 0;
+  margin: 0;
   border: none;
-  border-bottom: 1px solid var(--rule-soft);
-  background: transparent;
+  background: none;
+  flex-direction: row;
+  gap: 0;
 }
 
 .site-home .file-card::before {
+  content: none;
   display: none;
 }
 
+.site-home .file-card-main {
+  display: block;
+  gap: 0;
+}
+
+.site-home .file-row {
+  display: block;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
 .site-home .file-link {
-  font-family: var(--font-serif);
-  font-size: 1.06rem;
-  font-weight: 600;
-  text-decoration: none;
-  border-bottom: 1px solid transparent;
+  display: inline;
+  font-family: Georgia, serif;
+  font-size: 1rem;
+  font-weight: normal;
+  color: #00529b;
+  text-decoration: underline;
+  border: none;
 }
 
 .site-home .file-link:hover {
-  border-bottom-color: var(--ink);
-  text-decoration: none;
+  color: #c00;
+  border: none;
 }
 
-.site-home .file-date,
-.site-home .file-summary {
-  font-family: var(--font-serif);
-  color: var(--ink-soft);
+.site-home .file-meta {
+  display: inline;
 }
 
 .site-home .file-date {
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
+  display: inline;
+  font-family: Georgia, serif;
+  font-size: 0.92rem;
+  font-style: italic;
+  color: #666;
+  margin-left: 0.3rem;
 }
 
-/* ----- Active filters ----- */
+.site-home .file-summary {
+  display: block;
+  font-family: Georgia, serif;
+  font-size: 0.95rem;
+  color: #444;
+  margin: 0.05rem 0 0.15rem 0;
+  line-height: 1.5;
+}
+
+.site-home .file-tags {
+  display: inline-flex;
+  gap: 0.25rem;
+  margin: 0 0 0 0.3rem;
+}
+
+.site-home .file-list li.is-focused .file-card {
+  border: none;
+  box-shadow: none;
+  background: #fff8c2;
+}
+
+/* ----- Active filters bar ----- */
+.site-home .active-filters {
+  margin: 0 0 0.6rem;
+}
+
+.site-home .active-filter-bar {
+  padding: 0.2rem 0 0.4rem;
+  border-bottom: 1px solid #ddd;
+}
+
 .site-home .active-filter-stats {
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  color: var(--ink-soft);
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-size: 0.95rem;
+  color: #666;
+}
+
+.site-home .active-filter-empty {
+  font-family: Georgia, serif;
+  font-style: italic;
+  color: #666;
+  padding: 0.2rem 0 0.4rem;
+}
+
+.site-home .empty-state {
+  padding: 1.2rem;
+  border: 1px dashed #ccc;
+  border-radius: 0;
+  background: none;
 }
 
 /* ----- Footer ----- */
 .site-home .site-footer {
-  margin-top: 2.4rem;
-  padding-top: 0.95rem;
-  border-top: 1px solid var(--rule-soft);
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  font-weight: 400;
+  margin-top: 2rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid #ddd;
+  font-family: Georgia, serif;
+  font-size: 0.92rem;
+  font-weight: normal;
   text-transform: none;
   letter-spacing: 0;
-  color: var(--ink-soft);
+  color: #666;
+  flex-direction: row;
 }
 
-/* ----- Responsive ----- */
-@media (max-width: 720px) {
-  .site-home .selected-note-item {
-    grid-template-columns: 1fr;
-    gap: 0.4rem 0;
+/* ----- Wider archive layout ----- */
+.site-home.site-archive .site-shell {
+  max-width: 900px;
+}
+
+.site-home.site-archive .archive-hero {
+  padding-bottom: 0.6rem;
+}
+
+/* ----- Print ----- */
+@media print {
+  .site-home .site-nav,
+  .site-home .notes-actions,
+  .site-home .toolbar,
+  .site-home #tag-cloud,
+  .site-home .tab-buttons,
+  .site-home #graph-container,
+  .site-home .graph-focus {
+    display: none;
   }
-  .site-home .selected-note-item h3,
-  .site-home .selected-note-item p,
-  .site-home .selected-note-meta {
-    grid-column: 1;
-  }
-  .site-home .selected-note-meta {
-    grid-row: auto;
-    flex-direction: row;
-    gap: 0.7rem;
-  }
-  .site-home .academic-track-row {
-    grid-template-columns: 1fr;
-    gap: 0.6rem;
+  .site-home a {
+    color: #111;
+    text-decoration: underline;
   }
 }
 
-/* ----- Subtle dark mode ----- */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --site-paper: #14130f;
-    --rule: rgba(228, 222, 210, 0.18);
-    --rule-soft: rgba(228, 222, 210, 0.10);
-    --ink: #e6dfd0;
-    --ink-soft: rgba(230, 223, 208, 0.62);
-  }
+/* ----- Responsive: nothing fancy, just keep things readable ----- */
+@media (max-width: 600px) {
   body.site-home {
-    background: var(--site-paper);
-    color: var(--ink);
+    padding-inline: 14px;
   }
-  .site-home a,
-  .note-page a {
-    color: var(--ink);
-    text-decoration-color: rgba(230, 223, 208, 0.32);
-  }
-  .site-home #note-search,
-  .site-home select {
-    color: var(--ink);
-  }
-  .site-home #graph-container {
-    background:
-      repeating-linear-gradient(
-        0deg,
-        transparent 0,
-        transparent 28px,
-        rgba(228, 222, 210, 0.04) 28px,
-        rgba(228, 222, 210, 0.04) 29px
-      ),
-      rgba(20, 19, 15, 0.5);
-  }
-  ::selection {
-    background: rgba(230, 223, 208, 0.22);
+  .site-home .site-nav a + a::before {
+    margin: 0 0.15rem;
   }
 }
+
