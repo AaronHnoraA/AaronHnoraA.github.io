@@ -2024,3 +2024,209 @@ body.site-home:not(.site-archive) .shelf-book-catalog .bookshelf-cover { backgro
     padding: 0.85rem 0.9rem 1rem;
   }
 }
+
+/* ==========================================================================
+   8. Full-Page Shelf Scene
+   ========================================================================== */
+body.site-home:not(.site-archive) {
+  padding: 0;
+  background:
+    radial-gradient(circle at top left, rgba(177, 128, 74, 0.18), transparent 16%),
+    linear-gradient(180deg, #4b2d16 0%, #6e4624 38%, #714923 100%);
+}
+
+body.site-home:not(.site-archive) .site-shell {
+  max-width: none;
+  min-height: 100vh;
+  margin: 0;
+  padding: clamp(18px, 2vw, 28px) clamp(16px, 2vw, 30px) 20px;
+  border: 0;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(255, 225, 173, 0.08), transparent 18%),
+    radial-gradient(circle at 82% 22%, rgba(255, 210, 145, 0.06), transparent 20%),
+    repeating-linear-gradient(95deg,
+      rgba(59, 31, 13, 0.22) 0,
+      rgba(59, 31, 13, 0.22) 2px,
+      rgba(116, 75, 38, 0.02) 3px,
+      rgba(116, 75, 38, 0.02) 9px,
+      transparent 11px,
+      transparent 28px),
+    repeating-linear-gradient(180deg,
+      rgba(45, 23, 9, 0.08) 0,
+      rgba(45, 23, 9, 0.08) 1px,
+      transparent 1px,
+      transparent 140px),
+    linear-gradient(180deg, #7b512a 0%, #6c4522 26%, #6c4420 62%, #5b381b 100%);
+  box-shadow:
+    inset 0 18px 32px rgba(255, 235, 197, 0.08),
+    inset 0 -24px 40px rgba(32, 16, 6, 0.22);
+}
+
+body.site-home:not(.site-archive) .site-shell::before {
+  display: none;
+}
+
+body.site-home:not(.site-archive) .site-shell::after {
+  right: 26px;
+  bottom: 14px;
+  color: rgba(245, 216, 170, 0.28);
+  letter-spacing: 0.16em;
+  text-shadow:
+    0 1px 0 rgba(35, 17, 6, 0.42),
+    0 -1px 0 rgba(255, 232, 191, 0.06);
+}
+
+body.site-home:not(.site-archive) .hero,
+body.site-home:not(.site-archive) .site-nav,
+body.site-home:not(.site-archive) .site-footer {
+  max-width: 1640px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+body.site-home:not(.site-archive) .hero {
+  margin-bottom: 1.1rem;
+  padding: 0.35rem 0 1.05rem;
+  border-bottom: 1px solid rgba(253, 228, 184, 0.14);
+  box-shadow: 0 1px 0 rgba(37, 19, 7, 0.3);
+}
+
+body.site-home:not(.site-archive) .hero,
+body.site-home:not(.site-archive) .site-nav {
+  color: #4a2a14;
+  text-shadow:
+    0 1px 0 rgba(255, 231, 190, 0.11),
+    0 -1px 0 rgba(34, 17, 7, 0.38);
+}
+
+body.site-home:not(.site-archive) .hero-kicker,
+body.site-home:not(.site-archive) .hero-subtitle,
+body.site-home:not(.site-archive) .hero-affil,
+body.site-home:not(.site-archive) .hero-contact,
+body.site-home:not(.site-archive) .hero-meta span,
+body.site-home:not(.site-archive) .site-nav a,
+body.site-home:not(.site-archive) .site-nav a:visited,
+body.site-home:not(.site-archive) .footer-text {
+  color: rgba(63, 33, 15, 0.88);
+  text-shadow:
+    0 1px 0 rgba(255, 229, 183, 0.12),
+    0 -1px 0 rgba(30, 15, 6, 0.34);
+}
+
+body.site-home:not(.site-archive) h1 {
+  color: rgba(47, 23, 8, 0.96);
+  text-shadow:
+    0 1px 0 rgba(255, 229, 183, 0.1),
+    0 -1px 0 rgba(30, 15, 6, 0.45);
+}
+
+body.site-home:not(.site-archive) .hero-subtitle,
+body.site-home:not(.site-archive) .hero-affil,
+body.site-home:not(.site-archive) .hero-contact {
+  max-width: 72rem;
+}
+
+body.site-home:not(.site-archive) .hero-meta span {
+  border: 1px solid rgba(70, 39, 19, 0.28);
+  background: rgba(115, 74, 39, 0.08);
+}
+
+body.site-home:not(.site-archive) .site-nav {
+  margin-bottom: 1.2rem;
+  padding: 0.78rem 0 0.82rem;
+  border-top: 1px solid rgba(251, 226, 187, 0.12);
+  border-bottom: 1px solid rgba(251, 226, 187, 0.12);
+  background: transparent;
+  backdrop-filter: none;
+  box-shadow:
+    0 1px 0 rgba(37, 19, 7, 0.32),
+    inset 0 1px 0 rgba(255, 228, 184, 0.04);
+}
+
+body.site-home:not(.site-archive) .site-nav a + a::before {
+  color: rgba(69, 38, 18, 0.6);
+}
+
+body.site-home:not(.site-archive) .site-nav a:hover,
+body.site-home:not(.site-archive) .hero-kicker a:hover,
+body.site-home:not(.site-archive) a:hover {
+  color: rgba(87, 28, 16, 0.92);
+}
+
+body.site-home:not(.site-archive) .home-grid {
+  max-width: 1640px;
+  margin: 0 auto;
+  padding: 34px 28px 48px;
+  border: 0;
+  background:
+    radial-gradient(circle at 8% 12%, rgba(255, 216, 152, 0.1), transparent 16%),
+    radial-gradient(circle at 85% 24%, rgba(255, 199, 124, 0.08), transparent 18%),
+    repeating-linear-gradient(100deg,
+      rgba(56, 29, 12, 0.18) 0,
+      rgba(56, 29, 12, 0.18) 3px,
+      rgba(129, 84, 42, 0.02) 4px,
+      rgba(129, 84, 42, 0.02) 16px,
+      transparent 18px,
+      transparent 40px),
+    repeating-linear-gradient(
+      180deg,
+      transparent 0,
+      transparent 226px,
+      rgba(58, 31, 13, 0.48) 226px,
+      rgba(97, 60, 28, 0.84) 236px,
+      rgba(44, 23, 9, 0.54) 242px,
+      transparent 242px,
+      transparent 468px,
+      rgba(58, 31, 13, 0.52) 468px,
+      rgba(97, 60, 28, 0.88) 478px,
+      rgba(44, 23, 9, 0.58) 484px,
+      transparent 484px,
+      transparent 710px
+    ),
+    linear-gradient(180deg, #805228 0%, #71471f 44%, #6a431d 100%);
+  box-shadow:
+    inset 0 3px 0 rgba(255, 234, 197, 0.08),
+    inset 0 -26px 40px rgba(36, 18, 7, 0.2);
+}
+
+body.site-home:not(.site-archive) .bookshelf-cover {
+  box-shadow:
+    0 12px 22px rgba(24, 12, 5, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset -8px 0 14px rgba(0, 0, 0, 0.16),
+    0 0 0 1px rgba(255, 219, 167, 0.06);
+}
+
+body.site-home:not(.site-archive) .bookshelf-pages {
+  background:
+    linear-gradient(180deg, rgba(252, 246, 234, 0.98), rgba(243, 233, 214, 0.98));
+}
+
+body.site-home:not(.site-archive) .site-footer {
+  margin-top: 1.2rem;
+  padding: 0.9rem 0 0.2rem;
+  border-top: 1px solid rgba(249, 225, 186, 0.12);
+  box-shadow: 0 -1px 0 rgba(36, 18, 7, 0.28);
+  background: transparent;
+}
+
+body.site-home:not(.site-archive) .footer-stone img {
+  filter: sepia(0.5) saturate(1.1) brightness(0.92);
+}
+
+@media (max-width: 960px) {
+  body.site-home:not(.site-archive) .site-shell {
+    padding: 16px 12px 18px;
+  }
+
+  body.site-home:not(.site-archive) .hero,
+  body.site-home:not(.site-archive) .site-nav,
+  body.site-home:not(.site-archive) .site-footer,
+  body.site-home:not(.site-archive) .home-grid {
+    max-width: none;
+  }
+
+  body.site-home:not(.site-archive) .home-grid {
+    padding: 20px 14px 30px;
+  }
+}
