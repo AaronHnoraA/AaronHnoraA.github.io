@@ -3128,11 +3128,12 @@ body.site-home:not(.site-archive) .bookshelf-cover {
   border-radius: 2px;
   overflow: hidden;
   background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.022) 0 1px, transparent 1px 7px),
     linear-gradient(115deg, rgba(255, 255, 255, 0.12), transparent 21%),
     linear-gradient(90deg, rgba(255, 236, 202, 0.08), transparent 18%, rgba(0, 0, 0, 0.13) 100%),
     var(--reading-paper-noise),
     linear-gradient(180deg, var(--book-top, #80502f), var(--book-bottom, #623820));
-  background-size: auto, auto, 180px 180px, auto;
+  background-size: auto, auto, auto, 180px 180px, auto;
   text-align: left;
   cursor: pointer;
   box-shadow:
@@ -3140,6 +3141,36 @@ body.site-home:not(.site-archive) .bookshelf-cover {
     inset 0 1px 0 rgba(255, 255, 255, 0.15),
     inset -14px 0 18px rgba(0, 0, 0, 0.16);
   transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+
+body.site-home:not(.site-archive) .bookshelf-cover::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    linear-gradient(90deg, rgba(255, 245, 220, 0.14) 0 1px, rgba(10, 6, 3, 0.24) 1px 11px, transparent 11px 18px, rgba(255, 245, 220, 0.07) 18px 19px, transparent 19px),
+    radial-gradient(ellipse 86px 42px at 58% 22%, rgba(255, 240, 210, 0.08), transparent 62%),
+    radial-gradient(ellipse 96px 48px at 68% 82%, rgba(10, 6, 3, 0.12), transparent 66%);
+  pointer-events: none;
+}
+
+body.site-home:not(.site-archive) .bookshelf-cover::after {
+  content: "";
+  position: absolute;
+  inset: 12px 10px 13px 22px;
+  z-index: 0;
+  border: 1px solid rgba(255, 243, 218, 0.14);
+  box-shadow:
+    inset 0 0 0 1px rgba(24, 13, 7, 0.16),
+    0 1px 0 rgba(255, 255, 255, 0.08);
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+body.site-home:not(.site-archive) .bookshelf-cover > * {
+  position: relative;
+  z-index: 1;
 }
 
 body.site-home:not(.site-archive) .bookshelf-cover:hover {
