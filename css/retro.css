@@ -2243,26 +2243,38 @@ body.site-home:not(.site-archive) {
 
 body.site-home:not(.site-archive) .site-shell {
   background:
-    radial-gradient(circle at 12% 10%, rgba(255, 218, 156, 0.08), transparent 16%),
-    radial-gradient(circle at 82% 16%, rgba(255, 194, 119, 0.06), transparent 20%),
-    repeating-radial-gradient(circle at 10% 24%, rgba(63, 35, 15, 0.12) 0 2px, transparent 2px 24px),
-    repeating-linear-gradient(92deg,
-      rgba(56, 29, 12, 0.22) 0,
-      rgba(56, 29, 12, 0.22) 2px,
-      rgba(146, 94, 47, 0.03) 3px,
-      rgba(146, 94, 47, 0.03) 10px,
-      rgba(87, 52, 24, 0.04) 12px,
-      transparent 26px,
-      transparent 48px),
-    repeating-linear-gradient(180deg,
-      rgba(39, 18, 7, 0.09) 0,
-      rgba(39, 18, 7, 0.09) 1px,
-      transparent 1px,
-      transparent 138px),
-    linear-gradient(180deg, #815128 0%, #71481f 24%, #6a431c 62%, #573518 100%);
+    radial-gradient(rgba(213, 173, 105, 0.12) 50%, transparent),
+    radial-gradient(transparent, rgba(124, 9, 5, 0.08) 70%),
+    radial-gradient(transparent 60%, rgba(124, 9, 5, 0.07) 90%),
+    linear-gradient(90deg, rgba(255,255,255,.08), rgba(0,0,0,.12)),
+    repeating-linear-gradient(
+      90deg,
+      #6b3518 0px,
+      #8a4d25 18px,
+      #5a2a12 36px,
+      #9b5f2e 54px
+    ),
+    repeating-linear-gradient(90deg,
+      rgba(255,255,255,.014) 0,
+      rgba(255,255,255,.014) 13px,
+      transparent 13px,
+      transparent 29px,
+      rgba(255,255,255,.018) 29px,
+      rgba(255,255,255,.018) 37px,
+      transparent 37px,
+      transparent 53px),
+    repeating-linear-gradient(90deg,
+      transparent 0,
+      transparent 39px,
+      rgba(214, 171, 119, 0.34) 39px,
+      rgba(173, 97, 54, 0.3) 40px,
+      transparent 41px,
+      transparent 79px);
   box-shadow:
-    inset 0 18px 34px rgba(255, 231, 189, 0.07),
-    inset 0 -30px 44px rgba(28, 13, 5, 0.24);
+    inset 0 2px 5px rgba(255,255,255,0.18),
+    inset 0 -8px 18px rgba(0,0,0,0.35),
+    inset 0 -10px 1000px 90px rgba(168,99,60,0.07),
+    inset 0 -100px 1000px 70px rgba(74,2,2,0.05);
 }
 
 body.site-home:not(.site-archive) .hero,
@@ -2280,17 +2292,21 @@ body.site-home:not(.site-archive) .site-nav a,
 body.site-home:not(.site-archive) .site-nav a:visited,
 body.site-home:not(.site-archive) .footer-text,
 body.site-home:not(.site-archive) h1 {
-  color: #4d2911;
+  color: rgba(45, 20, 8, 0.78);
   text-shadow:
-    0 1px 0 rgba(255, 220, 165, 0.06),
-    0 -1px 0 rgba(34, 16, 7, 0.52),
-    1px 0 0 rgba(69, 37, 16, 0.2),
-    -1px 0 0 rgba(158, 106, 57, 0.06);
+    0 1px 0 rgba(255, 220, 160, 0.22),
+    0 -1px 1px rgba(0, 0, 0, 0.65);
 }
 
 body.site-home:not(.site-archive) h1 {
   letter-spacing: -0.04em;
   filter: saturate(0.92);
+  -webkit-text-stroke: 1px rgba(20, 8, 3, 0.22);
+  text-shadow:
+    0 1px 0 rgba(255, 225, 170, 0.25),
+    0 -2px 2px rgba(0, 0, 0, 0.75),
+    1px 0 1px rgba(0, 0, 0, 0.3),
+    -1px 0 1px rgba(255, 220, 160, 0.08);
 }
 
 body.site-home:not(.site-archive) .hero-kicker,
@@ -2320,14 +2336,21 @@ body.site-home:not(.site-archive) .home-grid {
   background:
     radial-gradient(circle at 9% 12%, rgba(255, 207, 138, 0.09), transparent 16%),
     radial-gradient(circle at 84% 28%, rgba(255, 196, 122, 0.08), transparent 18%),
-    repeating-radial-gradient(circle at 14% 34%, rgba(58, 31, 13, 0.12) 0 2px, transparent 2px 28px),
-    repeating-linear-gradient(99deg,
-      rgba(52, 27, 11, 0.2) 0,
-      rgba(52, 27, 11, 0.2) 2px,
-      rgba(132, 84, 42, 0.03) 3px,
-      rgba(132, 84, 42, 0.03) 15px,
-      transparent 18px,
-      transparent 38px),
+    linear-gradient(90deg, rgba(255,255,255,.05), rgba(0,0,0,.08)),
+    repeating-linear-gradient(90deg,
+      #72431f 0px,
+      #834c26 18px,
+      #653616 36px,
+      #8f572c 54px),
+    repeating-linear-gradient(90deg,
+      rgba(255,255,255,.015) 0,
+      rgba(255,255,255,.015) 13px,
+      transparent 13px,
+      transparent 29px,
+      rgba(255,255,255,.018) 29px,
+      rgba(255,255,255,.018) 37px,
+      transparent 37px,
+      transparent 53px),
     repeating-linear-gradient(
       180deg,
       transparent 0,
@@ -2375,7 +2398,7 @@ body.site-home:not(.site-archive) .bookshelf-cover-subtitle {
 body.site-home:not(.site-archive) .bookshelf-pages {
   position: relative;
   margin-left: -22px;
-  padding: 1.25rem 1.45rem 1.4rem;
+  padding: 1.35rem 1.6rem 1.55rem;
   border: 1px solid rgba(178, 157, 122, 0.66);
   background:
     linear-gradient(180deg, rgba(250, 245, 233, 0.99), rgba(240, 231, 211, 0.99)),
@@ -2388,7 +2411,7 @@ body.site-home:not(.site-archive) .bookshelf-pages {
     0 22px 40px rgba(29, 14, 6, 0.22),
     0 0 0 1px rgba(255, 251, 241, 0.3) inset,
     inset 12px 0 18px rgba(130, 108, 79, 0.08);
-  transform: rotate(-0.35deg);
+  transform: rotate(-0.55deg) translateY(2px);
 }
 
 body.site-home:not(.site-archive) .bookshelf-pages::before {
@@ -2404,13 +2427,15 @@ body.site-home:not(.site-archive) .bookshelf-pages::before {
 body.site-home:not(.site-archive) .bookshelf-pages::after {
   content: "";
   position: absolute;
-  top: 8px;
-  right: 10px;
-  width: 54px;
-  height: 18px;
-  background: linear-gradient(180deg, rgba(244, 231, 182, 0.46), rgba(224, 204, 149, 0.26));
-  opacity: 0.6;
-  transform: rotate(3deg);
+  top: -8px;
+  right: 18px;
+  width: 88px;
+  height: 26px;
+  background:
+    linear-gradient(180deg, rgba(245, 232, 187, 0.56), rgba(223, 203, 149, 0.28));
+  opacity: 0.66;
+  box-shadow: 0 2px 8px rgba(93, 76, 50, 0.18);
+  transform: rotate(4deg);
 }
 
 body.site-home:not(.site-archive) .shelf-book.is-open .bookshelf-pages {
@@ -2437,4 +2462,10 @@ body.site-home:not(.site-archive) .bookshelf-pages h2::after {
 body.site-home:not(.site-archive) .bookshelf-pages .section-aside {
   background: rgba(124, 105, 73, 0.08);
   border-left-color: rgba(124, 105, 73, 0.55);
+}
+
+body.site-home:not(.site-archive) .bookshelf-pages p,
+body.site-home:not(.site-archive) .bookshelf-pages li,
+body.site-home:not(.site-archive) .bookshelf-pages dd {
+  color: #2f2318;
 }
