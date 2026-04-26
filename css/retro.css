@@ -2346,40 +2346,82 @@ body.site-home:not(.site-archive) .site-nav {
 }
 
 body.site-home:not(.site-archive) .home-grid {
+  position: relative;
+  perspective: 1400px;
   background:
-    radial-gradient(circle at 9% 12%, rgba(255, 207, 138, 0.09), transparent 16%),
-    radial-gradient(circle at 84% 28%, rgba(255, 196, 122, 0.08), transparent 18%),
+    radial-gradient(circle at 9% 12%, rgba(255, 207, 138, 0.07), transparent 16%),
+    radial-gradient(circle at 84% 28%, rgba(255, 196, 122, 0.06), transparent 18%),
     linear-gradient(90deg, rgba(255,255,255,.05), rgba(0,0,0,.08)),
     repeating-linear-gradient(90deg,
-      #72431f 0px,
-      #834c26 18px,
-      #653616 36px,
-      #8f572c 54px),
+      #6d3e1b 0px,
+      #7a4722 18px,
+      #5d3315 36px,
+      #85512a 54px),
     repeating-linear-gradient(90deg,
       rgba(255,255,255,.015) 0,
-      rgba(255,255,255,.015) 13px,
-      transparent 13px,
-      transparent 29px,
-      rgba(255,255,255,.018) 29px,
-      rgba(255,255,255,.018) 37px,
-      transparent 37px,
-      transparent 53px),
+      rgba(255,255,255,.015) 9px,
+      transparent 9px,
+      transparent 25px,
+      rgba(0,0,0,.032) 25px,
+      transparent 26px,
+      transparent 46px),
     repeating-linear-gradient(
       180deg,
       transparent 0,
-      transparent 226px,
-      rgba(49, 25, 10, 0.5) 226px,
-      rgba(104, 62, 29, 0.9) 236px,
-      rgba(34, 17, 7, 0.62) 244px,
-      transparent 244px,
-      transparent 470px,
-      rgba(49, 25, 10, 0.54) 470px,
-      rgba(104, 62, 29, 0.92) 480px,
-      rgba(34, 17, 7, 0.64) 488px,
-      transparent 488px,
-      transparent 716px
+      transparent 214px,
+      rgba(40, 20, 8, 0.86) 214px,
+      rgba(122, 74, 34, 0.96) 228px,
+      rgba(171, 118, 68, 0.42) 232px,
+      rgba(34, 17, 7, 0.72) 236px,
+      transparent 236px,
+      transparent 452px,
+      rgba(40, 20, 8, 0.88) 452px,
+      rgba(122, 74, 34, 0.98) 466px,
+      rgba(171, 118, 68, 0.44) 470px,
+      rgba(34, 17, 7, 0.74) 474px,
+      transparent 474px,
+      transparent 690px
     ),
-    linear-gradient(180deg, #825127 0%, #74481f 42%, #69401a 100%);
+    linear-gradient(180deg, #7a4922 0%, #6d421d 42%, #5f3818 100%);
+}
+
+body.site-home:not(.site-archive) .home-grid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.18), transparent 66px),
+    linear-gradient(180deg, transparent 192px, rgba(0,0,0,0.18) 203px, transparent 222px),
+    linear-gradient(180deg, transparent 430px, rgba(0,0,0,0.2) 441px, transparent 460px);
+  pointer-events: none;
+}
+
+body.site-home:not(.site-archive) .home-grid::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, rgba(46, 24, 10, 0.54), transparent 34px, transparent calc(100% - 34px), rgba(46, 24, 10, 0.54));
+  pointer-events: none;
+}
+
+body.site-home:not(.site-archive) .shelf-book {
+  align-self: end;
+  padding-bottom: 12px;
+}
+
+body.site-home:not(.site-archive) .shelf-book::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 4px;
+  height: 10px;
+  background: radial-gradient(ellipse at center, rgba(18, 9, 3, 0.28), transparent 72%);
+  filter: blur(3px);
+  pointer-events: none;
 }
 
 body.site-home:not(.site-archive) .bookshelf-cover {
@@ -2398,6 +2440,7 @@ body.site-home:not(.site-archive) .bookshelf-cover {
     inset -10px 0 16px rgba(0, 0, 0, 0.18),
     inset 1px 0 0 rgba(255, 228, 183, 0.06),
     0 0 0 1px rgba(255, 219, 167, 0.05);
+  transform-origin: center bottom;
 }
 
 body.site-home:not(.site-archive) .bookshelf-cover-title,
@@ -2471,6 +2514,26 @@ body.site-home:not(.site-archive) .bookshelf-pages::after {
   opacity: 0.66;
   box-shadow: 0 2px 8px rgba(93, 76, 50, 0.18);
   transform: rotate(4deg);
+}
+
+body.site-home:not(.site-archive) .bookshelf-cover:hover {
+  transform: translateY(-4px) rotateX(2deg);
+}
+
+body.site-home:not(.site-archive) .shelf-book.is-open {
+  transform: translateY(-8px);
+}
+
+body.site-home:not(.site-archive) .shelf-book.is-open::after {
+  left: 14px;
+  right: 20%;
+  bottom: -1px;
+  height: 14px;
+  background: radial-gradient(ellipse at center, rgba(18, 9, 3, 0.34), transparent 72%);
+}
+
+body.site-home:not(.site-archive) .shelf-book.is-open .bookshelf-cover {
+  transform: translateX(-18px) translateY(-5px) rotateY(-8deg);
 }
 
 body.site-home:not(.site-archive) .bookshelf-pages h2 {
