@@ -39,8 +39,10 @@ body.site-home:not(.site-archive) .site-shell::before {
 }
 
 body.site-home:not(.site-archive) .site-shell::after {
-  color: rgba(236, 224, 203, 0.45);
-  text-shadow: none;
+  color: rgba(239, 225, 199, 0.72);
+  text-shadow:
+    0 1px 0 rgba(26, 16, 9, 0.56),
+    0 0 10px rgba(0, 0, 0, 0.12);
 }
 
 body.site-home:not(.site-archive) .hero,
@@ -72,10 +74,16 @@ body.site-home:not(.site-archive) .hero-affil,
 body.site-home:not(.site-archive) .hero-contact,
 body.site-home:not(.site-archive) .hero-meta span,
 body.site-home:not(.site-archive) .site-nav a,
-body.site-home:not(.site-archive) .site-nav a:visited,
-body.site-home:not(.site-archive) .footer-text {
+body.site-home:not(.site-archive) .site-nav a:visited {
   color: #2f241b;
   text-shadow: none;
+}
+
+body.site-home:not(.site-archive) .footer-text {
+  color: rgba(241, 228, 203, 0.8);
+  text-shadow:
+    0 1px 0 rgba(26, 16, 9, 0.56),
+    0 0 10px rgba(0, 0, 0, 0.12);
 }
 
 body.site-home:not(.site-archive) .hero a,
