@@ -33,6 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
       <div class="shelf-cavity">
         <div class="shelf-shadow"></div>
         <div class="shelf-books"></div>
+        <div class="shelf-paper-stage"></div>
         <div class="shelf-floor"></div>
       </div>
     `;
@@ -49,31 +50,16 @@ document.addEventListener("DOMContentLoaded", () => {
     books.forEach((book) => {
       book.classList.remove("is-open");
       const trigger = book.querySelector(".bookshelf-cover");
+      const pages = book._bookshelfPages;
       if (trigger) {
         trigger.setAttribute("aria-expanded", "false");
       }
-      book.style.removeProperty("--paper-left");
-      book.style.removeProperty("--paper-width");
+      if (pages) {
+        pages.classList.remove("is-active");
+      }
     });
 
     shelfRows.forEach((row) => row.classList.remove("has-open-book"));
-  }
-
-  function setOpenGeometry(book) {
-    const row = book.closest(".shelf-row");
-    const booksContainer = row?.querySelector(".shelf-books");
-    const cover = book.querySelector(".bookshelf-cover");
-    if (!row || !booksContainer || !cover) {
-      return;
-    }
-
-    const rowRect = booksContainer.getBoundingClientRect();
-    const coverRect = cover.getBoundingClientRect();
-    const left = Math.max(coverRect.left - rowRect.left + coverRect.width - 12, 112);
-    const width = Math.max(320, rowRect.width - left - 28);
-
-    book.style.setProperty("--paper-left", `${left}px`);
-    book.style.setProperty("--paper-width", `${width}px`);
   }
 
   function openBook(book, { pushHash = true, scroll = true } = {}) {
@@ -96,11 +82,14 @@ document.addEventListener("DOMContentLoaded", () => {
       row.classList.add("has-open-book");
     }
 
-    setOpenGeometry(book);
     book.classList.add("is-open");
     const trigger = book.querySelector(".bookshelf-cover");
+    const pages = book._bookshelfPages;
     if (trigger) {
       trigger.setAttribute("aria-expanded", "true");
+    }
+    if (pages) {
+      pages.classList.add("is-active");
     }
 
     if (pushHash && book.id) {
@@ -116,7 +105,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const title = book.dataset.book || book.querySelector("h2")?.textContent?.trim() || `Book ${index + 1}`;
     const titleSlug = slugify(title) || `book-${index + 1}`;
     const rowIndex = shelfMap[index] ?? shelfMap[shelfMap.length - 1];
-    const shelfBooks = shelfRows[rowIndex].querySelector(".shelf-books");
+    const row = shelfRows[rowIndex];
+    const shelfBooks = row.querySelector(".shelf-books");
+    const paperStage = row.querySelector(".shelf-paper-stage");
 
     book.style.setProperty("--book-height", `${heights[index % heights.length]}px`);
     book.style.setProperty("--book-width", `${widths[index % widths.length]}px`);
@@ -141,9 +132,11 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
 
     pageWrapper.id = `${titleSlug}-pages`;
+    book._bookshelfPages = pageWrapper;
+
     book.appendChild(cover);
-    book.appendChild(pageWrapper);
     shelfBooks.appendChild(book);
+    paperStage.appendChild(pageWrapper);
 
     cover.addEventListener("click", () => openBook(book));
   });
@@ -159,13 +152,6 @@ document.addEventListener("DOMContentLoaded", () => {
       event.preventDefault();
       openBook(target, { pushHash: true, scroll: true });
     });
-  });
-
-  window.addEventListener("resize", () => {
-    const openBookEl = books.find((book) => book.classList.contains("is-open"));
-    if (openBookEl) {
-      setOpenGeometry(openBookEl);
-    }
   });
 
   if (window.location.hash) {
