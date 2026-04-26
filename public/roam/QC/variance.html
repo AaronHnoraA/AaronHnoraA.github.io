@@ -1,20 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2026-04-26 Sun 14:39 -->
+<!-- 2026-04-26 Sun 14:44 -->
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Variance Quantum State</title>
 <meta name="generator" content="Org Mode" />
 <meta name="color-scheme" content="light" />
-<link rel="stylesheet" href="../../css/retro.css?v=20260426-17" />
+<link rel="stylesheet" href="../../css/retro.css?v=20260426-18" />
 <link rel="shortcut icon" href="https://raw.githubusercontent.com/AaronHnoraA/AaronHnoraA.github.io/refs/heads/master/css/cv.svg" type="image/x-icon">
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script>window.SITE_ROOT_PATH="../../";window.CURRENT_NOTE_LINK="roam/QC/variance.html";</script>
-<script defer src="../../js/data.js?v=20260426-17"></script>
-<script defer src="../../js/knowledge.js?v=20260426-17"></script>
-<script defer src="../../js/graph.js?v=20260426-17"></script>
-<script defer src="../../js/note-page.js?v=20260426-17"></script>
+<script defer src="../../js/data.js?v=20260426-18"></script>
+<script defer src="../../js/knowledge.js?v=20260426-18"></script>
+<script defer src="../../js/graph.js?v=20260426-18"></script>
+<script defer src="../../js/note-page.js?v=20260426-18"></script>
 <script>
   window.MathJax = {
     tex: {
@@ -56,26 +56,26 @@
 <h2>Table of Contents</h2>
 <div id="text-table-of-contents" role="doc-toc">
 <ul>
-<li><a href="#orgb1041b5">方差 (Variance)</a>
+<li><a href="#org8d4abfd">方差 (Variance)</a>
 <ul>
-<li><a href="#org10f411d">1. 量子态的数学载体：希尔伯特空间(Hilbert Space)</a></li>
-<li><a href="#org1837fcf">2. 量子态不是矢量，而是“束”</a></li>
-<li><a href="#orgaba527c">3. 为什么平时还在用“态矢”这个说法？</a></li>
+<li><a href="#orgadee6c4">1. 量子态的数学载体：希尔伯特空间(Hilbert Space)</a></li>
+<li><a href="#org2398ce5">2. 量子态不是矢量，而是“束”</a></li>
+<li><a href="#org2b8417f">3. 为什么平时还在用“态矢”这个说法？</a></li>
 </ul>
 </li>
 </ul>
 </div>
 </nav>
-<div class="overview" id="orgb5b52f8">
+<div class="overview" id="org9c322b3">
 <ul class="org-ul">
-<li><a href="#orgb1041b5">方差 (Variance)</a></li>
+<li><a href="#org8d4abfd">方差 (Variance)</a></li>
 </ul>
 
 </div>
-<div id="outline-container-orgb1041b5" class="outline-2">
-<h2 id="orgb1041b5">方差 (Variance)</h2>
-<div class="outline-text-2" id="text-orgb1041b5">
-<div class="definition" id="org0e12b9f">
+<div id="outline-container-org8d4abfd" class="outline-2">
+<h2 id="org8d4abfd">方差 (Variance)</h2>
+<div class="outline-text-2" id="text-org8d4abfd">
+<div class="definition" id="org07a8ee5">
 \begin{align*}
 [\Delta (M)]^{2}
   &= \langle (M  - \langle M \rangle)^2 \rangle \\
@@ -84,7 +84,7 @@
 
 </div>
 
-<div class="proof" id="org311954a">
+<div class="proof" id="orge71dad4">
 <p>
 设方差 (Variance) 的定义为：
 \[
@@ -100,7 +100,7 @@
 &= \sum_i p_i m_i^2 - 2\langle M \rangle \sum_i p_i m_i + \langle M \rangle^2 \sum_i p_i
 \end{align*}
 
-<div class="attention" id="org238ebf3">
+<div class="attention" id="orgf83f8bb">
 <p>
 其中利用以下统计性质：
 </p>
@@ -175,18 +175,18 @@
 <p>
 :ID:       ABBA184F-F2BA-40FD-B44F-3A99A7A0F493
 </p>
-<div class="overview" id="orgce21851">
+<div class="overview" id="orgdc65dbe">
 <ul class="org-ul">
-<li><a href="#org10f411d">1. 量子态的数学载体：希尔伯特空间(Hilbert Space)</a></li>
-<li><a href="#org1837fcf">2. 量子态不是矢量，而是“束”</a></li>
-<li><a href="#orgaba527c">3. 为什么平时还在用“态矢”这个说法？</a></li>
+<li><a href="#orgadee6c4">1. 量子态的数学载体：希尔伯特空间(Hilbert Space)</a></li>
+<li><a href="#org2398ce5">2. 量子态不是矢量，而是“束”</a></li>
+<li><a href="#org2b8417f">3. 为什么平时还在用“态矢”这个说法？</a></li>
 </ul>
 
 </div>
 </div>
-<div id="outline-container-org10f411d" class="outline-3">
-<h3 id="org10f411d">1. 量子态的数学载体：希尔伯特空间()</h3>
-<div class="outline-text-3" id="text-org10f411d">
+<div id="outline-container-orgadee6c4" class="outline-3">
+<h3 id="orgadee6c4">1. 量子态的数学载体：希尔伯特空间()</h3>
+<div class="outline-text-3" id="text-orgadee6c4">
 <p>
 在量子力学中，每一个物理系统，都对应一个 <b>复希尔伯特空间</b> H。
 </p>
@@ -207,9 +207,9 @@ H 具备三个关键结构：
 </p>
 </div>
 </div>
-<div id="outline-container-org1837fcf" class="outline-3">
-<h3 id="org1837fcf">2. 量子态不是矢量，而是“束”</h3>
-<div class="outline-text-3" id="text-org1837fcf">
+<div id="outline-container-org2398ce5" class="outline-3">
+<h3 id="org2398ce5">2. 量子态不是矢量，而是“束”</h3>
+<div class="outline-text-3" id="text-org2398ce5">
 <p>
 <b><b>关键结论：</b></b>
 量子态 ≠ 希尔伯特空间中的某一个具体矢量  
@@ -262,9 +262,9 @@ H 具备三个关键结构：
 </p>
 </div>
 </div>
-<div id="outline-container-orgaba527c" class="outline-3">
-<h3 id="orgaba527c">3. 为什么平时还在用“态矢”这个说法？</h3>
-<div class="outline-text-3" id="text-orgaba527c">
+<div id="outline-container-org2b8417f" class="outline-3">
+<h3 id="org2b8417f">3. 为什么平时还在用“态矢”这个说法？</h3>
+<div class="outline-text-3" id="text-org2b8417f">
 <p>
 虽然严格来说量子态是“束”，
 但在很多情形下：

@@ -276,9 +276,23 @@ body.site-home:not(.site-archive) .bookshelf-stage::before {
   pointer-events: none;
 }
 
+body.site-home:not(.site-archive) .bookshelf-stage::after {
+  content: "";
+  position: absolute;
+  inset: -2.6rem -1.6rem -0.6rem;
+  z-index: 2;
+  background:
+    linear-gradient(112deg, rgba(255, 229, 171, 0.16), transparent 18%, transparent 68%, rgba(12, 5, 2, 0.12)),
+    repeating-linear-gradient(96deg, transparent 0 42px, rgba(255, 232, 184, 0.035) 43px, transparent 45px),
+    repeating-linear-gradient(1deg, transparent 0 96px, rgba(31, 12, 4, 0.04) 97px, transparent 99px);
+  opacity: 0.66;
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+}
+
 body.site-home:not(.site-archive) .bookshelf-stage > * {
   position: relative;
-  z-index: 1;
+  z-index: 3;
 }
 
 body.site-home:not(.site-archive) .bookshelf-reading-desk {

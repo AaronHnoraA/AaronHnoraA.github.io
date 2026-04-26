@@ -1,20 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2026-04-26 Sun 14:39 -->
+<!-- 2026-04-26 Sun 14:44 -->
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Inner Product Space</title>
 <meta name="generator" content="Org Mode" />
 <meta name="color-scheme" content="light" />
-<link rel="stylesheet" href="../../css/retro.css?v=20260426-17" />
+<link rel="stylesheet" href="../../css/retro.css?v=20260426-18" />
 <link rel="shortcut icon" href="https://raw.githubusercontent.com/AaronHnoraA/AaronHnoraA.github.io/refs/heads/master/css/cv.svg" type="image/x-icon">
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script>window.SITE_ROOT_PATH="../../";window.CURRENT_NOTE_LINK="roam/math/inner_product_space.html";</script>
-<script defer src="../../js/data.js?v=20260426-17"></script>
-<script defer src="../../js/knowledge.js?v=20260426-17"></script>
-<script defer src="../../js/graph.js?v=20260426-17"></script>
-<script defer src="../../js/note-page.js?v=20260426-17"></script>
+<script defer src="../../js/data.js?v=20260426-18"></script>
+<script defer src="../../js/knowledge.js?v=20260426-18"></script>
+<script defer src="../../js/graph.js?v=20260426-18"></script>
+<script defer src="../../js/note-page.js?v=20260426-18"></script>
 <script>
   window.MathJax = {
     tex: {
@@ -56,38 +56,38 @@
 <h2>Table of Contents</h2>
 <div id="text-table-of-contents" role="doc-toc">
 <ul>
-<li><a href="#org4378c7f">Inner Product Space 内积空间</a></li>
-<li><a href="#org17e9a86">内积的公理化定义</a></li>
-<li><a href="#org60d2fd2">实内积空间与复内积空间</a></li>
-<li><a href="#orgd6fca9e">正交的定义</a></li>
-<li><a href="#orge38efbe">定义顺序的分歧（数学 vs 物理）</a>
+<li><a href="#org7589cc0">Inner Product Space 内积空间</a></li>
+<li><a href="#orgdfc8438">内积的公理化定义</a></li>
+<li><a href="#org1eae44a">实内积空间与复内积空间</a></li>
+<li><a href="#org25c98b7">正交的定义</a></li>
+<li><a href="#orgc45a08d">定义顺序的分歧（数学 vs 物理）</a>
 <ul>
-<li><a href="#org7f52b22">数学上的约定</a></li>
-<li><a href="#org95d4784">物理学（狄拉克符号）的约定</a></li>
-<li><a href="#orgc8045ce">重要说明</a></li>
+<li><a href="#org1be7cf0">数学上的约定</a></li>
+<li><a href="#orge42ad83">物理学（狄拉克符号）的约定</a></li>
+<li><a href="#orga6e2c27">重要说明</a></li>
 </ul>
 </li>
 </ul>
 </div>
 </nav>
-<div class="overview" id="org07dd9f1">
+<div class="overview" id="org3497b44">
 <ul class="org-ul">
-<li><a href="#org4378c7f">Inner Product Space 内积空间</a></li>
-<li><a href="#org17e9a86">内积的公理化定义</a></li>
-<li><a href="#org60d2fd2">实内积空间与复内积空间</a></li>
-<li><a href="#orgd6fca9e">正交的定义</a></li>
-<li><a href="#orge38efbe">定义顺序的分歧（数学 vs 物理）</a>
+<li><a href="#org7589cc0">Inner Product Space 内积空间</a></li>
+<li><a href="#orgdfc8438">内积的公理化定义</a></li>
+<li><a href="#org1eae44a">实内积空间与复内积空间</a></li>
+<li><a href="#org25c98b7">正交的定义</a></li>
+<li><a href="#orgc45a08d">定义顺序的分歧（数学 vs 物理）</a>
 <ul class="org-ul">
-<li><a href="#org7f52b22">数学上的约定</a></li>
-<li><a href="#org95d4784">物理学（狄拉克符号）的约定</a></li>
-<li><a href="#orgc8045ce">重要说明</a></li>
+<li><a href="#org1be7cf0">数学上的约定</a></li>
+<li><a href="#orge42ad83">物理学（狄拉克符号）的约定</a></li>
+<li><a href="#orga6e2c27">重要说明</a></li>
 </ul></li>
 </ul>
 
 </div>
-<div id="outline-container-org4378c7f" class="outline-2">
-<h2 id="org4378c7f">Inner Product Space 内积空间</h2>
-<div class="outline-text-2" id="text-org4378c7f">
+<div id="outline-container-org7589cc0" class="outline-2">
+<h2 id="org7589cc0">Inner Product Space 内积空间</h2>
+<div class="outline-text-2" id="text-org7589cc0">
 <ul class="org-ul">
 <li>标量域 $F$：
 <ul class="org-ul">
@@ -114,9 +114,9 @@ f(v,w) = \langle v,w\rangle
 </p>
 </div>
 </div>
-<div id="outline-container-org17e9a86" class="outline-2">
-<h2 id="org17e9a86">内积的公理化定义</h2>
-<div class="outline-text-2" id="text-org17e9a86">
+<div id="outline-container-orgdfc8438" class="outline-2">
+<h2 id="orgdfc8438">内积的公理化定义</h2>
+<div class="outline-text-2" id="text-orgdfc8438">
 <p>
 若 \(\langle\cdot,\cdot\rangle\) 满足下表中的全部条件，则称其为 \(V\) 上的一个 *内积*。
 </p>
@@ -176,18 +176,18 @@ f(v,w) = \langle v,w\rangle
 </p>
 </div>
 </div>
-<div id="outline-container-org60d2fd2" class="outline-2">
-<h2 id="org60d2fd2">实内积空间与复内积空间</h2>
-<div class="outline-text-2" id="text-org60d2fd2">
+<div id="outline-container-org1eae44a" class="outline-2">
+<h2 id="org1eae44a">实内积空间与复内积空间</h2>
+<div class="outline-text-2" id="text-org1eae44a">
 <ul class="org-ul">
 <li>若 \(F=\mathbb{R}\)，称 \(V\) 为 <b>实内积空间</b></li>
 <li>若 \(F=\mathbb{C}\)，称 \(V\) 为 <b>复内积空间</b></li>
 </ul>
 </div>
 </div>
-<div id="outline-container-orgd6fca9e" class="outline-2">
-<h2 id="orgd6fca9e">正交的定义</h2>
-<div class="outline-text-2" id="text-orgd6fca9e">
+<div id="outline-container-org25c98b7" class="outline-2">
+<h2 id="org25c98b7">正交的定义</h2>
+<div class="outline-text-2" id="text-org25c98b7">
 <p>
 若
 \[
@@ -204,13 +204,13 @@ v \perp w
 </p>
 </div>
 </div>
-<div id="outline-container-orge38efbe" class="outline-2">
-<h2 id="orge38efbe">定义顺序的分歧（数学 vs 物理）</h2>
-<div class="outline-text-2" id="text-orge38efbe">
+<div id="outline-container-orgc45a08d" class="outline-2">
+<h2 id="orgc45a08d">定义顺序的分歧（数学 vs 物理）</h2>
+<div class="outline-text-2" id="text-orgc45a08d">
 </div>
-<div id="outline-container-org7f52b22" class="outline-3">
-<h3 id="org7f52b22">数学上的约定</h3>
-<div class="outline-text-3" id="text-org7f52b22">
+<div id="outline-container-org1be7cf0" class="outline-3">
+<h3 id="org1be7cf0">数学上的约定</h3>
+<div class="outline-text-3" id="text-org1be7cf0">
 <ul class="org-ul">
 <li>内积对 <b>第一个变量线性</b></li>
 <li>对第二个变量共轭线性</li>
@@ -221,9 +221,9 @@ v \perp w
 </p>
 </div>
 </div>
-<div id="outline-container-org95d4784" class="outline-3">
-<h3 id="org95d4784">物理学（狄拉克符号）的约定</h3>
-<div class="outline-text-3" id="text-org95d4784">
+<div id="outline-container-orge42ad83" class="outline-3">
+<h3 id="orge42ad83">物理学（狄拉克符号）的约定</h3>
+<div class="outline-text-3" id="text-orge42ad83">
 <p>
 为配合 \(\langle \psi | \phi \rangle\) 的书写顺序，物理学家常采用相反的线性约定：
 </p>
@@ -260,9 +260,9 @@ v \perp w
 </p>
 </div>
 </div>
-<div id="outline-container-orgc8045ce" class="outline-3">
-<h3 id="orgc8045ce">重要说明</h3>
-<div class="outline-text-3" id="text-orgc8045ce">
+<div id="outline-container-orga6e2c27" class="outline-3">
+<h3 id="orga6e2c27">重要说明</h3>
+<div class="outline-text-3" id="text-orga6e2c27">
 <ul class="org-ul">
 <li>真正影响定理形式的是“线性作用在哪个变量”</li>
 <li>两种定义在数学上是等价的</li>

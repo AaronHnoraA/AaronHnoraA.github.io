@@ -2592,3 +2592,224 @@ body.site-home:not(.site-archive) .bookshelf-pages li,
 body.site-home:not(.site-archive) .bookshelf-pages dd {
   color: #2f2318;
 }
+
+/* ==========================================================================
+   10. Reading Room Note Adaptation
+   ========================================================================== */
+:root {
+  --reading-wood-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.72 .18' numOctaves='4' seed='12' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='.42'/%3E%3C/svg%3E");
+  --reading-wood-fiber: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='180' viewBox='0 0 260 180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.045 .62' numOctaves='5' seed='19' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='.65 0 0 0 0 .65 0 0 0 0 .65 0 0 0 0 0 0 0 .34 0'/%3E%3C/filter%3E%3Crect width='260' height='180' filter='url(%23g)' opacity='.5'/%3E%3C/svg%3E");
+  --reading-paper-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' seed='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23p)' opacity='.16'/%3E%3C/svg%3E");
+}
+
+body.site-home.site-archive,
+body.note-page {
+  background:
+    radial-gradient(ellipse 54% 26% at 50% -8%, rgba(238, 174, 92, 0.28), transparent 62%),
+    radial-gradient(circle at bottom, rgba(45, 18, 7, 0.94), rgba(10, 7, 5, 0.98) 72%),
+    #120d0a;
+}
+
+body.site-home.site-archive .site-shell,
+body.note-page {
+  background:
+    radial-gradient(ellipse 58% 24% at 50% 3%, rgba(255, 211, 138, 0.17), transparent 64%),
+    linear-gradient(90deg, rgba(16, 6, 2, 0.68), transparent 8%, transparent 91%, rgba(18, 7, 2, 0.72)),
+    linear-gradient(180deg, rgba(255, 226, 170, 0.05), transparent 34%, rgba(15, 6, 2, 0.36) 100%),
+    linear-gradient(
+      90deg,
+      transparent 0 7%,
+      rgba(30, 12, 4, 0.48) 7.2% 7.5%,
+      transparent 7.8% 21%,
+      rgba(255, 213, 139, 0.06) 21.2% 21.45%,
+      transparent 21.75% 39%,
+      rgba(24, 10, 4, 0.46) 39.2% 39.5%,
+      transparent 39.8% 58%,
+      rgba(255, 221, 158, 0.06) 58.2% 58.45%,
+      transparent 58.75% 76%,
+      rgba(28, 11, 4, 0.43) 76.2% 76.5%,
+      transparent 76.8% 100%
+    ),
+    var(--reading-wood-noise),
+    var(--reading-wood-fiber),
+    linear-gradient(180deg, #7d481d 0%, #5b2d0e 44%, #301205 100%);
+  background-size: auto, auto, auto, auto, 220px 220px, 260px 180px, auto;
+  box-shadow:
+    inset 46px 0 86px rgba(15, 6, 2, 0.5),
+    inset -54px 0 96px rgba(12, 5, 2, 0.62),
+    inset 0 -42px 82px rgba(13, 7, 4, 0.58),
+    inset 0 0 150px rgba(17, 7, 3, 0.3);
+}
+
+body.site-home.site-archive .site-shell {
+  max-width: none;
+  min-height: 100vh;
+  margin: 0;
+  padding: clamp(22px, 3vw, 40px);
+  border: 0;
+}
+
+body.site-home.site-archive .site-shell::before {
+  display: none;
+}
+
+body.site-home.site-archive .hero,
+body.site-home.site-archive .site-nav,
+body.site-home.site-archive .section {
+  max-width: 1260px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+body.site-home.site-archive .hero,
+body.site-home.site-archive .site-nav,
+body.site-home.site-archive .section,
+body.note-page #content,
+body.note-page .note-toolbar,
+body.note-page .note-header-panel,
+body.note-page .note-panel,
+body.note-page .note-sequence-link,
+body.note-page .note-link-card,
+body.note-page .note-floating-toc,
+body.note-page .note-graph-window {
+  background:
+    var(--reading-paper-noise),
+    radial-gradient(ellipse at 18% 0%, rgba(255, 255, 255, 0.66), transparent 44%),
+    radial-gradient(ellipse at 96% 100%, rgba(124, 92, 52, 0.11), transparent 36%),
+    linear-gradient(90deg, rgba(206, 188, 159, 0.18) 0 14px, transparent 14px),
+    linear-gradient(180deg, rgba(251, 247, 238, 0.985), rgba(241, 232, 213, 0.975)),
+    repeating-linear-gradient(180deg, rgba(147, 128, 101, 0.035) 0, rgba(147, 128, 101, 0.035) 1px, transparent 1px, transparent 31px);
+  background-size: 180px 180px, auto, auto, auto, auto, auto;
+}
+
+body.site-home.site-archive .hero {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(84, 60, 41, 0.54);
+  border-radius: 12px;
+  box-shadow:
+    0 18px 38px rgba(19, 11, 7, 0.24),
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 -1px 0 rgba(184, 165, 136, 0.42) inset;
+}
+
+body.site-home.site-archive .site-nav {
+  border: 1px solid rgba(70, 46, 28, 0.54);
+  border-radius: 10px;
+  box-shadow:
+    0 12px 26px rgba(18, 10, 6, 0.18),
+    0 1px 0 rgba(255, 255, 255, 0.58) inset;
+}
+
+body.site-home.site-archive .section {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(70, 46, 28, 0.52);
+  border-radius: 9px;
+  box-shadow:
+    0 24px 48px rgba(18, 9, 4, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.62),
+    inset 0 -18px 30px rgba(135, 102, 62, 0.06);
+}
+
+body.site-home.site-archive .site-footer {
+  max-width: 1260px;
+  margin-left: auto;
+  margin-right: auto;
+  color: rgba(241, 228, 203, 0.8);
+}
+
+body.note-page {
+  padding: clamp(20px, 3vw, 42px) clamp(14px, 3vw, 30px) 70px;
+}
+
+body.note-page::before,
+body.note-page::after {
+  color: rgba(241, 228, 203, 0.72);
+  text-shadow: 0 1px 0 rgba(26, 16, 9, 0.56);
+}
+
+body.note-page #content {
+  position: relative;
+  max-width: 1060px;
+  border: 1px solid rgba(184, 162, 131, 0.68);
+  border-radius: 8px 5px 12px 6px;
+  box-shadow:
+    0 34px 70px rgba(12, 5, 2, 0.34),
+    0 2px 7px rgba(58, 37, 18, 0.14),
+    0 1px 0 rgba(255, 255, 255, 0.74) inset,
+    0 0 0 1px rgba(255, 251, 241, 0.34) inset,
+    inset 0 -18px 30px rgba(135, 102, 62, 0.07);
+}
+
+body.note-page #content::before {
+  content: "";
+  position: absolute;
+  top: -8px;
+  right: 28px;
+  width: 96px;
+  height: 26px;
+  background: linear-gradient(180deg, rgba(239, 227, 178, 0.58), rgba(221, 203, 142, 0.26));
+  box-shadow: 0 2px 8px rgba(87, 71, 48, 0.16);
+  opacity: 0.74;
+  transform: rotate(2.4deg);
+  pointer-events: none;
+}
+
+body.note-page .title {
+  color: #24170d;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.58),
+    0 5px 12px rgba(60, 35, 16, 0.1);
+}
+
+body.note-page #table-of-contents,
+body.note-page .overview,
+body.note-page pre,
+body.note-page table,
+body.note-page blockquote {
+  border-color: rgba(126, 93, 55, 0.24);
+  background:
+    var(--reading-paper-noise),
+    linear-gradient(180deg, rgba(255, 252, 245, 0.66), rgba(231, 217, 190, 0.28));
+  background-size: 180px 180px, auto;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+body.note-page .note-toolbar,
+body.note-page .note-header-panel,
+body.note-page .note-panel,
+body.note-page .note-sequence-link,
+body.note-page .note-link-card,
+body.note-page .note-floating-toc,
+body.note-page .note-graph-window {
+  border-color: rgba(126, 93, 55, 0.28);
+  box-shadow:
+    0 16px 26px rgba(20, 9, 4, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+body.note-page .note-reading-progress {
+  background: rgba(29, 12, 5, 0.42);
+}
+
+body.note-page .note-reading-progress-bar {
+  background: linear-gradient(90deg, #b37a3e, #e1b366);
+  box-shadow: 0 0 10px rgba(225, 179, 102, 0.28);
+}
+
+@media (max-width: 760px) {
+  body.site-home.site-archive .site-shell,
+  body.note-page {
+    padding: 16px 14px 28px;
+  }
+
+  body.note-page #content {
+    padding: 34px 24px 42px;
+  }
+
+  body.note-page::before,
+  body.note-page::after {
+    display: none;
+  }
+}
