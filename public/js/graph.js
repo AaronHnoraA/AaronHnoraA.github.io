@@ -99,6 +99,7 @@
     let selectedId = "";
     let width = 0;
     let height = 0;
+    let resizeFrame = 0;
     let svg;
     let canvas;
     let linkSelection;
@@ -293,15 +294,20 @@
       window.setTimeout(() => fitToNodes(predicate), 180);
     }
 
+    function measureContainerSize() {
+      const nextWidth = Math.max(320, Math.round(container.clientWidth || 900));
+      const nextHeight = Math.max(240, Math.round(container.clientHeight || 520));
+      return { width: nextWidth, height: nextHeight };
+    }
+
     function buildGraph() {
       container.innerHTML = "";
-      width = container.clientWidth || 900;
-      height = container.clientHeight || 520;
+      ({ width, height } = measureContainerSize());
 
       svg = d3.select(container)
         .append("svg")
-        .attr("width", "100%")
-        .attr("height", "100%")
+        .attr("width", width)
+        .attr("height", height)
         .attr("viewBox", [0, 0, width, height]);
 
       canvas = svg.append("g");
@@ -424,8 +430,14 @@
         return;
       }
 
-      width = container.clientWidth || 900;
-      height = container.clientHeight || 520;
+      const nextSize = measureContainerSize();
+      if (nextSize.width === width && nextSize.height === height) {
+        return;
+      }
+
+      width = nextSize.width;
+      height = nextSize.height;
+      svg.attr("width", width).attr("height", height);
       svg.attr("viewBox", [0, 0, width, height]);
       simulation.force("center", d3.forceCenter(width / 2, height / 2));
       simulation.alpha(0.4).restart();
@@ -473,7 +485,15 @@
       }
     }
 
-    const resizeObserver = new ResizeObserver(() => resizeGraph());
+    const resizeObserver = new ResizeObserver(() => {
+      if (resizeFrame) {
+        window.cancelAnimationFrame(resizeFrame);
+      }
+      resizeFrame = window.requestAnimationFrame(() => {
+        resizeFrame = 0;
+        resizeGraph();
+      });
+    });
     resizeObserver.observe(container);
 
     let filtersListener = null;
@@ -504,6 +524,9 @@
       selectById,
       destroy() {
         resizeObserver.disconnect();
+        if (resizeFrame) {
+          window.cancelAnimationFrame(resizeFrame);
+        }
         if (filtersListener) {
           document.removeEventListener("knowledge:filters-changed", filtersListener);
         }
