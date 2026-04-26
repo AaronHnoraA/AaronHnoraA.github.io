@@ -8,12 +8,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
-  const books = Array.from(homeGrid.querySelectorAll(".shelf-book"));
-  if (books.length === 0) {
-    return;
-  }
-
-  const shelfMap = [0, 0, 0, 0, 1, 1, 1, 2, 2, 2];
   const heights = [278, 304, 288, 326, 296, 278, 306, 286, 274, 314];
   const widths = [164, 180, 170, 196, 176, 164, 188, 172, 162, 186];
 
@@ -23,6 +17,18 @@ document.addEventListener("DOMContentLoaded", () => {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
+  }
+
+  function findPageById(root, id) {
+    if (!id) {
+      return null;
+    }
+
+    if (window.CSS && typeof window.CSS.escape === "function") {
+      return root.querySelector(`#${window.CSS.escape(id)}`);
+    }
+
+    return document.getElementById(id);
   }
 
   function createShelfRow(index) {
@@ -39,19 +45,106 @@ document.addEventListener("DOMContentLoaded", () => {
     return row;
   }
 
-  const bookshelfStage = document.createElement("div");
-  bookshelfStage.className = "bookshelf-stage";
-  const readingDesk = document.createElement("section");
-  readingDesk.className = "bookshelf-reading-desk";
-  readingDesk.innerHTML = `
-    <div class="reading-desk-paper reading-desk-paper-placeholder">
-      <p>Select a volume to open its notebook page.</p>
-    </div>
-  `;
-  const shelfRows = [createShelfRow(0), createShelfRow(1), createShelfRow(2)];
-  bookshelfStage.appendChild(readingDesk);
-  shelfRows.forEach((row) => bookshelfStage.appendChild(row));
-  homeGrid.replaceChildren(bookshelfStage);
+  function buildFallbackStructure() {
+    const books = Array.from(homeGrid.querySelectorAll(":scope > .shelf-book"));
+    if (books.length === 0) {
+      return null;
+    }
+
+    const shelfMap = [0, 0, 0, 0, 1, 1, 1, 2, 2, 2];
+    const bookshelfStage = document.createElement("div");
+    bookshelfStage.className = "bookshelf-stage";
+
+    const readingDesk = document.createElement("section");
+    readingDesk.className = "bookshelf-reading-desk";
+    readingDesk.innerHTML = `
+      <div class="reading-desk-paper reading-desk-paper-placeholder">
+        <p>Select a volume to open its notebook page.</p>
+      </div>
+    `;
+
+    const shelfRows = [createShelfRow(0), createShelfRow(1), createShelfRow(2)];
+    bookshelfStage.appendChild(readingDesk);
+    shelfRows.forEach((row) => bookshelfStage.appendChild(row));
+
+    books.forEach((book, index) => {
+      const title = book.dataset.book || book.querySelector("h2")?.textContent?.trim() || `Book ${index + 1}`;
+      const titleSlug = slugify(title) || `book-${index + 1}`;
+      const rowIndex = shelfMap[index] ?? shelfMap[shelfMap.length - 1];
+      const row = shelfRows[rowIndex];
+      const shelfBooks = row.querySelector(".shelf-books");
+
+      book.style.setProperty("--book-height", `${heights[index % heights.length]}px`);
+      book.style.setProperty("--book-width", `${widths[index % widths.length]}px`);
+      book.dataset.bookSlug = titleSlug;
+
+      const pageWrapper = document.createElement("div");
+      pageWrapper.className = "bookshelf-pages";
+      pageWrapper.id = `${titleSlug}-pages`;
+
+      while (book.firstChild) {
+        pageWrapper.appendChild(book.firstChild);
+      }
+
+      const cover = document.createElement("button");
+      cover.type = "button";
+      cover.className = "bookshelf-cover";
+      cover.setAttribute("aria-expanded", "false");
+      cover.setAttribute("aria-controls", pageWrapper.id);
+      cover.innerHTML = `
+        <span class="bookshelf-cover-kicker">${index + 1 < 10 ? `0${index + 1}` : index + 1}</span>
+        <span class="bookshelf-cover-title">${title}</span>
+        <span class="bookshelf-cover-subtitle">open volume</span>
+      `;
+
+      book.appendChild(cover);
+      shelfBooks.appendChild(book);
+      readingDesk.appendChild(pageWrapper);
+    });
+
+    homeGrid.replaceChildren(bookshelfStage);
+    return { books: Array.from(homeGrid.querySelectorAll(".shelf-book")), readingDesk, shelfRows };
+  }
+
+  function useExistingStructure() {
+    const bookshelfStage = homeGrid.querySelector(".bookshelf-stage");
+    if (!bookshelfStage) {
+      return null;
+    }
+
+    const readingDesk = bookshelfStage.querySelector(".bookshelf-reading-desk");
+    const shelfRows = Array.from(bookshelfStage.querySelectorAll(".shelf-row"));
+    const books = Array.from(bookshelfStage.querySelectorAll(".shelf-book"));
+    if (!readingDesk || books.length === 0) {
+      return null;
+    }
+
+    books.forEach((book, index) => {
+      const title = book.dataset.book || book.querySelector(".bookshelf-cover-title")?.textContent?.trim() || `Book ${index + 1}`;
+      const titleSlug = slugify(title) || `book-${index + 1}`;
+      const cover = book.querySelector(".bookshelf-cover");
+      const pageId = cover?.getAttribute("aria-controls") || `${titleSlug}-pages`;
+
+      book.style.setProperty("--book-height", `${heights[index % heights.length]}px`);
+      book.style.setProperty("--book-width", `${widths[index % widths.length]}px`);
+      book.dataset.bookSlug = titleSlug;
+
+      if (cover) {
+        cover.setAttribute("aria-expanded", "false");
+      }
+
+      book._bookshelfPages = findPageById(readingDesk, pageId);
+    });
+
+    return { books, readingDesk, shelfRows };
+  }
+
+  const structure = useExistingStructure() || buildFallbackStructure();
+  if (!structure) {
+    return;
+  }
+
+  const { books, readingDesk, shelfRows } = structure;
 
   function closeAllBooks() {
     books.forEach((book) => {
@@ -110,43 +203,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  books.forEach((book, index) => {
-    const title = book.dataset.book || book.querySelector("h2")?.textContent?.trim() || `Book ${index + 1}`;
-    const titleSlug = slugify(title) || `book-${index + 1}`;
-    const rowIndex = shelfMap[index] ?? shelfMap[shelfMap.length - 1];
-    const row = shelfRows[rowIndex];
-    const shelfBooks = row.querySelector(".shelf-books");
-
-    book.style.setProperty("--book-height", `${heights[index % heights.length]}px`);
-    book.style.setProperty("--book-width", `${widths[index % widths.length]}px`);
-    book.dataset.bookSlug = titleSlug;
-
-    const pageWrapper = document.createElement("div");
-    pageWrapper.className = "bookshelf-pages";
-
-    while (book.firstChild) {
-      pageWrapper.appendChild(book.firstChild);
+  books.forEach((book) => {
+    const cover = book.querySelector(".bookshelf-cover");
+    if (cover) {
+      cover.addEventListener("click", () => openBook(book));
     }
-
-    const cover = document.createElement("button");
-    cover.type = "button";
-    cover.className = "bookshelf-cover";
-    cover.setAttribute("aria-expanded", "false");
-    cover.setAttribute("aria-controls", `${titleSlug}-pages`);
-    cover.innerHTML = `
-      <span class="bookshelf-cover-kicker">${index + 1 < 10 ? `0${index + 1}` : index + 1}</span>
-      <span class="bookshelf-cover-title">${title}</span>
-      <span class="bookshelf-cover-subtitle">open volume</span>
-    `;
-
-    pageWrapper.id = `${titleSlug}-pages`;
-    book._bookshelfPages = pageWrapper;
-
-    book.appendChild(cover);
-    shelfBooks.appendChild(book);
-    readingDesk.appendChild(pageWrapper);
-
-    cover.addEventListener("click", () => openBook(book));
   });
 
   document.querySelectorAll('.site-nav a[href^="#"]').forEach((link) => {

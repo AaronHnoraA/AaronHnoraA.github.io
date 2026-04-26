@@ -5,8 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Aaron He | Math & Code</title>
-  <link rel="stylesheet" href="css/retro.css?v=20260426-18" />
-  <link rel="stylesheet" href="css/home-bookshelf.css?v=20260426-18" />
+  <link rel="stylesheet" href="css/retro.css?v=20260426-19" />
   <link rel="shortcut icon"
     href="https://raw.githubusercontent.com/AaronHnoraA/AaronHnoraA.github.io/refs/heads/master/css/cv.svg"
     type="image/x-icon">
@@ -50,124 +49,257 @@
 
   <main class="site-main">
     <div class="home-grid">
-    <aside class="department-card shelf-book shelf-book-catalog" data-book="Department Card">
-      <h2>Department Card</h2>
-      <dl class="department-list">
-        <dt>Office</dt>
-        <dd>UNSW School of Mathematics and Statistics, Sydney.</dd>
-        <dt>Interests</dt>
-        <dd>quantum computing, linear algebra, algebraic structure, theoretical computer science.</dd>
-        <dt>Current reading</dt>
-        <dd>Nielsen &amp; Chuang; algebra notes; expository drafts in QC.</dd>
-        <dt>Status</dt>
-        <dd>working notebook in public, revised as understanding improves.</dd>
-      </dl>
-    </aside>
-    <section id="about" class="section section-prose shelf-book shelf-book-sienna" data-book="About">
-      <h2>About</h2>
-      <p class="section-aside">This site keeps the old personal-homepage sincerity, but the typography, spacing, search, and graph are tuned with current tools rather than nostalgia alone.</p>
-      <p>
-        This is part homepage, part open notebook. I am a second-year mathematics undergraduate; I write notes here while studying, mostly to force myself to re-derive things until they make sense. If they happen to be useful to anyone else, that is a bonus.
-      </p>
-      <p>
-        Present focus: quantum computing — quantum states, observables, density operators — together with the algebra and linear algebra it sits on. Theoretical computer science (complexity, algorithms, communication complexity) is the longer horizon; those notes will appear as I write them.
-      </p>
-    </section>
+      <div class="bookshelf-stage">
+        <section class="bookshelf-reading-desk">
+          <div class="reading-desk-paper reading-desk-paper-placeholder">
+            <p>Select a volume to open its notebook page.</p>
+          </div>
 
-    <section id="research" class="section section-prose shelf-book shelf-book-olive" data-book="Research">
-      <h2>Research interests</h2>
-      <dl class="prose-defs">
-        <dt>Quantum computing</dt>
-        <dd>quantum states, observables, density operators; the linear-algebraic vocabulary holding them together.</dd>
-        <dt>Theoretical computer science</dt>
-        <dd>complexity, algorithms, combinatorics, communication complexity — planned, added as the archive grows.</dd>
-      </dl>
-    </section>
+          <div id="department-card-pages" class="bookshelf-pages">
+            <aside class="department-card">
+              <h2>Department Card</h2>
+              <dl class="department-list">
+                <dt>Office</dt>
+                <dd>UNSW School of Mathematics and Statistics, Sydney.</dd>
+                <dt>Interests</dt>
+                <dd>quantum computing, linear algebra, algebraic structure, theoretical computer science.</dd>
+                <dt>Current reading</dt>
+                <dd>Nielsen &amp; Chuang; algebra notes; expository drafts in QC.</dd>
+                <dt>Status</dt>
+                <dd>working notebook in public, revised as understanding improves.</dd>
+              </dl>
+            </aside>
+          </div>
 
-    <section id="current-interests" class="section section-wide section-prose shelf-book shelf-book-umber" data-book="Current">
-      <h2>Current</h2>
-      <div id="current-interests-panel" class="academic-panel" aria-live="polite"></div>
-    </section>
+          <div id="about-pages" class="bookshelf-pages">
+            <section class="section section-prose">
+              <h2>About</h2>
+              <p class="section-aside">This site keeps the old personal-homepage sincerity, but the typography, spacing, search, and graph are tuned with current tools rather than nostalgia alone.</p>
+              <p>
+                This is part homepage, part open notebook. I am a second-year mathematics undergraduate; I write notes here while studying, mostly to force myself to re-derive things until they make sense. If they happen to be useful to anyone else, that is a bonus.
+              </p>
+              <p>
+                Present focus: quantum computing — quantum states, observables, density operators — together with the algebra and linear algebra it sits on. Theoretical computer science (complexity, algorithms, communication complexity) is the longer horizon; those notes will appear as I write them.
+              </p>
+            </section>
+          </div>
 
-    <section id="notes-section" class="section section-wide shelf-book shelf-book-ledger" data-book="Notes Archive">
-      <div id="notes-summary" class="notes-summary" aria-live="polite"></div>
-      <div id="notes-actions" class="notes-actions" aria-label="Knowledge tools"></div>
+          <div id="research-pages" class="bookshelf-pages">
+            <section class="section section-prose">
+              <h2>Research interests</h2>
+              <dl class="prose-defs">
+                <dt>Quantum computing</dt>
+                <dd>quantum states, observables, density operators; the linear-algebraic vocabulary holding them together.</dd>
+                <dt>Theoretical computer science</dt>
+                <dd>complexity, algorithms, combinatorics, communication complexity — planned, added as the archive grows.</dd>
+              </dl>
+            </section>
+          </div>
 
-      <h2>Notes</h2>
-      <p class="section-intro">A searchable index of notes and the relations between them.</p>
+          <div id="current-pages" class="bookshelf-pages">
+            <section class="section section-wide section-prose">
+              <h2>Current</h2>
+              <div id="current-interests-panel" class="academic-panel" aria-live="polite"></div>
+            </section>
+          </div>
 
-      <h3>Graph</h3>
-      <div id="graph-container" aria-label="Interactive knowledge graph"></div>
-      <div id="graph-focus" class="graph-focus empty" aria-live="polite"></div>
+          <div id="notes-archive-pages" class="bookshelf-pages">
+            <section class="section section-wide">
+              <div id="notes-summary" class="notes-summary" aria-live="polite"></div>
+              <div id="notes-actions" class="notes-actions" aria-label="Knowledge tools"></div>
 
-      <h3>Index</h3>
+              <h2>Notes</h2>
+              <p class="section-intro">A searchable index of notes and the relations between them.</p>
 
-      <div class="toolbar">
-        <div class="search-wrapper">
-          <label class="sr-only" for="note-search">Search notes</label>
-          <span class="search-icon" aria-hidden="true">/</span>
-          <input type="text" id="note-search" placeholder="Search title or tags..." autocomplete="off" />
-          <button id="reset-search" type="button" style="display:none" aria-label="Clear search">
-            <span aria-hidden="true">x</span>
-          </button>
-        </div>
+              <h3>Graph</h3>
+              <div id="graph-container" aria-label="Interactive knowledge graph"></div>
+              <div id="graph-focus" class="graph-focus empty" aria-live="polite"></div>
 
-        <div class="sort-wrapper">
-          <label for="sort-select">Sort by:</label>
-          <select id="sort-select">
-            <option value="date-desc">Newest First</option>
-            <option value="date-asc">Oldest First</option>
-            <option value="title-asc">Title A-Z</option>
-          </select>
-        </div>
+              <h3>Index</h3>
+
+              <div class="toolbar">
+                <div class="search-wrapper">
+                  <label class="sr-only" for="note-search">Search notes</label>
+                  <span class="search-icon" aria-hidden="true">/</span>
+                  <input type="text" id="note-search" placeholder="Search title or tags..." autocomplete="off" />
+                  <button id="reset-search" type="button" style="display:none" aria-label="Clear search">
+                    <span aria-hidden="true">x</span>
+                  </button>
+                </div>
+
+                <div class="sort-wrapper">
+                  <label for="sort-select">Sort by:</label>
+                  <select id="sort-select">
+                    <option value="date-desc">Newest First</option>
+                    <option value="date-asc">Oldest First</option>
+                    <option value="title-asc">Title A-Z</option>
+                  </select>
+                </div>
+              </div>
+
+              <div id="active-filters" class="active-filters" aria-live="polite"></div>
+              <div id="tag-cloud"></div>
+              <div id="app-tabs"></div>
+            </section>
+          </div>
+
+          <div id="selected-notes-pages" class="bookshelf-pages">
+            <section class="section section-prose">
+              <h2>Selected notes</h2>
+              <div id="selected-notes-panel" class="academic-panel" aria-live="polite"></div>
+            </section>
+          </div>
+
+          <div id="recent-updates-pages" class="bookshelf-pages">
+            <section class="section section-prose">
+              <h2>Recent updates</h2>
+              <div id="recent-updates-panel" class="academic-panel" aria-live="polite"></div>
+            </section>
+          </div>
+
+          <div id="materials-pages" class="bookshelf-pages">
+            <section class="section section-prose">
+              <h2>Materials</h2>
+              <p class="section-aside">Still intentionally sparse. Empty sections are part of the genre: they signal a live workspace rather than a polished brochure.</p>
+              <dl class="prose-defs">
+                <dt>Coursework</dt>
+                <dd>Course notes and worked summaries in QC and TCS will be listed here.</dd>
+                <dt>Writing</dt>
+                <dd>Expository notes, essays, and longer drafts will appear here.</dd>
+                <dt>Talks</dt>
+                <dd>None at present.</dd>
+                <dt>CV</dt>
+                <dd>A formal curriculum vitae will be added here.</dd>
+              </dl>
+            </section>
+          </div>
+
+          <div id="reading-pages" class="bookshelf-pages">
+            <section class="section section-prose">
+              <h2>Reading</h2>
+              <ul class="plain-list">
+                <li>冯克勤, <cite>近世代数引论（第四版）</cite>.</li>
+                <li>章璞, <cite>伽罗瓦理论：天才的激情</cite>.</li>
+                <li>Nielsen &amp; Chuang, <cite>Quantum Computation and Quantum Information</cite>.</li>
+              </ul>
+            </section>
+          </div>
+
+          <div id="contact-pages" class="bookshelf-pages">
+            <section class="section section-prose">
+              <h2>Contact</h2>
+              <p class="contact-line">
+                Email: <a href="mailto:aaron.he@student.unsw.edu.au">aaron.he@student.unsw.edu.au</a><br>
+                GitHub: <a href="https://github.com/AaronHnoraA" target="_blank" rel="noreferrer">github.com/AaronHnoraA</a>
+              </p>
+            </section>
+          </div>
+        </section>
+
+        <section class="shelf-row" data-shelf-row="1">
+          <div class="shelf-cavity">
+            <div class="shelf-shadow"></div>
+            <div class="shelf-books">
+              <aside id="department-card" class="shelf-book shelf-book-catalog" data-book="Department Card">
+                <button type="button" class="bookshelf-cover" aria-expanded="false" aria-controls="department-card-pages">
+                  <span class="bookshelf-cover-kicker">01</span>
+                  <span class="bookshelf-cover-title">Department Card</span>
+                  <span class="bookshelf-cover-subtitle">open volume</span>
+                </button>
+              </aside>
+
+              <section id="about" class="shelf-book shelf-book-sienna" data-book="About">
+                <button type="button" class="bookshelf-cover" aria-expanded="false" aria-controls="about-pages">
+                  <span class="bookshelf-cover-kicker">02</span>
+                  <span class="bookshelf-cover-title">About</span>
+                  <span class="bookshelf-cover-subtitle">open volume</span>
+                </button>
+              </section>
+
+              <section id="research" class="shelf-book shelf-book-olive" data-book="Research">
+                <button type="button" class="bookshelf-cover" aria-expanded="false" aria-controls="research-pages">
+                  <span class="bookshelf-cover-kicker">03</span>
+                  <span class="bookshelf-cover-title">Research</span>
+                  <span class="bookshelf-cover-subtitle">open volume</span>
+                </button>
+              </section>
+
+              <section id="current-interests" class="shelf-book shelf-book-umber" data-book="Current">
+                <button type="button" class="bookshelf-cover" aria-expanded="false" aria-controls="current-pages">
+                  <span class="bookshelf-cover-kicker">04</span>
+                  <span class="bookshelf-cover-title">Current</span>
+                  <span class="bookshelf-cover-subtitle">open volume</span>
+                </button>
+              </section>
+            </div>
+            <div class="shelf-floor"></div>
+          </div>
+        </section>
+
+        <section class="shelf-row" data-shelf-row="2">
+          <div class="shelf-cavity">
+            <div class="shelf-shadow"></div>
+            <div class="shelf-books">
+              <section id="notes-section" class="shelf-book shelf-book-ledger" data-book="Notes Archive">
+                <button type="button" class="bookshelf-cover" aria-expanded="false" aria-controls="notes-archive-pages">
+                  <span class="bookshelf-cover-kicker">05</span>
+                  <span class="bookshelf-cover-title">Notes Archive</span>
+                  <span class="bookshelf-cover-subtitle">open volume</span>
+                </button>
+              </section>
+
+              <section id="selected-notes" class="shelf-book shelf-book-slate" data-book="Selected Notes">
+                <button type="button" class="bookshelf-cover" aria-expanded="false" aria-controls="selected-notes-pages">
+                  <span class="bookshelf-cover-kicker">06</span>
+                  <span class="bookshelf-cover-title">Selected Notes</span>
+                  <span class="bookshelf-cover-subtitle">open volume</span>
+                </button>
+              </section>
+
+              <section id="recent-updates" class="shelf-book shelf-book-green" data-book="Recent Updates">
+                <button type="button" class="bookshelf-cover" aria-expanded="false" aria-controls="recent-updates-pages">
+                  <span class="bookshelf-cover-kicker">07</span>
+                  <span class="bookshelf-cover-title">Recent Updates</span>
+                  <span class="bookshelf-cover-subtitle">open volume</span>
+                </button>
+              </section>
+            </div>
+            <div class="shelf-floor"></div>
+          </div>
+        </section>
+
+        <section class="shelf-row" data-shelf-row="3">
+          <div class="shelf-cavity">
+            <div class="shelf-shadow"></div>
+            <div class="shelf-books">
+              <section id="materials" class="shelf-book shelf-book-brown" data-book="Materials">
+                <button type="button" class="bookshelf-cover" aria-expanded="false" aria-controls="materials-pages">
+                  <span class="bookshelf-cover-kicker">08</span>
+                  <span class="bookshelf-cover-title">Materials</span>
+                  <span class="bookshelf-cover-subtitle">open volume</span>
+                </button>
+              </section>
+
+              <section id="reading-list" class="shelf-book shelf-book-clay" data-book="Reading">
+                <button type="button" class="bookshelf-cover" aria-expanded="false" aria-controls="reading-pages">
+                  <span class="bookshelf-cover-kicker">09</span>
+                  <span class="bookshelf-cover-title">Reading</span>
+                  <span class="bookshelf-cover-subtitle">open volume</span>
+                </button>
+              </section>
+
+              <section id="contact" class="shelf-book shelf-book-charcoal" data-book="Contact">
+                <button type="button" class="bookshelf-cover" aria-expanded="false" aria-controls="contact-pages">
+                  <span class="bookshelf-cover-kicker">10</span>
+                  <span class="bookshelf-cover-title">Contact</span>
+                  <span class="bookshelf-cover-subtitle">open volume</span>
+                </button>
+              </section>
+            </div>
+            <div class="shelf-floor"></div>
+          </div>
+        </section>
       </div>
-
-      <div id="active-filters" class="active-filters" aria-live="polite"></div>
-      <div id="tag-cloud"></div>
-      <div id="app-tabs"></div>
-    </section>
-
-    <section id="selected-notes" class="section section-prose shelf-book shelf-book-slate" data-book="Selected Notes">
-      <h2>Selected notes</h2>
-      <div id="selected-notes-panel" class="academic-panel" aria-live="polite"></div>
-    </section>
-
-    <section id="recent-updates" class="section section-prose shelf-book shelf-book-green" data-book="Recent Updates">
-      <h2>Recent updates</h2>
-      <div id="recent-updates-panel" class="academic-panel" aria-live="polite"></div>
-    </section>
-
-    <section id="materials" class="section section-prose shelf-book shelf-book-brown" data-book="Materials">
-      <h2>Materials</h2>
-      <p class="section-aside">Still intentionally sparse. Empty sections are part of the genre: they signal a live workspace rather than a polished brochure.</p>
-      <dl class="prose-defs">
-        <dt>Coursework</dt>
-        <dd>Course notes and worked summaries in QC and TCS will be listed here.</dd>
-        <dt>Writing</dt>
-        <dd>Expository notes, essays, and longer drafts will appear here.</dd>
-        <dt>Talks</dt>
-        <dd>None at present.</dd>
-        <dt>CV</dt>
-        <dd>A formal curriculum vitae will be added here.</dd>
-      </dl>
-    </section>
-
-    <section id="reading-list" class="section section-prose shelf-book shelf-book-clay" data-book="Reading">
-      <h2>Reading</h2>
-      <ul class="plain-list">
-        <li>冯克勤, <cite>近世代数引论（第四版）</cite>.</li>
-        <li>章璞, <cite>伽罗瓦理论：天才的激情</cite>.</li>
-        <li>Nielsen &amp; Chuang, <cite>Quantum Computation and Quantum Information</cite>.</li>
-      </ul>
-    </section>
-
-    <section id="contact" class="section section-prose shelf-book shelf-book-charcoal" data-book="Contact">
-      <h2>Contact</h2>
-      <p class="contact-line">
-        Email: <a href="mailto:aaron.he@student.unsw.edu.au">aaron.he@student.unsw.edu.au</a><br>
-        GitHub: <a href="https://github.com/AaronHnoraA" target="_blank" rel="noreferrer">github.com/AaronHnoraA</a>
-      </p>
-    </section>
     </div>
   </main>
   <footer class="site-footer">
@@ -180,12 +312,12 @@
     </span>
   </footer>
   </div>
-  <script src="js/data.js?v=20260426-18"></script>
-  <script src="js/knowledge.js?v=20260426-18"></script>
-  <script src="js/app.js?v=20260426-18"></script>
-  <script src="js/graph.js?v=20260426-18"></script>
-  <script src="js/home-bookshelf.js?v=20260426-18"></script>
-  <script src="js/oneko.js?v=20260426-18"></script>
+  <script src="js/data.js?v=20260426-19"></script>
+  <script src="js/knowledge.js?v=20260426-19"></script>
+  <script src="js/app.js?v=20260426-19"></script>
+  <script src="js/graph.js?v=20260426-19"></script>
+  <script src="js/home-bookshelf.js?v=20260426-19"></script>
+  <script src="js/oneko.js?v=20260426-19"></script>
 </body>
 
 </html>

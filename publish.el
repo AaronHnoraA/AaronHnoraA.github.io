@@ -9,7 +9,7 @@
 (require 'seq)
 (require 'subr-x)
 
-(defconst my/site-asset-version "20260426-18")
+(defconst my/site-asset-version "20260426-19")
 (defconst my/site-roam-directory
   (expand-file-name "roam/" (file-name-directory load-file-name)))
 (defconst my/site-roam-html-asset-directory "assets")

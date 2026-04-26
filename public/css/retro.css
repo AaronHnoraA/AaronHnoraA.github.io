@@ -2597,9 +2597,9 @@ body.site-home:not(.site-archive) .bookshelf-pages dd {
    10. Reading Room Note Adaptation
    ========================================================================== */
 :root {
-  --reading-wood-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.72 .18' numOctaves='4' seed='12' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='.42'/%3E%3C/svg%3E");
-  --reading-wood-fiber: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='180' viewBox='0 0 260 180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.045 .62' numOctaves='5' seed='19' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='.65 0 0 0 0 .65 0 0 0 0 .65 0 0 0 0 0 0 0 .34 0'/%3E%3C/filter%3E%3Crect width='260' height='180' filter='url(%23g)' opacity='.5'/%3E%3C/svg%3E");
-  --reading-paper-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' seed='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23p)' opacity='.16'/%3E%3C/svg%3E");
+  --reading-wood-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'%3E%3Cpath d='M12 0v220M41 0v220M77 0v220M116 0v220M168 0v220M204 0v220' stroke='%230b0502' stroke-opacity='.12' stroke-width='1'/%3E%3Cpath d='M24 0c10 42-8 80 6 122s-7 62 2 98M96 0c-14 50 12 88-2 132s8 58-4 88M151 0c8 36-9 70 3 108s-5 80 4 112' fill='none' stroke='%23f0b36a' stroke-opacity='.08' stroke-width='2'/%3E%3Cellipse cx='54' cy='74' rx='22' ry='6' fill='%230c0502' fill-opacity='.14'/%3E%3Cellipse cx='181' cy='142' rx='28' ry='8' fill='%230c0502' fill-opacity='.12'/%3E%3C/svg%3E");
+  --reading-wood-fiber: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='180' viewBox='0 0 260 180'%3E%3Cpath d='M0 21h260M0 57h260M0 93h260M0 131h260M0 169h260' stroke='%230b0502' stroke-opacity='.055'/%3E%3Cpath d='M18 0c4 36-6 68 2 99s-4 56 1 81M69 0c-5 41 8 72-1 108s5 50-2 72M132 0c6 48-7 83 2 119s-5 42 2 61M218 0c-6 33 7 70-1 100s5 56-1 80' fill='none' stroke='%23f5be75' stroke-opacity='.055' stroke-width='1.5'/%3E%3C/svg%3E");
+  --reading-paper-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'%3E%3Cpath d='M0 32h180M0 76h180M0 121h180M0 164h180' stroke='%23806a47' stroke-opacity='.045'/%3E%3Ccircle cx='28' cy='42' r='1' fill='%23806a47' fill-opacity='.08'/%3E%3Ccircle cx='112' cy='88' r='1' fill='%23806a47' fill-opacity='.07'/%3E%3Ccircle cx='152' cy='136' r='1' fill='%23806a47' fill-opacity='.06'/%3E%3C/svg%3E");
 }
 
 body.site-home.site-archive,
@@ -2811,5 +2811,440 @@ body.note-page .note-reading-progress-bar {
   body.note-page::before,
   body.note-page::after {
     display: none;
+  }
+}
+
+/* ==========================================================================
+   11. Integrated Home Bookshelf Base
+   ========================================================================== */
+body.site-home:not(.site-archive) {
+  background:
+    radial-gradient(ellipse 54% 26% at 50% -8%, rgba(238, 174, 92, 0.32), transparent 62%),
+    radial-gradient(circle at bottom, rgba(45, 18, 7, 0.94), rgba(10, 7, 5, 0.98) 72%),
+    #120d0a;
+}
+
+body.site-home:not(.site-archive) .site-shell {
+  max-width: none;
+  min-height: 100vh;
+  margin: 0;
+  padding: clamp(22px, 3vw, 40px);
+  border: 0;
+  background:
+    radial-gradient(ellipse 58% 24% at 50% 3%, rgba(255, 211, 138, 0.18), transparent 64%),
+    linear-gradient(90deg, rgba(16, 6, 2, 0.68), transparent 8%, transparent 91%, rgba(18, 7, 2, 0.72)),
+    linear-gradient(180deg, rgba(255, 226, 170, 0.05), transparent 34%, rgba(15, 6, 2, 0.36) 100%),
+    linear-gradient(
+      90deg,
+      transparent 0 7%,
+      rgba(30, 12, 4, 0.44) 7.2% 7.5%,
+      transparent 7.8% 21%,
+      rgba(255, 213, 139, 0.06) 21.2% 21.45%,
+      transparent 21.75% 39%,
+      rgba(24, 10, 4, 0.42) 39.2% 39.5%,
+      transparent 39.8% 58%,
+      rgba(255, 221, 158, 0.05) 58.2% 58.45%,
+      transparent 58.75% 76%,
+      rgba(28, 11, 4, 0.39) 76.2% 76.5%,
+      transparent 76.8% 100%
+    ),
+    var(--reading-wood-noise),
+    var(--reading-wood-fiber),
+    linear-gradient(180deg, #875024 0%, #673615 44%, #361707 100%);
+  background-size: auto, auto, auto, auto, 220px 220px, 260px 180px, auto;
+  box-shadow:
+    inset 0 0 0 1px rgba(22, 12, 7, 0.92),
+    inset 0 1px 0 rgba(255, 235, 194, 0.16),
+    inset 40px 0 72px rgba(15, 6, 2, 0.46),
+    inset -44px 0 80px rgba(12, 5, 2, 0.54),
+    inset 0 -36px 64px rgba(13, 7, 4, 0.56),
+    inset 0 0 120px rgba(17, 7, 3, 0.28);
+}
+
+body.site-home:not(.site-archive) .site-shell::before {
+  display: none;
+}
+
+body.site-home:not(.site-archive) .hero,
+body.site-home:not(.site-archive) .site-nav,
+body.site-home:not(.site-archive) .site-main,
+body.site-home:not(.site-archive) .site-footer {
+  max-width: 1780px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+body.site-home:not(.site-archive) .hero,
+body.site-home:not(.site-archive) .site-nav {
+  background:
+    var(--reading-paper-noise),
+    radial-gradient(ellipse at 18% 0%, rgba(255, 255, 255, 0.66), transparent 44%),
+    linear-gradient(180deg, rgba(251, 247, 238, 0.985), rgba(241, 232, 213, 0.975)),
+    repeating-linear-gradient(180deg, rgba(147, 128, 101, 0.035) 0, rgba(147, 128, 101, 0.035) 1px, transparent 1px, transparent 31px);
+  background-size: 180px 180px, auto, auto, auto;
+}
+
+body.site-home:not(.site-archive) .hero {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 1.1rem;
+  padding: clamp(1.1rem, 2vw, 1.8rem) clamp(1.1rem, 2.2vw, 2rem);
+  border: 1px solid rgba(84, 60, 41, 0.54);
+  border-radius: 12px;
+  box-shadow:
+    0 18px 38px rgba(19, 11, 7, 0.2),
+    0 1px 0 rgba(255, 255, 255, 0.72) inset,
+    0 -1px 0 rgba(184, 165, 136, 0.42) inset;
+}
+
+body.site-home:not(.site-archive) .hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(110deg, rgba(255, 255, 255, 0.28), transparent 26%, transparent 76%, rgba(124, 92, 54, 0.07)),
+    radial-gradient(ellipse at 92% 0%, rgba(117, 79, 40, 0.08), transparent 42%);
+  pointer-events: none;
+}
+
+body.site-home:not(.site-archive) .hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+body.site-home:not(.site-archive) .site-nav {
+  margin-bottom: 1.6rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid rgba(70, 46, 28, 0.54);
+  border-radius: 10px;
+  box-shadow:
+    0 12px 26px rgba(18, 10, 6, 0.14),
+    0 1px 0 rgba(255, 255, 255, 0.6) inset;
+}
+
+body.site-home:not(.site-archive) .site-main {
+  padding-bottom: 1rem;
+}
+
+body.site-home:not(.site-archive) .home-grid {
+  display: block;
+}
+
+body.site-home:not(.site-archive) .bookshelf-stage {
+  position: relative;
+  display: grid;
+  gap: 1.9rem;
+}
+
+body.site-home:not(.site-archive) .bookshelf-stage::before {
+  content: "";
+  position: absolute;
+  inset: -2.4rem -1.6rem -0.8rem;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 42% 19% at 50% 7%, rgba(255, 208, 128, 0.18), transparent 66%),
+    linear-gradient(90deg, rgba(12, 5, 2, 0.22), transparent 13%, transparent 87%, rgba(12, 5, 2, 0.28)),
+    linear-gradient(180deg, transparent 0 70%, rgba(12, 5, 2, 0.18));
+  pointer-events: none;
+}
+
+body.site-home:not(.site-archive) .bookshelf-stage > * {
+  position: relative;
+  z-index: 1;
+}
+
+body.site-home:not(.site-archive) .bookshelf-reading-desk {
+  position: relative;
+  min-height: 260px;
+  margin-bottom: 0.55rem;
+  padding: 0 0.15rem;
+}
+
+body.site-home:not(.site-archive) .reading-desk-paper-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 210px;
+  color: rgba(98, 79, 57, 0.78);
+  font-style: italic;
+  border-radius: 8px;
+  background:
+    var(--reading-paper-noise),
+    linear-gradient(180deg, rgba(250, 244, 232, 0.62), rgba(225, 209, 182, 0.38));
+  background-size: 180px 180px, auto;
+  box-shadow:
+    0 12px 22px rgba(21, 10, 5, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.66);
+}
+
+body.site-home:not(.site-archive) .shelf-row {
+  position: relative;
+  isolation: isolate;
+  content-visibility: auto;
+  contain-intrinsic-size: 420px;
+}
+
+body.site-home:not(.site-archive) .shelf-row::before {
+  content: "";
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  top: -12px;
+  z-index: 5;
+  height: 22px;
+  border-radius: 6px 6px 2px 2px;
+  background:
+    var(--reading-wood-noise),
+    linear-gradient(180deg, rgba(255, 229, 178, 0.28), rgba(144, 78, 30, 0.72) 38%, rgba(47, 20, 7, 0.82));
+  background-size: 220px 220px, auto;
+  box-shadow:
+    0 6px 12px rgba(18, 8, 3, 0.26),
+    inset 0 1px 0 rgba(255, 239, 201, 0.24),
+    inset 0 -6px 10px rgba(21, 8, 3, 0.24);
+  pointer-events: none;
+}
+
+body.site-home:not(.site-archive) .shelf-row::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  border-radius: 10px 10px 8px 8px;
+  background:
+    linear-gradient(90deg, rgba(29, 12, 4, 0.52) 0, rgba(112, 61, 25, 0.38) 15px, transparent 34px, transparent calc(100% - 34px), rgba(112, 61, 25, 0.38) calc(100% - 15px), rgba(29, 12, 4, 0.52) 100%);
+  box-shadow:
+    inset 12px 0 18px rgba(18, 7, 3, 0.22),
+    inset -12px 0 18px rgba(18, 7, 3, 0.22);
+  pointer-events: none;
+}
+
+body.site-home:not(.site-archive) .shelf-cavity {
+  position: relative;
+  z-index: 1;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 1.2rem 1.5rem 0;
+  border: 1px solid rgba(29, 13, 5, 0.62);
+  border-radius: 10px 10px 6px 6px;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.3), transparent 64px),
+    linear-gradient(90deg, rgba(26, 12, 5, 0.66), transparent 34px, transparent calc(100% - 34px), rgba(20, 9, 4, 0.64)),
+    var(--reading-wood-noise),
+    linear-gradient(180deg, #73451f 0%, #633918 38%, #512b11 100%);
+  background-size: auto, auto, 220px 220px, auto;
+  box-shadow:
+    inset 0 0 0 1px rgba(24, 12, 5, 0.86),
+    inset 0 1px 0 rgba(245, 194, 126, 0.14),
+    inset 0 18px 26px rgba(13, 7, 4, 0.28),
+    inset 0 -24px 32px rgba(13, 7, 4, 0.28),
+    0 14px 28px rgba(12, 8, 5, 0.16);
+}
+
+body.site-home:not(.site-archive) .shelf-shadow {
+  position: absolute;
+  z-index: 2;
+  left: 28px;
+  right: 28px;
+  top: 0;
+  height: 68px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.18), transparent);
+  pointer-events: none;
+}
+
+body.site-home:not(.site-archive) .shelf-books {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+  min-height: 286px;
+  padding: 0 0.25rem 0.9rem;
+}
+
+body.site-home:not(.site-archive) .shelf-floor {
+  position: relative;
+  z-index: 4;
+  height: 36px;
+  margin-top: 1rem;
+  border-top: 1px solid rgba(255, 218, 157, 0.24);
+  border-bottom: 1px solid rgba(22, 10, 4, 0.68);
+  border-radius: 2px 2px 6px 6px;
+  background:
+    linear-gradient(180deg, rgba(255, 225, 172, 0.38), rgba(142, 80, 35, 0.42) 24%, rgba(33, 14, 5, 0.22) 100%),
+    var(--reading-wood-noise),
+    linear-gradient(180deg, #935829 0%, #744116 42%, #4d250c 100%);
+  background-size: auto, 220px 220px, auto;
+  box-shadow:
+    0 -5px 10px rgba(0, 0, 0, 0.24),
+    0 12px 18px rgba(12, 7, 4, 0.2),
+    inset 0 1px 0 rgba(255, 232, 188, 0.32),
+    inset 0 -8px 14px rgba(22, 9, 4, 0.28);
+}
+
+body.site-home:not(.site-archive) .shelf-book {
+  position: relative;
+  flex: 0 0 var(--book-width, 176px);
+  width: var(--book-width, 176px);
+  min-height: var(--book-height, 290px);
+  padding-bottom: 8px;
+  z-index: 1;
+  transform-origin: center bottom;
+  transition: transform 0.22s ease;
+}
+
+body.site-home:not(.site-archive) .shelf-books .shelf-book:nth-child(3n + 1) {
+  transform: rotate(-0.35deg);
+}
+
+body.site-home:not(.site-archive) .shelf-books .shelf-book:nth-child(3n + 2) {
+  transform: rotate(0.25deg);
+}
+
+body.site-home:not(.site-archive) .shelf-book::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 1px;
+  height: 10px;
+  background: radial-gradient(ellipse at center, rgba(10, 6, 4, 0.24), transparent 74%);
+  pointer-events: none;
+}
+
+body.site-home:not(.site-archive) .bookshelf-cover {
+  position: relative;
+  width: 100%;
+  min-height: var(--book-height, 290px);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.8rem;
+  padding: 1rem 1rem 1.15rem 1.05rem;
+  border: 1px solid rgba(31, 19, 11, 0.66);
+  border-left: 3px solid rgba(255, 238, 205, 0.12);
+  border-right-color: rgba(13, 8, 4, 0.74);
+  border-right-width: 6px;
+  border-radius: 2px;
+  overflow: hidden;
+  background:
+    linear-gradient(115deg, rgba(255, 255, 255, 0.12), transparent 21%),
+    linear-gradient(90deg, rgba(255, 236, 202, 0.08), transparent 18%, rgba(0, 0, 0, 0.13) 100%),
+    var(--reading-paper-noise),
+    linear-gradient(180deg, var(--book-top, #80502f), var(--book-bottom, #623820));
+  background-size: auto, auto, 180px 180px, auto;
+  text-align: left;
+  cursor: pointer;
+  box-shadow:
+    0 10px 18px rgba(18, 10, 6, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    inset -14px 0 18px rgba(0, 0, 0, 0.16);
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+
+body.site-home:not(.site-archive) .bookshelf-cover:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 16px 24px rgba(18, 10, 6, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    inset -14px 0 18px rgba(0, 0, 0, 0.16);
+}
+
+body.site-home:not(.site-archive) .bookshelf-pages {
+  position: relative;
+  display: none;
+  width: min(1420px, calc(100% - 0.05rem));
+  margin: 0 auto;
+  padding: 1.55rem 1.85rem 1.9rem;
+  border: 1px solid rgba(184, 162, 131, 0.68);
+  border-radius: 7px 4px 10px 5px;
+  background:
+    var(--reading-paper-noise),
+    radial-gradient(ellipse at 18% 0%, rgba(255, 255, 255, 0.7), transparent 44%),
+    linear-gradient(90deg, rgba(206, 188, 159, 0.22) 0 16px, transparent 16px),
+    linear-gradient(180deg, rgba(251, 247, 238, 0.995), rgba(242, 235, 221, 0.99)),
+    repeating-linear-gradient(180deg, rgba(147, 128, 101, 0.045) 0, rgba(147, 128, 101, 0.045) 1px, transparent 1px, transparent 31px);
+  background-size: 180px 180px, auto, auto, auto, auto;
+  box-shadow:
+    0 18px 34px rgba(24, 13, 8, 0.18),
+    0 1px 0 rgba(255, 255, 255, 0.74) inset,
+    0 0 0 1px rgba(255, 251, 241, 0.34) inset;
+}
+
+body.site-home:not(.site-archive) .bookshelf-pages.is-active {
+  display: block;
+}
+
+body.site-home:not(.site-archive) .bookshelf-pages::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 18px;
+  width: 1px;
+  background: rgba(188, 164, 129, 0.4);
+}
+
+body.site-home:not(.site-archive) .bookshelf-pages::after {
+  content: "";
+  position: absolute;
+  top: -7px;
+  right: 24px;
+  width: 90px;
+  height: 24px;
+  background: linear-gradient(180deg, rgba(239, 227, 178, 0.56), rgba(221, 203, 142, 0.26));
+  box-shadow: 0 2px 8px rgba(87, 71, 48, 0.16);
+  opacity: 0.72;
+  transform: rotate(3deg);
+}
+
+body.site-home:not(.site-archive) .bookshelf-pages > * {
+  position: relative;
+  z-index: 1;
+}
+
+body.site-home:not(.site-archive) .shelf-book.is-open {
+  z-index: 5;
+  transform: translateY(-1px) rotate(0deg);
+}
+
+body.site-home:not(.site-archive) .shelf-book.is-open .bookshelf-cover {
+  transform: translateY(-7px);
+}
+
+body.site-home:not(.site-archive) .site-footer {
+  margin-top: 1.2rem;
+}
+
+@media (max-width: 860px) {
+  body.site-home:not(.site-archive) .site-shell {
+    padding: 16px 14px 20px;
+  }
+
+  body.site-home:not(.site-archive) .shelf-cavity {
+    padding: 1rem 1rem 0;
+  }
+
+  body.site-home:not(.site-archive) .shelf-books {
+    flex-wrap: wrap;
+    min-height: 0;
+    gap: 0.8rem;
+  }
+
+  body.site-home:not(.site-archive) .shelf-book {
+    flex-basis: calc(50% - 0.4rem);
+    width: calc(50% - 0.4rem);
+    transform: none;
+  }
+
+  body.site-home:not(.site-archive) .bookshelf-pages {
+    width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  body.site-home:not(.site-archive) .shelf-book {
+    flex-basis: 100%;
+    width: 100%;
   }
 }
