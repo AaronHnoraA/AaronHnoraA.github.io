@@ -106,7 +106,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (scroll) {
-      book.closest(".shelf-row")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      readingDesk.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }
 
