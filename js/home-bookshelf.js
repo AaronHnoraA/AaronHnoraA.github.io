@@ -33,7 +33,6 @@ document.addEventListener("DOMContentLoaded", () => {
       <div class="shelf-cavity">
         <div class="shelf-shadow"></div>
         <div class="shelf-books"></div>
-        <div class="shelf-paper-stage"></div>
         <div class="shelf-floor"></div>
       </div>
     `;
@@ -42,7 +41,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const bookshelfStage = document.createElement("div");
   bookshelfStage.className = "bookshelf-stage";
+  const readingDesk = document.createElement("section");
+  readingDesk.className = "bookshelf-reading-desk";
+  readingDesk.innerHTML = `
+    <div class="reading-desk-paper reading-desk-paper-placeholder">
+      <p>Select a volume to open its notebook page.</p>
+    </div>
+  `;
   const shelfRows = [createShelfRow(0), createShelfRow(1), createShelfRow(2)];
+  bookshelfStage.appendChild(readingDesk);
   shelfRows.forEach((row) => bookshelfStage.appendChild(row));
   homeGrid.replaceChildren(bookshelfStage);
 
@@ -60,6 +67,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     shelfRows.forEach((row) => row.classList.remove("has-open-book"));
+    readingDesk.classList.remove("has-open-book");
   }
 
   function openBook(book, { pushHash = true, scroll = true } = {}) {
@@ -81,6 +89,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (row) {
       row.classList.add("has-open-book");
     }
+    readingDesk.classList.add("has-open-book");
 
     book.classList.add("is-open");
     const trigger = book.querySelector(".bookshelf-cover");
@@ -107,7 +116,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const rowIndex = shelfMap[index] ?? shelfMap[shelfMap.length - 1];
     const row = shelfRows[rowIndex];
     const shelfBooks = row.querySelector(".shelf-books");
-    const paperStage = row.querySelector(".shelf-paper-stage");
 
     book.style.setProperty("--book-height", `${heights[index % heights.length]}px`);
     book.style.setProperty("--book-width", `${widths[index % widths.length]}px`);
@@ -136,7 +144,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     book.appendChild(cover);
     shelfBooks.appendChild(book);
-    paperStage.appendChild(pageWrapper);
+    readingDesk.appendChild(pageWrapper);
 
     cover.addEventListener("click", () => openBook(book));
   });

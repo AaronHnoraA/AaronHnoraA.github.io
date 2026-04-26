@@ -120,6 +120,21 @@ body.site-home:not(.site-archive) .bookshelf-stage {
   gap: 1.9rem;
 }
 
+body.site-home:not(.site-archive) .bookshelf-reading-desk {
+  position: relative;
+  min-height: 220px;
+  margin-bottom: 0.2rem;
+}
+
+body.site-home:not(.site-archive) .reading-desk-paper-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+  color: rgba(98, 79, 57, 0.78);
+  font-style: italic;
+}
+
 body.site-home:not(.site-archive) .shelf-row {
   position: relative;
 }
@@ -169,12 +184,6 @@ body.site-home:not(.site-archive) .shelf-books {
   gap: 1rem;
   min-height: 286px;
   padding: 0 0.25rem 0.9rem;
-}
-
-body.site-home:not(.site-archive) .shelf-paper-stage {
-  position: relative;
-  min-height: 0;
-  padding: 0 0.25rem;
 }
 
 body.site-home:not(.site-archive) .shelf-floor {
@@ -285,7 +294,7 @@ body.site-home:not(.site-archive) .bookshelf-pages {
   position: relative;
   display: none;
   width: min(960px, calc(100% - 0.5rem));
-  margin: 0.45rem auto 0;
+  margin: 0 auto;
   padding: 1.35rem 1.55rem 1.6rem;
   border: 1px solid rgba(184, 162, 131, 0.68);
   border-radius: 3px;
@@ -358,9 +367,8 @@ body.site-home:not(.site-archive) .shelf-row.has-open-book {
   z-index: 4;
 }
 
-body.site-home:not(.site-archive) .shelf-row.has-open-book .shelf-paper-stage {
-  min-height: 120px;
-  padding-bottom: 0.2rem;
+body.site-home:not(.site-archive) .bookshelf-reading-desk.has-open-book .reading-desk-paper-placeholder {
+  display: none;
 }
 
 body.site-home:not(.site-archive) .shelf-book.is-open {
