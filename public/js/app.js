@@ -204,17 +204,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function applyTabButtonStyles(button, isActive) {
-    if (isActive) {
-      button.style.color = "var(--text-primary)";
-      button.style.background = "rgba(95,119,171,0.08)";
-      button.style.borderColor = "rgba(95,119,171,0.22)";
-      button.style.boxShadow = "inset 0 -2px 0 rgba(95,119,171,0.38)";
-    } else {
-      button.style.color = "var(--text-secondary)";
-      button.style.background = "rgba(255,255,255,0.62)";
-      button.style.borderColor = "rgba(148,163,184,0.18)";
-      button.style.boxShadow = "none";
-    }
+    button.classList.toggle("active", isActive);
   }
 
   function formatGroupLabel(group) {

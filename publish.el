@@ -9,7 +9,7 @@
 (require 'seq)
 (require 'subr-x)
 
-(defconst my/site-asset-version "20260426-3")
+(defconst my/site-asset-version "20260426-4")
 (defconst my/site-roam-directory
   (expand-file-name "roam/" (file-name-directory load-file-name)))
 (defconst my/site-roam-html-asset-directory "assets")
@@ -142,7 +142,7 @@
            #'identity
            (list
            "<meta name=\"color-scheme\" content=\"light\" />"
-            (format "<link rel=\"stylesheet\" href=\"%s/css/style.css?v=%s\" />" prefix my/site-asset-version)
+            (format "<link rel=\"stylesheet\" href=\"%s/css/retro.css?v=%s\" />" prefix my/site-asset-version)
             "<link rel=\"shortcut icon\" href=\"https://raw.githubusercontent.com/AaronHnoraA/AaronHnoraA.github.io/refs/heads/master/css/cv.svg\" type=\"image/x-icon\">"
             "<script src=\"https://d3js.org/d3.v7.min.js\"></script>"
             (format "<script>window.SITE_ROOT_PATH=%S;window.CURRENT_NOTE_LINK=%S;</script>" site-root current-link)
