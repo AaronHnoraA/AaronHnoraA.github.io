@@ -2230,3 +2230,211 @@ body.site-home:not(.site-archive) .footer-stone img {
     padding: 20px 14px 30px;
   }
 }
+
+/* ==========================================================================
+   9. Shelf Material Refinement
+   ========================================================================== */
+body.site-home:not(.site-archive) {
+  background:
+    radial-gradient(circle at 16% 12%, rgba(213, 149, 77, 0.14), transparent 14%),
+    radial-gradient(circle at 86% 18%, rgba(194, 129, 63, 0.12), transparent 18%),
+    linear-gradient(180deg, #442710 0%, #6a401c 34%, #72461f 100%);
+}
+
+body.site-home:not(.site-archive) .site-shell {
+  background:
+    radial-gradient(circle at 12% 10%, rgba(255, 218, 156, 0.08), transparent 16%),
+    radial-gradient(circle at 82% 16%, rgba(255, 194, 119, 0.06), transparent 20%),
+    repeating-radial-gradient(circle at 10% 24%, rgba(63, 35, 15, 0.12) 0 2px, transparent 2px 24px),
+    repeating-linear-gradient(92deg,
+      rgba(56, 29, 12, 0.22) 0,
+      rgba(56, 29, 12, 0.22) 2px,
+      rgba(146, 94, 47, 0.03) 3px,
+      rgba(146, 94, 47, 0.03) 10px,
+      rgba(87, 52, 24, 0.04) 12px,
+      transparent 26px,
+      transparent 48px),
+    repeating-linear-gradient(180deg,
+      rgba(39, 18, 7, 0.09) 0,
+      rgba(39, 18, 7, 0.09) 1px,
+      transparent 1px,
+      transparent 138px),
+    linear-gradient(180deg, #815128 0%, #71481f 24%, #6a431c 62%, #573518 100%);
+  box-shadow:
+    inset 0 18px 34px rgba(255, 231, 189, 0.07),
+    inset 0 -30px 44px rgba(28, 13, 5, 0.24);
+}
+
+body.site-home:not(.site-archive) .hero,
+body.site-home:not(.site-archive) .site-nav,
+body.site-home:not(.site-archive) .site-footer {
+  color: transparent;
+}
+
+body.site-home:not(.site-archive) .hero-kicker,
+body.site-home:not(.site-archive) .hero-subtitle,
+body.site-home:not(.site-archive) .hero-affil,
+body.site-home:not(.site-archive) .hero-contact,
+body.site-home:not(.site-archive) .hero-meta span,
+body.site-home:not(.site-archive) .site-nav a,
+body.site-home:not(.site-archive) .site-nav a:visited,
+body.site-home:not(.site-archive) .footer-text,
+body.site-home:not(.site-archive) h1 {
+  color: #4d2911;
+  text-shadow:
+    0 1px 0 rgba(255, 220, 165, 0.06),
+    0 -1px 0 rgba(34, 16, 7, 0.52),
+    1px 0 0 rgba(69, 37, 16, 0.2),
+    -1px 0 0 rgba(158, 106, 57, 0.06);
+}
+
+body.site-home:not(.site-archive) h1 {
+  letter-spacing: -0.04em;
+  filter: saturate(0.92);
+}
+
+body.site-home:not(.site-archive) .hero-kicker,
+body.site-home:not(.site-archive) .site-nav a,
+body.site-home:not(.site-archive) .footer-text {
+  letter-spacing: 0.1em;
+}
+
+body.site-home:not(.site-archive) .hero-meta span {
+  border: 1px solid rgba(71, 38, 17, 0.24);
+  background: rgba(111, 69, 36, 0.05);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 218, 156, 0.04),
+    inset 0 -1px 0 rgba(37, 17, 7, 0.2);
+}
+
+body.site-home:not(.site-archive) .site-nav {
+  border-top: 1px solid rgba(250, 219, 169, 0.08);
+  border-bottom: 1px solid rgba(250, 219, 169, 0.08);
+  box-shadow:
+    0 1px 0 rgba(30, 14, 5, 0.42),
+    inset 0 1px 0 rgba(255, 223, 170, 0.03),
+    inset 0 -1px 0 rgba(23, 10, 3, 0.18);
+}
+
+body.site-home:not(.site-archive) .home-grid {
+  background:
+    radial-gradient(circle at 9% 12%, rgba(255, 207, 138, 0.09), transparent 16%),
+    radial-gradient(circle at 84% 28%, rgba(255, 196, 122, 0.08), transparent 18%),
+    repeating-radial-gradient(circle at 14% 34%, rgba(58, 31, 13, 0.12) 0 2px, transparent 2px 28px),
+    repeating-linear-gradient(99deg,
+      rgba(52, 27, 11, 0.2) 0,
+      rgba(52, 27, 11, 0.2) 2px,
+      rgba(132, 84, 42, 0.03) 3px,
+      rgba(132, 84, 42, 0.03) 15px,
+      transparent 18px,
+      transparent 38px),
+    repeating-linear-gradient(
+      180deg,
+      transparent 0,
+      transparent 226px,
+      rgba(49, 25, 10, 0.5) 226px,
+      rgba(104, 62, 29, 0.9) 236px,
+      rgba(34, 17, 7, 0.62) 244px,
+      transparent 244px,
+      transparent 470px,
+      rgba(49, 25, 10, 0.54) 470px,
+      rgba(104, 62, 29, 0.92) 480px,
+      rgba(34, 17, 7, 0.64) 488px,
+      transparent 488px,
+      transparent 716px
+    ),
+    linear-gradient(180deg, #825127 0%, #74481f 42%, #69401a 100%);
+}
+
+body.site-home:not(.site-archive) .bookshelf-cover {
+  background:
+    linear-gradient(115deg, rgba(255, 255, 255, 0.12), transparent 22%),
+    linear-gradient(90deg, rgba(255, 240, 216, 0.06), transparent 18%, rgba(0, 0, 0, 0.08) 100%),
+    repeating-linear-gradient(180deg,
+      rgba(255, 255, 255, 0.03) 0,
+      rgba(255, 255, 255, 0.03) 2px,
+      transparent 2px,
+      transparent 20px),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.06), transparent 20%, rgba(255, 255, 255, 0.04) 100%);
+  box-shadow:
+    0 12px 22px rgba(24, 12, 5, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset -10px 0 16px rgba(0, 0, 0, 0.18),
+    inset 1px 0 0 rgba(255, 228, 183, 0.06),
+    0 0 0 1px rgba(255, 219, 167, 0.05);
+}
+
+body.site-home:not(.site-archive) .bookshelf-cover-title,
+body.site-home:not(.site-archive) .bookshelf-cover-kicker,
+body.site-home:not(.site-archive) .bookshelf-cover-subtitle {
+  text-shadow:
+    0 1px 0 rgba(44, 24, 10, 0.6),
+    0 -1px 0 rgba(255, 239, 214, 0.08);
+}
+
+body.site-home:not(.site-archive) .bookshelf-pages {
+  position: relative;
+  margin-left: -22px;
+  padding: 1.25rem 1.45rem 1.4rem;
+  border: 1px solid rgba(178, 157, 122, 0.66);
+  background:
+    linear-gradient(180deg, rgba(250, 245, 233, 0.99), rgba(240, 231, 211, 0.99)),
+    repeating-linear-gradient(180deg,
+      rgba(150, 130, 101, 0.05) 0,
+      rgba(150, 130, 101, 0.05) 1px,
+      transparent 1px,
+      transparent 29px);
+  box-shadow:
+    0 22px 40px rgba(29, 14, 6, 0.22),
+    0 0 0 1px rgba(255, 251, 241, 0.3) inset,
+    inset 12px 0 18px rgba(130, 108, 79, 0.08);
+  transform: rotate(-0.35deg);
+}
+
+body.site-home:not(.site-archive) .bookshelf-pages::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 14px;
+  width: 1px;
+  background: rgba(191, 162, 122, 0.34);
+}
+
+body.site-home:not(.site-archive) .bookshelf-pages::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  width: 54px;
+  height: 18px;
+  background: linear-gradient(180deg, rgba(244, 231, 182, 0.46), rgba(224, 204, 149, 0.26));
+  opacity: 0.6;
+  transform: rotate(3deg);
+}
+
+body.site-home:not(.site-archive) .shelf-book.is-open .bookshelf-pages {
+  animation: book-pages-slide 0.32s ease;
+}
+
+body.site-home:not(.site-archive) .bookshelf-pages h2 {
+  position: relative;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(180, 157, 122, 0.42);
+}
+
+body.site-home:not(.site-archive) .bookshelf-pages h2::after {
+  content: "folio";
+  position: absolute;
+  right: 0;
+  bottom: 0.55rem;
+  color: rgba(122, 99, 70, 0.56);
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+body.site-home:not(.site-archive) .bookshelf-pages .section-aside {
+  background: rgba(124, 105, 73, 0.08);
+  border-left-color: rgba(124, 105, 73, 0.55);
+}
