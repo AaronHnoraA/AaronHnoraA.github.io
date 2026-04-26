@@ -4032,3 +4032,491 @@ cite {
   }
 }
 
+/* ==========================================================================
+   6. Retro-Modern Theme Override
+   ========================================================================== */
+body {
+  background:
+    radial-gradient(circle at top left, rgba(255, 248, 225, 0.8), transparent 26%),
+    linear-gradient(180deg, #efe5cf 0%, #e5dac2 100%);
+  color: #211a12;
+}
+
+body.site-home {
+  padding: 28px 18px 56px;
+  background:
+    radial-gradient(circle at top center, rgba(255, 248, 228, 0.9), transparent 22%),
+    linear-gradient(180deg, #ece1ca 0%, #dfd2ba 100%);
+  color: #211a12;
+}
+
+.site-shell {
+  max-width: 980px;
+}
+
+.site-home .site-shell {
+  position: relative;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 22px 28px 28px;
+  border: 1px solid rgba(73, 56, 36, 0.42);
+  background:
+    linear-gradient(180deg, rgba(252, 247, 235, 0.96), rgba(244, 235, 217, 0.97)),
+    repeating-linear-gradient(0deg, rgba(112, 92, 67, 0.035) 0, rgba(112, 92, 67, 0.035) 1px, transparent 1px, transparent 32px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.72) inset,
+    0 0 0 4px rgba(123, 100, 71, 0.08),
+    0 22px 60px rgba(68, 53, 34, 0.14);
+}
+
+.site-home .site-shell::before {
+  content: "";
+  position: absolute;
+  inset: 12px;
+  border: 1px solid rgba(111, 88, 60, 0.18);
+  pointer-events: none;
+}
+
+.site-home a,
+.site-home a:visited,
+#content a,
+#content a:visited {
+  color: #173f74;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.site-home a:hover,
+#content a:hover {
+  color: #8d261f;
+}
+
+.site-home .hero,
+.site-home .archive-hero {
+  margin: 0 0 1rem;
+  padding: 0 0 1.15rem;
+  border-bottom: 3px double rgba(86, 65, 42, 0.62);
+}
+
+.site-home .hero-kicker {
+  margin: 0 0 0.5rem;
+  color: #5c4832;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.site-home h1 {
+  margin: 0;
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+  font-size: clamp(2.2rem, 5vw, 3.8rem);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: #24170f;
+}
+
+.site-home .hero-subtitle,
+.site-home .hero-affil,
+.site-home .hero-contact {
+  max-width: 44rem;
+  color: #34271b;
+}
+
+.site-home .hero-subtitle {
+  margin: 0.75rem 0 0;
+  font-size: 1.06rem;
+  line-height: 1.7;
+}
+
+.site-home .hero-affil {
+  margin-top: 0.8rem;
+}
+
+.site-home .hero-contact {
+  margin-top: 0.45rem;
+  color: #4b3928;
+}
+
+.site-home .hero-meta {
+  gap: 0.45rem;
+  margin-top: 1rem;
+}
+
+.site-home .hero-meta span {
+  padding: 0.34rem 0.58rem;
+  border: 1px solid rgba(107, 83, 54, 0.34);
+  border-radius: 0;
+  background: rgba(252, 247, 237, 0.88);
+  box-shadow: 2px 2px 0 rgba(115, 90, 60, 0.12);
+  color: #4f3a27;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.site-home .site-nav {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  gap: 0.5rem 0.85rem;
+  align-items: center;
+  margin: 0 0 1rem;
+  padding: 0.72rem 0 0.78rem;
+  border-top: 1px solid rgba(104, 79, 49, 0.3);
+  border-bottom: 1px solid rgba(104, 79, 49, 0.3);
+  background: rgba(248, 241, 226, 0.92);
+  backdrop-filter: blur(6px);
+}
+
+.site-home .site-nav a {
+  display: inline-block;
+  color: #243f63;
+  text-decoration: none;
+  text-transform: lowercase;
+}
+
+.site-home .site-nav a + a::before {
+  content: "//";
+  margin-right: 0.85rem;
+  color: rgba(92, 72, 50, 0.46);
+}
+
+.site-home .site-nav a:hover {
+  color: #8d261f;
+  text-decoration: underline;
+  background: transparent;
+}
+
+.site-home .home-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+
+.site-home .section,
+.site-home .home-grid > .section:first-child {
+  position: relative;
+  margin: 0;
+  padding: 1.15rem 0 1.4rem;
+  border-top: 1px solid rgba(96, 74, 49, 0.24);
+  background: transparent;
+}
+
+.site-home .section h2 {
+  margin: 0 0 0.55rem;
+  font-family: "Iowan Old Style", "Palatino Linotype", serif;
+  font-size: 1.34rem;
+  color: #24170f;
+}
+
+.site-home .section h2::before {
+  content: "§ ";
+  color: #7b5a38;
+}
+
+.site-home .section h3 {
+  margin: 1rem 0 0.4rem;
+  color: #2d2117;
+}
+
+.site-home .section p,
+.site-home .section li,
+.site-home .section dd,
+.site-home .section dt {
+  color: #2c2219;
+  line-height: 1.72;
+}
+
+.site-home .section-intro {
+  color: #5a4734;
+  font-style: italic;
+}
+
+.section-aside {
+  max-width: 34rem;
+  margin: 0 0 0.8rem;
+  padding: 0.55rem 0.75rem;
+  border-left: 3px solid rgba(128, 95, 55, 0.7);
+  background: rgba(122, 94, 60, 0.08);
+  color: #5a4631;
+  font-size: 0.95rem;
+  font-style: italic;
+}
+
+.site-home .academic-panel,
+.site-home .notes-summary,
+.site-home .notes-actions,
+.site-home #graph-container,
+.site-home .graph-focus,
+.site-home .empty-state,
+.site-home .toolbar,
+.site-home #tag-cloud,
+.site-home .tab-buttons,
+.site-home .file-card,
+.site-home .selected-note-item,
+.site-home .academic-track-row {
+  border-color: rgba(106, 82, 53, 0.28) !important;
+  border-radius: 0 !important;
+  background: rgba(250, 245, 235, 0.76) !important;
+  box-shadow: 2px 2px 0 rgba(119, 93, 61, 0.08) !important;
+}
+
+.site-home .toolbar,
+.site-home #tag-cloud,
+.site-home .tab-buttons,
+.site-home .notes-actions,
+.site-home .notes-summary,
+.site-home .graph-focus {
+  padding: 0.7rem 0.9rem;
+}
+
+.site-home .notes-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0 0 0.85rem;
+}
+
+.site-home .summary-card {
+  margin: 0;
+  padding: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.site-home .quick-action-btn,
+.site-home .tag-chip,
+.site-home .filter-chip,
+.site-home .tag-small,
+.site-home .quick-inline-tag,
+.site-home .empty-state-action,
+.site-home .tab-btn,
+.site-home .note-tool-link,
+.site-home .note-tool-btn {
+  border: 1px solid rgba(103, 78, 48, 0.4) !important;
+  border-radius: 0 !important;
+  background: linear-gradient(180deg, #fbf6eb, #efe3cc) !important;
+  box-shadow: 1px 1px 0 rgba(113, 88, 58, 0.14);
+  color: #2f2217 !important;
+}
+
+.site-home .quick-action-btn:hover:not(:disabled),
+.site-home .tag-chip:hover,
+.site-home .filter-chip:hover,
+.site-home .tag-small:hover,
+.site-home .quick-inline-tag:hover,
+.site-home .empty-state-action:hover,
+.site-home .tab-btn:hover {
+  background: linear-gradient(180deg, #fffaf0, #ead9ba) !important;
+  color: #8d261f !important;
+}
+
+.site-home .tag-chip.active,
+.site-home #app-tabs .tab-btn.active,
+.site-home #app-tabs .tab-buttons .tab-btn.active {
+  background: #312114 !important;
+  border-color: #312114 !important;
+  color: #f7ebd5 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.site-home .tag-chip.active .tag-chip-count,
+.site-home #app-tabs .tab-btn.active .badge,
+.site-home #app-tabs .tab-buttons .tab-btn.active .badge {
+  background: rgba(255, 248, 231, 0.18);
+  color: #f7ebd5;
+}
+
+.site-home #graph-container {
+  min-height: 420px;
+  background:
+    linear-gradient(rgba(121, 95, 63, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(121, 95, 63, 0.08) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(254, 250, 242, 0.98), rgba(241, 232, 214, 0.96)) !important;
+  background-size: 28px 28px, 28px 28px, auto !important;
+}
+
+.site-home .graph-focus.empty,
+.site-home .active-filter-empty,
+.site-home .summary-hint,
+.site-home .quick-action-hint,
+.site-home .quick-action-status {
+  color: #68533d;
+}
+
+.site-home .file-list li.is-focused .file-card {
+  background: rgba(244, 229, 178, 0.7) !important;
+}
+
+.site-home .site-footer {
+  margin-top: 1.8rem;
+  padding-top: 0.85rem;
+  border-top: 3px double rgba(86, 65, 42, 0.48);
+  color: #5c4832;
+}
+
+#content {
+  max-width: 920px;
+  padding: 42px 48px 56px;
+  border: 1px solid rgba(83, 63, 42, 0.38);
+  background:
+    linear-gradient(180deg, rgba(253, 248, 237, 0.96), rgba(242, 233, 215, 0.96)),
+    repeating-linear-gradient(0deg, rgba(121, 95, 63, 0.03) 0, rgba(121, 95, 63, 0.03) 1px, transparent 1px, transparent 34px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 0 0 4px rgba(123, 100, 71, 0.07),
+    0 26px 64px rgba(69, 53, 35, 0.14);
+}
+
+#content .title {
+  margin-bottom: 0.95rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 3px double rgba(85, 65, 42, 0.55);
+  color: #24170f;
+}
+
+#content p,
+#content li,
+#content dd {
+  color: #2b2118;
+}
+
+#content h2,
+#content h3,
+#content h4,
+#content h5 {
+  font-family: "Iowan Old Style", "Palatino Linotype", serif;
+  color: #24170f;
+}
+
+#content h2 {
+  border-bottom: 1px solid rgba(100, 76, 48, 0.28);
+}
+
+#table-of-contents {
+  padding: 0.9rem 1rem 1rem;
+  border-top: 1px solid rgba(96, 74, 49, 0.3);
+  border-bottom: 1px solid rgba(96, 74, 49, 0.3);
+  background: rgba(121, 95, 63, 0.05);
+}
+
+pre {
+  border: 1px solid rgba(96, 74, 49, 0.22);
+  border-radius: 0;
+  background: #f6efe0;
+  color: #302115;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.56);
+}
+
+code {
+  border-radius: 0;
+  background: rgba(121, 95, 63, 0.08);
+  color: #5c241f;
+}
+
+table {
+  border-radius: 0;
+  box-shadow: 0 0 0 1px rgba(96, 74, 49, 0.18);
+}
+
+th {
+  background: rgba(121, 95, 63, 0.08);
+}
+
+blockquote {
+  border-left-color: rgba(122, 94, 60, 0.7);
+  border-radius: 0;
+  background: rgba(122, 94, 60, 0.08);
+  color: #4c3827;
+}
+
+.definition, .defn, .theorem, .thm, .lemma, .cor,
+.prop, .property, .proof, .example, .attention,
+.note, .info, .warning {
+  border-radius: 0;
+  box-shadow: 3px 3px 0 rgba(97, 75, 46, 0.08);
+}
+
+.note-page .note-toolbar,
+.note-page .note-floating-toc,
+.note-page .note-graph-window,
+.note-page .note-panel,
+.note-page .note-sequence-link,
+.note-page .note-link-card {
+  border-radius: 0;
+  border-color: rgba(106, 82, 53, 0.28) !important;
+  background:
+    linear-gradient(180deg, rgba(253, 248, 239, 0.96), rgba(243, 233, 216, 0.96)) !important;
+  box-shadow: 2px 2px 0 rgba(118, 92, 61, 0.08) !important;
+}
+
+.note-page .note-floating-toc-title,
+.note-page .note-panel-label,
+.note-page .note-sequence-label,
+.note-page .note-graph-window-kicker {
+  color: #614b35;
+}
+
+.note-page .note-tool-link,
+.note-page .note-tool-btn,
+.note-page .note-chip,
+.note-page .note-floating-toc-toggle,
+.note-page .note-graph-window-close {
+  border-radius: 0;
+  border-color: rgba(103, 78, 48, 0.4);
+  background: linear-gradient(180deg, #fbf6eb, #efe3cc);
+  color: #2f2217;
+}
+
+.note-page .note-floating-toc-link:hover,
+.note-page .note-floating-toc-link.active,
+.note-page .note-graph-window-close:hover,
+.note-page .note-tool-link:hover,
+.note-page .note-tool-btn:hover,
+.note-page .note-chip:hover {
+  background: rgba(121, 95, 63, 0.1);
+  color: #8d261f;
+}
+
+@media (max-width: 900px) {
+  .site-home .site-shell {
+    padding: 18px 18px 24px;
+  }
+
+  #content {
+    padding: 30px 22px 40px;
+  }
+}
+
+@media (max-width: 640px) {
+  body.site-home {
+    padding: 12px 10px 28px;
+  }
+
+  .site-home .site-shell {
+    padding: 14px 14px 18px;
+  }
+
+  .site-home .site-shell::before {
+    inset: 7px;
+  }
+
+  .site-home .site-nav {
+    position: static;
+    gap: 0.2rem 0.7rem;
+  }
+
+  .site-home .site-nav a + a::before {
+    margin-right: 0.7rem;
+  }
+
+  .section-aside {
+    padding: 0.5rem 0.6rem;
+  }
+
+  #content {
+    padding: 24px 14px 34px;
+  }
+}
