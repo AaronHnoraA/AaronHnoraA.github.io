@@ -45,7 +45,7 @@
 
 #+begin_export latex
 \begin{center}
-    \textbf{\Huge \scshape Aaron He} \\ \vspace{3pt}
+    \textbf{\Huge \scshape Chang He (Aaron)} \\ \vspace{3pt}
     \small
     \href{mailto:aaron.he@student.unsw.edu.au}{aaron.he@student.unsw.edu.au}
     $|$
