@@ -1,7 +1,7 @@
 CV_ORG := CV/main.org
 CV_TEX := CV/main.tex
 CV_DIR := CV
-CV_JOBNAME := Aras_Gungore_CV
+CV_JOBNAME := Aaron_He_CV
 LATEXMK_XELATEX := latexmk --xelatex -interaction=nonstopmode -synctex=1
 
 .PHONY: all force sync git dryrun clean cv
