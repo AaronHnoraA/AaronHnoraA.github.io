@@ -51,6 +51,8 @@
     $|$
     \href{https://github.com/AaronHnoraA}{github.com/AaronHnoraA}
     $|$
+    \href{https://aaronhnoraa.github.io/}{aaronhnoraa.github.io}
+    $|$
     Sydney, Australia
 \end{center}
 #+end_export
@@ -62,11 +64,11 @@
 
   \resumeEducationHeading
     {University of New South Wales (UNSW)}{Sydney, Australia}
-    {Undergraduate, School of Mathematics and Statistics}{Current}
-    {Talented Students Program}{}
+    {B.Sc. in Mathematics, UNSW 3956; expected graduation: Term 3, 2028 (Honours)}{Commenced: Term 3, 2024}
+    {Planned transfer to B.Sc. in Computer Science, UNSW 3779; WAM: \textbf{85}}{}
     \resumeSubHeadingListStart
     \small{\item{
-      \textbf{Academic supervision:} Youming Qiao.}}
+      \textbf{Talented Students Program (TSP):} admitted in 2025. \href{https://www.unsw.edu.au/science/student-life-resources/student-opportunities/talented-students-program}{Program link}.}}
     \resumeSubHeadingListEnd
 
 \resumeSubHeadingListEnd
@@ -84,71 +86,44 @@
 \resumeSubHeadingListEnd
 #+end_export
 
-* Selected Writing
+* Research Experience
 #+begin_export latex
 \vspace{3pt}
 \resumeSubHeadingListStart
 
-  \resumeProjectHeading
-    {\textbf{Quantum State} $|$ \emph{\href{roam/QC/quantum_state.html}{published note}}}{2026}
+  \resumeSubheading
+    {Talented Students Program, UNSW}{Sydney, Australia}
+    {Academic Reading with \href{https://www.unsw.edu.au/staff/quoc-le-gia}{Quoc Le Gia}}{Term 1, 2025}
     \resumeItemListStart
-      \resumeItem{Expository note on the Hilbert-space model of quantum states, including the distinction between state vectors and rays.}
+      \resumeItem{Undertook academic reading in large language models under the Talented Students Program.}
     \resumeItemListEnd
 
-  \resumeProjectHeading
-    {\textbf{Observable \& Expectation} $|$ \emph{\href{roam/QC/observable_expectation.html}{published note}}}{2026}
+  \resumeSubheading
+    {Independent Study, UNSW}{Sydney, Australia}
+    {Quantum Computing and Theoretical Computer Science with \href{https://www.unsw.edu.au/staff/youming-qiao}{Youming Qiao}}{Term 2, 2025 -- Present}
     \resumeItemListStart
-      \resumeItem{Short note explaining why observables are modeled by Hermitian operators and how expectation values arise from the spectral viewpoint.}
-    \resumeItemListEnd
-
-  \resumeProjectHeading
-    {\textbf{Density Operator} $|$ \emph{\href{roam/QC/density_operator.html}{published note}}}{2026}
-    \resumeItemListStart
-      \resumeItem{Write-up on mixed states, positivity, trace normalization, and the role of density operators in unifying expectation formulas.}
-    \resumeItemListEnd
-
-  \resumeProjectHeading
-    {\textbf{Hilbert Space / Inner Product Space / Hermitian Matrix} $|$ \emph{\href{roam/math/hilbert_space.html}{published notes}}}{2026}
-    \resumeItemListStart
-      \resumeItem{Foundational notes on inner product spaces, Hilbert spaces, and Hermitian matrices written as supporting material for quantum computing study.}
+      \resumeItem{Studying quantum computing and theoretical computer science through directed reading and regular supervision.}
+      \resumeItem{Currently writing a paper on graph isomorphism and tensor isomorphism problems.}
     \resumeItemListEnd
 
 \resumeSubHeadingListEnd
 #+end_export
 
-* Projects
+* Academic Notes
 #+begin_export latex
 \vspace{2pt}
 \resumeSubHeadingListStart
   \resumeProjectHeading
-    {\textbf{Personal Mathematics Website and Open Notebook}}{2026}
+    {\textbf{Personal Homepage and Open Notebook} $|$ \emph{\href{https://aaronhnoraa.github.io/}{website}}}{2026}
     \resumeItemListStart
-      \resumeItem{Maintains a personal website generated from Org source files with Emacs `org-publish', including a searchable archive and a browsable knowledge graph of notes.}
+      \resumeItem{Maintains a public set of mathematics and quantum computing notes, including expository writing on Hilbert spaces, quantum states, observables, density operators, and related linear algebra.}
     \resumeItemListEnd
 
   \resumeProjectHeading
-    {\textbf{Org-based Writing and Export Workflow}}{2026}
+    {\textbf{Selected Topics Covered}}{}
     \resumeItemListStart
-      \resumeItem{Uses Emacs, Org Mode, LaTeX, and `latexmk --xelatex' to keep note-taking, mathematical writing, PDF generation, and web publishing in a single workflow.}
+      \resumeItem{Quantum states; observable and expectation; density operators; Hilbert spaces; inner product spaces; Hermitian matrices.}
     \resumeItemListEnd
 
-  \resumeProjectHeading
-    {\textbf{Structured Quantum Computing Notes}}{2026}
-    \resumeItemListStart
-      \resumeItem{Builds a connected set of notes on quantum states, observables, expectation values, density operators, and related linear algebra, intended both for study and public reference.}
-    \resumeItemListEnd
-
-\resumeSubHeadingListEnd
-#+end_export
-
-* Technical Profile
-#+begin_export latex
-\vspace{2pt}
-\resumeSubHeadingListStart
-  \small{\item{
-    \textbf{Mathematical writing:}{ LaTeX, XeLaTeX, Org Mode.} \\ \vspace{3pt}
-    \textbf{Publishing workflow:}{ Emacs, org-publish, latexmk, HTML/CSS, JavaScript.} \\ \vspace{3pt}
-    \textbf{Working areas:}{ note-taking systems, mathematical exposition, lightweight static-site publishing, and research-oriented study workflows.}
-  }}
 \resumeSubHeadingListEnd
 #+end_export
