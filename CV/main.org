@@ -1,0 +1,174 @@
+#+OPTIONS: title:nil author:nil date:nil toc:nil num:nil
+#+LATEX_CLASS: article
+#+LATEX_CLASS_OPTIONS: [letterpaper,11pt]
+#+LATEX_COMPILER: xelatex
+#+LATEX_HEADER: \usepackage{latexsym}
+#+LATEX_HEADER: \usepackage[empty]{fullpage}
+#+LATEX_HEADER: \usepackage{titlesec}
+#+LATEX_HEADER: \usepackage{marvosym}
+#+LATEX_HEADER: \usepackage[usenames,dvipsnames]{color}
+#+LATEX_HEADER: \usepackage{verbatim}
+#+LATEX_HEADER: \usepackage{enumitem}
+#+LATEX_HEADER: \hypersetup{hidelinks}
+#+LATEX_HEADER: \usepackage{fancyhdr}
+#+LATEX_HEADER: \usepackage[english]{babel}
+#+LATEX_HEADER: \usepackage{tabularx}
+#+LATEX_HEADER: \usepackage{hyphenat}
+#+LATEX_HEADER: \pagestyle{fancy}
+#+LATEX_HEADER: \fancyhf{}
+#+LATEX_HEADER: \fancyfoot{}
+#+LATEX_HEADER: \renewcommand{\headrulewidth}{0pt}
+#+LATEX_HEADER: \renewcommand{\footrulewidth}{0pt}
+#+LATEX_HEADER: \addtolength{\oddsidemargin}{-0.5in}
+#+LATEX_HEADER: \addtolength{\evensidemargin}{-0.5in}
+#+LATEX_HEADER: \addtolength{\textwidth}{1in}
+#+LATEX_HEADER: \addtolength{\topmargin}{-.5in}
+#+LATEX_HEADER: \addtolength{\textheight}{1.0in}
+#+LATEX_HEADER: \setlength{\footskip}{8pt}
+#+LATEX_HEADER: \urlstyle{same}
+#+LATEX_HEADER: \raggedbottom
+#+LATEX_HEADER: \raggedright
+#+LATEX_HEADER: \setlength{\tabcolsep}{0in}
+#+LATEX_HEADER: \titleformat{\section}{\vspace{-4pt}\scshape\raggedright\large}{}{0em}{}[\color{black}\titlerule \vspace{-5pt}]
+#+LATEX_HEADER: \newcommand{\resumeItem}[1]{\item\small{{#1 \vspace{-2pt}}}}
+#+LATEX_HEADER: \newcommand{\resumeSubheading}[4]{\vspace{-2pt}\item\begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}\textbf{#1} & #2 \\\textit{\small#3} & \textit{\small #4} \\\end{tabular*}\vspace{-7pt}}
+#+LATEX_HEADER: \newcommand{\resumeSubSubheading}[2]{\vspace{-2pt}\item\begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}\textit{\small#1} & \textit{\small #2} \\\end{tabular*}\vspace{-7pt}}
+#+LATEX_HEADER: \newcommand{\resumeEducationHeading}[6]{\vspace{-2pt}\item\begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}\textbf{#1} & #2 \\\textit{\small#3} & \textit{\small #4} \\\textit{\small#5} & \textit{\small #6} \\\end{tabular*}\vspace{-5pt}}
+#+LATEX_HEADER: \newcommand{\resumeProjectHeading}[2]{\vspace{-2pt}\item\begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}\small#1 & #2 \\\end{tabular*}\vspace{-7pt}}
+#+LATEX_HEADER: \newcommand{\resumeOrganizationHeading}[4]{\vspace{-2pt}\item\begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}\textbf{#1} & \textit{\small #2} \\\textit{\small#3}\end{tabular*}\vspace{-7pt}}
+#+LATEX_HEADER: \newcommand{\resumeSubItem}[1]{\resumeItem{#1}\vspace{-4pt}}
+#+LATEX_HEADER: \renewcommand\labelitemii{$\vcenter{\hbox{\tiny$\bullet$}}$}
+#+LATEX_HEADER: \newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in, label={}]}
+#+LATEX_HEADER: \newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+#+LATEX_HEADER: \newcommand{\resumeItemListStart}{\begin{itemize}}
+#+LATEX_HEADER: \newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-5pt}}
+
+#+begin_export latex
+\begin{center}
+    \textbf{\Huge \scshape Aras Güngöre} \\ \vspace{3pt}
+    \small
+    \href{tel:905314204536}{+90 531 420 4536}
+    $|$
+    \href{mailto:arasgungore09@gmail.com}{arasgungore09@gmail.com}
+    $|$
+    \href{https://www.linkedin.com/in/arasgungore}{LinkedIn}
+    $|$
+    \href{https://github.com/arasgungore}{GitHub}
+    $|$
+    \href{https://arasgungore.github.io}{Portfolio}
+    $|$
+    \href{https://www.google.com/maps/place/Bogazici+University+North+Campus/@41.0863067,29.0441352,15z/data=!4m5!3m4!1s0x0:0x9d2497b07c8edb2f!8m2!3d41.0863067!4d29.0441352}{Istanbul, Turkey}
+\end{center}
+#+end_export
+
+* Education
+#+begin_export latex
+\vspace{3pt}
+\resumeSubHeadingListStart
+
+  \resumeEducationHeading
+    {Boğaziçi University}{Istanbul, Turkey}
+    {B.Sc. in Electrical and Electronics Engineering; \textbf{GPA: 3.62/4.00}}{Sep 2018 \textbf{--} Jun 2023}
+    {Minor Degree in Computer Science; \textbf{GPA: 3.58/4.00}}{Oct 2020 \textbf{--} Jun 2023}
+    \resumeSubHeadingListStart
+    \small{\item{
+      \textbf{National University Admission Exam (YKS):} Ranked $75^{th}$ in Mathematics and Science among ca. 2.3 million candidates with a test score of 489.92/500. (Jul 2018)}}
+    \resumeSubHeadingListEnd
+
+\resumeSubHeadingListEnd
+#+end_export
+
+* Skills
+#+begin_export latex
+\vspace{2pt}
+\resumeSubHeadingListStart
+  \small{\item{
+    \textbf{Languages:}{ C/C++, C\#, Java, Python, Go, JavaScript, TypeScript, SQL, Swift, Scala, MATLAB, R} \\ \vspace{3pt}
+    \textbf{Technologies:}{ Qt, Flask, Django, Node.js, React.js, MySQL, MongoDB, Git, SVN, Docker, AWS, Kubernetes, GCP, Kafka, RabbitMQ, OpenCV, PyTorch, TensorFlow} \\ \vspace{3pt}
+    \textbf{Methodologies:}{ Agile, Scrum, OOP, Functional Programming, DevOps, CI/CD, TDD} \\ \vspace{3pt}
+  }}
+\resumeSubHeadingListEnd
+#+end_export
+
+* Experience
+#+begin_export latex
+\vspace{3pt}
+\resumeSubHeadingListStart
+
+  \resumeSubheading
+    {Avikon}{Istanbul, Turkey}
+    {Software Engineer}{Dec 2023 \textbf{--} Present, Full-time}
+    \resumeItemListStart
+      \resumeItem{Designed a Qt-based chat application utilizing TCP for real-time communication within a client-server architecture, demonstrating expertise in socket programming, data serialization, and message routing.}
+      \resumeItem{Crafted message types in IDL and designed a data-centric publish-subscribe architecture based on a flyweight design pattern to implement OpenDDS for a radar system's command and control interface. Utilized QoS policies to facilitate the transmission of both volatile and persistent data across different topics.}
+      \resumeItem{Implemented a fully asynchronous AMQP-based C++ client with a layered architecture for RabbitMQ message broker to ensure seamless message handling among multiple topics.}
+      \resumeItem{Developed a cross-platform asynchronous program to refine UAV detection for a GIS application. Benchmarked point-in-polygon algorithms with a GeoJSON polygon database concurrently fetched from MongoDB.}
+    \resumeItemListEnd
+
+  \resumeSubheading
+    {SemperTech}{Istanbul, Turkey}
+    {Software Engineer}{Sep 2023 \textbf{--} Nov 2023, Full-time}
+    \resumeItemListStart
+      \resumeItem{Worked on the ``Arçelik Digital Home Energy'' project in a collaborative effort with DAI-Labor at the Technical University of Berlin under the supervision of \href{https://www.linkedin.com/in/prof-dr-dr-h-c-sahin-albayrak-65452a1/}{\color{blue}Prof. Dr. Şahin Albayrak}.}
+      \resumeItem{Simulated discovery, pairing, and data exchange processes using the EEBUS protocol suite with C\# and Go. Migrated the framework from Go to C++ in order to ensure future adaptability for smart home IoT devices.}
+      \resumeItem{Implemented the TLS protocol for secure data exchange using the X.509 standard and integrated multicast DNS for seamless communication to complement the development of SHIP and SPINE protocols.}
+    \resumeItemListEnd
+
+  \resumeSubheading
+    {Max Planck Institute for Intelligent Systems}{Stuttgart, Baden\textbf{-}Württemberg, Germany}
+    {Undergraduate Researcher}{Jun 2022 \textbf{--} Aug 2022, Internship}
+    \resumeItemListStart
+      \resumeItem{Engaged in collaborative research within the Robotics, Collectives and Learning subgroup at the Physical Intelligence Department with Ph.D. students \href{https://www.linkedin.com/in/sinan-ozgun-demir-981311129/}{\color{blue}Sinan Özgün Demir} and \href{https://www.linkedin.com/in/alpkaracakol/}{\color{blue}Alp Can Karacakol} on a project about 3D printing and heat-assisted magnetic programming of soft machines under the supervision of \href{https://www.linkedin.com/in/metin-sitti-0a8a712/}{\color{blue}Prof. Dr. Metin Sitti}.}
+      \resumeItem{Optimized a C++ ROS package for real-time conversion of 3D motion controller events to ROS messages, achieving high-frequency and buffer-free synchronization.}
+      \resumeItem{Developed an Arduino Mega driver to activate a laser and pressure regulator, for monitoring coil temperatures and PID tuning to control the coil currents. Established a robust ROS-Arduino communication network by integrating ROSSerial and handshaking to simulate a 3D printing and magnetic programming process with Python.}
+    \resumeItemListEnd
+
+  \resumeSubheading
+    {SESTEK Speech Enabled Software Technologies}{Istanbul, Turkey}
+    {AI Research and Development Intern}{Jan 2022 \textbf{--} Feb 2022, Internship}
+    \resumeItemListStart
+      \resumeItem{Developed a generative QA system with dense passage retrieval (DPR) and retrieval-augmented generation (RAG) techniques using the Haystack framework and PyTorch.}
+      \resumeItem{Worked on a Turkish open-domain QA system made by fine-tuning BERTurk and XLM-Roberta models. Tabularized exact match and F1 scores derived from DeepMind's XQuAD and various Turkish data sets.}
+    \resumeItemListEnd
+
+\resumeSubHeadingListEnd
+#+end_export
+
+* Awards & Achievements
+#+begin_export latex
+\vspace{2pt}
+\resumeSubHeadingListStart
+  \small{\item{
+    \textbf{High Honors Degree:}{ Awarded to Bachelor alumni who have graduated with a GPA greater than or equal to 3.50 by Boğaziçi University. (Jul 2023)} \\ \vspace{3pt}
+    \textbf{TÜBİTAK 2247-C Intern Researcher Scholarship:}{ Awarded to students who take part in research projects carried out by the Scientific and Technological Research Council of Turkey (TÜBİTAK). (Dec 2021 \textbf{--} Jun 2022)} \\ \vspace{3pt}
+    \textbf{KYK Outstanding Success Scholarship:}{ Awarded to students who have been ranked in the top 100 on National University Admission Exam by Higher Education Credit and Hostels Institution (KYK). (Sep 2018 \textbf{--} Jun 2023)} \\ \vspace{3pt}
+    \textbf{Kocaeli Science High School Valedictorian Award:}{ Graduated as the highest ranked student. (Jun 2018)}
+  }}
+\resumeSubHeadingListEnd
+#+end_export
+
+* Projects
+#+begin_export latex
+\vspace{3pt}
+\resumeSubHeadingListStart
+
+  \resumeProjectHeading
+    {\textbf{Filters and Fractals} $|$ \emph{\href{https://github.com/arasgungore/filters-and-fractals}{\color{blue}GitHub}}}{}
+    \resumeItemListStart
+      \resumeItem{A C project which implements a variety of image processing operations that manipulate the size, filter, brightness, contrast, saturation, and other properties of PPM images from scratch and recursive fractal generation functions to model popular fractals including Mandelbrot set, Julia set, Koch curve, Barnsley fern, and Sierpinski triangle.}
+    \resumeItemListEnd
+
+  \resumeProjectHeading
+    {\textbf{Chess Bot} $|$ \emph{\href{https://github.com/arasgungore/chess-bot}{\color{blue}GitHub}}}{}
+    \resumeItemListStart
+      \resumeItem{A C++ project in which you can play chess against an AI with a specified decision tree depth that uses alpha-beta pruning algorithm to predict the optimal move. Aside from basic moves, this mini chess engine also implements chess rules such as castling, en passant, fifty-move rule, threefold repetition, and pawn promotion.}
+    \resumeItemListEnd
+
+  \resumeProjectHeading
+    {\textbf{DS\&A Projects} $|$ \emph{\href{https://github.com/arasgungore/CMPE250-projects}{\color{blue}GitHub}}}{}
+    \resumeItemListStart
+      \resumeItem{Five Java projects that apply DS\&A concepts such as discrete-event simulation using priority queues, Dijkstra's shortest path algorithm, Prim's algorithm to find the minimum spanning tree, Dinic's algorithm for maximum flow problems, and weighted job scheduling with dynamic programming to real-world problems.}
+    \resumeItemListEnd
+
+\resumeSubHeadingListEnd
+#+end_export

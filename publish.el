@@ -343,7 +343,7 @@
          (files (seq-filter
                  (lambda (file)
                    (let ((rel (file-relative-name file base-dir)))
-                     (not (string-match-p "\\`\\(?:public/\\|js/\\|css/\\|ltximg/\\)" rel))))
+                     (not (string-match-p "\\`\\(?:public/\\|js/\\|css/\\|ltximg/\\|CV/.+\\.org\\'\\)" rel))))
                  (directory-files-recursively base-dir "\\.org\\'")))
          (notes-by-key (make-hash-table :test 'equal))
          (id-to-key (make-hash-table :test 'equal))
@@ -448,7 +448,7 @@
          :publishing-directory "~/HC/Org/public/"
          :recursive t
          :publishing-function my/site-html-head
-         :exclude "public/\\|ltximg/\\|homepage.html\\|js/\\|css/"
+         :exclude "public/\\|ltximg/\\|homepage.html\\|js/\\|css/\\|CV/.+\\.org$"
          :auto-sitemap t
          :sitemap-title "Ignored"
          :sitemap-filename "sitemap-log.org"
@@ -458,7 +458,7 @@
          :base-extension "css\\|js\\|png\\|jpg\\|jpeg\\|gif\\|svg\\|webp\\|avif\\|pdf"
          :publishing-directory "~/HC/Org/public/"
          :recursive t
-         :exclude "public/\\|ltximg/"
+         :exclude "public/\\|ltximg/\\|CV/jpg/"
          :publishing-function org-publish-attachment)
         ("site"
          :components ("site-org" "site-static"))))

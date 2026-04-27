@@ -19,6 +19,11 @@ ltximg/
 *.fls
 *.fdb_latexmk
 *.synctex.gz
+*.xdv
+*.run.xml
+*.bcf
+*.blg
+*.bbl
 
 # Org 导出 PDF / HTML 临时目录（如有）
 _export/
