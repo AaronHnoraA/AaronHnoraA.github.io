@@ -193,7 +193,6 @@ normally, so removing that paragraph only hides local Org metadata."
        (setq export-plist (plist-put export-plist :with-author nil))
        (setq export-plist (plist-put export-plist :with-creator nil))
        (setq export-plist (plist-put export-plist :with-date nil))
-       (setq export-plist (plist-put export-plist :with-toc nil))
        (setq export-plist (plist-put export-plist :section-numbers nil))
        export-plist)
      filename pub-dir)))
