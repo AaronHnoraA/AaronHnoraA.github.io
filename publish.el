@@ -20,20 +20,51 @@
 (defconst my/site-org-id-locations-file
   (expand-file-name ".cache/org-id-locations" (file-name-directory load-file-name)))
 
+(defun my/site-export-roam-source-p (info)
+  "Return non-nil when export INFO belongs to an org-roam source file."
+  (my/site-file-in-directory-p (my/site-export-source-file info)
+                               my/site-roam-directory))
+
 (defun my/site-managed-special-block-p (block)
   "Return non-nil when BLOCK is generated for local display only."
   (let ((type (downcase (or (org-element-property :type block) "")))
         (parameters (or (org-element-property :parameters block) "")))
     (or (string= type "toc")
         (and (string= type "overview")
-             (string-match-p "\\_<:toc\\_>" parameters)))))
+             (string-match-p
+              "\\(?:\\`\\|[[:space:]]\\):toc\\(?:[[:space:]]\\|\\'\\)"
+              parameters)))))
 
-(defun my/site-remove-managed-blocks (tree _backend _info)
-  "Remove generated overview/toc blocks from export TREE."
-  (org-element-map tree 'special-block
-    (lambda (block)
-      (when (my/site-managed-special-block-p block)
-        (org-element-extract-element block))))
+(defun my/site-remove-managed-blocks (tree backend info)
+  "Remove local-only managed blocks from HTML export TREE."
+  (when (and (org-export-derived-backend-p backend 'html)
+             (my/site-export-roam-source-p info))
+    (org-element-map tree 'special-block
+      (lambda (block)
+        (when (my/site-managed-special-block-p block)
+          (org-element-extract-element block)))))
+  tree)
+
+(defun my/site-id-property-paragraph-p (paragraph)
+  "Return non-nil when PARAGRAPH is a leaked file-level ID drawer line."
+  (let ((text (string-trim
+               (org-element-interpret-data
+                (org-element-contents paragraph)))))
+    (string-match-p
+     "\\`:ID:[ \t]+[[:alnum:]-]+\\'"
+     text)))
+
+(defun my/site-remove-leaked-id-paragraphs (tree backend info)
+  "Remove visible ID drawer residue from included roam files in TREE.
+File-level property drawers in included Org files can degrade into a plain
+`:ID:' paragraph.  The heading anchors and `id:' links are still exported
+normally, so removing that paragraph only hides local Org metadata."
+  (when (and (org-export-derived-backend-p backend 'html)
+             (my/site-export-roam-source-p info))
+    (org-element-map tree 'paragraph
+      (lambda (paragraph)
+        (when (my/site-id-property-paragraph-p paragraph)
+          (org-element-extract-element paragraph)))))
   tree)
 
 (defun my/site-file-in-directory-p (file directory)
@@ -122,7 +153,8 @@
                (my/site-copy-roam-image-asset image-file info))))))))
   tree)
 
-(dolist (filter '(my/site-remove-managed-blocks
+(dolist (filter '(my/site-remove-leaked-id-paragraphs
+                  my/site-remove-managed-blocks
                   my/site-copy-roam-image-links))
   (add-to-list 'org-export-filter-parse-tree-functions filter))
 
@@ -161,6 +193,7 @@
        (setq export-plist (plist-put export-plist :with-author nil))
        (setq export-plist (plist-put export-plist :with-creator nil))
        (setq export-plist (plist-put export-plist :with-date nil))
+       (setq export-plist (plist-put export-plist :with-toc nil))
        (setq export-plist (plist-put export-plist :section-numbers nil))
        export-plist)
      filename pub-dir)))
