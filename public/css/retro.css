@@ -1090,6 +1090,27 @@ body.note-page::after {
   opacity: 1;
 }
 
+.org-id-anchor,
+.target {
+  display: block;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  scroll-margin-top: 96px;
+}
+
+.org-id-anchor + header {
+  margin-top: 0;
+}
+
+#content img {
+  display: block;
+  height: auto;
+  margin: 1rem auto;
+  border: 1px solid rgba(96, 74, 49, 0.22);
+  background: rgba(253, 248, 237, 0.72);
+}
+
 #table-of-contents {
   margin: 0 0 1.35rem;
   padding: 0.9rem 1rem 1rem;
