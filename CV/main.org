@@ -111,3 +111,90 @@
 \resumeSubHeadingListEnd
 #+end_export
 
+
+# * Publications
+# #+begin_export latex
+
+# \vspace{3pt}
+# \resumeSubHeadingListStart
+
+#   \resumeSubheading
+#     {Quantum Computation}{UNSW}
+#     {Quantum Algorithm Research}{Term 2, 2025 -- Present}
+
+#   \vspace{-2pt}
+
+#   \small
+#   Unless otherwise indicated, authors are ordered alphabetically by last name, following the convention in theoretical computer science and mathematics.
+#   Links to papers, preprints, and supplementary materials are included where available.
+
+#   \vspace{2pt}
+
+#   \begin{enumerate}[leftmargin=1.6em, itemsep=0.35em, topsep=0.2em]
+
+#     \item
+#     Dung Hoang Duong, Youming Qiao, and Chuanqi Zhang.
+#     \textit{Diffie--Hellman Key Exchange from Commutativity to Group Laws}.
+#     ITCS 2026.
+#     [\href{https://example.com}{ePrint}]
+
+#     \item
+#     Joshua A. Grochow, Youming Qiao, Katherine E. Stange, and Xiaorui Sun.
+#     \textit{On the Complexity of Isomorphism Problems for Tensors, Groups, and Polynomials V: Over Commutative Rings}.
+#     STOC 2025.
+#     [\href{https://example.com}{DOI}]
+
+#     \item
+#     Joshua A. Grochow and Youming Qiao.
+#     \textit{On the Complexity of Isomorphism Problems for Tensors, Groups, and Polynomials IV: Linear-Length Reductions and Their Applications}.
+#     STOC 2025.
+#     [\href{https://example.com}{arXiv}]
+
+#     \item
+#     Yinan Li, Youming Qiao, Avi Wigderson, Yuval Wigderson, and Chuanqi Zhang.
+#     \textit{On Linear-Algebraic Notions of Expansion}.
+#     Theory of Computing, 21(1):1--28, 2025.
+#     [\href{https://example.com}{ToC}, \href{https://example.com}{arXiv}]
+
+#     \item
+#     Gábor Ivanyos, Euan J. Mendoza, Youming Qiao, Xiaorui Sun, and Chuanqi Zhang.
+#     \textit{Faster Isomorphism Testing of $p$-Groups of Frattini Class 2}.
+#     FOCS 2024.
+#     [\href{https://example.com}{link}]
+
+#     \item
+#     Youming Qiao and Xiaorui Sun.
+#     \textit{Canonical Forms for Matrix Tuples in Polynomial Time}.
+#     FOCS 2024.
+#     [\href{https://example.com}{arXiv}]
+
+#     \item
+#     Markus Bläser, Zhili Chen, Dung Hoang Duong, Antoine Joux, Ngoc Tuong Nguyen, Thomas Plantard, Youming Qiao, Willy Susilo, and Gang Tang.
+#     \textit{On Digital Signatures Based on Group Actions: QROM Security and Ring Signatures}.
+#     PQCrypto 2024.
+#     [\href{https://example.com}{ePrint}]
+
+#     \item
+#     Anand Kumar Narayanan, Youming Qiao, and Gang Tang.
+#     \textit{Algorithms for Matrix Code and Alternating Trilinear Form Equivalences via New Isomorphism Invariants}.
+#     EUROCRYPT 2024.
+#     [\href{https://example.com}{ePrint}]
+#     Also presented at the Fifth NIST PQC Standardization Conference.
+#     [\href{https://example.com}{link}]
+
+#     \item
+#     Zhili Chen, Joshua A. Grochow, Youming Qiao, Gang Tang, and Chuanqi Zhang.
+#     \textit{On the Complexity of Isomorphism Problems for Tensors, Groups, and Polynomials III: Actions by Classical Groups}.
+#     ITCS 2024.
+#     [\href{https://example.com}{DOI}, \href{https://example.com}{arXiv}]
+#     Also presented at TQC 2024.
+#     [\href{https://example.com}{link}]
+
+#   \end{enumerate}
+
+#   \normalsize
+
+# \resumeSubHeadingListEnd
+
+
+# #+end_export
