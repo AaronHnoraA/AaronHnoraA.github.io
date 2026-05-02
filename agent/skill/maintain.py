@@ -75,6 +75,7 @@ def parse_note(path: Path) -> Note:
     in_drawer = False
     in_block = False
     in_latex = False
+    summary_done = False
     summary_parts: list[str] = []
     outgoing_ids: list[str] = []
 
@@ -123,6 +124,8 @@ def parse_note(path: Path) -> Note:
         if stripped.startswith(r"\end{"):
             in_latex = False
             continue
+        if summary_done:
+            continue
         if in_drawer or in_block:
             continue
         if in_latex:
@@ -138,7 +141,7 @@ def parse_note(path: Path) -> Note:
         if cleaned:
             summary_parts.append(cleaned)
         if len(" ".join(summary_parts)) >= 420:
-            break
+            summary_done = True
 
     note.title = note.title or path.stem.replace("_", " ").title()
     note.summary = truncate(" ".join(summary_parts), 420)

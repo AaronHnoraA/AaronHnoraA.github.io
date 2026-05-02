@@ -21,14 +21,14 @@
 ### Hilbert Space
 - Source: [roam/math/hilbert_space.org](../../roam/math/hilbert_space.org)
 - Wiki: [Hilbert Space](../wiki/notes/math/hilbert_space.md)
-- Outgoing: None
+- Outgoing: [Inner Product Space](../wiki/notes/math/inner_product_space.md)
 - Backlinks: [Observable & Expectation](../wiki/notes/QC/observable_expectation.md), [Quantum State](../wiki/notes/QC/quantum_state.md)
 
 ### Inner Product Space
 - Source: [roam/math/inner_product_space.org](../../roam/math/inner_product_space.org)
 - Wiki: [Inner Product Space](../wiki/notes/math/inner_product_space.md)
 - Outgoing: None
-- Backlinks: None
+- Backlinks: [Hilbert Space](../wiki/notes/math/hilbert_space.md)
 
 ### Density Operator
 - Source: [roam/QC/density_operator.org](../../roam/QC/density_operator.org)

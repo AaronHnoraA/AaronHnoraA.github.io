@@ -13,6 +13,12 @@
 
 - Hermitian Matrix 厄米矩阵
 - 性质
+- Hermitian Operators 自伴算子|厄米算符
+  - 物理量的算符化表示
+  - 统计意义下的期望值
+  - 量子态与概率权重
+  - 期望值的算符形式
+  - 量化建模的视角
 
 ## Links
 

@@ -14,10 +14,12 @@
 - Hilbert Space 希尔伯特空间
   - 1. 数学理解 (Mathematical Understanding)
   - 2. 量子应用 (Quantum Applications)
+- 有限维必完备
+- 希尔伯特空间的相互作用
 
 ## Links
 
-- None
+- [Inner Product Space](inner_product_space.md)
 
 ## Backlinks
 
