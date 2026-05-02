@@ -425,8 +425,11 @@ def render_index_readme(notes: list[Note]) -> str:
             "",
             f"- Notes indexed: {len(notes)}",
             "- Main index: `org-roam-index.md`",
+            "- Title index: `titles.md`",
+            "- Path index: `paths.md`",
             "- Tag index: `tags.md`",
             "- Link graph: `graph.md`",
+            "- Backlink index: `backlinks.md`",
             "- Sources covered: `roam/` and `daily/`",
         ]
     )
@@ -482,6 +485,36 @@ def render_tags(notes: list[Note]) -> str:
     return "\n".join(lines)
 
 
+def render_titles(notes: list[Note]) -> str:
+    title_file = INDEX_DIR / "titles.md"
+    lines = [
+        "# Title Index",
+        "",
+        "| Title | Path | Wiki |",
+        "| --- | --- | --- |",
+    ]
+    for note in sorted(notes, key=lambda item: (item.title.lower(), item.rel_path.lower())):
+        lines.append(
+            f"| {md_escape(note.title)} | {source_link(title_file, note)} | {note_link(title_file, note)} |"
+        )
+    return "\n".join(lines)
+
+
+def render_paths(notes: list[Note]) -> str:
+    path_file = INDEX_DIR / "paths.md"
+    lines = [
+        "# Path Index",
+        "",
+        "| Path | Title | Wiki |",
+        "| --- | --- | --- |",
+    ]
+    for note in sorted(notes, key=lambda item: item.rel_path.lower()):
+        lines.append(
+            f"| {md_escape(note.rel_path)} | {md_escape(note.title)} | {note_link(path_file, note)} |"
+        )
+    return "\n".join(lines)
+
+
 def render_graph(notes: list[Note], backlinks: dict[str, list[Note]]) -> str:
     graph_file = INDEX_DIR / "graph.md"
     by_id = {note.id: note for note in notes if note.id}
@@ -501,6 +534,27 @@ def render_graph(notes: list[Note], backlinks: dict[str, list[Note]]) -> str:
     for note in notes:
         count = len(backlinks.get(note.id, [])) if note.id else 0
         lines.append(f"- {note_link(graph_file, note)}: {count}")
+    return "\n".join(lines)
+
+
+def render_backlinks(notes: list[Note], backlinks: dict[str, list[Note]]) -> str:
+    backlink_file = INDEX_DIR / "backlinks.md"
+    lines = [
+        "# Backlink Index",
+        "",
+        "| Title | Backlinks | Sources |",
+        "| --- | --- | --- |",
+    ]
+    ranked_notes = sorted(
+        notes,
+        key=lambda item: (-len(backlinks.get(item.id, [])) if item.id else 0, item.title.lower(), item.rel_path.lower()),
+    )
+    for note in ranked_notes:
+        incoming = backlinks.get(note.id, []) if note.id else []
+        linked_sources = ", ".join(note_link(backlink_file, source) for source in incoming) if incoming else "None"
+        lines.append(
+            f"| {md_escape(note.title)} | {len(incoming)} | {linked_sources} |"
+        )
     return "\n".join(lines)
 
 
@@ -583,8 +637,11 @@ def main() -> None:
 
     write_if_changed(INDEX_DIR / "README.md", render_index_readme(notes))
     write_if_changed(INDEX_DIR / "org-roam-index.md", render_org_roam_index(notes, backlinks))
+    write_if_changed(INDEX_DIR / "titles.md", render_titles(notes))
+    write_if_changed(INDEX_DIR / "paths.md", render_paths(notes))
     write_if_changed(INDEX_DIR / "tags.md", render_tags(notes))
     write_if_changed(INDEX_DIR / "graph.md", render_graph(notes, backlinks))
+    write_if_changed(INDEX_DIR / "backlinks.md", render_backlinks(notes, backlinks))
     write_if_changed(WIKI_DIR / "README.md", render_wiki_readme(notes))
 
     for note in notes:
