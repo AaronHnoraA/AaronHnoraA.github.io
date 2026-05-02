@@ -3,8 +3,10 @@ CV_TEX := CV/main.tex
 CV_DIR := CV
 CV_JOBNAME := Aaron_He_CV
 LATEXMK_XELATEX := latexmk --xelatex -interaction=nonstopmode -synctex=1
+CODEX ?= codex
+LLM_PROMPT ?= agent/skill/llm-maintenance.md
 
-.PHONY: all force sync git dryrun clean cv
+.PHONY: all force sync git dryrun clean cv llm
 
 all: cv
 	emacs --batch --load publish.el --eval '(org-publish-all t)'
@@ -31,6 +33,9 @@ dryrun:
 cv:
 	emacs --batch --visit $(CV_ORG) --eval '(require (quote ox-latex))' --funcall org-latex-export-to-latex
 	cd $(CV_DIR) && $(LATEXMK_XELATEX) -jobname=$(CV_JOBNAME) $$(basename $(CV_TEX))
+
+llm:
+	$(CODEX) exec --cd . --sandbox workspace-write --ask-for-approval never - < $(LLM_PROMPT)
 
 
 clean:
