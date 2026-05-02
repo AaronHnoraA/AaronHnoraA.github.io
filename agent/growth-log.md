@@ -1,3 +1,3 @@
 # Growth Log
 
-2026-05-02：建立 AI 维护层。根入口 `agent.md` 指向 `agent/`；`index/` 负责可检索索引，`wiki/` 负责压缩阅读，`skill/` 保存 Codex 可调用工具，`db/` 链接 org-roam SQLite。`make llm` 被设计为调用 Codex 的长期维护入口，由提示词决定本次应做的索引、工具、日志和提交工作。
+2026-05-02：建立 AI 维护层。`agent/` 保存索引、压缩 wiki、只读 DB 工具和 Codex 提示词。`make llm` 负责长期维护与提交；`make lookup` 负责只读检索，允许先读快速索引，但精确定义、公式和关系必须回到 Org 原文核验。

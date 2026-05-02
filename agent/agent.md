@@ -37,6 +37,14 @@ This target:
 5. Creates a timestamped commit if those files changed.
 6. Pushes the current branch.
 
+Lookup:
+
+```sh
+make lookup QUERY="What is a quantum state?"
+```
+
+This launches Codex with `agent/skill/lookup.md` in read-only mode. The agent may use `agent/index/` and `agent/wiki/` to find candidate notes, but precise answers must be verified against the original Org files.
+
 For database inspection, use:
 
 ```sh
@@ -50,6 +58,7 @@ python3 agent/skill/check_agent_text_limits.py
 
 - When adding a new index format, implement it in `agent/skill/maintain.py` and document it here.
 - When changing the `make llm` behavior, update `agent/skill/llm-maintenance.md`.
+- When changing the `make lookup` behavior, update `agent/skill/lookup.md`.
 - When adding a new reusable procedure, place it in `agent/skill/` with a short README entry.
 - When a generated file becomes too large, split it by domain or path while preserving the top-level index pointer.
 - When updating the overview or growth log, rewrite them as compact living context instead of appending indefinitely.

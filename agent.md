@@ -8,6 +8,7 @@ Start here:
 - Read `agent/project-overview.md` and `agent/growth-log.md` for compact long-term context.
 - Treat `agent/index/` and `agent/wiki/` as derived files.
 - Use `make llm` to refresh AI-facing indexes, commit the AI maintenance output, and push it.
+- Use `make lookup QUERY="..."` for read-only note retrieval; precise answers require reading original Org files.
 - Do not stage or rewrite user notes unless the user explicitly asks for note edits.
 
 Core map:

@@ -5,8 +5,10 @@ CV_JOBNAME := Aaron_He_CV
 LATEXMK_XELATEX := latexmk --xelatex -interaction=nonstopmode -synctex=1
 CODEX ?= codex
 LLM_PROMPT ?= agent/skill/llm-maintenance.md
+LOOKUP_PROMPT ?= agent/skill/lookup.md
+LOOKUP_QUERY ?= $(or $(QUERY),$(Q))
 
-.PHONY: all force sync git dryrun clean cv llm
+.PHONY: all force sync git dryrun clean cv llm lookup
 
 all: cv
 	emacs --batch --load publish.el --eval '(org-publish-all t)'
@@ -36,6 +38,10 @@ cv:
 
 llm:
 	$(CODEX) exec --cd . --sandbox workspace-write --ask-for-approval never - < $(LLM_PROMPT)
+
+lookup:
+	@test -n "$(LOOKUP_QUERY)" || (printf 'Usage: make lookup QUERY="your question"\n'; exit 2)
+	@(cat $(LOOKUP_PROMPT); printf '\n\n## User Query\n\n%s\n' "$(LOOKUP_QUERY)") | $(CODEX) exec --cd . --sandbox read-only --ask-for-approval never -
 
 
 clean:
