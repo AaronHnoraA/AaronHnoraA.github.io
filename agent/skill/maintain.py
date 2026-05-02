@@ -2,10 +2,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import json
 from pathlib import Path
 import os
 import re
+import random
 import shutil
+import subprocess
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -14,6 +17,10 @@ ROAM_DIR = ROOT / "roam"
 INDEX_DIR = AGENT_DIR / "index"
 WIKI_DIR = AGENT_DIR / "wiki"
 WIKI_NOTES_DIR = WIKI_DIR / "notes"
+STATE_DIR = AGENT_DIR / ".state"
+STATE_FILE = STATE_DIR / "maintain-state.json"
+DEFAULT_SAMPLE_RATIO = 0.15
+DEFAULT_MIN_SAMPLE = 1
 
 TITLE_RE = re.compile(r"^#\+title:\s*(.+)$", re.IGNORECASE)
 DATE_RE = re.compile(r"^#\+date:\s*(.+)$", re.IGNORECASE)
@@ -36,6 +43,35 @@ class Note:
     headings: list[tuple[int, str]] = field(default_factory=list)
     summary: str = ""
     outgoing_ids: list[str] = field(default_factory=list)
+
+    def to_state(self) -> dict[str, object]:
+        return {
+            "path": self.path.as_posix(),
+            "rel_path": self.rel_path,
+            "wiki_path": self.wiki_path.as_posix(),
+            "id": self.id,
+            "title": self.title,
+            "date": self.date,
+            "tags": self.tags,
+            "headings": self.headings,
+            "summary": self.summary,
+            "outgoing_ids": self.outgoing_ids,
+        }
+
+    @classmethod
+    def from_state(cls, data: dict[str, object]) -> "Note":
+        return cls(
+            path=Path(str(data["path"])),
+            rel_path=str(data["rel_path"]),
+            wiki_path=Path(str(data["wiki_path"])),
+            id=str(data.get("id", "")),
+            title=str(data.get("title", "")),
+            date=str(data.get("date", "")),
+            tags=[str(tag) for tag in data.get("tags", [])],
+            headings=[(int(level), str(title)) for level, title in data.get("headings", [])],
+            summary=str(data.get("summary", "")),
+            outgoing_ids=[str(item) for item in data.get("outgoing_ids", [])],
+        )
 
 
 def clean_org_markup(text: str) -> str:
@@ -186,10 +222,184 @@ def write(path: Path, content: str) -> None:
     path.write_text(content.rstrip() + "\n", encoding="utf-8")
 
 
-def refresh_wiki_notes_dir() -> None:
-    if WIKI_NOTES_DIR.exists():
-        shutil.rmtree(WIKI_NOTES_DIR)
-    WIKI_NOTES_DIR.mkdir(parents=True, exist_ok=True)
+def write_if_changed(path: Path, content: str) -> bool:
+    normalized = content.rstrip() + "\n"
+    if path.exists() and path.read_text(encoding="utf-8") == normalized:
+        return False
+    write(path, normalized)
+    return True
+
+
+def current_head() -> str:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return ""
+    return result.stdout.strip()
+
+
+def load_state() -> dict[str, object]:
+    if not STATE_FILE.exists():
+        return {}
+    data = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+    return data if isinstance(data, dict) else {}
+
+
+def load_note_cache() -> dict[str, dict[str, object]]:
+    state = load_state()
+    notes = state.get("notes", {})
+    return notes if isinstance(notes, dict) else {}
+
+
+def save_state(notes: list[Note], fingerprints: dict[str, dict[str, int]], last_head: str) -> None:
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "last_head": last_head,
+        "notes": {
+            note.rel_path: {
+                "fingerprint": fingerprints[note.rel_path],
+                "note": note.to_state(),
+            }
+            for note in notes
+        }
+    }
+    write(STATE_FILE, json.dumps(payload, indent=2, sort_keys=True))
+
+
+def fingerprint(path: Path) -> dict[str, int]:
+    stat = path.stat()
+    return {"mtime_ns": stat.st_mtime_ns, "size": stat.st_size}
+
+
+def sample_ratio() -> float:
+    raw = os.environ.get("AGENT_MAINTAIN_SAMPLE_RATIO", "").strip()
+    if not raw:
+        return DEFAULT_SAMPLE_RATIO
+    try:
+        value = float(raw)
+    except ValueError:
+        return DEFAULT_SAMPLE_RATIO
+    return max(0.0, min(1.0, value))
+
+
+def min_sample() -> int:
+    raw = os.environ.get("AGENT_MAINTAIN_MIN_SAMPLE", "").strip()
+    if not raw:
+        return DEFAULT_MIN_SAMPLE
+    try:
+        value = int(raw)
+    except ValueError:
+        return DEFAULT_MIN_SAMPLE
+    return max(0, value)
+
+
+def choose_sample(paths: list[Path]) -> set[Path]:
+    if not paths:
+        return set()
+    count = max(min_sample(), int(len(paths) * sample_ratio()))
+    count = min(len(paths), count)
+    if count == 0:
+        return set()
+    return set(random.sample(paths, count))
+
+
+def parse_changed_paths(output: str) -> set[str]:
+    changed: set[str] = set()
+    for raw_line in output.splitlines():
+        line = raw_line.rstrip()
+        if not line:
+            continue
+        path_text = line[3:] if len(line) > 3 and line[1] == " " else line
+        if " -> " in path_text:
+            path_text = path_text.split(" -> ", 1)[1]
+        if not path_text.endswith(".org"):
+            continue
+        if not (path_text.startswith("roam/") or path_text.startswith("daily/")):
+            continue
+        changed.add(path_text)
+    return changed
+
+
+def git_changed_org_paths(last_head: str) -> set[str]:
+    changed: set[str] = set()
+
+    if last_head:
+        try:
+            committed = subprocess.run(
+                ["git", "diff", "--name-only", f"{last_head}..HEAD", "--", "roam", "daily"],
+                cwd=ROOT,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            changed.update(parse_changed_paths(committed.stdout))
+        except (OSError, subprocess.CalledProcessError):
+            pass
+
+    try:
+        working = subprocess.run(
+            ["git", "status", "--short", "--untracked-files=all", "--", "roam", "daily"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return changed
+
+    changed.update(parse_changed_paths(working.stdout))
+    return changed
+
+
+def load_notes(paths: list[Path]) -> tuple[list[Note], list[str], int]:
+    state = load_state()
+    previous = load_note_cache()
+    path_by_rel = {path.relative_to(ROOT).as_posix(): path for path in paths}
+    unchanged_candidates: list[Path] = []
+    notes_by_rel: dict[str, Note] = {}
+    fingerprints: dict[str, dict[str, int]] = {}
+    reparsed = 0
+    last_head = str(state.get("last_head", ""))
+    git_changed = git_changed_org_paths(last_head)
+    head = current_head()
+
+    for rel_path, path in path_by_rel.items():
+        current_fp = fingerprint(path)
+        fingerprints[rel_path] = current_fp
+        previous_entry = previous.get(rel_path)
+        changed_in_git = rel_path in git_changed
+        if (
+            not changed_in_git
+            and previous_entry
+            and isinstance(previous_entry, dict)
+            and previous_entry.get("fingerprint") == current_fp
+            and "note" in previous_entry
+        ):
+            unchanged_candidates.append(path)
+        else:
+            notes_by_rel[rel_path] = parse_note(path)
+            reparsed += 1
+
+    sampled = choose_sample(unchanged_candidates)
+    for path in unchanged_candidates:
+        rel_path = path.relative_to(ROOT).as_posix()
+        previous_entry = previous[rel_path]
+        if path in sampled:
+            notes_by_rel[rel_path] = parse_note(path)
+            reparsed += 1
+        else:
+            notes_by_rel[rel_path] = Note.from_state(previous_entry["note"])
+
+    deleted = sorted(set(previous) - set(path_by_rel))
+    notes = sorted(notes_by_rel.values(), key=lambda note: note.rel_path.lower())
+    save_state(notes, fingerprints, head)
+    return notes, deleted, reparsed
 
 
 def render_index_readme(notes: list[Note]) -> str:
@@ -340,25 +550,32 @@ def render_wiki_note(note: Note, notes_by_id: dict[str, Note], backlinks: dict[s
 def main() -> None:
     INDEX_DIR.mkdir(parents=True, exist_ok=True)
     WIKI_DIR.mkdir(parents=True, exist_ok=True)
+    WIKI_NOTES_DIR.mkdir(parents=True, exist_ok=True)
 
-    notes = sorted(
-        [parse_note(path) for path in ROAM_DIR.rglob("*.org")],
-        key=lambda note: note.rel_path.lower(),
-    )
+    note_paths = sorted(ROAM_DIR.rglob("*.org"))
+    notes, deleted, reparsed = load_notes(note_paths)
     notes_by_id = {note.id: note for note in notes if note.id}
     backlinks = build_backlinks(notes)
 
-    refresh_wiki_notes_dir()
-    write(INDEX_DIR / "README.md", render_index_readme(notes))
-    write(INDEX_DIR / "org-roam-index.md", render_org_roam_index(notes, backlinks))
-    write(INDEX_DIR / "tags.md", render_tags(notes))
-    write(INDEX_DIR / "graph.md", render_graph(notes, backlinks))
-    write(WIKI_DIR / "README.md", render_wiki_readme(notes))
+    for rel_path in deleted:
+        stale_wiki = WIKI_NOTES_DIR / Path(rel_path).relative_to("roam").with_suffix(".md")
+        if stale_wiki.exists():
+            stale_wiki.unlink()
+
+    write_if_changed(INDEX_DIR / "README.md", render_index_readme(notes))
+    write_if_changed(INDEX_DIR / "org-roam-index.md", render_org_roam_index(notes, backlinks))
+    write_if_changed(INDEX_DIR / "tags.md", render_tags(notes))
+    write_if_changed(INDEX_DIR / "graph.md", render_graph(notes, backlinks))
+    write_if_changed(WIKI_DIR / "README.md", render_wiki_readme(notes))
 
     for note in notes:
-        write(note.wiki_path, render_wiki_note(note, notes_by_id, backlinks))
+        write_if_changed(note.wiki_path, render_wiki_note(note, notes_by_id, backlinks))
 
-    print(f"Indexed {len(notes)} org-roam notes into {INDEX_DIR.relative_to(ROOT)} and {WIKI_DIR.relative_to(ROOT)}.")
+    print(
+        "Indexed "
+        f"{len(notes)} org-roam notes into {INDEX_DIR.relative_to(ROOT)} and {WIKI_DIR.relative_to(ROOT)}. "
+        f"Reparsed {reparsed} notes; reused cache for {len(notes) - reparsed}; removed {len(deleted)} deleted notes."
+    )
 
 
 if __name__ == "__main__":

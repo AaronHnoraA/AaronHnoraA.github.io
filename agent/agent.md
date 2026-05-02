@@ -8,6 +8,7 @@
 - Keep AI artifacts deterministic and easy to diff.
 - Prefer small derived Markdown files over large opaque dumps.
 - Keep database access read-only unless the user explicitly asks for a repair.
+- Prefer incremental maintenance: remember the last processed `git` head, diff only `roam/` and `daily/` against that point, randomly recheck a small share of unchanged notes, and avoid rewriting derived files when rendered content is identical.
 - Do not commit unrelated user edits. `make llm` stages only `agent.md`, `agent/`, and `Makefile`.
 - Keep `project-overview.md` and `growth-log.md` under 500 non-space body characters each.
 
@@ -16,7 +17,7 @@
 - `index/`: generated indexes for fast lookup by title, path, tag, link, and backlink.
 - `wiki/`: generated condensed note pages for quick AI reading.
 - `skill/`: AI-usable scripts and maintenance procedures.
-- `db/`: database links or database-facing notes. `org-roam.sqlite3` points at the local org-roam DB.
+- `db/`: database links or database-facing notes. `org-roam.sqlite3` points at the local Emacs org-roam DB under `~/.emacs.d/var/org/org-roam.db`.
 - `project-overview.md`: compact project summary for first-pass context.
 - `growth-log.md`: compact natural-language evolution log, rewritten when needed to stay below 500 characters.
 

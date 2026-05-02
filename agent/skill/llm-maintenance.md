@@ -52,7 +52,7 @@ Then inspect only the relevant Org files under `roam/` and `daily/`. Use `agent/
 
 ## Available Tools
 
-- `python3 agent/skill/maintain.py` regenerates the current derived index/wiki set.
+- `python3 agent/skill/maintain.py` incrementally refreshes the derived index/wiki set, remembering the last processed `git` head, checking only `roam/` and `daily/` deltas plus current Org worktree changes, and reparsing a random sample of unchanged notes.
 - `python3 agent/skill/check_agent_text_limits.py` checks the 500-character context limits.
 - `python3 agent/skill/read_org_roam_db.py summary`
 - `python3 agent/skill/read_org_roam_db.py nodes`
