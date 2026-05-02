@@ -40,8 +40,8 @@ llm:
 	$(CODEX) exec --cd . --sandbox workspace-write --ask-for-approval never - < $(LLM_PROMPT)
 
 lookup:
-	@test -n "$(LOOKUP_QUERY)" || (printf 'Usage: make lookup QUERY="your question"\n'; exit 2)
-	@(cat $(LOOKUP_PROMPT); printf '\n\n## User Query\n\n%s\n' "$(LOOKUP_QUERY)") | $(CODEX) exec --cd . --sandbox read-only --ask-for-approval never -
+	@LOOKUP_QUERY="$(LOOKUP_QUERY)"; \
+	$(CODEX) --cd . --sandbox read-only --ask-for-approval never "$$(cat $(LOOKUP_PROMPT); if [ -n "$$LOOKUP_QUERY" ]; then printf '\n\n## Initial User Query\n\n%s\n' "$$LOOKUP_QUERY"; else printf '\n\n## Interactive Mode\n\nAsk the user for the first lookup query before searching. Keep the session read-only and verify precise claims against original Org files.\n'; fi)"
 
 
 clean:

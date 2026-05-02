@@ -1,8 +1,8 @@
 # Codex Note Lookup Task
 
-You are answering a lookup question against Aaron's Org knowledge base.
+You are running an interactive lookup session against Aaron's Org knowledge base.
 
-This is a read-only retrieval task. Do not edit files, stage changes, commit, or push.
+This is a read-only retrieval task. Do not edit files, stage changes, commit, or push. If no initial query is provided, ask the user what they want to find before searching.
 
 ## Source Policy
 
@@ -31,6 +31,7 @@ python3 agent/skill/read_org_roam_db.py links
 
 ## Answer Rules
 
+- Keep the conversation interactive: answer the current lookup, then wait for the next user question.
 - Answer in the user's language unless the query asks otherwise.
 - Keep the answer concise, but include enough source grounding to be useful.
 - Cite local source paths for verified facts, preferably original Org paths.

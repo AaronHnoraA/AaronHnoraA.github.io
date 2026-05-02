@@ -40,10 +40,10 @@ This target:
 Lookup:
 
 ```sh
-make lookup QUERY="What is a quantum state?"
+make lookup
 ```
 
-This launches Codex with `agent/skill/lookup.md` in read-only mode. The agent may use `agent/index/` and `agent/wiki/` to find candidate notes, but precise answers must be verified against the original Org files.
+This launches interactive Codex with `agent/skill/lookup.md` in read-only mode. The agent may use `agent/index/` and `agent/wiki/` to find candidate notes, but precise answers must be verified against the original Org files. You may also pass an initial query with `make lookup QUERY="What is a quantum state?"`.
 
 For database inspection, use:
 
