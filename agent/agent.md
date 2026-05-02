@@ -15,7 +15,7 @@
 ## Directory Contract
 
 - `index/`: generated indexes for fast lookup by title, path, tag, link, and backlink.
-- `wiki/`: generated condensed note pages for quick AI reading.
+- `wiki/`: generated condensed note pages for quick AI reading, covering both `roam/` and `daily/`.
 - `skill/`: AI-usable scripts and maintenance procedures.
 - `db/`: database links or database-facing notes. `org-roam.sqlite3` points at the local Emacs org-roam DB under `~/.emacs.d/var/org/org-roam.db`.
 - `project-overview.md`: compact project summary for first-pass context.

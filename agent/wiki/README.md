@@ -1,6 +1,6 @@
 # Agent Wiki
 
-Condensed Markdown views generated from Org notes. These files are for fast AI lookup; edit the source Org files instead.
+Condensed Markdown views generated from `roam/` and `daily/` Org notes. These files are for fast AI lookup; edit the source Org files instead.
 
 ## Notes
 

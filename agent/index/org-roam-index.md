@@ -1,4 +1,4 @@
-# Org Roam Index
+# Org Note Index
 
 | Title | Path | Tags | Summary |
 | --- | --- | --- | --- |

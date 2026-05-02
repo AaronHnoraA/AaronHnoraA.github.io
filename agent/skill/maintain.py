@@ -14,6 +14,7 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[2]
 AGENT_DIR = ROOT / "agent"
 ROAM_DIR = ROOT / "roam"
+DAILY_DIR = ROOT / "daily"
 INDEX_DIR = AGENT_DIR / "index"
 WIKI_DIR = AGENT_DIR / "wiki"
 WIKI_NOTES_DIR = WIKI_DIR / "notes"
@@ -60,10 +61,11 @@ class Note:
 
     @classmethod
     def from_state(cls, data: dict[str, object]) -> "Note":
+        path = Path(str(data["path"]))
         return cls(
-            path=Path(str(data["path"])),
+            path=path,
             rel_path=str(data["rel_path"]),
-            wiki_path=Path(str(data["wiki_path"])),
+            wiki_path=wiki_path_for(path),
             id=str(data.get("id", "")),
             title=str(data.get("title", "")),
             date=str(data.get("date", "")),
@@ -98,8 +100,20 @@ def unique(values: list[str]) -> list[str]:
 
 
 def wiki_path_for(org_path: Path) -> Path:
-    rel = org_path.relative_to(ROAM_DIR).with_suffix(".md")
-    return WIKI_NOTES_DIR / rel
+    source_root = note_source_root(org_path)
+    rel = org_path.relative_to(source_root).with_suffix(".md")
+    if source_root == ROAM_DIR:
+        return WIKI_NOTES_DIR / rel
+    source_prefix = source_root.relative_to(ROOT)
+    return WIKI_NOTES_DIR / source_prefix / rel
+
+
+def note_source_root(org_path: Path) -> Path:
+    if org_path.is_relative_to(ROAM_DIR):
+        return ROAM_DIR
+    if org_path.is_relative_to(DAILY_DIR):
+        return DAILY_DIR
+    raise ValueError(f"Unsupported note path: {org_path}")
 
 
 def parse_note(path: Path) -> Note:
@@ -413,13 +427,14 @@ def render_index_readme(notes: list[Note]) -> str:
             "- Main index: `org-roam-index.md`",
             "- Tag index: `tags.md`",
             "- Link graph: `graph.md`",
+            "- Sources covered: `roam/` and `daily/`",
         ]
     )
 
 
 def render_org_roam_index(notes: list[Note], backlinks: dict[str, list[Note]]) -> str:
     lines = [
-        "# Org Roam Index",
+        "# Org Note Index",
         "",
         "| Title | Path | Tags | Summary |",
         "| --- | --- | --- | --- |",
@@ -494,7 +509,7 @@ def render_wiki_readme(notes: list[Note]) -> str:
     lines = [
         "# Agent Wiki",
         "",
-        "Condensed Markdown views generated from Org notes. These files are for fast AI lookup; edit the source Org files instead.",
+        "Condensed Markdown views generated from `roam/` and `daily/` Org notes. These files are for fast AI lookup; edit the source Org files instead.",
         "",
         "## Notes",
         "",
@@ -552,13 +567,17 @@ def main() -> None:
     WIKI_DIR.mkdir(parents=True, exist_ok=True)
     WIKI_NOTES_DIR.mkdir(parents=True, exist_ok=True)
 
-    note_paths = sorted(ROAM_DIR.rglob("*.org"))
+    note_paths = sorted([*ROAM_DIR.rglob("*.org"), *DAILY_DIR.rglob("*.org")])
     notes, deleted, reparsed = load_notes(note_paths)
     notes_by_id = {note.id: note for note in notes if note.id}
     backlinks = build_backlinks(notes)
 
     for rel_path in deleted:
-        stale_wiki = WIKI_NOTES_DIR / Path(rel_path).relative_to("roam").with_suffix(".md")
+        rel_note_path = Path(rel_path)
+        if rel_note_path.is_relative_to(Path("roam")):
+            stale_wiki = WIKI_NOTES_DIR / rel_note_path.relative_to("roam").with_suffix(".md")
+        else:
+            stale_wiki = WIKI_NOTES_DIR / rel_note_path.with_suffix(".md")
         if stale_wiki.exists():
             stale_wiki.unlink()
 
@@ -571,9 +590,14 @@ def main() -> None:
     for note in notes:
         write_if_changed(note.wiki_path, render_wiki_note(note, notes_by_id, backlinks))
 
+    expected_wiki_paths = {note.wiki_path.resolve() for note in notes}
+    for path in WIKI_NOTES_DIR.rglob("*.md"):
+        if path.resolve() not in expected_wiki_paths:
+            path.unlink()
+
     print(
         "Indexed "
-        f"{len(notes)} org-roam notes into {INDEX_DIR.relative_to(ROOT)} and {WIKI_DIR.relative_to(ROOT)}. "
+        f"{len(notes)} Org notes into {INDEX_DIR.relative_to(ROOT)} and {WIKI_DIR.relative_to(ROOT)}. "
         f"Reparsed {reparsed} notes; reused cache for {len(notes) - reparsed}; removed {len(deleted)} deleted notes."
     )
 
