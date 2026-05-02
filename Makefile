@@ -37,7 +37,7 @@ cv:
 	cd $(CV_DIR) && $(LATEXMK_XELATEX) -jobname=$(CV_JOBNAME) $$(basename $(CV_TEX))
 
 llm:
-	$(CODEX) exec --cd . --sandbox workspace-write --ask-for-approval never - < $(LLM_PROMPT)
+	$(CODEX) exec --cd . --sandbox workspace-write --full-auto - < $(LLM_PROMPT)
 
 lookup:
 	@LOOKUP_QUERY="$(LOOKUP_QUERY)"; \
