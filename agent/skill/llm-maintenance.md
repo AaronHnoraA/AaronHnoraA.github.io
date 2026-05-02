@@ -13,6 +13,7 @@ Org files are the source of truth. `agent/` is an AI-facing layer built around t
 Read these files first, in this order:
 
 - `agent.md`
+- `agent/develop.md`
 - `agent/project-overview.md`
 - `agent/growth-log.md`
 - `agent/agent.md`
@@ -26,12 +27,14 @@ Then inspect only the relevant Org files under `roam/` and `daily/`. Use `agent/
 
 1. Run `git status --short` and identify user changes.
 2. Read the compact context and current AI index/wiki state.
-3. Decide whether this run needs regeneration, script improvement, documentation adjustment, log compaction, or no content change.
-4. Make the smallest useful update that improves future AI retrieval or maintenance.
-5. Run the relevant checks.
-6. Stage only AI-maintenance files.
-7. Commit if staged changes exist.
-8. Push.
+3. Check `agent/develop.md` before touching tooling. Tooling changes are allowed only for an explicit human request, a severe defect, or an issue in `agent/develop.md` with at least 5 valid autonomous votes.
+4. Decide whether this run needs regeneration, script improvement, documentation adjustment, issue creation or vote recording in `agent/develop.md`, log compaction, or no content change.
+5. Make the smallest useful update that improves future AI retrieval or maintenance.
+6. If a development item is completed, remove its issue row and vote rows from `agent/develop.md`.
+7. Run the relevant checks.
+8. Stage only AI-maintenance files.
+9. Commit if staged changes exist.
+10. Push.
 
 ## Maintenance Targets
 
@@ -69,6 +72,7 @@ You may edit or add tools when the current structure is not enough. If you chang
 - Do not manually write org-roam DB rows.
 - Do not commit unrelated files outside the AI-maintenance layer.
 - Prefer deterministic generated output and concise Markdown.
+- Do not change tooling merely because it seems improvable. When the gate is closed, create or update the request in `agent/develop.md`, optionally cast a valid vote, and stop there.
 
 ## Required Checks
 
@@ -117,5 +121,6 @@ Briefly report:
 
 - What changed.
 - Checks run.
+- Which development gate condition, if any, allowed tooling changes.
 - Whether a commit was created.
 - Whether push succeeded.

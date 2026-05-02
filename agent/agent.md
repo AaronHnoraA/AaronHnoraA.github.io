@@ -9,6 +9,7 @@
 - Prefer small derived Markdown files over large opaque dumps.
 - Keep database access read-only unless the user explicitly asks for a repair.
 - Prefer incremental maintenance: remember the last processed `git` head, diff only `roam/` and `daily/` against that point, randomly recheck a small share of unchanged notes, and avoid rewriting derived files when rendered content is identical.
+- Gate autonomous tooling edits through `agent/develop.md`: without a human request, only severe defects or issues with at least 5 valid votes may change scripts or workflow prompts.
 - Do not commit unrelated user edits. `make llm` stages only `agent.md`, `agent/`, and `Makefile`.
 - Keep `project-overview.md` and `growth-log.md` under 500 non-space body characters each.
 
@@ -18,6 +19,7 @@
 - `wiki/`: generated condensed note pages for quick AI reading, covering both `roam/` and `daily/`.
 - `skill/`: AI-usable scripts and maintenance procedures.
 - `db/`: database links or database-facing notes. `org-roam.sqlite3` points at the local Emacs org-roam DB under `~/.emacs.d/var/org/org-roam.db`.
+- `develop.md`: temporary development gate and vote ledger for autonomous tooling changes. Remove resolved items instead of keeping a long history.
 - `project-overview.md`: compact project summary for first-pass context.
 - `growth-log.md`: compact natural-language evolution log, rewritten when needed to stay below 500 characters.
 
@@ -61,6 +63,7 @@ python3 agent/skill/check_agent_text_limits.py
 - When changing the `make llm` behavior, update `agent/skill/llm-maintenance.md`.
 - When changing the `make lookup` behavior, update `agent/skill/lookup.md`.
 - When adding a new reusable procedure, place it in `agent/skill/` with a short README entry.
+- When an autonomous tooling request is not yet allowed, record it in `agent/develop.md` instead of changing scripts.
 - When a generated file becomes too large, split it by domain or path while preserving the top-level index pointer.
 - When updating the overview or growth log, rewrite them as compact living context instead of appending indefinitely.
 - If the org-roam DB is stale, regenerate it from the editor/org-roam workflow first; do not invent DB rows manually.
