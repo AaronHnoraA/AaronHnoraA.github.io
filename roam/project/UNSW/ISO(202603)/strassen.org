@@ -1,0 +1,1356 @@
+
+:PROPERTIES:
+:ID:       0953618D-8E10-4011-92E5-8A5246591A14
+:END:
+#+title: Strassen
+#+date: [2026-05-08 Fri]
+#+filetags: :math:tensor_complexity:Strassen:bilinear_maps:summary:project:
+#+begin_overview :toc t :depth 3
+- [[*总览][总览]]
+- [[*核心概念][核心概念]]
+  - [[*Matrix multiplication exponent][Matrix multiplication exponent]]
+  - [[*Bilinear map][Bilinear map]]
+  - [[*Tensor representation of a bilinear map][Tensor representation of a bilinear map]]
+  - [[*Matrix multiplication tensor][Matrix multiplication tensor]]
+- [[*证明路线][证明路线]]
+  - [[*Step 1: Matrix multiplication to bilinear rank][Step 1: Matrix multiplication to bilinear rank]]
+  - [[*Step 2: Bookkeeping][Step 2: Bookkeeping]]
+  - [[*Step 3: Restriction preorder][Step 3: Restriction preorder]]
+  - [[*Step 4: Exact comparison to approximate comparison][Step 4: Exact comparison to approximate comparison]]
+  - [[*Step 5: Geometry to polynomial degeneration][Step 5: Geometry to polynomial degeneration]]
+  - [[*Step 6: Interpolation and extra diagonal tensor][Step 6: Interpolation and extra diagonal tensor]]
+  - [[*Step 7: Support, partition, and mass extraction][Step 7: Support, partition, and mass extraction]]
+- [[*Bilinear Maps and Tensors][Bilinear Maps and Tensors]]
+  - [[*From bilinear maps to tensors][From bilinear maps to tensors]]
+  - [[*Rank-one bilinear maps][Rank-one bilinear maps]]
+  - [[*Tensor rank][Tensor rank]]
+  - [[*Standard diagonal tensor][Standard diagonal tensor]]
+- [[*Restriction][Restriction]]
+  - [[*Definition][Definition]]
+  - [[*Restriction as simulation][Restriction as simulation]]
+- [[*Rank and Restriction][Rank and Restriction]]
+  - [[*Monotonicity of rank][Monotonicity of rank]]
+  - [[*Rank via restriction to diagonal tensor][Rank via restriction to diagonal tensor]]
+- [[*Direct Sum and Tensor Product][Direct Sum and Tensor Product]]
+  - [[*Direct sum][Direct sum]]
+  - [[*Tensor product][Tensor product]]
+  - [[*Difference between \(\oplus\) and \(\otimes\)][Difference between \(\oplus\) and \(\otimes\)]]
+  - [[*Why direct sum matters][Why direct sum matters]]
+- [[*Semiring Viewpoint][Semiring Viewpoint]]
+  - [[*Ring][Ring]]
+  - [[*Semiring][Semiring]]
+  - [[*Tensor isomorphism classes as a semiring][Tensor isomorphism classes as a semiring]]
+  - [[*Why semiring language is useful][Why semiring language is useful]]
+- [[*Asymptotic and Border Rank][Asymptotic and Border Rank]]
+  - [[*Asymptotic rank][Asymptotic rank]]
+  - [[*Why asymptotic rank matters][Why asymptotic rank matters]]
+  - [[*Border rank][Border rank]]
+  - [[*Degeneration][Degeneration]]
+  - [[*From degeneration to exact restriction with overhead][From degeneration to exact restriction with overhead]]
+- [[*Laser Method Intuition][Laser Method Intuition]]
+  - [[*Problem][Problem]]
+  - [[*Goal][Goal]]
+  - [[*Laser idea][Laser idea]]
+  - [[*Support and weights][Support and weights]]
+  - [[*Mass extraction][Mass extraction]]
+- [[*Krull-Schmidt and Decomposition][Krull-Schmidt and Decomposition]]
+  - [[*Indecomposable tensors][Indecomposable tensors]]
+  - [[*Krull-Schmidt theorem][Krull-Schmidt theorem]]
+  - [[*Basis as finest one-dimensional decomposition][Basis as finest one-dimensional decomposition]]
+- [[*Linear Algebra Rewritten by Direct Sum and Tensor Product][Linear Algebra Rewritten by Direct Sum and Tensor Product]]
+  - [[*Traditional order][Traditional order]]
+  - [[*Tensor-complexity order][Tensor-complexity order]]
+  - [[*Vector spaces][Vector spaces]]
+  - [[*Linear maps as block matrices][Linear maps as block matrices]]
+  - [[*Dual space][Dual space]]
+  - [[*Linear maps as tensors][Linear maps as tensors]]
+  - [[*Bilinear maps as tensors][Bilinear maps as tensors]]
+- [[*Proof Templates][Proof Templates]]
+  - [[*Template: prove restriction monotonicity of rank][Template: prove restriction monotonicity of rank]]
+  - [[*Template: prove \(R(t)\leq r\iff t\leq \langle r\rangle\)][Template: prove \(R(t)\leq r\iff t\leq \langle r\rangle\)]]
+  - [[*Template: explain direct sum][Template: explain direct sum]]
+  - [[*Template: explain tensor product][Template: explain tensor product]]
+  - [[*Template: explain restriction][Template: explain restriction]]
+  - [[*Template: explain border rank][Template: explain border rank]]
+  - [[*Template: explain laser method][Template: explain laser method]]
+- [[*Common Mistakes][Common Mistakes]]
+  - [[*Mistake 1: Confusing restriction direction][Mistake 1: Confusing restriction direction]]
+  - [[*Mistake 2: Confusing direct sum and tensor product][Mistake 2: Confusing direct sum and tensor product]]
+  - [[*Mistake 3: Thinking border rank is exact rank][Mistake 3: Thinking border rank is exact rank]]
+  - [[*Mistake 4: Treating tensor coordinates as intrinsic][Mistake 4: Treating tensor coordinates as intrinsic]]
+  - [[*Mistake 5: Forgetting asymptotic behavior][Mistake 5: Forgetting asymptotic behavior]]
+- [[*Minimal Memory Version][Minimal Memory Version]]
+#+end_overview
+
+
+* 总览
+
+这份笔记围绕 Strassen 1987 中的 tensor complexity / asymptotic rank / laser method 思想展开。
+
+核心问题：
+
+#+begin_question
+How can we compare bilinear computational problems using tensors, restriction, degeneration, and asymptotic rank?
+#+end_question
+
+中文主线：
+
+- 把矩阵乘法看成 bilinear map。
+- 把 bilinear map 写成 tensor。
+- 用 tensor rank 表示“需要多少次乘法”。
+- 用 restriction 表示“一个问题能模拟另一个问题”。
+- 用 border rank / degeneration 表示“极限意义下近似模拟”。
+- 用 asymptotic rank 研究规模变大时的增长率。
+- 用 laser method 从 tensor powers 中抽取大量独立的 matrix multiplication tensors。
+- 最终得到矩阵乘法指数 \(\omega\) 的上界。
+
+#+begin_summary
+Strassen 的思想不是只研究一个固定 tensor 的 rank，而是研究 tensor 在 direct sum、tensor product、restriction、degeneration、asymptotic limit 下形成的复杂度结构。
+#+end_summary
+
+* 核心概念
+
+** Matrix multiplication exponent
+
+#+begin_defn
+The matrix multiplication exponent \(\omega\) is the infimum of all real numbers \(\tau\) such that \(n\times n\) matrix multiplication can be computed using
+\[
+O(n^{\tau+\epsilon})
+\]
+arithmetic operations for every \(\epsilon>0\).
+#+end_defn
+
+更直观地说：
+
+\[
+\omega
+=
+\inf\{\tau : \text{matrix multiplication has complexity } O(n^{\tau+o(1)})\}.
+\]
+
+#+begin_note
+中文：\(\omega\) 描述的是矩阵乘法复杂度的渐近增长率，不是某个固定 \(n\) 的精确乘法次数。
+#+end_note
+
+** Bilinear map
+
+#+begin_defn
+A bilinear map over a field \(K\) is a map
+\[
+f:U\times V\to W
+\]
+such that \(f\) is linear in each variable separately.
+#+end_defn
+
+Examples:
+
+- scalar multiplication,
+- polynomial multiplication,
+- matrix multiplication,
+- tensor contraction.
+
+** Tensor representation of a bilinear map
+
+Given finite-dimensional vector spaces \(U,V,W\), a bilinear map
+
+\[
+f:U\times V\to W
+\]
+
+corresponds canonically to a tensor
+
+\[
+t_f\in U^*\otimes V^*\otimes W.
+\]
+
+#+begin_note
+中文直觉：bilinear map 有两个输入槽和一个输出槽；tensor \(U^*\otimes V^*\otimes W\) 正好表达“两个输入探针 + 一个输出方向”。
+#+end_note
+
+If bases are chosen, we can write
+
+\[
+f(u,v)
+=
+\sum_{i,j,k} t_{ijk} x_i^*(u)y_j^*(v)w_k.
+\]
+
+So the coefficients \(t_{ijk}\) form a 3-dimensional array.
+
+** Matrix multiplication tensor
+
+The multiplication of an \(m\times n\) matrix and an \(n\times p\) matrix is a bilinear map
+
+\[
+\operatorname{Mat}_{m,n}\times \operatorname{Mat}_{n,p}\to \operatorname{Mat}_{m,p}.
+\]
+
+Its associated tensor is usually denoted
+
+\[
+\langle m,n,p\rangle.
+\]
+
+In particular, square \(n\times n\) matrix multiplication is
+
+\[
+\langle n,n,n\rangle.
+\]
+
+* 证明路线
+
+根据你的 page 4 笔记，整篇证明可以按以下路线理解。
+
+** Step 1: Matrix multiplication to bilinear rank
+
+#+begin_summary
+文章开场先解释矩阵乘法指数 \(\omega\) 的意义，然后把矩阵乘法复杂度翻译成 bilinear rank / tensor rank 语言。
+#+end_summary
+
+三个核心工具：
+
+1. bilinear rank / tensor rank；
+2. degeneration / border rank；
+3. laser method。
+
+** Step 2: Bookkeeping
+
+把计算问题编码成 tensor。
+
+#+begin_note
+也就是把“输入、输出、乘法次数”从算法语言改写成张量分解语言。
+#+end_note
+
+矩阵乘法复杂度问题变成：
+
+#+begin_question
+Can we decompose the matrix multiplication tensor into few simple rank-one tensors?
+#+end_question
+
+** Step 3: Restriction preorder
+
+建立复杂度比较关系：
+
+\[
+f\leq g.
+\]
+
+含义：
+
+#+begin_quote
+\(f\) can be obtained from \(g\) by linear transformations on the input and output tensor legs.
+#+end_quote
+
+计算意义：
+
+#+begin_quote
+If \(f\leq g\), then \(g\) can simulate \(f\).
+#+end_quote
+
+因此 rank 具有单调性：
+
+\[
+f\leq g
+\implies
+R(f)\leq R(g).
+\]
+
+** Step 4: Exact comparison to approximate comparison
+
+从 exact restriction 推广到 approximate restriction / degeneration。
+
+#+begin_note
+中文：不仅允许“精确做出来”，也允许“作为极限做出来”。
+#+end_note
+
+这引出 border rank。
+
+** Step 5: Geometry to polynomial degeneration
+
+几何极限可以改写成带参数的 polynomial family。
+
+大致思想：
+
+\[
+t_\epsilon \to t
+\quad
+\text{as}
+\quad
+\epsilon\to 0.
+\]
+
+如果 \(t_\epsilon\) 对每个非零 \(\epsilon\) 都能由某个 tensor 限制得到，那么 \(t\) 是其 degeneration。
+
+** Step 6: Interpolation and extra diagonal tensor
+
+参数化 degeneration 可以通过 interpolation 转换成 exact restriction，但需要额外付出一个 diagonal tensor 因子。
+
+中文理解：
+
+#+begin_quote
+极限对象不能直接精确得到，但可以把参数多项式在若干点取值，然后通过插值重建目标系数。
+#+end_quote
+
+** Step 7: Support, partition, and mass extraction
+
+选择一个特殊 tensor，做 support partition，制造一个子结构，然后用前面的 exact/approximate 比较工具，从 tensor powers 中抽取很多 independent matrix multiplication tensors。
+
+最终路线：
+
+\[
+\text{exact order}
+\to
+\text{approximate order}
+\to
+\text{formalization over } K(\epsilon)
+\to
+\text{weight certificate on support}
+\to
+\text{mass extraction}
+\to
+\omega\text{-theorem}.
+\]
+
+* Bilinear Maps and Tensors
+
+** From bilinear maps to tensors
+
+Let
+
+\[
+f:U\times V\to W.
+\]
+
+Choosing bases of \(U,V,W\), we can write
+
+\[
+f(u,v)
+=
+\sum_{i,j,k} t_{ijk}x_i^*(u)y_j^*(v)w_k.
+\]
+
+Therefore
+
+\[
+t_f
+=
+\sum_{i,j,k}t_{ijk}x_i^*\otimes y_j^*\otimes w_k
+\in U^*\otimes V^*\otimes W.
+\]
+
+#+begin_important
+A bilinear map and its associated tensor are essentially the same object once the spaces are fixed.
+#+end_important
+
+** Rank-one bilinear maps
+
+A rank-one bilinear map has the form
+
+\[
+(u,v)\mapsto \alpha(u)\beta(v)w
+\]
+
+where
+
+\[
+\alpha\in U^*,\qquad \beta\in V^*,\qquad w\in W.
+\]
+
+Its tensor is
+
+\[
+\alpha\otimes \beta\otimes w.
+\]
+
+** Tensor rank
+
+#+begin_defn
+The tensor rank \(R(t)\) of
+\[
+t\in U^*\otimes V^*\otimes W
+\]
+is the smallest \(r\) such that
+\[
+t=\sum_{\rho=1}^r \alpha_\rho\otimes \beta_\rho\otimes w_\rho.
+\]
+#+end_defn
+
+For a bilinear map \(f\), we write
+
+\[
+R(f)=R(t_f).
+\]
+
+#+begin_note
+Computational meaning:
+\(R(f)\) is the minimum number of scalar multiplications needed to compute the bilinear map \(f\), ignoring additions and scalar multiplications.
+#+end_note
+
+** Standard diagonal tensor
+
+Define the standard rank-\(r\) tensor
+
+\[
+\langle r\rangle
+=
+\sum_{\rho=1}^r e_\rho^*\otimes e_\rho^*\otimes e_\rho.
+\]
+
+This represents \(r\) independent scalar multiplications.
+
+#+begin_note
+中文：\(\langle r\rangle\) 是最标准的“\(r\) 次乘法模板”。
+#+end_note
+
+* Restriction
+
+** Definition
+
+#+begin_defn
+Let
+\[
+f\in U^*\otimes V^*\otimes W
+\]
+and
+\[
+g\in {U'}^*\otimes {V'}^*\otimes W'.
+\]
+
+We say
+\[
+f\leq g
+\]
+if there exist linear maps
+\[
+A:U\to U',\qquad B:V\to V',\qquad C:W'\to W
+\]
+such that
+\[
+f=(A^*\otimes B^*\otimes C)(g).
+\]
+#+end_defn
+
+Equivalent computational interpretation:
+
+#+begin_quote
+Use \(g\) as an oracle. Before feeding inputs into \(g\), apply linear preprocessing. After getting \(g\)'s output, apply linear postprocessing. If this produces \(f\), then \(f\leq g\).
+#+end_quote
+
+中文直觉：
+
+#+begin_quote
+从一个更大的 bilinear problem 里面，通过线性投影和线性处理，裁剪出一个更小的 bilinear problem。
+#+end_quote
+
+** Restriction as simulation
+
+If
+
+\[
+f\leq g,
+\]
+
+then an algorithm for \(g\) gives an algorithm for \(f\).
+
+Thus \(g\) is at least as powerful as \(f\).
+
+#+begin_attention
+The direction is easy to confuse:
+\[
+f\leq g
+\]
+means \(f\) is reducible to \(g\), or \(g\) can simulate \(f\).
+#+end_attention
+
+* Rank and Restriction
+
+** Monotonicity of rank
+
+#+begin_prop
+If
+\[
+f\leq g,
+\]
+then
+\[
+R(f)\leq R(g).
+\]
+#+end_prop
+
+#+begin_proof
+Assume
+
+\[
+R(g)=r.
+\]
+
+Then \(g\) has a rank decomposition
+
+\[
+g=\sum_{\rho=1}^r x_\rho\otimes y_\rho\otimes z_\rho.
+\]
+
+Since \(f\leq g\), there exist linear maps \(A,B,C\) such that
+
+\[
+f=(A\otimes B\otimes C)(g).
+\]
+
+Applying the linear maps to the decomposition gives
+
+\[
+f
+=
+\sum_{\rho=1}^r
+A(x_\rho)\otimes B(y_\rho)\otimes C(z_\rho).
+\]
+
+Each summand is still rank-one or zero. Therefore \(f\) is a sum of at most \(r\) rank-one tensors.
+
+Hence
+
+\[
+R(f)\leq r=R(g).
+\]
+
+Therefore
+
+\[
+R(f)\leq R(g).
+\]
+#+end_proof
+
+#+begin_note
+中文：restriction 不会增加 rank，因为线性映射会把 rank-one tensor 送到 rank-one tensor 或 \(0\)。
+#+end_note
+
+** Rank via restriction to diagonal tensor
+
+#+begin_prop
+For a tensor \(t\),
+\[
+R(t)\leq r
+\]
+if and only if
+\[
+t\leq \langle r\rangle.
+\]
+#+end_prop
+
+#+begin_proof
+First suppose
+
+\[
+R(t)\leq r.
+\]
+
+Then
+
+\[
+t=\sum_{\rho=1}^r x_\rho\otimes y_\rho\otimes z_\rho.
+\]
+
+Define linear maps from the three legs of \(\langle r\rangle\) by sending the \(\rho\)-th standard basis vector to \(x_\rho,y_\rho,z_\rho\), respectively. Applying these maps to
+
+\[
+\langle r\rangle
+=
+\sum_{\rho=1}^r e_\rho\otimes e_\rho\otimes e_\rho
+\]
+
+gives exactly \(t\). Hence
+
+\[
+t\leq \langle r\rangle.
+\]
+
+Conversely, if
+
+\[
+t\leq \langle r\rangle,
+\]
+
+then by monotonicity,
+
+\[
+R(t)\leq R(\langle r\rangle)=r.
+\]
+
+Therefore
+
+\[
+R(t)\leq r
+\iff
+t\leq \langle r\rangle.
+\]
+#+end_proof
+
+#+begin_important
+This is why restriction is the correct language for rank.
+Rank is just restriction to the diagonal multiplication tensor.
+#+end_important
+
+* Direct Sum and Tensor Product
+
+** Direct sum
+
+#+begin_defn
+Given bilinear maps
+\[
+f:U\times V\to W
+\]
+and
+\[
+g:U'\times V'\to W',
+\]
+their direct sum is
+\[
+f\oplus g:(U\oplus U')\times (V\oplus V')\to W\oplus W'
+\]
+defined by
+\[
+(f\oplus g)((u,u'),(v,v'))=(f(u,v),g(u',v')).
+\]
+#+end_defn
+
+中文直觉：
+
+#+begin_quote
+Direct sum means solving two independent bilinear problems side by side.
+#+end_quote
+
+Tensor notation:
+
+\[
+t_{f\oplus g}=t_f\oplus t_g.
+\]
+
+** Tensor product
+
+#+begin_defn
+Given bilinear maps \(f\) and \(g\), their tensor product \(f\otimes g\) is the bilinear problem obtained by multiplying/composing the two problems into a larger one.
+#+end_defn
+
+On tensors:
+
+\[
+t_{f\otimes g}=t_f\otimes t_g.
+\]
+
+中文直觉：
+
+#+begin_quote
+Tensor product means combining two computational problems multiplicatively.
+#+end_quote
+
+** Difference between \(\oplus\) and \(\otimes\)
+
+#+begin_summary
+\(\oplus\): put problems side by side.
+
+\(\otimes\): multiply problems into a larger joint problem.
+#+end_summary
+
+Examples:
+
+\[
+\langle a\rangle\oplus \langle b\rangle
+=
+\langle a+b\rangle.
+\]
+
+\[
+\langle a\rangle\otimes \langle b\rangle
+=
+\langle ab\rangle.
+\]
+
+** Why direct sum matters
+
+Matrix multiplication complexity studies asymptotic behavior.
+
+Tensor powers often decompose into many independent pieces:
+
+\[
+t^{\otimes N}
+\]
+
+may contain direct sums of matrix multiplication tensors.
+
+Laser method aims to extract many independent matrix multiplication tensors from such powers.
+
+* Semiring Viewpoint
+
+** Ring
+
+#+begin_defn
+A ring is a set \(R\) with two operations, usually called addition and multiplication, such that:
+- addition forms an abelian group;
+- multiplication is associative;
+- multiplication distributes over addition.
+#+end_defn
+
+Distributivity means:
+
+\[
+a(b+c)=ab+ac,
+\]
+
+\[
+(a+b)c=ac+bc.
+\]
+
+** Semiring
+
+#+begin_defn
+A semiring is like a ring, but additive inverses are not required.
+#+end_defn
+
+中文：
+
+#+begin_quote
+Semiring 可以做加法和乘法，但不一定能做减法。
+#+end_quote
+
+** Tensor isomorphism classes as a semiring
+
+In this setting, consider tensor isomorphism classes.
+
+Addition is direct sum:
+
+\[
+[t]+[s]=[t\oplus s].
+\]
+
+Multiplication is tensor product:
+
+\[
+[t][s]=[t\otimes s].
+\]
+
+#+begin_note
+This behaves like a commutative semiring.
+#+end_note
+
+** Why semiring language is useful
+
+It lets us discuss:
+
+- powers \(t^{\otimes n}\),
+- sums \(t\oplus s\),
+- preorder \(t\leq s\),
+- asymptotic rank,
+- degeneration,
+- extraction of many copies.
+
+#+begin_summary
+The semiring viewpoint turns tensor complexity into an algebraic order problem.
+#+end_summary
+
+* Asymptotic and Border Rank
+
+** Asymptotic rank
+
+#+begin_defn
+The asymptotic rank of a tensor \(t\) is
+\[
+\widetilde R(t)
+=
+\lim_{n\to\infty} R(t^{\otimes n})^{1/n},
+\]
+when the limit exists.
+#+end_defn
+
+Usually, the limit exists by submultiplicativity and Fekete's lemma.
+
+#+begin_note
+中文：asymptotic rank 衡量 tensor powers 长大后 rank 的指数级增长率。
+#+end_note
+
+** Why asymptotic rank matters
+
+For matrix multiplication tensor,
+
+\[
+\langle n,n,n\rangle,
+\]
+
+rank controls exact algorithms, but asymptotic rank controls \(\omega\).
+
+Roughly:
+
+\[
+R(\langle n,n,n\rangle)
+\approx n^\omega.
+\]
+
+** Border rank
+
+#+begin_defn
+The border rank \(\underline R(t)\) is the smallest \(r\) such that \(t\) is a limit of tensors of rank at most \(r\).
+#+end_defn
+
+Formally, \(t\) has border rank at most \(r\) if there exists a family \(t_\epsilon\) such that:
+
+\[
+R(t_\epsilon)\leq r
+\]
+
+for all \(\epsilon\neq 0\), and
+
+\[
+\lim_{\epsilon\to 0}t_\epsilon=t.
+\]
+
+#+begin_note
+中文：border rank 允许“极限近似算出来”，不要求每一步都精确等于目标 tensor。
+#+end_note
+
+** Degeneration
+
+#+begin_defn
+A tensor \(t\) is a degeneration of \(s\), written informally as
+\[
+t\unlhd s,
+\]
+if \(t\) can be obtained from \(s\) by a limiting family of restrictions.
+#+end_defn
+
+Restriction:
+
+\[
+t\leq s
+\]
+
+means exact simulation.
+
+Degeneration:
+
+\[
+t\unlhd s
+\]
+
+means approximate or limiting simulation.
+
+#+begin_attention
+\[
+t\leq s
+\]
+is exact.
+
+\[
+t\unlhd s
+\]
+is approximate / limiting.
+#+end_attention
+
+** From degeneration to exact restriction with overhead
+
+A key Strassen-style move:
+
+#+begin_quote
+Approximate restriction can often be converted into exact restriction after paying an additional diagonal tensor factor.
+#+end_quote
+
+Informally, polynomial interpolation turns parameterized approximations into exact computations.
+
+* Laser Method Intuition
+
+** Problem
+
+Tensor powers \(t^{\otimes N}\) are huge and complicated.
+
+They may contain many pieces, but not obviously in a clean direct sum form.
+
+** Goal
+
+Extract from \(t^{\otimes N}\) a large direct sum of matrix multiplication tensors:
+
+\[
+\bigoplus_i \langle a_i,b_i,c_i\rangle.
+\]
+
+Then compare ranks:
+
+\[
+\sum_i R(\langle a_i,b_i,c_i\rangle)
+\leq
+R(t^{\otimes N}).
+\]
+
+** Laser idea
+
+#+begin_summary
+The laser method selects a structured part of the support of \(t^{\otimes N}\), zeros out unwanted components, and keeps many independent matrix multiplication tensors.
+#+end_summary
+
+中文：
+
+#+begin_quote
+像用激光一样，从一个很大的 tensor power 里面切出大量互不干扰的矩阵乘法子问题。
+#+end_quote
+
+** Support and weights
+
+A tensor has support
+
+\[
+\operatorname{supp}(t)
+=
+\{(i,j,k):t_{ijk}\neq 0\}.
+\]
+
+Laser method often assigns weights to support elements and chooses subsets satisfying certain compatibility constraints.
+
+This creates direct-sum-like behavior.
+
+** Mass extraction
+
+The objective is to extract many copies with large total “mass”.
+
+This gives inequalities that imply upper bounds on \(\omega\).
+
+#+begin_note
+Page 4 的 proof route 写成：
+exact order
+\(\to\)
+approximate order
+\(\to\)
+formalization over \(K(\epsilon)\)
+\(\to\)
+weight certificate on support
+\(\to\)
+mass extraction
+\(\to\)
+\(\omega\)-theorem.
+#+end_note
+
+* Krull-Schmidt and Decomposition
+
+** Indecomposable tensors
+
+#+begin_defn
+A tensor \(t\) is indecomposable if it cannot be written as a nontrivial direct sum
+\[
+t=s\oplus u.
+\]
+#+end_defn
+
+中文：
+
+#+begin_quote
+不能再分成两个独立计算问题的 tensor，称为 indecomposable。
+#+end_quote
+
+** Krull-Schmidt theorem
+
+#+begin_thm
+Under suitable conditions, if an object decomposes as a finite direct sum of indecomposable objects in two ways,
+\[
+A_1\oplus\cdots\oplus A_n
+\cong
+B_1\oplus\cdots\oplus B_m,
+\]
+then
+\[
+n=m,
+\]
+and after a permutation, corresponding summands are isomorphic.
+#+end_thm
+
+中文：
+
+#+begin_quote
+如果一个对象可以分解成若干不可分解对象，那么这种分解本质上唯一，只差排列和同构。
+#+end_quote
+
+** Basis as finest one-dimensional decomposition
+
+A basis gives a finest decomposition of a vector space into one-dimensional pieces:
+
+\[
+V=Ke_1\oplus\cdots\oplus Ke_n.
+\]
+
+Block decomposition is a coarser decomposition:
+
+\[
+V=V_1\oplus\cdots\oplus V_r.
+\]
+
+#+begin_note
+中文：basis 是最细的一维分解；block decomposition 是更粗粒度的分解。
+#+end_note
+
+* Linear Algebra Rewritten by Direct Sum and Tensor Product
+
+** Traditional order
+
+Common linear algebra is often taught as:
+
+\[
+\text{vectors}
+\to
+\text{matrices}
+\to
+\text{linear maps}
+\to
+\text{eigenvectors}
+\to
+\text{bilinear maps}.
+\]
+
+** Tensor-complexity order
+
+Using direct sum and tensor product, one can reorganize it as:
+
+\[
+\text{spaces}
+\to
+\text{decompositions}
+\to
+\text{maps as tensors}
+\to
+\oplus
+\to
+\otimes.
+\]
+
+#+begin_summary
+The point is to treat decomposition and composition of spaces as primary, instead of treating matrices as the starting point.
+#+end_summary
+
+** Vector spaces
+
+A vector space can be understood through decompositions.
+
+For a basis \(e_1,\dots,e_n\),
+
+\[
+V=Ke_1\oplus\cdots\oplus Ke_n.
+\]
+
+Dimension satisfies:
+
+\[
+\dim(V\oplus W)=\dim V+\dim W.
+\]
+
+** Linear maps as block matrices
+
+Suppose
+
+\[
+V=V_1\oplus\cdots\oplus V_m,
+\]
+
+\[
+W=W_1\oplus\cdots\oplus W_n.
+\]
+
+A linear map
+
+\[
+T:V\to W
+\]
+
+can be viewed as a block matrix with components
+
+\[
+T_{ij}:V_j\to W_i.
+\]
+
+#+begin_note
+中文：matrix 的本质是 linear map 在 direct-sum decomposition 下的 block description。
+#+end_note
+
+** Dual space
+
+#+begin_defn
+The dual space of \(V\) is
+\[
+V^*=\operatorname{Hom}(V,K).
+\]
+Its elements are linear functionals
+\[
+\phi:V\to K.
+\]
+#+end_defn
+
+中文直觉：
+
+#+begin_quote
+Dual vectors are linear measurements / linear probes.
+#+end_quote
+
+If
+
+\[
+V=Ke_1\oplus\cdots\oplus Ke_n,
+\]
+
+then the dual basis
+
+\[
+e_1^*,\dots,e_n^*
+\]
+
+is defined by
+
+\[
+e_i^*(e_j)=\delta_{ij}.
+\]
+
+** Linear maps as tensors
+
+There is a canonical isomorphism
+
+\[
+\operatorname{Hom}(V,W)\cong V^*\otimes W.
+\]
+
+Thus a linear map
+
+\[
+T:V\to W
+\]
+
+can be regarded as a tensor
+
+\[
+T\in V^*\otimes W.
+\]
+
+With bases,
+
+\[
+T=\sum_{i,j} a_{ij}e_i^*\otimes w_j.
+\]
+
+#+begin_note
+中文：\(e_i^*\) 是 input detector，\(w_j\) 是 output direction，系数 \(a_{ij}\) 就是矩阵条目。
+#+end_note
+
+** Bilinear maps as tensors
+
+Similarly,
+
+\[
+\operatorname{Bilin}(U,V;W)
+\cong
+U^*\otimes V^*\otimes W.
+\]
+
+So a bilinear map
+
+\[
+f:U\times V\to W
+\]
+
+is a tensor with two input probes and one output direction.
+
+* Proof Templates
+
+** Template: prove restriction monotonicity of rank
+
+#+begin_proof
+Assume \(f\leq g\). Then there exist linear maps on the three tensor legs such that
+
+\[
+f=(A\otimes B\otimes C)(g).
+\]
+
+Let
+
+\[
+g=\sum_{\rho=1}^{R(g)}x_\rho\otimes y_\rho\otimes z_\rho
+\]
+
+be a minimal rank decomposition of \(g\). Applying the linear maps gives
+
+\[
+f=
+\sum_{\rho=1}^{R(g)}
+A(x_\rho)\otimes B(y_\rho)\otimes C(z_\rho).
+\]
+
+Each summand is rank-one or zero. Hence \(f\) has a rank decomposition using at most \(R(g)\) rank-one tensors. Therefore
+
+\[
+R(f)\leq R(g).
+\]
+#+end_proof
+
+** Template: prove \(R(t)\leq r\iff t\leq \langle r\rangle\)
+
+#+begin_proof
+If \(R(t)\leq r\), then
+
+\[
+t=\sum_{\rho=1}^r x_\rho\otimes y_\rho\otimes z_\rho.
+\]
+
+The diagonal tensor is
+
+\[
+\langle r\rangle=\sum_{\rho=1}^r e_\rho\otimes e_\rho\otimes e_\rho.
+\]
+
+Define linear maps sending \(e_\rho\) to \(x_\rho\), \(y_\rho\), and \(z_\rho\) on the three legs. Then \(\langle r\rangle\) restricts to \(t\), so
+
+\[
+t\leq \langle r\rangle.
+\]
+
+Conversely, if \(t\leq \langle r\rangle\), then by monotonicity,
+
+\[
+R(t)\leq R(\langle r\rangle)=r.
+\]
+
+Therefore
+
+\[
+R(t)\leq r
+\iff
+t\leq \langle r\rangle.
+\]
+#+end_proof
+
+** Template: explain direct sum
+
+#+begin_answer
+The direct sum \(f\oplus g\) means solving two independent bilinear problems side by side. Its input spaces, output spaces, and tensor are all direct sums of the corresponding pieces. Computationally, no cross terms are used between the \(f\)-part and the \(g\)-part.
+#+end_answer
+
+** Template: explain tensor product
+
+#+begin_answer
+The tensor product \(f\otimes g\) means combining two bilinear problems multiplicatively into a larger bilinear problem. It is not merely placing problems side by side; it creates a product structure where the dimensions and rank behavior multiply.
+#+end_answer
+
+** Template: explain restriction
+
+#+begin_answer
+A restriction \(f\leq g\) means \(f\) can be obtained from \(g\) by linear preprocessing of inputs and linear postprocessing of outputs. Hence an algorithm for \(g\) gives an algorithm for \(f\). This makes restriction a computational preorder.
+#+end_answer
+
+** Template: explain border rank
+
+#+begin_answer
+Border rank allows approximate computation in a limiting sense. A tensor \(t\) has border rank at most \(r\) if it is the limit of tensors of rank at most \(r\). Thus border rank can be smaller than ordinary rank because it permits degeneration.
+#+end_answer
+
+** Template: explain laser method
+
+#+begin_answer
+The laser method studies large tensor powers \(t^{\otimes N}\). These powers contain many structured components. By selecting a suitable support subset and zeroing out incompatible parts, one extracts a large direct sum of independent matrix multiplication tensors. This extraction yields inequalities that imply upper bounds on the matrix multiplication exponent \(\omega\).
+#+end_answer
+
+* Common Mistakes
+
+** Mistake 1: Confusing restriction direction
+
+Wrong:
+
+\[
+f\leq g
+\quad
+\text{means}
+\quad
+f \text{ can compute } g.
+\]
+
+Correct:
+
+\[
+f\leq g
+\quad
+\text{means}
+\quad
+g \text{ can simulate } f.
+\]
+
+** Mistake 2: Confusing direct sum and tensor product
+
+Direct sum:
+
+\[
+f\oplus g
+\]
+
+means independent side-by-side computation.
+
+Tensor product:
+
+\[
+f\otimes g
+\]
+
+means multiplicative combination into a larger problem.
+
+** Mistake 3: Thinking border rank is exact rank
+
+Rank asks:
+
+\[
+t=\sum_{\rho=1}^r \text{rank-one tensors}.
+\]
+
+Border rank asks:
+
+\[
+t=\lim_{\epsilon\to 0}t_\epsilon
+\]
+
+where each \(t_\epsilon\) has rank at most \(r\).
+
+** Mistake 4: Treating tensor coordinates as intrinsic
+
+Coordinates depend on basis choice.
+
+The intrinsic object is the tensor orbit under changes of bases:
+
+\[
+\operatorname{GL}(U)\times \operatorname{GL}(V)\times \operatorname{GL}(W).
+\]
+
+** Mistake 5: Forgetting asymptotic behavior
+
+Strassen-style tensor complexity is not only about one tensor.
+
+It studies tensor powers:
+
+\[
+t^{\otimes n}
+\]
+
+and limiting quantities such as
+
+\[
+\widetilde R(t)
+=
+\lim_{n\to\infty}R(t^{\otimes n})^{1/n}.
+\]
+
+* Minimal Memory Version
+
+#+begin_summary
+Strassen 1987 can be understood as follows:
+
+1. Matrix multiplication is a bilinear map, hence a tensor.
+2. Tensor rank measures bilinear multiplication complexity.
+3. Restriction \(f\leq g\) means \(g\) can simulate \(f\).
+4. Rank is monotone under restriction:
+   \[
+   f\leq g\implies R(f)\leq R(g).
+   \]
+5. \(R(t)\leq r\) iff \(t\leq \langle r\rangle\).
+6. Direct sum means independent side-by-side problems.
+7. Tensor product means multiplicative composition of problems.
+8. Tensor isomorphism classes with \(\oplus\) and \(\otimes\) form a semiring-like structure.
+9. Border rank allows limiting approximations.
+10. Asymptotic rank studies \(R(t^{\otimes n})^{1/n}\).
+11. Laser method extracts many independent matrix multiplication tensors from tensor powers.
+12. This machinery gives upper bounds on the matrix multiplication exponent \(\omega\).
+#+end_summary

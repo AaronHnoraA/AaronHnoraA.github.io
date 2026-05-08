@@ -1,0 +1,2251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- 2026-05-08 Fri 18:52 -->
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Strassen</title>
+<meta name="generator" content="Org Mode" />
+<meta name="color-scheme" content="light" />
+<link rel="stylesheet" href="../../../../css/retro.css?v=20260426-19" />
+<link rel="shortcut icon" href="https://raw.githubusercontent.com/AaronHnoraA/AaronHnoraA.github.io/refs/heads/master/css/cv.svg" type="image/x-icon">
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>window.SITE_ROOT_PATH="../../../../";window.CURRENT_NOTE_LINK="roam/project/UNSW/ISO(202603)/strassen.html";</script>
+<script defer src="../../../../js/data.js?v=20260426-19"></script>
+<script defer src="../../../../js/knowledge.js?v=20260426-19"></script>
+<script defer src="../../../../js/graph.js?v=20260426-19"></script>
+<script defer src="../../../../js/note-page.js?v=20260426-19"></script>
+<script>
+  window.MathJax = {
+    tex: {
+      ams: {
+        multlineWidth: '85%'
+      },
+      tags: 'ams',
+      tagSide: 'right',
+      tagIndent: '.8em'
+    },
+    chtml: {
+      scale: 1.0,
+      displayAlign: 'center',
+      displayIndent: '0em'
+    },
+    svg: {
+      scale: 1.0,
+      displayAlign: 'center',
+      displayIndent: '0em'
+    },
+    output: {
+      font: 'mathjax-modern',
+      displayOverflow: 'overflow'
+    }
+  };
+</script>
+
+<script
+  id="MathJax-script"
+  async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+</script>
+</head>
+<body class="note-page" data-note-title="Strassen" data-note-group="project" data-note-date="2026-05-08">
+<div id="content" class="content">
+<a id="ID-0953618D-8E10-4011-92E5-8A5246591A14" class="org-id-anchor" aria-hidden="true"></a>
+<header>
+<h1 class="title">Strassen</h1>
+</header><nav id="table-of-contents" role="doc-toc">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents" role="doc-toc">
+<ul>
+<li><a href="#orgc50c4b7">总览</a></li>
+<li><a href="#org1aabeb5">核心概念</a>
+<ul>
+<li><a href="#org3bb70f1">Matrix multiplication exponent</a></li>
+<li><a href="#org8127620">Bilinear map</a></li>
+<li><a href="#orgbd5f5c0">Tensor representation of a bilinear map</a></li>
+<li><a href="#org34e9537">Matrix multiplication tensor</a></li>
+</ul>
+</li>
+<li><a href="#orgb99b001">证明路线</a>
+<ul>
+<li><a href="#orge2e4fef">Step 1: Matrix multiplication to bilinear rank</a></li>
+<li><a href="#org2982da7">Step 2: Bookkeeping</a></li>
+<li><a href="#org3f9f315">Step 3: Restriction preorder</a></li>
+<li><a href="#org70c4270">Step 4: Exact comparison to approximate comparison</a></li>
+<li><a href="#org5b8b540">Step 5: Geometry to polynomial degeneration</a></li>
+<li><a href="#org1d42439">Step 6: Interpolation and extra diagonal tensor</a></li>
+<li><a href="#org5cb5215">Step 7: Support, partition, and mass extraction</a></li>
+</ul>
+</li>
+<li><a href="#orgfa5ed5e">Bilinear Maps and Tensors</a>
+<ul>
+<li><a href="#orgaa9a63c">From bilinear maps to tensors</a></li>
+<li><a href="#org76a666a">Rank-one bilinear maps</a></li>
+<li><a href="#org46009cf">Tensor rank</a></li>
+<li><a href="#org4603bcf">Standard diagonal tensor</a></li>
+</ul>
+</li>
+<li><a href="#orgaaa6873">Restriction</a>
+<ul>
+<li><a href="#orgac0dc66">Definition</a></li>
+<li><a href="#orgdae4f6a">Restriction as simulation</a></li>
+</ul>
+</li>
+<li><a href="#orgffb6b8c">Rank and Restriction</a>
+<ul>
+<li><a href="#org11a7f1a">Monotonicity of rank</a></li>
+<li><a href="#org044aaea">Rank via restriction to diagonal tensor</a></li>
+</ul>
+</li>
+<li><a href="#org599bf18">Direct Sum and Tensor Product</a>
+<ul>
+<li><a href="#org9145a03">Direct sum</a></li>
+<li><a href="#org29d33ed">Tensor product</a></li>
+<li><a href="#org01e10bd">Difference between \(\oplus\) and \(\otimes\)</a></li>
+<li><a href="#org4eb8c78">Why direct sum matters</a></li>
+</ul>
+</li>
+<li><a href="#orgcb8c978">Semiring Viewpoint</a>
+<ul>
+<li><a href="#orgf5647f5">Ring</a></li>
+<li><a href="#orgc6709a2">Semiring</a></li>
+<li><a href="#orgf7bc1f1">Tensor isomorphism classes as a semiring</a></li>
+<li><a href="#org6c3ce38">Why semiring language is useful</a></li>
+</ul>
+</li>
+<li><a href="#orgb3a316c">Asymptotic and Border Rank</a>
+<ul>
+<li><a href="#org233edaf">Asymptotic rank</a></li>
+<li><a href="#org9bc7f1e">Why asymptotic rank matters</a></li>
+<li><a href="#org919c3fb">Border rank</a></li>
+<li><a href="#orgf7b5e12">Degeneration</a></li>
+<li><a href="#orgdc57e75">From degeneration to exact restriction with overhead</a></li>
+</ul>
+</li>
+<li><a href="#orgd7a2f12">Laser Method Intuition</a>
+<ul>
+<li><a href="#org4e4473c">Problem</a></li>
+<li><a href="#org28995cc">Goal</a></li>
+<li><a href="#org3b7bd25">Laser idea</a></li>
+<li><a href="#org89ed1bf">Support and weights</a></li>
+<li><a href="#org0e97434">Mass extraction</a></li>
+</ul>
+</li>
+<li><a href="#org1047a8f">Krull-Schmidt and Decomposition</a>
+<ul>
+<li><a href="#orgde586c5">Indecomposable tensors</a></li>
+<li><a href="#org7c4f037">Krull-Schmidt theorem</a></li>
+<li><a href="#org5979c46">Basis as finest one-dimensional decomposition</a></li>
+</ul>
+</li>
+<li><a href="#org23e8a89">Linear Algebra Rewritten by Direct Sum and Tensor Product</a>
+<ul>
+<li><a href="#org953b1f8">Traditional order</a></li>
+<li><a href="#orgc01ba63">Tensor-complexity order</a></li>
+<li><a href="#orgafb9618">Vector spaces</a></li>
+<li><a href="#org872be8f">Linear maps as block matrices</a></li>
+<li><a href="#org7e790d3">Dual space</a></li>
+<li><a href="#org4153b75">Linear maps as tensors</a></li>
+<li><a href="#orga1a0786">Bilinear maps as tensors</a></li>
+</ul>
+</li>
+<li><a href="#orga1ca427">Proof Templates</a>
+<ul>
+<li><a href="#org62864fa">Template: prove restriction monotonicity of rank</a></li>
+<li><a href="#orgfebdc6f">Template: prove \(R(t)\leq r\iff t\leq \langle r\rangle\)</a></li>
+<li><a href="#org99cdc04">Template: explain direct sum</a></li>
+<li><a href="#org92e6dba">Template: explain tensor product</a></li>
+<li><a href="#org6a731d7">Template: explain restriction</a></li>
+<li><a href="#org683a115">Template: explain border rank</a></li>
+<li><a href="#org8f338ff">Template: explain laser method</a></li>
+</ul>
+</li>
+<li><a href="#org7285a0c">Common Mistakes</a>
+<ul>
+<li><a href="#org874a279">Mistake 1: Confusing restriction direction</a></li>
+<li><a href="#orgbe90026">Mistake 2: Confusing direct sum and tensor product</a></li>
+<li><a href="#org0d7315f">Mistake 3: Thinking border rank is exact rank</a></li>
+<li><a href="#org381f409">Mistake 4: Treating tensor coordinates as intrinsic</a></li>
+<li><a href="#org73c74a2">Mistake 5: Forgetting asymptotic behavior</a></li>
+</ul>
+</li>
+<li><a href="#orgefd9ab0">Minimal Memory Version</a></li>
+</ul>
+</div>
+</nav>
+<div id="outline-container-orgc50c4b7" class="outline-2">
+<h2 id="orgc50c4b7">总览</h2>
+<div class="outline-text-2" id="text-orgc50c4b7">
+<p>
+这份笔记围绕 Strassen 1987 中的 tensor complexity / asymptotic rank / laser method 思想展开。
+</p>
+
+<p>
+核心问题：
+</p>
+
+<div class="question" id="org96b8bd4">
+<p>
+How can we compare bilinear computational problems using tensors, restriction, degeneration, and asymptotic rank?
+</p>
+
+</div>
+
+<p>
+中文主线：
+</p>
+
+<ul class="org-ul">
+<li>把矩阵乘法看成 bilinear map。</li>
+<li>把 bilinear map 写成 tensor。</li>
+<li>用 tensor rank 表示“需要多少次乘法”。</li>
+<li>用 restriction 表示“一个问题能模拟另一个问题”。</li>
+<li>用 border rank / degeneration 表示“极限意义下近似模拟”。</li>
+<li>用 asymptotic rank 研究规模变大时的增长率。</li>
+<li>用 laser method 从 tensor powers 中抽取大量独立的 matrix multiplication tensors。</li>
+<li>最终得到矩阵乘法指数 \(\omega\) 的上界。</li>
+</ul>
+
+<summary id="org4c0f184">
+<p>
+Strassen 的思想不是只研究一个固定 tensor 的 rank，而是研究 tensor 在 direct sum、tensor product、restriction、degeneration、asymptotic limit 下形成的复杂度结构。
+</p>
+</summary>
+</div>
+</div>
+<div id="outline-container-org1aabeb5" class="outline-2">
+<h2 id="org1aabeb5">核心概念</h2>
+<div class="outline-text-2" id="text-org1aabeb5">
+</div>
+<div id="outline-container-org3bb70f1" class="outline-3">
+<h3 id="org3bb70f1">Matrix multiplication exponent</h3>
+<div class="outline-text-3" id="text-org3bb70f1">
+<div class="defn" id="org071c3e0">
+<p>
+The matrix multiplication exponent \(\omega\) is the infimum of all real numbers \(\tau\) such that \(n\times n\) matrix multiplication can be computed using
+\[
+O(n^{\tau+\epsilon})
+\]
+arithmetic operations for every \(\epsilon>0\).
+</p>
+
+</div>
+
+<p>
+更直观地说：
+</p>
+
+<p>
+\[
+\omega
+=
+\inf\{\tau : \text{matrix multiplication has complexity } O(n^{\tau+o(1)})\}.
+\]
+</p>
+
+<div class="note" id="org56db32e">
+<p>
+中文：\(\omega\) 描述的是矩阵乘法复杂度的渐近增长率，不是某个固定 \(n\) 的精确乘法次数。
+</p>
+
+</div>
+</div>
+</div>
+<div id="outline-container-org8127620" class="outline-3">
+<h3 id="org8127620">Bilinear map</h3>
+<div class="outline-text-3" id="text-org8127620">
+<div class="defn" id="org74f70f5">
+<p>
+A bilinear map over a field \(K\) is a map
+\[
+f:U\times V\to W
+\]
+such that \(f\) is linear in each variable separately.
+</p>
+
+</div>
+
+<p>
+Examples:
+</p>
+
+<ul class="org-ul">
+<li>scalar multiplication,</li>
+<li>polynomial multiplication,</li>
+<li>matrix multiplication,</li>
+<li>tensor contraction.</li>
+</ul>
+</div>
+</div>
+<div id="outline-container-orgbd5f5c0" class="outline-3">
+<h3 id="orgbd5f5c0">Tensor representation of a bilinear map</h3>
+<div class="outline-text-3" id="text-orgbd5f5c0">
+<p>
+Given finite-dimensional vector spaces \(U,V,W\), a bilinear map
+</p>
+
+<p>
+\[
+f:U\times V\to W
+\]
+</p>
+
+<p>
+corresponds canonically to a tensor
+</p>
+
+<p>
+\[
+t_f\in U^*\otimes V^*\otimes W.
+\]
+</p>
+
+<div class="note" id="org07226ef">
+<p>
+中文直觉：bilinear map 有两个输入槽和一个输出槽；tensor \(U^*\otimes V^*\otimes W\) 正好表达“两个输入探针 + 一个输出方向”。
+</p>
+
+</div>
+
+<p>
+If bases are chosen, we can write
+</p>
+
+<p>
+\[
+f(u,v)
+=
+\sum_{i,j,k} t_{ijk} x_i^*(u)y_j^*(v)w_k.
+\]
+</p>
+
+<p>
+So the coefficients \(t_{ijk}\) form a 3-dimensional array.
+</p>
+</div>
+</div>
+<div id="outline-container-org34e9537" class="outline-3">
+<h3 id="org34e9537">Matrix multiplication tensor</h3>
+<div class="outline-text-3" id="text-org34e9537">
+<p>
+The multiplication of an \(m\times n\) matrix and an \(n\times p\) matrix is a bilinear map
+</p>
+
+<p>
+\[
+\operatorname{Mat}_{m,n}\times \operatorname{Mat}_{n,p}\to \operatorname{Mat}_{m,p}.
+\]
+</p>
+
+<p>
+Its associated tensor is usually denoted
+</p>
+
+<p>
+\[
+\langle m,n,p\rangle.
+\]
+</p>
+
+<p>
+In particular, square \(n\times n\) matrix multiplication is
+</p>
+
+<p>
+\[
+\langle n,n,n\rangle.
+\]
+</p>
+</div>
+</div>
+</div>
+<div id="outline-container-orgb99b001" class="outline-2">
+<h2 id="orgb99b001">证明路线</h2>
+<div class="outline-text-2" id="text-orgb99b001">
+<p>
+根据你的 page 4 笔记，整篇证明可以按以下路线理解。
+</p>
+</div>
+<div id="outline-container-orge2e4fef" class="outline-3">
+<h3 id="orge2e4fef">Step 1: Matrix multiplication to bilinear rank</h3>
+<div class="outline-text-3" id="text-orge2e4fef">
+<summary id="orgf75f363">
+<p>
+文章开场先解释矩阵乘法指数 \(\omega\) 的意义，然后把矩阵乘法复杂度翻译成 bilinear rank / tensor rank 语言。
+</p>
+</summary>
+
+<p>
+三个核心工具：
+</p>
+
+<ol class="org-ol">
+<li>bilinear rank / tensor rank；</li>
+<li>degeneration / border rank；</li>
+<li>laser method。</li>
+</ol>
+</div>
+</div>
+<div id="outline-container-org2982da7" class="outline-3">
+<h3 id="org2982da7">Step 2: Bookkeeping</h3>
+<div class="outline-text-3" id="text-org2982da7">
+<p>
+把计算问题编码成 tensor。
+</p>
+
+<div class="note" id="org1a7227a">
+<p>
+也就是把“输入、输出、乘法次数”从算法语言改写成张量分解语言。
+</p>
+
+</div>
+
+<p>
+矩阵乘法复杂度问题变成：
+</p>
+
+<div class="question" id="org258128a">
+<p>
+Can we decompose the matrix multiplication tensor into few simple rank-one tensors?
+</p>
+
+</div>
+</div>
+</div>
+<div id="outline-container-org3f9f315" class="outline-3">
+<h3 id="org3f9f315">Step 3: Restriction preorder</h3>
+<div class="outline-text-3" id="text-org3f9f315">
+<p>
+建立复杂度比较关系：
+</p>
+
+<p>
+\[
+f\leq g.
+\]
+</p>
+
+<p>
+含义：
+</p>
+
+<blockquote>
+<p>
+\(f\) can be obtained from \(g\) by linear transformations on the input and output tensor legs.
+</p>
+</blockquote>
+
+<p>
+计算意义：
+</p>
+
+<blockquote>
+<p>
+If \(f\leq g\), then \(g\) can simulate \(f\).
+</p>
+</blockquote>
+
+<p>
+因此 rank 具有单调性：
+</p>
+
+<p>
+\[
+f\leq g
+\implies
+R(f)\leq R(g).
+\]
+</p>
+</div>
+</div>
+<div id="outline-container-org70c4270" class="outline-3">
+<h3 id="org70c4270">Step 4: Exact comparison to approximate comparison</h3>
+<div class="outline-text-3" id="text-org70c4270">
+<p>
+从 exact restriction 推广到 approximate restriction / degeneration。
+</p>
+
+<div class="note" id="org74b7988">
+<p>
+中文：不仅允许“精确做出来”，也允许“作为极限做出来”。
+</p>
+
+</div>
+
+<p>
+这引出 border rank。
+</p>
+</div>
+</div>
+<div id="outline-container-org5b8b540" class="outline-3">
+<h3 id="org5b8b540">Step 5: Geometry to polynomial degeneration</h3>
+<div class="outline-text-3" id="text-org5b8b540">
+<p>
+几何极限可以改写成带参数的 polynomial family。
+</p>
+
+<p>
+大致思想：
+</p>
+
+<p>
+\[
+t_\epsilon \to t
+\quad
+\text{as}
+\quad
+\epsilon\to 0.
+\]
+</p>
+
+<p>
+如果 \(t_\epsilon\) 对每个非零 \(\epsilon\) 都能由某个 tensor 限制得到，那么 \(t\) 是其 degeneration。
+</p>
+</div>
+</div>
+<div id="outline-container-org1d42439" class="outline-3">
+<h3 id="org1d42439">Step 6: Interpolation and extra diagonal tensor</h3>
+<div class="outline-text-3" id="text-org1d42439">
+<p>
+参数化 degeneration 可以通过 interpolation 转换成 exact restriction，但需要额外付出一个 diagonal tensor 因子。
+</p>
+
+<p>
+中文理解：
+</p>
+
+<blockquote>
+<p>
+极限对象不能直接精确得到，但可以把参数多项式在若干点取值，然后通过插值重建目标系数。
+</p>
+</blockquote>
+</div>
+</div>
+<div id="outline-container-org5cb5215" class="outline-3">
+<h3 id="org5cb5215">Step 7: Support, partition, and mass extraction</h3>
+<div class="outline-text-3" id="text-org5cb5215">
+<p>
+选择一个特殊 tensor，做 support partition，制造一个子结构，然后用前面的 exact/approximate 比较工具，从 tensor powers 中抽取很多 independent matrix multiplication tensors。
+</p>
+
+<p>
+最终路线：
+</p>
+
+<p>
+\[
+\text{exact order}
+\to
+\text{approximate order}
+\to
+\text{formalization over } K(\epsilon)
+\to
+\text{weight certificate on support}
+\to
+\text{mass extraction}
+\to
+\omega\text{-theorem}.
+\]
+</p>
+</div>
+</div>
+</div>
+<div id="outline-container-orgfa5ed5e" class="outline-2">
+<h2 id="orgfa5ed5e">Bilinear Maps and Tensors</h2>
+<div class="outline-text-2" id="text-orgfa5ed5e">
+</div>
+<div id="outline-container-orgaa9a63c" class="outline-3">
+<h3 id="orgaa9a63c">From bilinear maps to tensors</h3>
+<div class="outline-text-3" id="text-orgaa9a63c">
+<p>
+Let
+</p>
+
+<p>
+\[
+f:U\times V\to W.
+\]
+</p>
+
+<p>
+Choosing bases of \(U,V,W\), we can write
+</p>
+
+<p>
+\[
+f(u,v)
+=
+\sum_{i,j,k} t_{ijk}x_i^*(u)y_j^*(v)w_k.
+\]
+</p>
+
+<p>
+Therefore
+</p>
+
+<p>
+\[
+t_f
+=
+\sum_{i,j,k}t_{ijk}x_i^*\otimes y_j^*\otimes w_k
+\in U^*\otimes V^*\otimes W.
+\]
+</p>
+
+<div class="important" id="org95e6359">
+<p>
+A bilinear map and its associated tensor are essentially the same object once the spaces are fixed.
+</p>
+
+</div>
+</div>
+</div>
+<div id="outline-container-org76a666a" class="outline-3">
+<h3 id="org76a666a">Rank-one bilinear maps</h3>
+<div class="outline-text-3" id="text-org76a666a">
+<p>
+A rank-one bilinear map has the form
+</p>
+
+<p>
+\[
+(u,v)\mapsto \alpha(u)\beta(v)w
+\]
+</p>
+
+<p>
+where
+</p>
+
+<p>
+\[
+\alpha\in U^*,\qquad \beta\in V^*,\qquad w\in W.
+\]
+</p>
+
+<p>
+Its tensor is
+</p>
+
+<p>
+\[
+\alpha\otimes \beta\otimes w.
+\]
+</p>
+</div>
+</div>
+<div id="outline-container-org46009cf" class="outline-3">
+<h3 id="org46009cf">Tensor rank</h3>
+<div class="outline-text-3" id="text-org46009cf">
+<div class="defn" id="orgc9690b0">
+<p>
+The tensor rank \(R(t)\) of
+\[
+t\in U^*\otimes V^*\otimes W
+\]
+is the smallest \(r\) such that
+\[
+t=\sum_{\rho=1}^r \alpha_\rho\otimes \beta_\rho\otimes w_\rho.
+\]
+</p>
+
+</div>
+
+<p>
+For a bilinear map \(f\), we write
+</p>
+
+<p>
+\[
+R(f)=R(t_f).
+\]
+</p>
+
+<div class="note" id="org82d57c7">
+<p>
+Computational meaning:
+\(R(f)\) is the minimum number of scalar multiplications needed to compute the bilinear map \(f\), ignoring additions and scalar multiplications.
+</p>
+
+</div>
+</div>
+</div>
+<div id="outline-container-org4603bcf" class="outline-3">
+<h3 id="org4603bcf">Standard diagonal tensor</h3>
+<div class="outline-text-3" id="text-org4603bcf">
+<p>
+Define the standard rank-\(r\) tensor
+</p>
+
+<p>
+\[
+\langle r\rangle
+=
+\sum_{\rho=1}^r e_\rho^*\otimes e_\rho^*\otimes e_\rho.
+\]
+</p>
+
+<p>
+This represents \(r\) independent scalar multiplications.
+</p>
+
+<div class="note" id="org814e156">
+<p>
+中文：\(\langle r\rangle\) 是最标准的“\(r\) 次乘法模板”。
+</p>
+
+</div>
+</div>
+</div>
+</div>
+<div id="outline-container-orgaaa6873" class="outline-2">
+<h2 id="orgaaa6873">Restriction</h2>
+<div class="outline-text-2" id="text-orgaaa6873">
+</div>
+<div id="outline-container-orgac0dc66" class="outline-3">
+<h3 id="orgac0dc66">Definition</h3>
+<div class="outline-text-3" id="text-orgac0dc66">
+<div class="defn" id="org0d5004a">
+<p>
+Let
+\[
+f\in U^*\otimes V^*\otimes W
+\]
+and
+\[
+g\in {U'}^*\otimes {V'}^*\otimes W'.
+\]
+</p>
+
+<p>
+We say
+\[
+f\leq g
+\]
+if there exist linear maps
+\[
+A:U\to U',\qquad B:V\to V',\qquad C:W'\to W
+\]
+such that
+\[
+f=(A^*\otimes B^*\otimes C)(g).
+\]
+</p>
+
+</div>
+
+<p>
+Equivalent computational interpretation:
+</p>
+
+<blockquote>
+<p>
+Use \(g\) as an oracle. Before feeding inputs into \(g\), apply linear preprocessing. After getting \(g\)'s output, apply linear postprocessing. If this produces \(f\), then \(f\leq g\).
+</p>
+</blockquote>
+
+<p>
+中文直觉：
+</p>
+
+<blockquote>
+<p>
+从一个更大的 bilinear problem 里面，通过线性投影和线性处理，裁剪出一个更小的 bilinear problem。
+</p>
+</blockquote>
+</div>
+</div>
+<div id="outline-container-orgdae4f6a" class="outline-3">
+<h3 id="orgdae4f6a">Restriction as simulation</h3>
+<div class="outline-text-3" id="text-orgdae4f6a">
+<p>
+If
+</p>
+
+<p>
+\[
+f\leq g,
+\]
+</p>
+
+<p>
+then an algorithm for \(g\) gives an algorithm for \(f\).
+</p>
+
+<p>
+Thus \(g\) is at least as powerful as \(f\).
+</p>
+
+<div class="attention" id="orgd13b85d">
+<p>
+The direction is easy to confuse:
+\[
+f\leq g
+\]
+means \(f\) is reducible to \(g\), or \(g\) can simulate \(f\).
+</p>
+
+</div>
+</div>
+</div>
+</div>
+<div id="outline-container-orgffb6b8c" class="outline-2">
+<h2 id="orgffb6b8c">Rank and Restriction</h2>
+<div class="outline-text-2" id="text-orgffb6b8c">
+</div>
+<div id="outline-container-org11a7f1a" class="outline-3">
+<h3 id="org11a7f1a">Monotonicity of rank</h3>
+<div class="outline-text-3" id="text-org11a7f1a">
+<div class="prop" id="orgcf1ac97">
+<p>
+If
+\[
+f\leq g,
+\]
+then
+\[
+R(f)\leq R(g).
+\]
+</p>
+
+</div>
+
+<div class="proof" id="orga78dfd7">
+<p>
+Assume
+</p>
+
+<p>
+\[
+R(g)=r.
+\]
+</p>
+
+<p>
+Then \(g\) has a rank decomposition
+</p>
+
+<p>
+\[
+g=\sum_{\rho=1}^r x_\rho\otimes y_\rho\otimes z_\rho.
+\]
+</p>
+
+<p>
+Since \(f\leq g\), there exist linear maps \(A,B,C\) such that
+</p>
+
+<p>
+\[
+f=(A\otimes B\otimes C)(g).
+\]
+</p>
+
+<p>
+Applying the linear maps to the decomposition gives
+</p>
+
+<p>
+\[
+f
+=
+\sum_{\rho=1}^r
+A(x_\rho)\otimes B(y_\rho)\otimes C(z_\rho).
+\]
+</p>
+
+<p>
+Each summand is still rank-one or zero. Therefore \(f\) is a sum of at most \(r\) rank-one tensors.
+</p>
+
+<p>
+Hence
+</p>
+
+<p>
+\[
+R(f)\leq r=R(g).
+\]
+</p>
+
+<p>
+Therefore
+</p>
+
+<p>
+\[
+R(f)\leq R(g).
+\]
+</p>
+
+</div>
+
+<div class="note" id="org997cb1a">
+<p>
+中文：restriction 不会增加 rank，因为线性映射会把 rank-one tensor 送到 rank-one tensor 或 \(0\)。
+</p>
+
+</div>
+</div>
+</div>
+<div id="outline-container-org044aaea" class="outline-3">
+<h3 id="org044aaea">Rank via restriction to diagonal tensor</h3>
+<div class="outline-text-3" id="text-org044aaea">
+<div class="prop" id="orga710a01">
+<p>
+For a tensor \(t\),
+\[
+R(t)\leq r
+\]
+if and only if
+\[
+t\leq \langle r\rangle.
+\]
+</p>
+
+</div>
+
+<div class="proof" id="orgcb4f4c4">
+<p>
+First suppose
+</p>
+
+<p>
+\[
+R(t)\leq r.
+\]
+</p>
+
+<p>
+Then
+</p>
+
+<p>
+\[
+t=\sum_{\rho=1}^r x_\rho\otimes y_\rho\otimes z_\rho.
+\]
+</p>
+
+<p>
+Define linear maps from the three legs of \(\langle r\rangle\) by sending the \(\rho\)-th standard basis vector to \(x_\rho,y_\rho,z_\rho\), respectively. Applying these maps to
+</p>
+
+<p>
+\[
+\langle r\rangle
+=
+\sum_{\rho=1}^r e_\rho\otimes e_\rho\otimes e_\rho
+\]
+</p>
+
+<p>
+gives exactly \(t\). Hence
+</p>
+
+<p>
+\[
+t\leq \langle r\rangle.
+\]
+</p>
+
+<p>
+Conversely, if
+</p>
+
+<p>
+\[
+t\leq \langle r\rangle,
+\]
+</p>
+
+<p>
+then by monotonicity,
+</p>
+
+<p>
+\[
+R(t)\leq R(\langle r\rangle)=r.
+\]
+</p>
+
+<p>
+Therefore
+</p>
+
+<p>
+\[
+R(t)\leq r
+\iff
+t\leq \langle r\rangle.
+\]
+</p>
+
+</div>
+
+<div class="important" id="org1ac45ba">
+<p>
+This is why restriction is the correct language for rank.
+Rank is just restriction to the diagonal multiplication tensor.
+</p>
+
+</div>
+</div>
+</div>
+</div>
+<div id="outline-container-org599bf18" class="outline-2">
+<h2 id="org599bf18">Direct Sum and Tensor Product</h2>
+<div class="outline-text-2" id="text-org599bf18">
+</div>
+<div id="outline-container-org9145a03" class="outline-3">
+<h3 id="org9145a03">Direct sum</h3>
+<div class="outline-text-3" id="text-org9145a03">
+<div class="defn" id="org0d6b993">
+<p>
+Given bilinear maps
+\[
+f:U\times V\to W
+\]
+and
+\[
+g:U'\times V'\to W',
+\]
+their direct sum is
+\[
+f\oplus g:(U\oplus U')\times (V\oplus V')\to W\oplus W'
+\]
+defined by
+\[
+(f\oplus g)((u,u'),(v,v'))=(f(u,v),g(u',v')).
+\]
+</p>
+
+</div>
+
+<p>
+中文直觉：
+</p>
+
+<blockquote>
+<p>
+Direct sum means solving two independent bilinear problems side by side.
+</p>
+</blockquote>
+
+<p>
+Tensor notation:
+</p>
+
+<p>
+\[
+t_{f\oplus g}=t_f\oplus t_g.
+\]
+</p>
+</div>
+</div>
+<div id="outline-container-org29d33ed" class="outline-3">
+<h3 id="org29d33ed">Tensor product</h3>
+<div class="outline-text-3" id="text-org29d33ed">
+<div class="defn" id="org34c5544">
+<p>
+Given bilinear maps \(f\) and \(g\), their tensor product \(f\otimes g\) is the bilinear problem obtained by multiplying/composing the two problems into a larger one.
+</p>
+
+</div>
+
+<p>
+On tensors:
+</p>
+
+<p>
+\[
+t_{f\otimes g}=t_f\otimes t_g.
+\]
+</p>
+
+<p>
+中文直觉：
+</p>
+
+<blockquote>
+<p>
+Tensor product means combining two computational problems multiplicatively.
+</p>
+</blockquote>
+</div>
+</div>
+<div id="outline-container-org01e10bd" class="outline-3">
+<h3 id="org01e10bd">Difference between \(\oplus\) and \(\otimes\)</h3>
+<div class="outline-text-3" id="text-org01e10bd">
+<summary id="orga833dfd">
+<p>
+\(\oplus\): put problems side by side.
+</p>
+
+<p>
+\(\otimes\): multiply problems into a larger joint problem.
+</p>
+</summary>
+
+<p>
+Examples:
+</p>
+
+<p>
+\[
+\langle a\rangle\oplus \langle b\rangle
+=
+\langle a+b\rangle.
+\]
+</p>
+
+<p>
+\[
+\langle a\rangle\otimes \langle b\rangle
+=
+\langle ab\rangle.
+\]
+</p>
+</div>
+</div>
+<div id="outline-container-org4eb8c78" class="outline-3">
+<h3 id="org4eb8c78">Why direct sum matters</h3>
+<div class="outline-text-3" id="text-org4eb8c78">
+<p>
+Matrix multiplication complexity studies asymptotic behavior.
+</p>
+
+<p>
+Tensor powers often decompose into many independent pieces:
+</p>
+
+<p>
+\[
+t^{\otimes N}
+\]
+</p>
+
+<p>
+may contain direct sums of matrix multiplication tensors.
+</p>
+
+<p>
+Laser method aims to extract many independent matrix multiplication tensors from such powers.
+</p>
+</div>
+</div>
+</div>
+<div id="outline-container-orgcb8c978" class="outline-2">
+<h2 id="orgcb8c978">Semiring Viewpoint</h2>
+<div class="outline-text-2" id="text-orgcb8c978">
+</div>
+<div id="outline-container-orgf5647f5" class="outline-3">
+<h3 id="orgf5647f5">Ring</h3>
+<div class="outline-text-3" id="text-orgf5647f5">
+<div class="defn" id="org723e44a">
+<p>
+A ring is a set \(R\) with two operations, usually called addition and multiplication, such that:
+</p>
+<ul class="org-ul">
+<li>addition forms an abelian group;</li>
+<li>multiplication is associative;</li>
+<li>multiplication distributes over addition.</li>
+</ul>
+
+</div>
+
+<p>
+Distributivity means:
+</p>
+
+<p>
+\[
+a(b+c)=ab+ac,
+\]
+</p>
+
+<p>
+\[
+(a+b)c=ac+bc.
+\]
+</p>
+</div>
+</div>
+<div id="outline-container-orgc6709a2" class="outline-3">
+<h3 id="orgc6709a2">Semiring</h3>
+<div class="outline-text-3" id="text-orgc6709a2">
+<div class="defn" id="org7822117">
+<p>
+A semiring is like a ring, but additive inverses are not required.
+</p>
+
+</div>
+
+<p>
+中文：
+</p>
+
+<blockquote>
+<p>
+Semiring 可以做加法和乘法，但不一定能做减法。
+</p>
+</blockquote>
+</div>
+</div>
+<div id="outline-container-orgf7bc1f1" class="outline-3">
+<h3 id="orgf7bc1f1">Tensor isomorphism classes as a semiring</h3>
+<div class="outline-text-3" id="text-orgf7bc1f1">
+<p>
+In this setting, consider tensor isomorphism classes.
+</p>
+
+<p>
+Addition is direct sum:
+</p>
+
+<p>
+\[
+[t]+[s]=[t\oplus s].
+\]
+</p>
+
+<p>
+Multiplication is tensor product:
+</p>
+
+<p>
+\[
+[t][s]=[t\otimes s].
+\]
+</p>
+
+<div class="note" id="org1ed369e">
+<p>
+This behaves like a commutative semiring.
+</p>
+
+</div>
+</div>
+</div>
+<div id="outline-container-org6c3ce38" class="outline-3">
+<h3 id="org6c3ce38">Why semiring language is useful</h3>
+<div class="outline-text-3" id="text-org6c3ce38">
+<p>
+It lets us discuss:
+</p>
+
+<ul class="org-ul">
+<li>powers \(t^{\otimes n}\),</li>
+<li>sums \(t\oplus s\),</li>
+<li>preorder \(t\leq s\),</li>
+<li>asymptotic rank,</li>
+<li>degeneration,</li>
+<li>extraction of many copies.</li>
+</ul>
+
+<summary id="org1502378">
+<p>
+The semiring viewpoint turns tensor complexity into an algebraic order problem.
+</p>
+</summary>
+</div>
+</div>
+</div>
+<div id="outline-container-orgb3a316c" class="outline-2">
+<h2 id="orgb3a316c">Asymptotic and Border Rank</h2>
+<div class="outline-text-2" id="text-orgb3a316c">
+</div>
+<div id="outline-container-org233edaf" class="outline-3">
+<h3 id="org233edaf">Asymptotic rank</h3>
+<div class="outline-text-3" id="text-org233edaf">
+<div class="defn" id="org1285781">
+<p>
+The asymptotic rank of a tensor \(t\) is
+\[
+\widetilde R(t)
+=
+\lim_{n\to\infty} R(t^{\otimes n})^{1/n},
+\]
+when the limit exists.
+</p>
+
+</div>
+
+<p>
+Usually, the limit exists by submultiplicativity and Fekete's lemma.
+</p>
+
+<div class="note" id="orgefa7277">
+<p>
+中文：asymptotic rank 衡量 tensor powers 长大后 rank 的指数级增长率。
+</p>
+
+</div>
+</div>
+</div>
+<div id="outline-container-org9bc7f1e" class="outline-3">
+<h3 id="org9bc7f1e">Why asymptotic rank matters</h3>
+<div class="outline-text-3" id="text-org9bc7f1e">
+<p>
+For matrix multiplication tensor,
+</p>
+
+<p>
+\[
+\langle n,n,n\rangle,
+\]
+</p>
+
+<p>
+rank controls exact algorithms, but asymptotic rank controls \(\omega\).
+</p>
+
+<p>
+Roughly:
+</p>
+
+<p>
+\[
+R(\langle n,n,n\rangle)
+\approx n^\omega.
+\]
+</p>
+</div>
+</div>
+<div id="outline-container-org919c3fb" class="outline-3">
+<h3 id="org919c3fb">Border rank</h3>
+<div class="outline-text-3" id="text-org919c3fb">
+<div class="defn" id="orgc0610f4">
+<p>
+The border rank \(\underline R(t)\) is the smallest \(r\) such that \(t\) is a limit of tensors of rank at most \(r\).
+</p>
+
+</div>
+
+<p>
+Formally, \(t\) has border rank at most \(r\) if there exists a family \(t_\epsilon\) such that:
+</p>
+
+<p>
+\[
+R(t_\epsilon)\leq r
+\]
+</p>
+
+<p>
+for all \(\epsilon\neq 0\), and
+</p>
+
+<p>
+\[
+\lim_{\epsilon\to 0}t_\epsilon=t.
+\]
+</p>
+
+<div class="note" id="orge0460e1">
+<p>
+中文：border rank 允许“极限近似算出来”，不要求每一步都精确等于目标 tensor。
+</p>
+
+</div>
+</div>
+</div>
+<div id="outline-container-orgf7b5e12" class="outline-3">
+<h3 id="orgf7b5e12">Degeneration</h3>
+<div class="outline-text-3" id="text-orgf7b5e12">
+<div class="defn" id="orgffd45de">
+<p>
+A tensor \(t\) is a degeneration of \(s\), written informally as
+\[
+t\unlhd s,
+\]
+if \(t\) can be obtained from \(s\) by a limiting family of restrictions.
+</p>
+
+</div>
+
+<p>
+Restriction:
+</p>
+
+<p>
+\[
+t\leq s
+\]
+</p>
+
+<p>
+means exact simulation.
+</p>
+
+<p>
+Degeneration:
+</p>
+
+<p>
+\[
+t\unlhd s
+\]
+</p>
+
+<p>
+means approximate or limiting simulation.
+</p>
+
+<div class="attention" id="org0c426ef">
+<p>
+\[
+t\leq s
+\]
+is exact.
+</p>
+
+<p>
+\[
+t\unlhd s
+\]
+is approximate / limiting.
+</p>
+
+</div>
+</div>
+</div>
+<div id="outline-container-orgdc57e75" class="outline-3">
+<h3 id="orgdc57e75">From degeneration to exact restriction with overhead</h3>
+<div class="outline-text-3" id="text-orgdc57e75">
+<p>
+A key Strassen-style move:
+</p>
+
+<blockquote>
+<p>
+Approximate restriction can often be converted into exact restriction after paying an additional diagonal tensor factor.
+</p>
+</blockquote>
+
+<p>
+Informally, polynomial interpolation turns parameterized approximations into exact computations.
+</p>
+</div>
+</div>
+</div>
+<div id="outline-container-orgd7a2f12" class="outline-2">
+<h2 id="orgd7a2f12">Laser Method Intuition</h2>
+<div class="outline-text-2" id="text-orgd7a2f12">
+</div>
+<div id="outline-container-org4e4473c" class="outline-3">
+<h3 id="org4e4473c">Problem</h3>
+<div class="outline-text-3" id="text-org4e4473c">
+<p>
+Tensor powers \(t^{\otimes N}\) are huge and complicated.
+</p>
+
+<p>
+They may contain many pieces, but not obviously in a clean direct sum form.
+</p>
+</div>
+</div>
+<div id="outline-container-org28995cc" class="outline-3">
+<h3 id="org28995cc">Goal</h3>
+<div class="outline-text-3" id="text-org28995cc">
+<p>
+Extract from \(t^{\otimes N}\) a large direct sum of matrix multiplication tensors:
+</p>
+
+<p>
+\[
+\bigoplus_i \langle a_i,b_i,c_i\rangle.
+\]
+</p>
+
+<p>
+Then compare ranks:
+</p>
+
+<p>
+\[
+\sum_i R(\langle a_i,b_i,c_i\rangle)
+\leq
+R(t^{\otimes N}).
+\]
+</p>
+</div>
+</div>
+<div id="outline-container-org3b7bd25" class="outline-3">
+<h3 id="org3b7bd25">Laser idea</h3>
+<div class="outline-text-3" id="text-org3b7bd25">
+<summary id="orgb2c0fe4">
+<p>
+The laser method selects a structured part of the support of \(t^{\otimes N}\), zeros out unwanted components, and keeps many independent matrix multiplication tensors.
+</p>
+</summary>
+
+<p>
+中文：
+</p>
+
+<blockquote>
+<p>
+像用激光一样，从一个很大的 tensor power 里面切出大量互不干扰的矩阵乘法子问题。
+</p>
+</blockquote>
+</div>
+</div>
+<div id="outline-container-org89ed1bf" class="outline-3">
+<h3 id="org89ed1bf">Support and weights</h3>
+<div class="outline-text-3" id="text-org89ed1bf">
+<p>
+A tensor has support
+</p>
+
+<p>
+\[
+\operatorname{supp}(t)
+=
+\{(i,j,k):t_{ijk}\neq 0\}.
+\]
+</p>
+
+<p>
+Laser method often assigns weights to support elements and chooses subsets satisfying certain compatibility constraints.
+</p>
+
+<p>
+This creates direct-sum-like behavior.
+</p>
+</div>
+</div>
+<div id="outline-container-org0e97434" class="outline-3">
+<h3 id="org0e97434">Mass extraction</h3>
+<div class="outline-text-3" id="text-org0e97434">
+<p>
+The objective is to extract many copies with large total “mass”.
+</p>
+
+<p>
+This gives inequalities that imply upper bounds on \(\omega\).
+</p>
+
+<div class="note" id="org8b1ec47">
+<p>
+Page 4 的 proof route 写成：
+exact order
+\(\to\)
+approximate order
+\(\to\)
+formalization over \(K(\epsilon)\)
+\(\to\)
+weight certificate on support
+\(\to\)
+mass extraction
+\(\to\)
+\(\omega\)-theorem.
+</p>
+
+</div>
+</div>
+</div>
+</div>
+<div id="outline-container-org1047a8f" class="outline-2">
+<h2 id="org1047a8f">Krull-Schmidt and Decomposition</h2>
+<div class="outline-text-2" id="text-org1047a8f">
+</div>
+<div id="outline-container-orgde586c5" class="outline-3">
+<h3 id="orgde586c5">Indecomposable tensors</h3>
+<div class="outline-text-3" id="text-orgde586c5">
+<div class="defn" id="org4273e57">
+<p>
+A tensor \(t\) is indecomposable if it cannot be written as a nontrivial direct sum
+\[
+t=s\oplus u.
+\]
+</p>
+
+</div>
+
+<p>
+中文：
+</p>
+
+<blockquote>
+<p>
+不能再分成两个独立计算问题的 tensor，称为 indecomposable。
+</p>
+</blockquote>
+</div>
+</div>
+<div id="outline-container-org7c4f037" class="outline-3">
+<h3 id="org7c4f037">Krull-Schmidt theorem</h3>
+<div class="outline-text-3" id="text-org7c4f037">
+<div class="thm" id="org8a1d32a">
+<p>
+Under suitable conditions, if an object decomposes as a finite direct sum of indecomposable objects in two ways,
+\[
+A_1\oplus\cdots\oplus A_n
+\cong
+B_1\oplus\cdots\oplus B_m,
+\]
+then
+\[
+n=m,
+\]
+and after a permutation, corresponding summands are isomorphic.
+</p>
+
+</div>
+
+<p>
+中文：
+</p>
+
+<blockquote>
+<p>
+如果一个对象可以分解成若干不可分解对象，那么这种分解本质上唯一，只差排列和同构。
+</p>
+</blockquote>
+</div>
+</div>
+<div id="outline-container-org5979c46" class="outline-3">
+<h3 id="org5979c46">Basis as finest one-dimensional decomposition</h3>
+<div class="outline-text-3" id="text-org5979c46">
+<p>
+A basis gives a finest decomposition of a vector space into one-dimensional pieces:
+</p>
+
+<p>
+\[
+V=Ke_1\oplus\cdots\oplus Ke_n.
+\]
+</p>
+
+<p>
+Block decomposition is a coarser decomposition:
+</p>
+
+<p>
+\[
+V=V_1\oplus\cdots\oplus V_r.
+\]
+</p>
+
+<div class="note" id="orga9376f5">
+<p>
+中文：basis 是最细的一维分解；block decomposition 是更粗粒度的分解。
+</p>
+
+</div>
+</div>
+</div>
+</div>
+<div id="outline-container-org23e8a89" class="outline-2">
+<h2 id="org23e8a89">Linear Algebra Rewritten by Direct Sum and Tensor Product</h2>
+<div class="outline-text-2" id="text-org23e8a89">
+</div>
+<div id="outline-container-org953b1f8" class="outline-3">
+<h3 id="org953b1f8">Traditional order</h3>
+<div class="outline-text-3" id="text-org953b1f8">
+<p>
+Common linear algebra is often taught as:
+</p>
+
+<p>
+\[
+\text{vectors}
+\to
+\text{matrices}
+\to
+\text{linear maps}
+\to
+\text{eigenvectors}
+\to
+\text{bilinear maps}.
+\]
+</p>
+</div>
+</div>
+<div id="outline-container-orgc01ba63" class="outline-3">
+<h3 id="orgc01ba63">Tensor-complexity order</h3>
+<div class="outline-text-3" id="text-orgc01ba63">
+<p>
+Using direct sum and tensor product, one can reorganize it as:
+</p>
+
+<p>
+\[
+\text{spaces}
+\to
+\text{decompositions}
+\to
+\text{maps as tensors}
+\to
+\oplus
+\to
+\otimes.
+\]
+</p>
+
+<summary id="org6d202f2">
+<p>
+The point is to treat decomposition and composition of spaces as primary, instead of treating matrices as the starting point.
+</p>
+</summary>
+</div>
+</div>
+<div id="outline-container-orgafb9618" class="outline-3">
+<h3 id="orgafb9618">Vector spaces</h3>
+<div class="outline-text-3" id="text-orgafb9618">
+<p>
+A vector space can be understood through decompositions.
+</p>
+
+<p>
+For a basis \(e_1,\dots,e_n\),
+</p>
+
+<p>
+\[
+V=Ke_1\oplus\cdots\oplus Ke_n.
+\]
+</p>
+
+<p>
+Dimension satisfies:
+</p>
+
+<p>
+\[
+\dim(V\oplus W)=\dim V+\dim W.
+\]
+</p>
+</div>
+</div>
+<div id="outline-container-org872be8f" class="outline-3">
+<h3 id="org872be8f">Linear maps as block matrices</h3>
+<div class="outline-text-3" id="text-org872be8f">
+<p>
+Suppose
+</p>
+
+<p>
+\[
+V=V_1\oplus\cdots\oplus V_m,
+\]
+</p>
+
+<p>
+\[
+W=W_1\oplus\cdots\oplus W_n.
+\]
+</p>
+
+<p>
+A linear map
+</p>
+
+<p>
+\[
+T:V\to W
+\]
+</p>
+
+<p>
+can be viewed as a block matrix with components
+</p>
+
+<p>
+\[
+T_{ij}:V_j\to W_i.
+\]
+</p>
+
+<div class="note" id="orgf3220db">
+<p>
+中文：matrix 的本质是 linear map 在 direct-sum decomposition 下的 block description。
+</p>
+
+</div>
+</div>
+</div>
+<div id="outline-container-org7e790d3" class="outline-3">
+<h3 id="org7e790d3">Dual space</h3>
+<div class="outline-text-3" id="text-org7e790d3">
+<div class="defn" id="orgb852d68">
+<p>
+The dual space of \(V\) is
+\[
+V^*=\operatorname{Hom}(V,K).
+\]
+Its elements are linear functionals
+\[
+\phi:V\to K.
+\]
+</p>
+
+</div>
+
+<p>
+中文直觉：
+</p>
+
+<blockquote>
+<p>
+Dual vectors are linear measurements / linear probes.
+</p>
+</blockquote>
+
+<p>
+If
+</p>
+
+<p>
+\[
+V=Ke_1\oplus\cdots\oplus Ke_n,
+\]
+</p>
+
+<p>
+then the dual basis
+</p>
+
+<p>
+\[
+e_1^*,\dots,e_n^*
+\]
+</p>
+
+<p>
+is defined by
+</p>
+
+<p>
+\[
+e_i^*(e_j)=\delta_{ij}.
+\]
+</p>
+</div>
+</div>
+<div id="outline-container-org4153b75" class="outline-3">
+<h3 id="org4153b75">Linear maps as tensors</h3>
+<div class="outline-text-3" id="text-org4153b75">
+<p>
+There is a canonical isomorphism
+</p>
+
+<p>
+\[
+\operatorname{Hom}(V,W)\cong V^*\otimes W.
+\]
+</p>
+
+<p>
+Thus a linear map
+</p>
+
+<p>
+\[
+T:V\to W
+\]
+</p>
+
+<p>
+can be regarded as a tensor
+</p>
+
+<p>
+\[
+T\in V^*\otimes W.
+\]
+</p>
+
+<p>
+With bases,
+</p>
+
+<p>
+\[
+T=\sum_{i,j} a_{ij}e_i^*\otimes w_j.
+\]
+</p>
+
+<div class="note" id="orgee7c2c4">
+<p>
+中文：\(e_i^*\) 是 input detector，\(w_j\) 是 output direction，系数 \(a_{ij}\) 就是矩阵条目。
+</p>
+
+</div>
+</div>
+</div>
+<div id="outline-container-orga1a0786" class="outline-3">
+<h3 id="orga1a0786">Bilinear maps as tensors</h3>
+<div class="outline-text-3" id="text-orga1a0786">
+<p>
+Similarly,
+</p>
+
+<p>
+\[
+\operatorname{Bilin}(U,V;W)
+\cong
+U^*\otimes V^*\otimes W.
+\]
+</p>
+
+<p>
+So a bilinear map
+</p>
+
+<p>
+\[
+f:U\times V\to W
+\]
+</p>
+
+<p>
+is a tensor with two input probes and one output direction.
+</p>
+</div>
+</div>
+</div>
+<div id="outline-container-orga1ca427" class="outline-2">
+<h2 id="orga1ca427">Proof Templates</h2>
+<div class="outline-text-2" id="text-orga1ca427">
+</div>
+<div id="outline-container-org62864fa" class="outline-3">
+<h3 id="org62864fa">Template: prove restriction monotonicity of rank</h3>
+<div class="outline-text-3" id="text-org62864fa">
+<div class="proof" id="org47594cf">
+<p>
+Assume \(f\leq g\). Then there exist linear maps on the three tensor legs such that
+</p>
+
+<p>
+\[
+f=(A\otimes B\otimes C)(g).
+\]
+</p>
+
+<p>
+Let
+</p>
+
+<p>
+\[
+g=\sum_{\rho=1}^{R(g)}x_\rho\otimes y_\rho\otimes z_\rho
+\]
+</p>
+
+<p>
+be a minimal rank decomposition of \(g\). Applying the linear maps gives
+</p>
+
+<p>
+\[
+f=
+\sum_{\rho=1}^{R(g)}
+A(x_\rho)\otimes B(y_\rho)\otimes C(z_\rho).
+\]
+</p>
+
+<p>
+Each summand is rank-one or zero. Hence \(f\) has a rank decomposition using at most \(R(g)\) rank-one tensors. Therefore
+</p>
+
+<p>
+\[
+R(f)\leq R(g).
+\]
+</p>
+
+</div>
+</div>
+</div>
+<div id="outline-container-orgfebdc6f" class="outline-3">
+<h3 id="orgfebdc6f">Template: prove \(R(t)\leq r\iff t\leq \langle r\rangle\)</h3>
+<div class="outline-text-3" id="text-orgfebdc6f">
+<div class="proof" id="org9b83e10">
+<p>
+If \(R(t)\leq r\), then
+</p>
+
+<p>
+\[
+t=\sum_{\rho=1}^r x_\rho\otimes y_\rho\otimes z_\rho.
+\]
+</p>
+
+<p>
+The diagonal tensor is
+</p>
+
+<p>
+\[
+\langle r\rangle=\sum_{\rho=1}^r e_\rho\otimes e_\rho\otimes e_\rho.
+\]
+</p>
+
+<p>
+Define linear maps sending \(e_\rho\) to \(x_\rho\), \(y_\rho\), and \(z_\rho\) on the three legs. Then \(\langle r\rangle\) restricts to \(t\), so
+</p>
+
+<p>
+\[
+t\leq \langle r\rangle.
+\]
+</p>
+
+<p>
+Conversely, if \(t\leq \langle r\rangle\), then by monotonicity,
+</p>
+
+<p>
+\[
+R(t)\leq R(\langle r\rangle)=r.
+\]
+</p>
+
+<p>
+Therefore
+</p>
+
+<p>
+\[
+R(t)\leq r
+\iff
+t\leq \langle r\rangle.
+\]
+</p>
+
+</div>
+</div>
+</div>
+<div id="outline-container-org99cdc04" class="outline-3">
+<h3 id="org99cdc04">Template: explain direct sum</h3>
+<div class="outline-text-3" id="text-org99cdc04">
+<div class="answer" id="org0fdd6d8">
+<p>
+The direct sum \(f\oplus g\) means solving two independent bilinear problems side by side. Its input spaces, output spaces, and tensor are all direct sums of the corresponding pieces. Computationally, no cross terms are used between the \(f\)-part and the \(g\)-part.
+</p>
+
+</div>
+</div>
+</div>
+<div id="outline-container-org92e6dba" class="outline-3">
+<h3 id="org92e6dba">Template: explain tensor product</h3>
+<div class="outline-text-3" id="text-org92e6dba">
+<div class="answer" id="org95e6766">
+<p>
+The tensor product \(f\otimes g\) means combining two bilinear problems multiplicatively into a larger bilinear problem. It is not merely placing problems side by side; it creates a product structure where the dimensions and rank behavior multiply.
+</p>
+
+</div>
+</div>
+</div>
+<div id="outline-container-org6a731d7" class="outline-3">
+<h3 id="org6a731d7">Template: explain restriction</h3>
+<div class="outline-text-3" id="text-org6a731d7">
+<div class="answer" id="orgd4512f1">
+<p>
+A restriction \(f\leq g\) means \(f\) can be obtained from \(g\) by linear preprocessing of inputs and linear postprocessing of outputs. Hence an algorithm for \(g\) gives an algorithm for \(f\). This makes restriction a computational preorder.
+</p>
+
+</div>
+</div>
+</div>
+<div id="outline-container-org683a115" class="outline-3">
+<h3 id="org683a115">Template: explain border rank</h3>
+<div class="outline-text-3" id="text-org683a115">
+<div class="answer" id="org8281a50">
+<p>
+Border rank allows approximate computation in a limiting sense. A tensor \(t\) has border rank at most \(r\) if it is the limit of tensors of rank at most \(r\). Thus border rank can be smaller than ordinary rank because it permits degeneration.
+</p>
+
+</div>
+</div>
+</div>
+<div id="outline-container-org8f338ff" class="outline-3">
+<h3 id="org8f338ff">Template: explain laser method</h3>
+<div class="outline-text-3" id="text-org8f338ff">
+<div class="answer" id="org0cf3b48">
+<p>
+The laser method studies large tensor powers \(t^{\otimes N}\). These powers contain many structured components. By selecting a suitable support subset and zeroing out incompatible parts, one extracts a large direct sum of independent matrix multiplication tensors. This extraction yields inequalities that imply upper bounds on the matrix multiplication exponent \(\omega\).
+</p>
+
+</div>
+</div>
+</div>
+</div>
+<div id="outline-container-org7285a0c" class="outline-2">
+<h2 id="org7285a0c">Common Mistakes</h2>
+<div class="outline-text-2" id="text-org7285a0c">
+</div>
+<div id="outline-container-org874a279" class="outline-3">
+<h3 id="org874a279">Mistake 1: Confusing restriction direction</h3>
+<div class="outline-text-3" id="text-org874a279">
+<p>
+Wrong:
+</p>
+
+<p>
+\[
+f\leq g
+\quad
+\text{means}
+\quad
+f \text{ can compute } g.
+\]
+</p>
+
+<p>
+Correct:
+</p>
+
+<p>
+\[
+f\leq g
+\quad
+\text{means}
+\quad
+g \text{ can simulate } f.
+\]
+</p>
+</div>
+</div>
+<div id="outline-container-orgbe90026" class="outline-3">
+<h3 id="orgbe90026">Mistake 2: Confusing direct sum and tensor product</h3>
+<div class="outline-text-3" id="text-orgbe90026">
+<p>
+Direct sum:
+</p>
+
+<p>
+\[
+f\oplus g
+\]
+</p>
+
+<p>
+means independent side-by-side computation.
+</p>
+
+<p>
+Tensor product:
+</p>
+
+<p>
+\[
+f\otimes g
+\]
+</p>
+
+<p>
+means multiplicative combination into a larger problem.
+</p>
+</div>
+</div>
+<div id="outline-container-org0d7315f" class="outline-3">
+<h3 id="org0d7315f">Mistake 3: Thinking border rank is exact rank</h3>
+<div class="outline-text-3" id="text-org0d7315f">
+<p>
+Rank asks:
+</p>
+
+<p>
+\[
+t=\sum_{\rho=1}^r \text{rank-one tensors}.
+\]
+</p>
+
+<p>
+Border rank asks:
+</p>
+
+<p>
+\[
+t=\lim_{\epsilon\to 0}t_\epsilon
+\]
+</p>
+
+<p>
+where each \(t_\epsilon\) has rank at most \(r\).
+</p>
+</div>
+</div>
+<div id="outline-container-org381f409" class="outline-3">
+<h3 id="org381f409">Mistake 4: Treating tensor coordinates as intrinsic</h3>
+<div class="outline-text-3" id="text-org381f409">
+<p>
+Coordinates depend on basis choice.
+</p>
+
+<p>
+The intrinsic object is the tensor orbit under changes of bases:
+</p>
+
+<p>
+\[
+\operatorname{GL}(U)\times \operatorname{GL}(V)\times \operatorname{GL}(W).
+\]
+</p>
+</div>
+</div>
+<div id="outline-container-org73c74a2" class="outline-3">
+<h3 id="org73c74a2">Mistake 5: Forgetting asymptotic behavior</h3>
+<div class="outline-text-3" id="text-org73c74a2">
+<p>
+Strassen-style tensor complexity is not only about one tensor.
+</p>
+
+<p>
+It studies tensor powers:
+</p>
+
+<p>
+\[
+t^{\otimes n}
+\]
+</p>
+
+<p>
+and limiting quantities such as
+</p>
+
+<p>
+\[
+\widetilde R(t)
+=
+\lim_{n\to\infty}R(t^{\otimes n})^{1/n}.
+\]
+</p>
+</div>
+</div>
+</div>
+<div id="outline-container-orgefd9ab0" class="outline-2">
+<h2 id="orgefd9ab0">Minimal Memory Version</h2>
+<div class="outline-text-2" id="text-orgefd9ab0">
+<summary id="org21bee5f">
+<p>
+Strassen 1987 can be understood as follows:
+</p>
+
+<ol class="org-ol">
+<li>Matrix multiplication is a bilinear map, hence a tensor.</li>
+<li>Tensor rank measures bilinear multiplication complexity.</li>
+<li>Restriction \(f\leq g\) means \(g\) can simulate \(f\).</li>
+<li>Rank is monotone under restriction:
+\[
+   f\leq g\implies R(f)\leq R(g).
+   \]</li>
+<li>\(R(t)\leq r\) iff \(t\leq \langle r\rangle\).</li>
+<li>Direct sum means independent side-by-side problems.</li>
+<li>Tensor product means multiplicative composition of problems.</li>
+<li>Tensor isomorphism classes with \(\oplus\) and \(\otimes\) form a semiring-like structure.</li>
+<li>Border rank allows limiting approximations.</li>
+<li>Asymptotic rank studies \(R(t^{\otimes n})^{1/n}\).</li>
+<li>Laser method extracts many independent matrix multiplication tensors from tensor powers.</li>
+<li>This machinery gives upper bounds on the matrix multiplication exponent \(\omega\).</li>
+</ol>
+</summary>
+</div>
+</div>
+</div>
+</body>
+</html>

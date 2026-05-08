@@ -1,0 +1,72 @@
+#+title: Some QC related projects
+#+date:  2026-05-08
+#+filetags: :note:
+#+begin_overview :toc t :depth 3
+- [[*Ron Steinfeld][Ron Steinfeld]]
+  - [[*Privacy-Oriented Cryptographic Protocols (Problem)][Privacy-Oriented Cryptographic Protocols (Problem)]]
+  - [[*Quantum-Powered Public-Key Cryptography (Problem)][Quantum-Powered Public-Key Cryptography (Problem)]]
+- [[*Khoa Nguyen][Khoa Nguyen]]
+  - [[*New Post-Quantum Hardness Landscapes from Combinatoria Structures][New Post-Quantum Hardness Landscapes from Combinatoria Structures]]
+  - [[*Privacy-Preserving Cryptography with Controlled Information Exposure][Privacy-Preserving Cryptography with Controlled Information Exposure]]
+  - [[*Privacy-Preserving Interaction with AI Systems][Privacy-Preserving Interaction with AI Systems]]
+- [[*Clement Canonne][Clement Canonne]]
+#+end_overview
+
+* Ron Steinfeld
+
+** Privacy-Oriented Cryptographic Protocols (Problem)
+
+#+DOWNLOADED: screenshot @ 2026-05-08 14:15:14
+[[file:img/20260508/20260508-141514_screenshot.png]]
+#+DOWNLOADED: screenshot @ 2026-05-08 14:17:43
+[[file:img/20260508/20260508-141743_screenshot.png]]
+
+** Quantum-Powered Public-Key Cryptography (Problem)
+
+#+DOWNLOADED: screenshot @ 2026-05-08 14:20:21
+[[file:img/20260508/20260508-142021_screenshot.png]]
+#+DOWNLOADED: screenshot @ 2026-05-08 14:22:58
+[[file:img/20260508/20260508-142258_screenshot.png]]
+
+#+DOWNLOADED: screenshot @ 2026-05-08 14:26:19
+[[file:img/20260508/20260508-142619_screenshot.png]]
+
+#+DOWNLOADED: screenshot @ 2026-05-08 14:29:21
+[[file:img/20260508/20260508-142921_screenshot.png]]
+#+DOWNLOADED: screenshot @ 2026-05-08 14:29:55
+[[file:img/20260508/20260508-142955_screenshot.png]]
+#+DOWNLOADED: screenshot @ 2026-05-08 14:31:03
+[[file:img/20260508/20260508-143103_screenshot.png]]
+
+* Khoa Nguyen
+** New Post-Quantum Hardness Landscapes from Combinatoria Structures
+
+#+DOWNLOADED: screenshot @ 2026-05-08 14:43:15
+[[file:img/20260508/20260508-144315_screenshot.png]]
+
+#+DOWNLOADED: screenshot @ 2026-05-08 14:48:13
+[[file:img/20260508/20260508-144813_screenshot.png]]
+
+** Privacy-Preserving Cryptography with Controlled Information Exposure
+
+
+#+DOWNLOADED: screenshot @ 2026-05-08 14:49:22
+[[file:img/20260508/20260508-144922_screenshot.png]]
+
+#+DOWNLOADED: screenshot @ 2026-05-08 14:56:12
+[[file:img/20260508/20260508-145612_screenshot.png]]
+
+** Privacy-Preserving Interaction with AI Systems
+
+#+DOWNLOADED: screenshot @ 2026-05-08 14:56:36
+[[file:img/20260508/20260508-145636_screenshot.png]]
+
+#+DOWNLOADED: screenshot @ 2026-05-08 14:59:08
+[[file:img/20260508/20260508-145908_screenshot.png]]
+* Clement Canonne
+#+DOWNLOADED: screenshot @ 2026-05-08 15:36:36
+[[file:img/20260508/20260508-153636_screenshot.png]]
+
+
+#+DOWNLOADED: screenshot @ 2026-05-08 15:31:53
+[[file:img/20260508/20260508-153153_screenshot.png]]

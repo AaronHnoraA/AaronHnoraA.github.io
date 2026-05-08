@@ -24,7 +24,7 @@ Hilbert space is a big space.
 
 
 ** 1. 数学理解 (Mathematical Understanding)
-本质是将欧几里得空间 ($\mathbb{R}^n$) 推广到*无限维*，并保留几何直观。
+本质是将欧几里得空间 (\(\mathbb{R}^{n}\)) 推广到*无限维*，并保留几何直观。
 
 - *核心定义*: 一个*完备 (Complete)* 的*内积空间 (Inner Product Space)*。
   - *内积 ($\langle u, v \rangle$)*: 定义了“角度”和“投影”。若内积为 0，则两向量正交。
