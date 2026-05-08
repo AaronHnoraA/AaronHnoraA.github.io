@@ -1,5 +1,5 @@
 (function () {
-  if (document.body) {
+  if (document.body && !document.body.classList.contains("hidden-note-page")) {
     document.body.classList.add("note-page");
   }
 
@@ -38,7 +38,13 @@
     const knowledge = window.KNOWLEDGE_DATA || null;
     const currentLink = normalizePath(window.CURRENT_NOTE_LINK || window.location.pathname);
     const siteRoot = String(window.SITE_ROOT_PATH || "./");
-    const hiddenPage = document.body?.classList.contains("note-page-hidden") || false;
+    const hiddenPage =
+      document.body?.classList.contains("hidden-note-page") ||
+      document.body?.classList.contains("note-page-hidden") ||
+      false;
+    if (hiddenPage) {
+      return;
+    }
     const currentNote = knowledge
       ? knowledge.notes.find((note) => normalizePath(note.link) === currentLink)
       : null;
@@ -54,22 +60,21 @@
     const cjkCount = (readableText.match(/[\u3400-\u9FFF]/g) || []).length;
     const readingUnits = latinWordCount + cjkCount;
     const readingMinutes = Math.max(1, Math.ceil(readingUnits / 260));
-    const randomNote = knowledge?.notes?.length
-      ? knowledge.notes[Math.floor(Math.random() * knowledge.notes.length)]
+    const randomPool = knowledge?.publicNotes || knowledge?.notes || [];
+    const randomNote = randomPool.length
+      ? randomPool[Math.floor(Math.random() * randomPool.length)]
       : null;
     let previousNote = null;
     let nextNote = null;
 
-    if (document.body && !hiddenPage) {
+    if (document.body) {
       document.body.dataset.noteTitle = (titleEl?.textContent || currentNote?.title || "Working Note").trim();
       document.body.dataset.noteGroup = String(currentNote?.groupLabel || "Note");
       document.body.dataset.noteDate = String(currentNote?.date || "Undated");
     }
 
-    if (!hiddenPage) {
-      content.dataset.noteTitle = (titleEl?.textContent || currentNote?.title || "Working Note").trim();
-      content.dataset.noteGroup = String(currentNote?.groupLabel || "Note");
-    }
+    content.dataset.noteTitle = (titleEl?.textContent || currentNote?.title || "Working Note").trim();
+    content.dataset.noteGroup = String(currentNote?.groupLabel || "Note");
 
     const progressBar = document.createElement("div");
     progressBar.className = "note-reading-progress";

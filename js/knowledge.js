@@ -59,6 +59,7 @@
       groupKey,
       groupLabel: inferGroupLabel(note.groupLabel || groupKey),
       section: note.section || (groupKey.includes("/") ? groupKey.split("/")[0] : groupKey),
+      hidden: Boolean(note.hidden),
       tags,
       refs: Array.from(new Set(Array.isArray(note.refs) ? note.refs.filter(Boolean) : [])),
       backlinks: Array.from(new Set(Array.isArray(note.backlinks) ? note.backlinks.filter(Boolean) : [])),
@@ -69,30 +70,13 @@
     return String(value || "").toLowerCase();
   }
 
-  function buildKnowledgeData() {
-    if (typeof SITE_DATA === "undefined") {
-      window.KNOWLEDGE_DATA = null;
-      return;
-    }
-
-    const rawNotes = Array.isArray(SITE_DATA.notes) ? SITE_DATA.notes : flattenLegacyData(SITE_DATA);
-    const notes = rawNotes.map(normalizeNote);
-    const byKey = new Map(notes.map((note) => [note.key, note]));
-
-    notes.forEach((note) => {
-      note.refs = note.refs.filter((key) => byKey.has(key) && key !== note.key);
-      note.backlinks = note.backlinks.filter((key) => byKey.has(key) && key !== note.key);
-      note.searchBlob = normalizeText(
-        [note.title, note.summary, note.groupLabel, note.section, ...note.tags].join(" "),
-      );
-    });
-
+  function buildCollections(noteList) {
     const groupMap = new Map();
     const tagMap = new Map();
     let latestDate = "";
     let totalReferenceEdges = 0;
 
-    notes.forEach((note) => {
+    noteList.forEach((note) => {
       if (!groupMap.has(note.groupKey)) {
         groupMap.set(note.groupKey, []);
       }
@@ -128,27 +112,66 @@
       });
 
     const tags = Array.from(tagMap.values()).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
-    const connectedNotes = notes.filter((note) => note.refs.length > 0 || note.backlinks.length > 0).length;
+    const connectedNotes = noteList.filter((note) => note.refs.length > 0 || note.backlinks.length > 0).length;
+
+    return {
+      groups,
+      tags,
+      latestDate,
+      totalReferenceEdges,
+      connectedNotes,
+    };
+  }
+
+  function buildKnowledgeData() {
+    if (typeof SITE_DATA === "undefined") {
+      window.KNOWLEDGE_DATA = null;
+      return;
+    }
+
+    const rawNotes = Array.isArray(SITE_DATA.notes) ? SITE_DATA.notes : flattenLegacyData(SITE_DATA);
+    const notes = rawNotes.map(normalizeNote);
+    const byKey = new Map(notes.map((note) => [note.key, note]));
+
+    notes.forEach((note) => {
+      note.refs = note.refs.filter((key) => byKey.has(key) && key !== note.key);
+      note.backlinks = note.backlinks.filter((key) => byKey.has(key) && key !== note.key);
+      note.searchBlob = normalizeText(
+        [note.title, note.summary, note.groupLabel, note.section, ...note.tags].join(" "),
+      );
+    });
+
+    const publicNotes = notes.filter((note) => !note.hidden);
+    const allCollections = buildCollections(notes);
+    const publicCollections = buildCollections(publicNotes);
 
     window.KNOWLEDGE_DATA = {
       raw: SITE_DATA,
       notes,
+      publicNotes,
       byKey,
-      groups,
-      tags,
+      groups: allCollections.groups,
+      tags: allCollections.tags,
+      publicGroups: publicCollections.groups,
+      publicTags: publicCollections.tags,
       stats: {
-        totalNotes: notes.length,
-        totalTags: tags.length,
-        connectedNotes,
-        totalReferenceEdges,
-        latestDate: latestDate || (SITE_DATA.meta && SITE_DATA.meta.generatedAt) || "",
+        totalNotes: publicNotes.length,
+        totalAllNotes: notes.length,
+        hiddenNotes: notes.length - publicNotes.length,
+        totalTags: publicCollections.tags.length,
+        totalAllTags: allCollections.tags.length,
+        connectedNotes: publicCollections.connectedNotes,
+        totalReferenceEdges: publicCollections.totalReferenceEdges,
+        graphReferenceEdges: allCollections.totalReferenceEdges,
+        latestDate: publicCollections.latestDate || (SITE_DATA.meta && SITE_DATA.meta.generatedAt) || "",
         generatedAt: (SITE_DATA.meta && SITE_DATA.meta.generatedAt) || "",
       },
-      filterNotes({ text = "", tags: activeTags = [] } = {}) {
+      filterNotes({ text = "", tags: activeTags = [], includeHidden = false } = {}) {
         const terms = normalizeText(text).split(/\s+/).filter(Boolean);
         const requiredTags = Array.from(activeTags).map(normalizeTag).filter(Boolean);
+        const source = includeHidden ? notes : publicNotes;
 
-        return notes.filter((note) => {
+        return source.filter((note) => {
           const matchesText =
             terms.length === 0 || terms.every((term) => note.searchBlob.includes(term));
           const matchesTags =

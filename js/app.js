@@ -18,6 +18,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   const collator = new Intl.Collator(undefined, { sensitivity: "base", numeric: true });
+  const selectableNotes = knowledge.publicNotes || knowledge.notes;
+  const selectableTags = knowledge.publicTags || knowledge.tags;
+  const selectableGroups = knowledge.publicGroups || knowledge.groups;
   const suggestionBox = document.createElement("div");
   suggestionBox.className = "autocomplete-suggestions";
   suggestionBox.id = "note-search-suggestions";
@@ -227,13 +230,13 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function renderAcademicPanels() {
-    const qcNotes = knowledge.notes.filter((note) => note.groupLabel === "QC" || note.tags.includes("qc"));
-    const tcsNotes = knowledge.notes.filter((note) => note.tags.includes("tcs") || /tcs|complexity|algorithm/i.test(note.groupLabel));
+    const qcNotes = selectableNotes.filter((note) => note.groupLabel === "QC" || note.tags.includes("qc"));
+    const tcsNotes = selectableNotes.filter((note) => note.tags.includes("tcs") || /tcs|complexity|algorithm/i.test(note.groupLabel));
     const selectedTitles = ["Quantum State", "Density Operator", "Observable & Expectation", "Hilbert Space"];
     const selectedNotes = selectedTitles
-      .map((title) => knowledge.notes.find((note) => note.title === title))
+      .map((title) => selectableNotes.find((note) => note.title === title))
       .filter(Boolean);
-    const recentNotes = knowledge.notes
+    const recentNotes = selectableNotes
       .slice()
       .sort((a, b) => b.dateValue - a.dateValue || collator.compare(a.title, b.title))
       .slice(0, 4);
@@ -365,7 +368,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const latestNote = filtered
       .slice()
       .sort((a, b) => b.dateValue - a.dateValue || collator.compare(a.title, b.title))[0];
-    const randomPool = filtered.length > 0 ? filtered : knowledge.notes;
+    const randomPool = filtered.length > 0 ? filtered : selectableNotes;
     const randomNote = randomPool[Math.floor(Math.random() * randomPool.length)] || null;
     const focusNote = state.focusedKey ? knowledge.byKey.get(state.focusedKey) : null;
     const visibleTagCounts = new Map();
@@ -517,7 +520,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
 
-    const orderedTags = knowledge.tags
+    const orderedTags = selectableTags
       .slice()
       .sort((a, b) => {
         const aActive = state.tags.has(a.name) ? 1 : 0;
@@ -595,7 +598,7 @@ document.addEventListener("DOMContentLoaded", () => {
       grouped.get(file.groupKey).push(file);
     });
 
-    const groups = knowledge.groups
+    const groups = selectableGroups
       .filter((group) => grouped.has(group.key))
       .slice()
       .sort((a, b) => grouped.get(b.key).length - grouped.get(a.key).length || collator.compare(a.label, b.label));
@@ -698,11 +701,11 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const matchedTags = knowledge.tags
+    const matchedTags = selectableTags
       .filter((tag) => tag.name.includes(trimmed))
       .slice(0, 6);
 
-    const matchedNotes = knowledge.notes
+    const matchedNotes = selectableNotes
       .filter((note) => note.title.toLowerCase().includes(trimmed))
       .slice(0, 6);
 
@@ -760,12 +763,17 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function emitState(filtered) {
+    const visibleKeys = new Set(filtered.map((file) => file.key));
+    knowledge.notes
+      .filter((note) => note.hidden)
+      .forEach((note) => visibleKeys.add(note.key));
+
     document.dispatchEvent(
       new CustomEvent("knowledge:filters-changed", {
         detail: {
           text: state.text,
           tags: Array.from(state.tags),
-          visibleKeys: filtered.map((file) => file.key),
+          visibleKeys: Array.from(visibleKeys),
           focusedKey: state.focusedKey,
         },
       }),
@@ -872,7 +880,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if ((event.key === "r" || event.key === "R") && !isTypingTarget) {
       const pool = knowledge.filterNotes({ text: state.text, tags: Array.from(state.tags) });
-      const randomNote = (pool.length > 0 ? pool : knowledge.notes)[Math.floor(Math.random() * (pool.length > 0 ? pool.length : knowledge.notes.length))];
+      const randomSource = pool.length > 0 ? pool : selectableNotes;
+      const randomNote = randomSource[Math.floor(Math.random() * randomSource.length)];
       if (randomNote) {
         window.location.href = randomNote.link;
       }
@@ -924,7 +933,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("knowledge:focus-note", (event) => {
     const key = event.detail && event.detail.key;
     const note = key ? knowledge.byKey.get(key) : null;
-    if (!note) {
+    if (!note || note.hidden) {
       return;
     }
 

@@ -3268,15 +3268,106 @@ body.site-home:not(.site-archive) .site-footer {
   margin-top: 1.2rem;
 }
 
-body.note-page-hidden #content {
-  min-height: min(620px, calc(100vh - 96px));
+body.hidden-note-page {
+  min-height: 100vh;
+  padding: clamp(22px, 4vw, 52px);
   display: grid;
-  align-content: center;
-  gap: 1.2rem;
+  align-items: center;
+  background:
+    radial-gradient(ellipse 54% 26% at 50% -8%, rgba(238, 174, 92, 0.28), transparent 62%),
+    radial-gradient(circle at bottom, rgba(45, 18, 7, 0.94), rgba(10, 7, 5, 0.98) 72%),
+    var(--reading-wood-noise),
+    var(--reading-wood-fiber),
+    linear-gradient(180deg, #7d481d 0%, #5b2d0e 44%, #301205 100%);
+  background-size: auto, auto, 220px 220px, 260px 180px, auto;
+  box-shadow:
+    inset 46px 0 86px rgba(15, 6, 2, 0.5),
+    inset -54px 0 96px rgba(12, 5, 2, 0.62),
+    inset 0 -42px 82px rgba(13, 7, 4, 0.58);
 }
 
-body.note-page-hidden .title::after {
-  content: " / restricted";
+body.hidden-note-page::before,
+body.hidden-note-page::after {
+  position: fixed;
+  top: 14px;
+  z-index: 2;
+  color: rgba(241, 228, 203, 0.72);
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 0 rgba(26, 16, 9, 0.56);
+  pointer-events: none;
+}
+
+body.hidden-note-page::before {
+  content: "restricted folio";
+  left: max(24px, calc((100vw - 920px) / 2));
+}
+
+body.hidden-note-page::after {
+  content: "sealed access";
+  right: max(24px, calc((100vw - 920px) / 2));
+}
+
+body.hidden-note-page #content {
+  position: relative;
+  width: min(760px, 100%);
+  min-height: auto;
+  display: grid;
+  gap: 1rem;
+  margin: 0 auto;
+  padding: clamp(1.35rem, 4vw, 2.4rem);
+  border: 1px solid rgba(184, 162, 131, 0.68);
+  border-radius: 8px 5px 12px 6px;
+  background:
+    var(--reading-paper-noise),
+    radial-gradient(ellipse at 18% 0%, rgba(255, 255, 255, 0.66), transparent 44%),
+    radial-gradient(ellipse at 96% 100%, rgba(124, 92, 52, 0.11), transparent 36%),
+    linear-gradient(90deg, rgba(206, 188, 159, 0.18) 0 14px, transparent 14px),
+    linear-gradient(180deg, rgba(251, 247, 238, 0.985), rgba(241, 232, 213, 0.975)),
+    repeating-linear-gradient(180deg, rgba(147, 128, 101, 0.035) 0, rgba(147, 128, 101, 0.035) 1px, transparent 1px, transparent 31px);
+  background-size: 180px 180px, auto, auto, auto, auto, auto;
+  box-shadow:
+    0 34px 70px rgba(12, 5, 2, 0.34),
+    0 2px 7px rgba(58, 37, 18, 0.14),
+    0 1px 0 rgba(255, 255, 255, 0.74) inset,
+    0 0 0 1px rgba(255, 251, 241, 0.34) inset,
+    inset 0 -18px 30px rgba(135, 102, 62, 0.07);
+}
+
+body.hidden-note-page #content::before {
+  content: "";
+  position: absolute;
+  top: -8px;
+  right: 28px;
+  width: 96px;
+  height: 26px;
+  background: linear-gradient(180deg, rgba(239, 227, 178, 0.58), rgba(221, 203, 142, 0.26));
+  box-shadow: 0 2px 8px rgba(87, 71, 48, 0.16);
+  opacity: 0.74;
+  transform: rotate(2.4deg);
+  pointer-events: none;
+}
+
+.hidden-note-eyebrow {
+  margin: 0;
+  color: rgba(90, 72, 55, 0.78);
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.hidden-note-title {
+  max-width: 12ch;
+  margin: 0;
+  padding-bottom: 0.65rem;
+  border-bottom: 3px double rgba(85, 65, 42, 0.5);
+  color: #24170d;
+  font-size: clamp(2.1rem, 6vw, 4rem);
+  line-height: 0.98;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.58),
+    0 5px 12px rgba(60, 35, 16, 0.1);
 }
 
 .hidden-note-card {
