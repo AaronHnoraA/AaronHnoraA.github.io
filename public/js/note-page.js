@@ -38,6 +38,7 @@
     const knowledge = window.KNOWLEDGE_DATA || null;
     const currentLink = normalizePath(window.CURRENT_NOTE_LINK || window.location.pathname);
     const siteRoot = String(window.SITE_ROOT_PATH || "./");
+    const hiddenPage = document.body?.classList.contains("note-page-hidden") || false;
     const currentNote = knowledge
       ? knowledge.notes.find((note) => normalizePath(note.link) === currentLink)
       : null;
@@ -59,14 +60,16 @@
     let previousNote = null;
     let nextNote = null;
 
-    if (document.body) {
+    if (document.body && !hiddenPage) {
       document.body.dataset.noteTitle = (titleEl?.textContent || currentNote?.title || "Working Note").trim();
       document.body.dataset.noteGroup = String(currentNote?.groupLabel || "Note");
       document.body.dataset.noteDate = String(currentNote?.date || "Undated");
     }
 
-    content.dataset.noteTitle = (titleEl?.textContent || currentNote?.title || "Working Note").trim();
-    content.dataset.noteGroup = String(currentNote?.groupLabel || "Note");
+    if (!hiddenPage) {
+      content.dataset.noteTitle = (titleEl?.textContent || currentNote?.title || "Working Note").trim();
+      content.dataset.noteGroup = String(currentNote?.groupLabel || "Note");
+    }
 
     const progressBar = document.createElement("div");
     progressBar.className = "note-reading-progress";
