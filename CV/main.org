@@ -92,8 +92,8 @@
 \resumeSubHeadingListStart
 
   \resumeSubheading
-    {Independent Study, UNSW}{Sydney, Australia}
-    {Quantum Computing, Algebraic Algorithms, and Isomorphism Problems with \href{https://www.unsw.edu.au/staff/youming-qiao}{Youming Qiao}}{Term 2, 2025 -- Present}
+    {Independent Study, UTS}{Sydney, Australia}
+    {Quantum Computing, Algebraic Algorithms, and Isomorphism Problems with \href{https://sites.google.com/site/jimmyqiao86/}{Youming Qiao}}{Term 2, 2025 -- Present}
     \resumeItemListStart
       \resumeItem{Conducting supervised reading and research preparation in quantum computation, complexity theory, and algebraic methods for isomorphism problems.}
       \resumeItem{Working on graph isomorphism and tensor isomorphism problems, with emphasis on algebraic formulations, reductions, and invariants for equivalence testing.}

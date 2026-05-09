@@ -1,6 +1,6 @@
 #+title: Basic Algebra (Reading Note)
 #+date: <2026-05-08 Fri>
-#+last_modified: [2026-05-08 Fri 23:49]
+#+last_modified: [2026-05-09 Sat 11:22]
 #+filetags: :book:reading:summary:draft:
 #+startup: overview
 #+options: toc:nil
