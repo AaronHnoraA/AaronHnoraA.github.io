@@ -36,6 +36,10 @@ PUBLISH_INPUT_PATHS = (
     "bin/publish-site",
     "Makefile",
 )
+PRIVATE_PATH_PREFIXES = (
+    Path("roam/daily"),
+    Path("roam/project"),
+)
 
 
 @dataclass
@@ -128,6 +132,10 @@ def private_metadata_p(metadata: dict[str, object], tags: list[str]) -> bool:
     )
 
 
+def private_path_p(rel_path: Path) -> bool:
+    return any(rel_path == prefix or prefix in rel_path.parents for prefix in PRIVATE_PATH_PREFIXES)
+
+
 def clean_typst_text(text: str) -> str:
     text = METADATA_RE.sub("", text)
     text = re.sub(r"#import[^\n]*|#show:[^\n]*|#set[^\n]*", "", text)
@@ -166,9 +174,10 @@ def parse_note(path: Path) -> Note | None:
     metadata = parse_metadata(text)
     if not metadata:
         return None
-    rel_path = path.relative_to(ROOT).as_posix()
+    rel = path.relative_to(ROOT)
+    rel_path = rel.as_posix()
     tags = [str(tag) for tag in metadata.get("tags", [])]
-    private = private_metadata_p(metadata, tags)
+    private = private_path_p(rel) or private_metadata_p(metadata, tags)
     refs = [target for target, _label in NOTE_RE.findall(text)]
     summary = "This note has been sealed by the administrator." if private else clean_typst_text(text)
     return Note(
@@ -180,7 +189,7 @@ def parse_note(path: Path) -> Note | None:
         tags=tags,
         aliases=[str(alias) for alias in metadata.get("aliases", [])],
         summary=summary[:180],
-        refs=[] if private else sorted(set(refs)),
+        refs=sorted(set(refs)),
         private=private,
     )
 
@@ -284,13 +293,12 @@ def output_is_current(output_file: Path, deps_file: Path) -> bool:
 
 
 def deps_for_note(note: Note, notes_by_id: dict[str, Note]) -> set[str]:
-    inputs = {note.path.relative_to(ROOT).as_posix()}
+    inputs = {note.path.relative_to(ROOT).as_posix(), "bin/publish-site"}
     inputs.add((PRIVATE_STYLE if note.private else PUBLISH_STYLE).relative_to(ROOT).as_posix())
-    if not note.private:
-        for ref in note.refs:
-            target = notes_by_id.get(ref)
-            if target:
-                inputs.add(target.path.relative_to(ROOT).as_posix())
+    for ref in note.refs:
+        target = notes_by_id.get(ref)
+        if target:
+            inputs.add(target.path.relative_to(ROOT).as_posix())
     return inputs
 
 
@@ -399,7 +407,7 @@ def note_json(note: Note) -> dict[str, object]:
     return {
         "key": note.id,
         "id": note.id,
-        "title": "Sealed Document" if note.private else note.title,
+        "title": note.title,
         "link": note.link,
         "date": note.date,
         "summary": private_summary if note.private else note.summary,
@@ -478,10 +486,21 @@ def compile_cv() -> str:
 
 def clean_stale_outputs(notes: list[Note]) -> None:
     expected_pdfs = {note.link for note in notes}
+    private_assets = set()
+    for note in notes:
+        private_assets.update(private_asset_paths(note))
     roam_public = PUBLIC / "roam"
     if roam_public.exists():
         for html_file in roam_public.glob("**/*.html"):
             html_file.unlink()
+        for source_asset in private_assets:
+            try:
+                rel = source_asset.relative_to(ROOT)
+            except ValueError:
+                continue
+            public_asset = PUBLIC / rel
+            if public_asset.exists() or public_asset.is_symlink():
+                public_asset.unlink()
         for pdf_file in roam_public.glob("**/*.pdf"):
             rel = pdf_file.relative_to(PUBLIC).as_posix()
             if rel not in expected_pdfs:

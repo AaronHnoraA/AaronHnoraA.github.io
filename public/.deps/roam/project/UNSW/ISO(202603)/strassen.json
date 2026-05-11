@@ -1,7 +1,6 @@
 {
   "inputs": [
-    "_typst/note.typ",
-    "_typst/publish.typ",
+    "_typst/private.typ",
     "roam/project/UNSW/ISO(202603)/strassen.typ"
   ]
 }
