@@ -1,31 +1,11 @@
-# arasgungore-CV
+# Aaron He CV
 
-My curriculum vitae (CV) written using LaTeX. In my CV, you may find my contact information, websites, education, experience, achievements, projects, and skills.
+My curriculum vitae (CV) written in Typst.
 
-Please find attached my [CV](https://drive.google.com/file/d/1TGwMpZl6FDeQk1w_-EetbspCuzu16kCF/view?usp=sharing). 😜
-
-
+The source file is [main.typ](main.typ), and the generated PDF is [Aaron_He_CV.pdf](Aaron_He_CV.pdf).
 
 ## Run on Terminal
 
 ```sh
-pdflatex main.tex
+typst compile main.typ Aaron_He_CV.pdf
 ```
-
-
-
-## Screenshots
-
-<p align="center">
-    <img alt="Screenshot" src="https://raw.githubusercontent.com/arasgungore/arasgungore-CV/main/jpg/CV_page_1.jpg" width="400">
-    <img alt="Screenshot" src="https://raw.githubusercontent.com/arasgungore/arasgungore-CV/main/jpg/CV_page_2.jpg" width="400">
-</p>
-
-
-
-## Author
-
-👤 **Aras Güngöre**
-
-* LinkedIn: [@arasgungore](https://www.linkedin.com/in/arasgungore)
-* GitHub: [@arasgungore](https://github.com/arasgungore)

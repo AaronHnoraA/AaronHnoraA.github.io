@@ -1,140 +1,87 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<!-- 2026-05-09 Sat 17:19 -->
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Observable &amp; Expectation</title>
-<meta name="generator" content="Org Mode" />
 <meta name="color-scheme" content="light" />
-<link rel="stylesheet" href="../../css/retro.css?v=20260426-19" />
+<link rel="stylesheet" href="../../css/retro.css?v=20260511-typst" />
 <link rel="shortcut icon" href="https://raw.githubusercontent.com/AaronHnoraA/AaronHnoraA.github.io/refs/heads/master/css/cv.svg" type="image/x-icon">
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script>window.SITE_ROOT_PATH="../../";window.CURRENT_NOTE_LINK="roam/QC/observable_expectation.html";</script>
-<script defer src="../../js/data.js?v=20260426-19"></script>
-<script defer src="../../js/knowledge.js?v=20260426-19"></script>
-<script defer src="../../js/graph.js?v=20260426-19"></script>
-<script defer src="../../js/note-page.js?v=20260426-19"></script>
+<script defer src="../../js/data.js?v=20260511-typst"></script>
+<script defer src="../../js/knowledge.js?v=20260511-typst"></script>
+<script defer src="../../js/graph.js?v=20260511-typst"></script>
+<script defer src="../../js/note-page.js?v=20260511-typst"></script>
 </head>
 <body class="note-page" data-note-title="Observable &amp; Expectation" data-note-group="QC" data-note-date="2026-01-28">
-<div id="content" class="content">
-<a id="ID-29E32DDB-8883-43FA-844A-9440C363B90B" class="org-id-anchor" aria-hidden="true"></a>
-<header>
-<h1 class="title">Observable &amp; Expectation</h1>
-</header><nav id="table-of-contents" role="doc-toc">
-<h2>Table of Contents</h2>
-<div id="text-table-of-contents" role="doc-toc">
-<ul>
-<li><a href="#org517ec87">1. 可观测量为什么是厄米算符(Hermitian Matrix)</a></li>
-<li><a href="#org331b02a">2. 期望值的物理意义</a></li>
-<li><a href="#org94b8ca9">3. 谱理论的核心结论</a></li>
-</ul>
-</div>
-</nav>
-<div id="outline-container-org517ec87" class="outline-2">
-<h2 id="org517ec87">1. 可观测量为什么是厄米算符(<a href="../math/hermitian_matrix.html#ID-20BE5DF6-29D8-4B26-AA52-BFD8AB02A02F">Hermitian Matrix</a>)</h2>
-<div class="outline-text-2" id="text-org517ec87">
-<p>
-在量子力学中：
-</p>
-<ul class="org-ul">
-<li>每一个物理可观测量 A</li>
-<li>都对应一个厄米算符 Â, 在希尔伯特空间(<a href="../math/hilbert_space.html#ID-FDD92B78-DF6E-44F5-BF77-425C3CF28720">Hilbert Space</a>)内.</li>
-</ul>
-
-<p>
-原因有两个：
-</p>
-<ol class="org-ol">
-<li>本征值必须是实数（实验结果）</li>
-<li>本征态可以正交分解（概率解释）</li>
-</ol>
-</div>
-</div>
-<div id="outline-container-org331b02a" class="outline-2">
-<h2 id="org331b02a">2. 期望值的物理意义</h2>
-<div class="outline-text-2" id="text-org331b02a">
-<p>
-设系统处于态 |ψ⟩，
-对同一个系统做大量重复实验：
-</p>
-
-<p>
-每一次测量得到一个本征值 a<sub>n</sub>  
-出现概率为 p<sub>n</sub>
-</p>
-
-<p>
-统计平均值是：
-⟨A⟩ = ∑ a<sub>n</sub> p<sub>n</sub>
-</p>
-
-<p>
-谱定理告诉我们：
-</p>
-<ul class="org-ul">
-<li>p<sub>n</sub> = |⟨a<sub>n</sub>|ψ⟩|²</li>
-</ul>
-
-<p>
-代入并整理，得到一个**极其紧凑的表达式**：
-</p>
-
-<p>
-⟨A⟩ = ⟨ψ| Â |ψ⟩
-</p>
-
-<p>
-这不是“定义”，
-而是从统计平均 **严格推导出来的结果**。
-</p>
-</div>
-</div>
-<div id="outline-container-org94b8ca9" class="outline-2">
-<h2 id="org94b8ca9">3. 谱理论的核心结论</h2>
-<div class="outline-text-2" id="text-org94b8ca9">
-<p>
-对任意厄米算符 A：
-</p>
-<ul class="org-ul">
-<li>所有可能测量结果 ∈ A 的谱</li>
-<li>离散谱 → 本征值</li>
-<li>连续谱 → 广义本征态</li>
-</ul>
-
-<p>
-如果将 |ψ⟩ 在本征基中展开：
-</p>
-<table>
-
-
-<colgroup>
-<col  class="org-left">
-
-<col  class="org-left">
-</colgroup>
-<tbody>
-<tr>
-<td class="org-left">ψ⟩ = ∑ c<sub>n</sub></td>
-<td class="org-left">a<sub>n</sub>⟩</td>
-</tr>
-</tbody>
-</table>
-
-<p>
-那么：
-</p>
-<ul class="org-ul">
-<li>|c<sub>n</sub>|² = 测到 a<sub>n</sub> 的概率</li>
-</ul>
-
-<p>
-量子力学的概率性，
-并不是“测量扰动”，
-而是状态在谱分解中的 *几何投影*。
-</p>
-</div>
-</div>
-</div>
+<main id="content" class="content">
+<a id="ID-20260128T000000-observable-expectation" class="org-id-anchor" aria-hidden="true"></a>
+<nav role="doc-toc">
+      <div>
+        <div>
+          <h2>目录</h2>
+        </div>
+      </div>
+      <ol style="list-style-type: none">
+        <li><a href="#loc-1"><span class="prefix">1.</span> 1. 可观测量为什么是厄米算符(<a class="note-ref" href="../math/hermitian_matrix.html">Hermitian Matrix</a>)</a></li>
+        <li><a href="#loc-2"><span class="prefix">2.</span> 2. 期望值的物理意义</a></li>
+        <li><a href="#loc-3"><span class="prefix">3.</span> 3. 谱理论的核心结论</a></li>
+      </ol>
+    </nav>
+    <div id="loc-1">
+      <div>
+        <h2>1. 1. 可观测量为什么是厄米算符(<span style="text-decoration: underline">Hermitian Matrix</span>)</h2>
+      </div>
+    </div>
+    <p>在量子力学中：</p>
+    <ul>
+      <li>每一个物理可观测量 A</li>
+      <li>都对应一个厄米算符 Â, 在希尔伯特空间(<a class="note-ref" href="../math/hilbert_space.html">Hilbert Space</a>)内.</li>
+    </ul>
+    <p>原因有两个：</p>
+    <ol>
+      <li value="1">本征值必须是实数（实验结果）</li>
+      <li value="2">本征态可以正交分解（概率解释）</li>
+    </ol>
+    <div id="loc-2">
+      <div>
+        <h2>2. 2. 期望值的物理意义</h2>
+      </div>
+    </div>
+    <p>设系统处于态 |ψ⟩， 对同一个系统做大量重复实验：</p>
+    <p>每一次测量得到一个本征值 a_n 出现概率为 p_n</p>
+    <p>统计平均值是： ⟨A⟩ = ∑ a_n p_n</p>
+    <p>谱定理告诉我们：</p>
+    <ul>
+      <li>p_n = |⟨a_n|ψ⟩|²</li>
+    </ul>
+    <p>代入并整理，得到一个<strong>极其紧凑的表达式</strong>：</p>
+    <p>⟨A⟩ = ⟨ψ| Â |ψ⟩</p>
+    <p>这不是“定义”， 而是从统计平均 <strong>严格推导出来的结果</strong>。</p>
+    <div id="loc-3">
+      <div>
+        <h2>3. 3. 谱理论的核心结论</h2>
+      </div>
+    </div>
+    <p>对任意厄米算符 A：</p>
+    <ul>
+      <li>所有可能测量结果 ∈ A 的谱</li>
+      <li>离散谱 → 本征值</li>
+      <li>连续谱 → 广义本征态</li>
+    </ul>
+    <p>如果将 |ψ⟩ 在本征基中展开：</p>
+    <table>
+      <tr>
+        <td>ψ⟩ = ∑ c_n</td>
+        <td>a_n⟩</td>
+      </tr>
+    </table>
+    <p>那么：</p>
+    <ul>
+      <li>|c_n|² = 测到 a_n 的概率</li>
+    </ul>
+    <p>量子力学的概率性， 并不是“测量扰动”， 而是状态在谱分解中的 <strong>几何投影</strong>。</p>
+</main>
 </body>
 </html>

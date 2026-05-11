@@ -1,272 +1,182 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<!-- 2026-05-09 Sat 17:19 -->
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Inner Product Space</title>
-<meta name="generator" content="Org Mode" />
 <meta name="color-scheme" content="light" />
-<link rel="stylesheet" href="../../css/retro.css?v=20260426-19" />
+<link rel="stylesheet" href="../../css/retro.css?v=20260511-typst" />
 <link rel="shortcut icon" href="https://raw.githubusercontent.com/AaronHnoraA/AaronHnoraA.github.io/refs/heads/master/css/cv.svg" type="image/x-icon">
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script>window.SITE_ROOT_PATH="../../";window.CURRENT_NOTE_LINK="roam/math/inner_product_space.html";</script>
-<script defer src="../../js/data.js?v=20260426-19"></script>
-<script defer src="../../js/knowledge.js?v=20260426-19"></script>
-<script defer src="../../js/graph.js?v=20260426-19"></script>
-<script defer src="../../js/note-page.js?v=20260426-19"></script>
-<script>
-  window.MathJax = {
-    tex: {
-      ams: {
-        multlineWidth: '85%'
-      },
-      tags: 'ams',
-      tagSide: 'right',
-      tagIndent: '.8em'
-    },
-    chtml: {
-      scale: 1.0,
-      displayAlign: 'center',
-      displayIndent: '0em'
-    },
-    svg: {
-      scale: 1.0,
-      displayAlign: 'center',
-      displayIndent: '0em'
-    },
-    output: {
-      font: 'mathjax-modern',
-      displayOverflow: 'overflow'
-    }
-  };
-</script>
-
-<script
-  id="MathJax-script"
-  async
-  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
-</script>
+<script defer src="../../js/data.js?v=20260511-typst"></script>
+<script defer src="../../js/knowledge.js?v=20260511-typst"></script>
+<script defer src="../../js/graph.js?v=20260511-typst"></script>
+<script defer src="../../js/note-page.js?v=20260511-typst"></script>
 </head>
-<body class="note-page" data-note-title="Inner Product Space" data-note-group="math" data-note-date="2026-01-27">
-<div id="content" class="content">
-<a id="ID-8D02B895-719C-42BC-8084-3F7EE98E4D90" class="org-id-anchor" aria-hidden="true"></a>
-<header>
-<h1 class="title">Inner Product Space</h1>
-</header><nav id="table-of-contents" role="doc-toc">
-<h2>Table of Contents</h2>
-<div id="text-table-of-contents" role="doc-toc">
-<ul>
-<li><a href="#org30ea4e0">Inner Product Space 内积空间</a></li>
-<li><a href="#org26ab48e">内积的公理化定义</a></li>
-<li><a href="#org3ab2252">实内积空间与复内积空间</a></li>
-<li><a href="#orgf6617ed">正交的定义</a></li>
-<li><a href="#orgfc26d84">定义顺序的分歧（数学 vs 物理）</a>
-<ul>
-<li><a href="#orgfeace0e">数学上的约定</a></li>
-<li><a href="#org2ca15bc">物理学（狄拉克符号）的约定</a></li>
-<li><a href="#orgf3194e4">重要说明</a></li>
-</ul>
-</li>
-</ul>
-</div>
-</nav>
-<div id="outline-container-org30ea4e0" class="outline-2">
-<h2 id="org30ea4e0">Inner Product Space 内积空间</h2>
-<div class="outline-text-2" id="text-org30ea4e0">
-<ul class="org-ul">
-<li>标量域 $F$：
-<ul class="org-ul">
-<li>\(\mathbb{R}\)（实数）</li>
-<li>\(\mathbb{C}\)（复数）</li>
-</ul></li>
-
-<li>\(V\) 是定义在域 \((F,+,\times)\) 上的向量空间
-<ul class="org-ul">
-<li>向量加法：\(\oplus\)</li>
-<li>标量乘法：\(\cdot\)</li>
-</ul></li>
-
-<li>给定一个二元函数</li>
-</ul>
-<p>
-\[
-f: V \times V \to F
-\]
-通常记作：
-\[
-f(v,w) = \langle v,w\rangle
-\]
-</p>
-</div>
-</div>
-<div id="outline-container-org26ab48e" class="outline-2">
-<h2 id="org26ab48e">内积的公理化定义</h2>
-<div class="outline-text-2" id="text-org26ab48e">
-<p>
-若 \(\langle\cdot,\cdot\rangle\) 满足下表中的全部条件，则称其为 \(V\) 上的一个 *内积*。
-</p>
-
-<table>
-
-
-<colgroup>
-<col  class="org-left">
-
-<col  class="org-left">
-
-<col  class="org-left">
-</colgroup>
-<thead>
-<tr>
-<th scope="col" class="org-left">性质名称</th>
-<th scope="col" class="org-left">前提条件</th>
-<th scope="col" class="org-left">数学表述</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td class="org-left">共轭对称</td>
-<td class="org-left">\(\forall v,w\in V\)</td>
-<td class="org-left">\(\langle v,w\rangle = \overline{\langle w,v\rangle}\)</td>
-</tr>
-
-<tr>
-<td class="org-left">加法线性</td>
-<td class="org-left">\(\forall v,w,a\in V\)</td>
-<td class="org-left">\(\langle v\oplus w, a\rangle = \langle v,a\rangle + \langle w,a\rangle\)</td>
-</tr>
-
-<tr>
-<td class="org-left">齐次线性</td>
-<td class="org-left">\(\forall v,w\in V,\ \forall \lambda\in F\)</td>
-<td class="org-left">\(\langle \lambda\cdot v, w\rangle = \lambda\,\langle v,w\rangle\)</td>
-</tr>
-
-<tr>
-<td class="org-left">非负性</td>
-<td class="org-left">\(\forall v\in V\)</td>
-<td class="org-left">\(\langle v,v\rangle \ge 0\)</td>
-</tr>
-
-<tr>
-<td class="org-left">非退化性</td>
-<td class="org-left">\(\forall v\in V\)</td>
-<td class="org-left">\(\langle v,v\rangle = 0 \iff v=0_V\)</td>
-</tr>
-</tbody>
-</table>
-
-<p>
-📌 以上线性条件是指 *对第一个变量线性*。
-</p>
-</div>
-</div>
-<div id="outline-container-org3ab2252" class="outline-2">
-<h2 id="org3ab2252">实内积空间与复内积空间</h2>
-<div class="outline-text-2" id="text-org3ab2252">
-<ul class="org-ul">
-<li>若 \(F=\mathbb{R}\)，称 \(V\) 为 <b>实内积空间</b></li>
-<li>若 \(F=\mathbb{C}\)，称 \(V\) 为 <b>复内积空间</b></li>
-</ul>
-</div>
-</div>
-<div id="outline-container-orgf6617ed" class="outline-2">
-<h2 id="orgf6617ed">正交的定义</h2>
-<div class="outline-text-2" id="text-orgf6617ed">
-<p>
-若
-\[
-\langle v,w\rangle = 0
-\]
-则记为
-\[
-v \perp w
-\]
-</p>
-
-<p>
-称 \(v\) 与 \(w\) <b>正交（orthogonal / perpendicular）</b>
-</p>
-</div>
-</div>
-<div id="outline-container-orgfc26d84" class="outline-2">
-<h2 id="orgfc26d84">定义顺序的分歧（数学 vs 物理）</h2>
-<div class="outline-text-2" id="text-orgfc26d84">
-</div>
-<div id="outline-container-orgfeace0e" class="outline-3">
-<h3 id="orgfeace0e">数学上的约定</h3>
-<div class="outline-text-3" id="text-orgfeace0e">
-<ul class="org-ul">
-<li>内积对 <b>第一个变量线性</b></li>
-<li>对第二个变量共轭线性</li>
-</ul>
-
-<p>
-这是线性代数、泛函分析中的主流约定。
-</p>
-</div>
-</div>
-<div id="outline-container-org2ca15bc" class="outline-3">
-<h3 id="org2ca15bc">物理学（狄拉克符号）的约定</h3>
-<div class="outline-text-3" id="text-org2ca15bc">
-<p>
-为配合 \(\langle \psi | \phi \rangle\) 的书写顺序，物理学家常采用相反的线性约定：
-</p>
-
-<table>
-
-
-<colgroup>
-<col  class="org-left">
-
-<col  class="org-left">
-</colgroup>
-<thead>
-<tr>
-<th scope="col" class="org-left">性质</th>
-<th scope="col" class="org-left">数学表述</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td class="org-left">加法线性</td>
-<td class="org-left">\(\langle a, v\oplus w\rangle = \langle a,v\rangle + \langle a,w\rangle\)</td>
-</tr>
-
-<tr>
-<td class="org-left">齐次线性</td>
-<td class="org-left">\(\langle v, \lambda\cdot w\rangle = \lambda\,\langle v,w\rangle\)</td>
-</tr>
-</tbody>
-</table>
-
-<p>
-即：*对第二个变量线性*。
-</p>
-</div>
-</div>
-<div id="outline-container-orgf3194e4" class="outline-3">
-<h3 id="orgf3194e4">重要说明</h3>
-<div class="outline-text-3" id="text-orgf3194e4">
-<ul class="org-ul">
-<li>真正影响定理形式的是“线性作用在哪个变量”</li>
-<li>两种定义在数学上是等价的</li>
-<li>但使用公式和定理时，必须保持顺序一致</li>
-</ul>
-
-
-<p>
-1 现有内积
-2 内积又到长度
-3 长度诱导的范数
-4 范数诱导的距离
-5 距离看极限
-6 内积空间的完备性
-</p>
-</div>
-</div>
-</div>
-</div>
+<body class="note-page" data-note-title="Inner Product Space" data-note-group="Math" data-note-date="2026-01-27">
+<main id="content" class="content">
+<a id="ID-20260127T000000-inner-product-space" class="org-id-anchor" aria-hidden="true"></a>
+<nav role="doc-toc">
+      <div>
+        <div>
+          <h2>目录</h2>
+        </div>
+      </div>
+      <ol style="list-style-type: none">
+        <li><a href="#loc-1"><span class="prefix">1.</span> Inner Product Space 内积空间</a></li>
+        <li><a href="#loc-2"><span class="prefix">2.</span> 内积的公理化定义</a></li>
+        <li><a href="#loc-3"><span class="prefix">3.</span> 实内积空间与复内积空间</a></li>
+        <li><a href="#loc-4"><span class="prefix">4.</span> 正交的定义</a></li>
+        <li>
+          <div><a href="#loc-5"><span class="prefix">5.</span> 定义顺序的分歧（数学 vs 物理）</a></div>
+          <ol style="list-style-type: none">
+            <li><a href="#loc-6"><span class="prefix">5.1.</span> 数学上的约定</a></li>
+            <li><a href="#loc-7"><span class="prefix">5.2.</span> 物理学（狄拉克符号）的约定</a></li>
+            <li><a href="#loc-8"><span class="prefix">5.3.</span> 重要说明</a></li>
+          </ol>
+        </li>
+      </ol>
+    </nav>
+    <div id="loc-1">
+      <div>
+        <h2>1. Inner Product Space 内积空间</h2>
+      </div>
+    </div>
+    <ul>
+      <li>
+        <p>标量域</p>
+        <p>：</p>
+        <ul>
+          <li>
+            <p>（实数）</p>
+          </li>
+          <li>
+            <p>（复数）</p>
+          </li>
+        </ul>
+      </li>
+      <li>
+        <p>是定义在域</p>
+        <p>上的向量空间</p>
+        <ul>
+          <li>
+            <p>向量加法：</p>
+          </li>
+          <li>
+            <p>标量乘法：</p>
+          </li>
+        </ul>
+      </li>
+      <li>
+        <p>给定一个二元函数</p>
+      </li>
+    </ul>
+    <p>通常记作：</p>
+    <div id="loc-2">
+      <div>
+        <h2>2. 内积的公理化定义</h2>
+      </div>
+    </div>
+    <p>若</p>
+    <p>满足下表中的全部条件，则称其为</p>
+    <p>上的一个 <strong>内积</strong>。</p>
+    <table>
+      <tr>
+        <td>性质名称</td>
+        <td>前提条件</td>
+        <td>数学表述</td>
+      </tr>
+      <tr>
+        <td>共轭对称</td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>加法线性</td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>齐次线性</td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>非负性</td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>非退化性</td>
+        <td></td>
+        <td></td>
+      </tr>
+    </table>
+    <p>📌 以上线性条件是指 <strong>对第一个变量线性</strong>。</p>
+    <div id="loc-3">
+      <div>
+        <h2>3. 实内积空间与复内积空间</h2>
+      </div>
+    </div>
+    <ul>
+      <li>
+        <p>若</p>
+        <p>，称</p>
+        <p>为 <strong>实内积空间</strong></p>
+      </li>
+      <li>
+        <p>若</p>
+        <p>，称</p>
+        <p>为 <strong>复内积空间</strong></p>
+      </li>
+    </ul>
+    <div id="loc-4">
+      <div>
+        <h2>4. 正交的定义</h2>
+      </div>
+    </div>
+    <p>若</p>
+    <p>则记为</p>
+    <p>称</p>
+    <p>与</p>
+    <p><strong>正交（orthogonal / perpendicular）</strong></p>
+    <div id="loc-5">
+      <div>
+        <h2>5. 定义顺序的分歧（数学 vs 物理）</h2>
+      </div>
+    </div>
+    <div id="loc-6"></div>
+    <ul>
+      <li>内积对 <strong>第一个变量线性</strong></li>
+      <li>对第二个变量共轭线性</li>
+    </ul>
+    <p>这是线性代数、泛函分析中的主流约定。</p>
+    <div id="loc-7"></div>
+    <p>为配合</p>
+    <p>的书写顺序，物理学家常采用相反的线性约定：</p>
+    <table>
+      <tr>
+        <td>性质</td>
+        <td>数学表述</td>
+      </tr>
+      <tr>
+        <td>加法线性</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>齐次线性</td>
+        <td></td>
+      </tr>
+    </table>
+    <p>即：<strong>对第二个变量线性</strong>。</p>
+    <div id="loc-8"></div>
+    <ul>
+      <li>真正影响定理形式的是“线性作用在哪个变量”</li>
+      <li>两种定义在数学上是等价的</li>
+      <li>但使用公式和定理时，必须保持顺序一致</li>
+    </ul>
+    <p>1 现有内积 2 内积又到长度 3 长度诱导的范数 4 范数诱导的距离 5 距离看极限 6 内积空间的完备性</p>
+</main>
 </body>
 </html>

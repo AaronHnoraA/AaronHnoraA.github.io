@@ -1,140 +1,88 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<!-- 2026-05-09 Sat 17:19 -->
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Quantum State</title>
-<meta name="generator" content="Org Mode" />
 <meta name="color-scheme" content="light" />
-<link rel="stylesheet" href="../../css/retro.css?v=20260426-19" />
+<link rel="stylesheet" href="../../css/retro.css?v=20260511-typst" />
 <link rel="shortcut icon" href="https://raw.githubusercontent.com/AaronHnoraA/AaronHnoraA.github.io/refs/heads/master/css/cv.svg" type="image/x-icon">
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script>window.SITE_ROOT_PATH="../../";window.CURRENT_NOTE_LINK="roam/QC/quantum_state.html";</script>
-<script defer src="../../js/data.js?v=20260426-19"></script>
-<script defer src="../../js/knowledge.js?v=20260426-19"></script>
-<script defer src="../../js/graph.js?v=20260426-19"></script>
-<script defer src="../../js/note-page.js?v=20260426-19"></script>
+<script defer src="../../js/data.js?v=20260511-typst"></script>
+<script defer src="../../js/knowledge.js?v=20260511-typst"></script>
+<script defer src="../../js/graph.js?v=20260511-typst"></script>
+<script defer src="../../js/note-page.js?v=20260511-typst"></script>
 </head>
 <body class="note-page" data-note-title="Quantum State" data-note-group="QC" data-note-date="2026-01-28">
-<div id="content" class="content">
-<a id="ID-ABBA184F-F2BA-40FD-B44F-3A99A7A0F493" class="org-id-anchor" aria-hidden="true"></a>
-<header>
-<h1 class="title">Quantum State</h1>
-</header><nav id="table-of-contents" role="doc-toc">
-<h2>Table of Contents</h2>
-<div id="text-table-of-contents" role="doc-toc">
-<ul>
-<li><a href="#org11510c2">1. 量子态的数学载体：希尔伯特空间(Hilbert Space)</a></li>
-<li><a href="#orged5469a">2. 量子态不是矢量，而是“束”</a></li>
-<li><a href="#orgc5fed0a">3. 为什么平时还在用“态矢”这个说法？</a></li>
-</ul>
-</div>
-</nav>
-<div id="outline-container-org11510c2" class="outline-2">
-<h2 id="org11510c2">1. 量子态的数学载体：希尔伯特空间(<a href="../math/hilbert_space.html#ID-FDD92B78-DF6E-44F5-BF77-425C3CF28720">Hilbert Space</a>)</h2>
-<div class="outline-text-2" id="text-org11510c2">
-<p>
-在量子力学中，每一个物理系统，都对应一个 <b>复希尔伯特空间</b> H。
-</p>
-
-<p>
-H 具备三个关键结构：
-</p>
-<ul class="org-ul">
-<li>线性结构（可以相加、数乘）</li>
-<li>内积 ⟨·,·⟩（用来算概率与期望值）</li>
-<li>完备性（极限不会“跑丢”）</li>
-</ul>
-
-<p>
-在实际物理中，我们通常假设 H 是 *可分的*，
-意思是：它有一个可数的正交基，
-这与“有限次实验可以确定状态”这一物理事实相匹配。
-</p>
-</div>
-</div>
-<div id="outline-container-orged5469a" class="outline-2">
-<h2 id="orged5469a">2. 量子态不是矢量，而是“束”</h2>
-<div class="outline-text-2" id="text-orged5469a">
-<p>
-<b><b>关键结论：</b></b>
-量子态 ≠ 希尔伯特空间中的某一个具体矢量  
-量子态 = *一维子空间*（又叫“束”）
-</p>
-
-<p>
-原因是：
-如果两个矢量只差一个整体相位
-</p>
-<table>
-
-
-<colgroup>
-<col  class="org-left">
-
-<col  class="org-left">
-</colgroup>
-<tbody>
-<tr>
-<td class="org-left">ψ⟩ 和 e<sup>iθ</sup></td>
-<td class="org-left">ψ⟩</td>
-</tr>
-</tbody>
-</table>
-
-<p>
-那么：
-</p>
-<ul class="org-ul">
-<li>所有可观测量的概率</li>
-<li>所有期望值</li>
-</ul>
-
-<p>
-完全一样，实验无法区分。
-</p>
-
-<p>
-因此，真正的物理状态是：
-</p>
-<ul class="org-ul">
-<li>所有长度为 1 的矢量</li>
-<li>按“相差一个相位”分成的等价类</li>
-</ul>
-
-<p>
-数学上，这叫：
-<b>射影希尔伯特空间</b> P(H)
-</p>
-</div>
-</div>
-<div id="outline-container-orgc5fed0a" class="outline-2">
-<h2 id="orgc5fed0a">3. 为什么平时还在用“态矢”这个说法？</h2>
-<div class="outline-text-2" id="text-orgc5fed0a">
-<p>
-虽然严格来说量子态是“束”，
-但在很多情形下：
-</p>
-<ul class="org-ul">
-<li>选定一个代表元 |ψ⟩ 计算</li>
-<li>最终结果与相位无关</li>
-</ul>
-
-<p>
-所以物理学家常常：
-</p>
-<ul class="org-ul">
-<li>用 |ψ⟩ 代指这个束</li>
-<li>称之为“态矢”</li>
-</ul>
-
-<p>
-这是一个 *计算上的简化*，
-而不是概念上的严格等价。
-</p>
-</div>
-</div>
-</div>
+<main id="content" class="content">
+<a id="ID-20260128T000000-quantum-state" class="org-id-anchor" aria-hidden="true"></a>
+<nav role="doc-toc">
+      <div>
+        <div>
+          <h2>目录</h2>
+        </div>
+      </div>
+      <ol style="list-style-type: none">
+        <li><a href="#loc-1"><span class="prefix">1.</span> 1. 量子态的数学载体：希尔伯特空间(<a class="note-ref" href="../math/hilbert_space.html">Hilbert Space</a>)</a></li>
+        <li><a href="#loc-2"><span class="prefix">2.</span> 2. 量子态不是矢量，而是“束”</a></li>
+        <li><a href="#loc-3"><span class="prefix">3.</span> 3. 为什么平时还在用“态矢”这个说法？</a></li>
+      </ol>
+    </nav>
+    <div id="loc-1">
+      <div>
+        <h2>1. 1. 量子态的数学载体：希尔伯特空间(<span style="text-decoration: underline">Hilbert Space</span>)</h2>
+      </div>
+    </div>
+    <p>在量子力学中，每一个物理系统，都对应一个 <strong>复希尔伯特空间</strong> H。</p>
+    <p>H 具备三个关键结构：</p>
+    <ul>
+      <li>线性结构（可以相加、数乘）</li>
+      <li>内积 ⟨·,·⟩（用来算概率与期望值）</li>
+      <li>完备性（极限不会“跑丢”）</li>
+    </ul>
+    <p>在实际物理中，我们通常假设 H 是 <strong>可分的</strong>， 意思是：它有一个可数的正交基， 这与“有限次实验可以确定状态”这一物理事实相匹配。</p>
+    <div id="loc-2">
+      <div>
+        <h2>2. 2. 量子态不是矢量，而是“束”</h2>
+      </div>
+    </div>
+    <p><strong>关键结论：</strong> 量子态 ≠ 希尔伯特空间中的某一个具体矢量 量子态 = <strong>一维子空间</strong>（又叫“束”）</p>
+    <p>原因是： 如果两个矢量只差一个整体相位</p>
+    <table>
+      <tr>
+        <td>ψ⟩ 和 e^{iθ}</td>
+        <td>ψ⟩</td>
+      </tr>
+    </table>
+    <p>那么：</p>
+    <ul>
+      <li>所有可观测量的概率</li>
+      <li>所有期望值</li>
+    </ul>
+    <p>完全一样，实验无法区分。</p>
+    <p>因此，真正的物理状态是：</p>
+    <ul>
+      <li>所有长度为 1 的矢量</li>
+      <li>按“相差一个相位”分成的等价类</li>
+    </ul>
+    <p>数学上，这叫： <strong>射影希尔伯特空间</strong> P(H)</p>
+    <div id="loc-3">
+      <div>
+        <h2>3. 3. 为什么平时还在用“态矢”这个说法？</h2>
+      </div>
+    </div>
+    <p>虽然严格来说量子态是“束”， 但在很多情形下：</p>
+    <ul>
+      <li>选定一个代表元 |ψ⟩ 计算</li>
+      <li>最终结果与相位无关</li>
+    </ul>
+    <p>所以物理学家常常：</p>
+    <ul>
+      <li>用 |ψ⟩ 代指这个束</li>
+      <li>称之为“态矢”</li>
+    </ul>
+    <p>这是一个 <strong>计算上的简化</strong>， 而不是概念上的严格等价。</p>
+</main>
 </body>
 </html>

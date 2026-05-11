@@ -1,3 +1,3 @@
 # Project Overview
 
-这是 Aaron 的个人 Org 知识库，也是日常记录、长期知识沉淀与网站发布源。`roam/` 和 `daily/` 中的 Org 文件始终是事实来源。`agent/` 是面向 AI 的检索与维护层，提供派生索引、压缩 wiki、只读数据库入口和受门禁约束的维护流程，帮助未来代理快速理解、核对并安全升级这一层，而不干扰人的写作流程。
+这是 Aaron 的 Typst note 系统，也是长期知识沉淀与网站发布源。`roam/**/*.typ` 的 note metadata 是事实来源，`#note("id")[Title]` 是链接语法。`agent/` 只维护派生索引和压缩 wiki，帮助 AI 快速检索并回到原始 Typst 文件核对。

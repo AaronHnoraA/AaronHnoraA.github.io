@@ -1,0 +1,319 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from html import escape
+from pathlib import Path
+import json
+import os
+import re
+import shutil
+import subprocess
+import tempfile
+
+
+ROOT = Path(__file__).resolve().parents[1]
+PUBLIC = ROOT / "public"
+ASSET_VERSION = "20260511-typst"
+IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".avif"}
+STATIC_EXTENSIONS = IMAGE_EXTENSIONS | {".css", ".js", ".pdf"}
+SKIP_DIRS = {".git", ".cache", ".direnv", ".venv", "node_modules", "public", "ltximg", "_typst", "__pycache__"}
+NOTE_RE = re.compile(r"#note\(\s*\"([^\"]+)\"\s*\)\s*\[([^\]]+)\]")
+METADATA_RE = re.compile(r"#metadata\s*\(\((.*?)\)\)\s*<note>", re.S)
+FIELD_RE = re.compile(r"^\s*([a-zA-Z0-9_-]+)\s*:\s*(.+?)(?:,\s*)?$", re.M)
+
+
+@dataclass
+class Note:
+    path: Path
+    rel_path: str
+    id: str
+    title: str
+    date: str = "Undated"
+    tags: list[str] = field(default_factory=list)
+    aliases: list[str] = field(default_factory=list)
+    summary: str = ""
+    refs: list[str] = field(default_factory=list)
+    backlinks: list[str] = field(default_factory=list)
+
+    @property
+    def link(self) -> str:
+        return f"{Path(self.rel_path).with_suffix('').as_posix()}.html"
+
+    @property
+    def group_key(self) -> str:
+        parent = Path(self.rel_path).parent.as_posix()
+        return "Root" if parent == "." else parent
+
+    @property
+    def group_label(self) -> str:
+        leaf = self.group_key.rsplit("/", 1)[-1]
+        if leaf == "Root":
+            return "Root"
+        return leaf if leaf.isupper() else leaf.replace("-", " ").replace("_", " ").title()
+
+    @property
+    def section(self) -> str:
+        return self.group_key.split("/", 1)[0]
+
+
+def should_skip(path: Path) -> bool:
+    return any(part in SKIP_DIRS for part in path.parts)
+
+
+def parse_scalar(value: str) -> str:
+    value = value.strip().rstrip(",").strip()
+    if value.startswith('"') and value.endswith('"'):
+        return value[1:-1].replace('\\"', '"')
+    return value
+
+
+def parse_tuple(value: str) -> list[str]:
+    return re.findall(r'"([^"]*)"', value)
+
+
+def parse_metadata(text: str) -> dict[str, object] | None:
+    match = METADATA_RE.search(text)
+    if not match:
+        return None
+    data: dict[str, object] = {}
+    for key, value in FIELD_RE.findall(match.group(1)):
+        if value.strip().startswith("("):
+            data[key] = parse_tuple(value)
+        else:
+            data[key] = parse_scalar(value)
+    if data.get("kind") != "note" or not data.get("id"):
+        return None
+    return data
+
+
+def clean_typst_text(text: str) -> str:
+    text = METADATA_RE.sub("", text)
+    text = re.sub(r"#import[^\n]*|#show:[^\n]*|#set[^\n]*", "", text)
+    text = NOTE_RE.sub(lambda m: m.group(2), text)
+    text = re.sub(r"#\w+\s*\[|\]|\$|=+|//.*", " ", text)
+    text = re.sub(r"[*_`#{}()]", " ", text)
+    return " ".join(text.split())
+
+
+def parse_note(path: Path) -> Note | None:
+    text = path.read_text(encoding="utf-8")
+    metadata = parse_metadata(text)
+    if not metadata:
+        return None
+    rel_path = path.relative_to(ROOT).as_posix()
+    refs = [target for target, _label in NOTE_RE.findall(text)]
+    summary = clean_typst_text(text)
+    return Note(
+        path=path,
+        rel_path=rel_path,
+        id=str(metadata["id"]),
+        title=str(metadata.get("title") or path.stem),
+        date=str(metadata.get("date") or "Undated"),
+        tags=[str(tag) for tag in metadata.get("tags", [])],
+        aliases=[str(alias) for alias in metadata.get("aliases", [])],
+        summary=summary[:180],
+        refs=sorted(set(refs)),
+    )
+
+
+def find_notes() -> list[Note]:
+    notes: list[Note] = []
+    for path in ROOT.rglob("*.typ"):
+        rel = path.relative_to(ROOT)
+        if should_skip(rel) or path.name.endswith("~"):
+            continue
+        note = parse_note(path)
+        if note:
+            notes.append(note)
+    return sorted(notes, key=lambda note: (note.date, note.title), reverse=True)
+
+
+def prefix_for(link: str) -> str:
+    depth = len(Path(link).parent.parts)
+    return "." if depth == 0 else "/".join([".."] * depth)
+
+
+def site_root_for(link: str) -> str:
+    prefix = prefix_for(link)
+    return "./" if prefix == "." else f"{prefix}/"
+
+
+def head_html(note: Note, prefix: str) -> str:
+    current = note.link
+    site_root = site_root_for(current)
+    return "\n".join(
+        [
+            '<meta name="color-scheme" content="light" />',
+            f'<link rel="stylesheet" href="{prefix}/css/retro.css?v={ASSET_VERSION}" />',
+            '<link rel="shortcut icon" href="https://raw.githubusercontent.com/AaronHnoraA/AaronHnoraA.github.io/refs/heads/master/css/cv.svg" type="image/x-icon">',
+            '<script src="https://d3js.org/d3.v7.min.js"></script>',
+            f"<script>window.SITE_ROOT_PATH={json.dumps(site_root)};window.CURRENT_NOTE_LINK={json.dumps(current)};</script>",
+            f'<script defer src="{prefix}/js/data.js?v={ASSET_VERSION}"></script>',
+            f'<script defer src="{prefix}/js/knowledge.js?v={ASSET_VERSION}"></script>',
+            f'<script defer src="{prefix}/js/graph.js?v={ASSET_VERSION}"></script>',
+            f'<script defer src="{prefix}/js/note-page.js?v={ASSET_VERSION}"></script>',
+        ]
+    )
+
+
+def extract_body(html: str) -> str:
+    match = re.search(r"<body[^>]*>(.*)</body>", html, re.S | re.I)
+    return match.group(1).strip() if match else html
+
+
+def replace_first_note_span(body: str, label: str, href: str) -> str:
+    span = f'<span style="text-decoration: underline">{escape(label)}</span>'
+    link = f'<a class="note-ref" href="{escape(href)}">{escape(label)}</a>'
+    if span in body:
+        return body.replace(span, link, 1)
+    return body
+
+
+def linkify_note_refs(note: Note, body: str, notes_by_id: dict[str, Note]) -> str:
+    source = note.path.read_text(encoding="utf-8")
+    output_dir = (PUBLIC / note.link).parent
+    for target_id, label in NOTE_RE.findall(source):
+        target = notes_by_id.get(target_id)
+        if not target:
+            continue
+        href = os.path.relpath(PUBLIC / target.link, output_dir)
+        body = replace_first_note_span(body, label, href)
+    return body
+
+
+def compile_note(note: Note, notes_by_id: dict[str, Note]) -> None:
+    out_file = PUBLIC / note.link
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(suffix=".html") as tmp:
+        subprocess.run(
+            [
+                "typst",
+                "compile",
+                "--features",
+                "html",
+                "--root",
+                str(ROOT),
+                str(note.path),
+                tmp.name,
+            ],
+            check=True,
+            cwd=ROOT,
+        )
+        body = extract_body(Path(tmp.name).read_text(encoding="utf-8"))
+    body = linkify_note_refs(note, body, notes_by_id)
+    prefix = prefix_for(note.link)
+    out_file.write_text(
+        "\n".join(
+            [
+                "<!doctype html>",
+                '<html lang="en">',
+                "<head>",
+                '<meta charset="utf-8" />',
+                '<meta name="viewport" content="width=device-width, initial-scale=1.0" />',
+                f"<title>{escape(note.title)}</title>",
+                head_html(note, prefix),
+                "</head>",
+                (
+                    f'<body class="note-page" data-note-title="{escape(note.title)}" '
+                    f'data-note-group="{escape(note.group_label)}" data-note-date="{escape(note.date)}">'
+                ),
+                '<main id="content" class="content">',
+                f'<a id="ID-{escape(note.id)}" class="org-id-anchor" aria-hidden="true"></a>',
+                body,
+                "</main>",
+                "</body>",
+                "</html>",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def note_json(note: Note) -> dict[str, object]:
+    return {
+        "key": note.id,
+        "id": note.id,
+        "title": note.title,
+        "link": note.link,
+        "date": note.date,
+        "summary": note.summary,
+        "groupKey": note.group_key,
+        "groupLabel": note.group_label,
+        "section": note.section,
+        "hidden": False,
+        "tags": note.tags,
+        "refs": note.refs,
+        "backlinks": note.backlinks,
+    }
+
+
+def write_data(notes: list[Note]) -> None:
+    js_dir = PUBLIC / "js"
+    js_dir.mkdir(parents=True, exist_ok=True)
+    tags = sorted({tag for note in notes for tag in note.tags})
+    data = {
+        "meta": {
+            "generatedAt": subprocess.check_output(["date", "+%Y-%m-%d %H:%M:%S %z"], text=True).strip(),
+            "noteCount": len(notes),
+            "tagCount": len(tags),
+        },
+        "notes": [note_json(note) for note in notes],
+    }
+    (js_dir / "data.js").write_text(f"const SITE_DATA = {json.dumps(data, ensure_ascii=False, separators=(',', ':'))};\n", encoding="utf-8")
+
+
+def copy_static() -> None:
+    for path in ROOT.rglob("*"):
+        if not path.is_file():
+            continue
+        rel = path.relative_to(ROOT)
+        if should_skip(rel) or path.name.startswith(".") or path.name.endswith("~"):
+            continue
+        if rel.parts and rel.parts[0] == "roam" and path.suffix.lower() not in IMAGE_EXTENSIONS:
+            continue
+        if path.suffix.lower() not in STATIC_EXTENSIONS:
+            continue
+        target = PUBLIC / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, target)
+
+    for template, output in (("homepage.html", "index.html"), ("notes.html", "notes.html")):
+        source = ROOT / template
+        if source.exists():
+            shutil.copy2(source, PUBLIC / output)
+
+
+def compile_cv() -> None:
+    source = ROOT / "CV" / "main.typ"
+    if not source.exists():
+        return
+    target = ROOT / "CV" / "Aaron_He_CV.pdf"
+    subprocess.run(["typst", "compile", "--root", str(ROOT / "CV"), str(source), str(target)], check=True, cwd=ROOT)
+
+
+def main() -> None:
+    if PUBLIC.exists():
+        shutil.rmtree(PUBLIC)
+    PUBLIC.mkdir(exist_ok=True)
+    notes = find_notes()
+    notes_by_id = {note.id: note for note in notes}
+    backlinks: dict[str, list[str]] = {note.id: [] for note in notes}
+    for note in notes:
+        note.refs = sorted(ref for ref in set(note.refs) if ref in notes_by_id and ref != note.id)
+        for ref in note.refs:
+            backlinks.setdefault(ref, []).append(note.id)
+    for note in notes:
+        note.backlinks = sorted(set(backlinks.get(note.id, [])))
+
+    compile_cv()
+    copy_static()
+    for note in notes:
+        compile_note(note, notes_by_id)
+    write_data(notes)
+    print(f"Published {len(notes)} Typst notes to {PUBLIC}")
+
+
+if __name__ == "__main__":
+    main()

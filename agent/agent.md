@@ -1,27 +1,22 @@
 # Agent Workspace
 
-`agent/` is reserved for AI-maintained structure around the Org knowledge base. It should help agents find, summarize, and update knowledge without disturbing the human note workflow.
+`agent/` is the AI-maintained navigation layer for Aaron's Typst note system. It helps agents find, summarize, and update knowledge without disturbing the human writing workflow.
 
 ## Principles
 
-- The Org files are canonical. Generated index/wiki files must never replace the source notes.
-- Keep AI artifacts deterministic and easy to diff.
-- Prefer small derived Markdown files over large opaque dumps.
-- Keep database access read-only unless the user explicitly asks for a repair.
-- Prefer incremental maintenance: remember the last processed `git` head, diff only `roam/` and `daily/` against that point, randomly recheck a small share of unchanged notes, and avoid rewriting derived files when rendered content is identical.
-- Gate autonomous tooling edits through `agent/develop.md`: without a human request, only severe defects or issues with at least 5 valid votes may change scripts or workflow prompts.
-- Do not commit unrelated user edits. `make llm` stages only `agent.md`, `agent/`, and `Makefile`.
-- Keep `project-overview.md` and `growth-log.md` under 500 non-space body characters each.
+- Typst files are canonical. Generated index/wiki files must never replace source notes.
+- Note identity comes from `#metadata((kind: "note", id: ..., title: ..., tags: ...)) <note>`.
+- Links come from `#note("id")[Title]`.
+- Keep derived Markdown deterministic and easy to diff.
+- Do not commit unrelated user edits.
+- Keep `project-overview.md` and `growth-log.md` compact.
 
 ## Directory Contract
 
-- `index/`: generated indexes for fast lookup by title, path, tag, link, and backlink. Current stable files are `org-roam-index.md`, `titles.md`, `paths.md`, `tags.md`, `graph.md`, and `backlinks.md`.
-- `wiki/`: generated condensed note pages for quick AI reading, covering both `roam/` and `daily/`.
+- `index/`: generated indexes for fast lookup by title, path, tag, link, and backlink. Existing generated files are left as-is until the Typst index refresh is handled separately.
+- `wiki/`: generated condensed note pages for quick AI reading.
 - `skill/`: AI-usable scripts and maintenance procedures.
-- `db/`: database links or database-facing notes. `org-roam.sqlite3` points at the local Emacs org-roam DB under `~/.emacs.d/var/org/org-roam.db`.
-- `develop.md`: temporary development gate and vote ledger for autonomous tooling changes. Remove resolved items instead of keeping a long history.
-- `project-overview.md`: compact project summary for first-pass context.
-- `growth-log.md`: compact natural-language evolution log, rewritten when needed to stay below 500 characters.
+- `develop.md`: temporary development gate and vote ledger for autonomous tooling changes.
 
 ## Maintenance Flow
 
@@ -31,39 +26,17 @@ Run:
 make llm
 ```
 
-This target:
-
-1. Launches `codex exec` with `agent/skill/llm-maintenance.md`.
-2. Lets Codex inspect the repository and decide the targeted AI maintenance work.
-3. Refreshes or improves `agent/index/`, `agent/wiki/`, and `agent/skill/` as needed.
-4. Stages only AI maintenance files by default.
-5. Creates a timestamped commit if those files changed.
-6. Pushes the current branch.
-
 Lookup:
 
 ```sh
-make lookup
+make lookup QUERY="What is a quantum state?"
 ```
 
-This launches interactive Codex with `agent/skill/lookup.md` in read-only mode. The agent may use `agent/index/` and `agent/wiki/` to find candidate notes, but precise answers must be verified against the original Org files. You may also pass an initial query with `make lookup QUERY="What is a quantum state?"`.
+The lookup agent may use `agent/index/` and `agent/wiki/` to find candidate notes, but precise answers must be verified against original `.typ` files.
 
-For database inspection, use:
+Useful checks:
 
 ```sh
-python3 agent/skill/read_org_roam_db.py summary
-python3 agent/skill/read_org_roam_db.py nodes
-python3 agent/skill/read_org_roam_db.py links
+python3 agent/skill/maintain.py
 python3 agent/skill/check_agent_text_limits.py
 ```
-
-## Update Rules For Agents
-
-- When adding a new index format, implement it in `agent/skill/maintain.py`, keep filenames stable when possible, and document it here.
-- When changing the `make llm` behavior, update `agent/skill/llm-maintenance.md`.
-- When changing the `make lookup` behavior, update `agent/skill/lookup.md`.
-- When adding a new reusable procedure, place it in `agent/skill/` with a short README entry.
-- When an autonomous tooling request is not yet allowed, record it in `agent/develop.md` instead of changing scripts.
-- When a generated file becomes too large, split it by domain or path while preserving the top-level index pointer.
-- When updating the overview or growth log, rewrite them as compact living context instead of appending indefinitely.
-- If the org-roam DB is stale, regenerate it from the editor/org-roam workflow first; do not invent DB rows manually.

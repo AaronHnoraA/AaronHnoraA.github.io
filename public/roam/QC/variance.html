@@ -1,281 +1,77 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<!-- 2026-05-09 Sat 17:19 -->
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Variance Quantum State</title>
-<meta name="generator" content="Org Mode" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Variance</title>
 <meta name="color-scheme" content="light" />
-<link rel="stylesheet" href="../../css/retro.css?v=20260426-19" />
+<link rel="stylesheet" href="../../css/retro.css?v=20260511-typst" />
 <link rel="shortcut icon" href="https://raw.githubusercontent.com/AaronHnoraA/AaronHnoraA.github.io/refs/heads/master/css/cv.svg" type="image/x-icon">
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script>window.SITE_ROOT_PATH="../../";window.CURRENT_NOTE_LINK="roam/QC/variance.html";</script>
-<script defer src="../../js/data.js?v=20260426-19"></script>
-<script defer src="../../js/knowledge.js?v=20260426-19"></script>
-<script defer src="../../js/graph.js?v=20260426-19"></script>
-<script defer src="../../js/note-page.js?v=20260426-19"></script>
-<script>
-  window.MathJax = {
-    tex: {
-      ams: {
-        multlineWidth: '85%'
-      },
-      tags: 'ams',
-      tagSide: 'right',
-      tagIndent: '.8em'
-    },
-    chtml: {
-      scale: 1.0,
-      displayAlign: 'center',
-      displayIndent: '0em'
-    },
-    svg: {
-      scale: 1.0,
-      displayAlign: 'center',
-      displayIndent: '0em'
-    },
-    output: {
-      font: 'mathjax-modern',
-      displayOverflow: 'overflow'
-    }
-  };
-</script>
-
-<script
-  id="MathJax-script"
-  async
-  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
-</script>
+<script defer src="../../js/data.js?v=20260511-typst"></script>
+<script defer src="../../js/knowledge.js?v=20260511-typst"></script>
+<script defer src="../../js/graph.js?v=20260511-typst"></script>
+<script defer src="../../js/note-page.js?v=20260511-typst"></script>
 </head>
 <body class="note-page" data-note-title="Variance" data-note-group="QC" data-note-date="2026-01-30">
-<div id="content" class="content">
-<a id="ID-1E7730D4-201D-4698-BE32-3B0DF115CEBC" class="org-id-anchor" aria-hidden="true"></a>
-<header>
-<h1 class="title">Variance</h1>
-</header><nav id="table-of-contents" role="doc-toc">
-<h2>Table of Contents</h2>
-<div id="text-table-of-contents" role="doc-toc">
-<ul>
-<li><a href="#orgb4894d6">方差 (Variance)</a>
-<ul>
-<li><a href="#org0c6abb8">1. 量子态的数学载体：希尔伯特空间(Hilbert Space)</a></li>
-<li><a href="#orgdd890ab">2. 量子态不是矢量，而是“束”</a></li>
-<li><a href="#orge6ea510">3. 为什么平时还在用“态矢”这个说法？</a></li>
-</ul>
-</li>
-</ul>
-</div>
-</nav>
-<div id="outline-container-orgb4894d6" class="outline-2">
-<h2 id="orgb4894d6">方差 (Variance)</h2>
-<div class="outline-text-2" id="text-orgb4894d6">
-<div class="definition" id="orgfb7171e">
-\begin{align*}
-[\Delta (M)]^{2}
-  &= \langle (M  - \langle M \rangle)^2 \rangle \\
-  &= \langle M^{2}\rangle - \langle M\rangle^{2}
-\end{align*}
-
-</div>
-
-<div class="proof" id="org51301cd">
-<p>
-设方差 (Variance) 的定义为：
-\[
-    \text{Var} = \sum_i p_i (m_i - \langle M \rangle)^2
-    \]
-</p>
-
-<p>
-展开括号内的平方项：
-</p>
-\begin{align*}
-&= \sum_i p_i (m_i^2 - 2m_i\langle M \rangle + \langle M \rangle^2) \\
-&= \sum_i p_i m_i^2 - 2\langle M \rangle \sum_i p_i m_i + \langle M \rangle^2 \sum_i p_i
-\end{align*}
-
-<div class="attention" id="orgdf78f73">
-<p>
-其中利用以下统计性质：
-</p>
-<ol class="org-ol">
-<li>\(\sum_i p_i m_i = \langle M \rangle\) (期望值的定义)</li>
-<li>\(\sum_i p_i = 1\) (概率归一化条件)</li>
-</ol>
-<p>
-代入上式进行化简：
-</p>
-
-</div>
-
-\begin{align*}
-&= \left( \sum_i p_i m_i^2 \right) - 2\langle M \rangle \cdot \langle M \rangle + \langle M \rangle^2 \cdot 1 \\
-&= \left( \sum_i p_i m_i^2 \right) - 2\langle M \rangle^2 + \langle M \rangle^2 \\
-&= \left( \sum_i p_i m_i^2 \right) - \langle M \rangle^2
-\end{align*}
-
-<p>
-对于算符 \(M^2\)，其期望值写作：
-\[
-    \langle M^2 \rangle = \langle \psi | M^2 | \psi \rangle = \langle \psi | M \cdot M | \psi \rangle
-    \]
-</p>
-
-<p>
-考察算符 \(M\) 的本征方程 \(M|m_i\rangle = m_i|m_i\rangle\)，则 \(M^2\) 的作用如下：
-\[
-    M \cdot M \Rightarrow m_i' = m_i^2
-    \]
-即 \(M^2\) 的本征值为 \(m_i^2\)。
-</p>
-
-<p>
-此时对应的概率 \(p_i'\) 为：
-\[
-    p_i' = |\langle m_i' | \psi \rangle|^2
-    \]
-</p>
-
-<p>
-但在笔记中特别强调了一个核心性质（红色标注部分）：
-</p>
-
-
-<p>
-这意味着算符平方后，本征态没有改变，因此概率分布保持一致：
-\[
-    p_i' = |\langle m_i | \psi \rangle|^2 = p_i
-    \]
-</p>
-
-<p>
-因此，\(M^2\) 的期望值就是 \(m_i^2\) 的加权和：
-\[
-    \langle M^2 \rangle = \sum m_i^2 p_i = \sum p_i m_i^2
-    \]
-</p>
-
-<p>
-结合第 1 部分的展开结果与第 2 部分的算符期望定义，得证：
-\[
-    \therefore \text{Var} = \langle M^2 \rangle - \langle M \rangle^2
-    \]
-■
-</p>
-
-</div>
-</div>
-<div id="outline-container-org0c6abb8" class="outline-3">
-<h3 id="org0c6abb8">1. 量子态的数学载体：希尔伯特空间(<a href="../math/hilbert_space.html#ID-FDD92B78-DF6E-44F5-BF77-425C3CF28720">Hilbert Space</a>)</h3>
-<div class="outline-text-3" id="text-org0c6abb8">
-<p>
-在量子力学中，每一个物理系统，都对应一个 <b>复希尔伯特空间</b> H。
-</p>
-
-<p>
-H 具备三个关键结构：
-</p>
-<ul class="org-ul">
-<li>线性结构（可以相加、数乘）</li>
-<li>内积 ⟨·,·⟩（用来算概率与期望值）</li>
-<li>完备性（极限不会“跑丢”）</li>
-</ul>
-
-<p>
-在实际物理中，我们通常假设 H 是 *可分的*，
-意思是：它有一个可数的正交基，
-这与“有限次实验可以确定状态”这一物理事实相匹配。
-</p>
-</div>
-</div>
-<div id="outline-container-orgdd890ab" class="outline-3">
-<h3 id="orgdd890ab">2. 量子态不是矢量，而是“束”</h3>
-<div class="outline-text-3" id="text-orgdd890ab">
-<p>
-<b><b>关键结论：</b></b>
-量子态 ≠ 希尔伯特空间中的某一个具体矢量  
-量子态 = *一维子空间*（又叫“束”）
-</p>
-
-<p>
-原因是：
-如果两个矢量只差一个整体相位
-</p>
-<table>
-
-
-<colgroup>
-<col  class="org-left">
-
-<col  class="org-left">
-</colgroup>
-<tbody>
-<tr>
-<td class="org-left">ψ⟩ 和 e<sup>iθ</sup></td>
-<td class="org-left">ψ⟩</td>
-</tr>
-</tbody>
-</table>
-
-<p>
-那么：
-</p>
-<ul class="org-ul">
-<li>所有可观测量的概率</li>
-<li>所有期望值</li>
-</ul>
-
-<p>
-完全一样，实验无法区分。
-</p>
-
-<p>
-因此，真正的物理状态是：
-</p>
-<ul class="org-ul">
-<li>所有长度为 1 的矢量</li>
-<li>按“相差一个相位”分成的等价类</li>
-</ul>
-
-<p>
-数学上，这叫：
-<b>射影希尔伯特空间</b> P(H)
-</p>
-</div>
-</div>
-<div id="outline-container-orge6ea510" class="outline-3">
-<h3 id="orge6ea510">3. 为什么平时还在用“态矢”这个说法？</h3>
-<div class="outline-text-3" id="text-orge6ea510">
-<p>
-虽然严格来说量子态是“束”，
-但在很多情形下：
-</p>
-<ul class="org-ul">
-<li>选定一个代表元 |ψ⟩ 计算</li>
-<li>最终结果与相位无关</li>
-</ul>
-
-<p>
-所以物理学家常常：
-</p>
-<ul class="org-ul">
-<li>用 |ψ⟩ 代指这个束</li>
-<li>称之为“态矢”</li>
-</ul>
-
-<p>
-这是一个 *计算上的简化*，
-而不是概念上的严格等价。
-</p>
-
-
-<p>
-end of file
-</p>
-</div>
-</div>
-</div>
-</div>
+<main id="content" class="content">
+<a id="ID-20260130T000000-variance" class="org-id-anchor" aria-hidden="true"></a>
+<nav role="doc-toc">
+      <div>
+        <div>
+          <h2>目录</h2>
+        </div>
+      </div>
+      <ol style="list-style-type: none">
+        <li><a href="#loc-1"><span class="prefix">1.</span> 方差 (Variance)</a></li>
+      </ol>
+    </nav>
+    <div id="loc-1">
+      <div>
+        <h2>1. 方差 (Variance)</h2>
+      </div>
+    </div>
+    <div>
+      <p>📘 定义</p>
+    </div>
+    <div>
+      <p>✍️ 证明</p>
+      <p>设方差 (Variance) 的定义为：</p>
+      <p>展开括号内的平方项：</p>
+      <div>
+        <p>⚡ 重点</p>
+        <p>其中利用以下统计性质：</p>
+        <ol>
+          <li value="1">
+            <p>(期望值的定义)</p>
+          </li>
+          <li value="2">
+            <p>(概率归一化条件)</p>
+          </li>
+        </ol>
+        <p>代入上式进行化简：</p>
+      </div>
+      <p>对于算符</p>
+      <p>，其期望值写作：</p>
+      <p>考察算符</p>
+      <p>的本征方程</p>
+      <p>，则</p>
+      <p>的作用如下：</p>
+      <p>即</p>
+      <p>的本征值为</p>
+      <p>。</p>
+      <p>此时对应的概率</p>
+      <p>为：</p>
+      <p>但在笔记中特别强调了一个核心性质（红色标注部分）：</p>
+      <p>这意味着算符平方后，本征态没有改变，因此概率分布保持一致：</p>
+      <p>因此，</p>
+      <p>的期望值就是</p>
+      <p>的加权和：</p>
+      <p>结合第 1 部分的展开结果与第 2 部分的算符期望定义，得证：</p>
+      <p>■</p>
+    </div>
+    <p>end of file</p>
+</main>
 </body>
 </html>

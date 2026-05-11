@@ -1,21 +1,16 @@
-#let note-paths = (
-  "20260126T000000-hilbert-space": "/roam/math/hilbert_space.typ",
-  "20260127T000000-hermitian-matrix": "/roam/math/hermitian_matrix.typ",
-  "20260127T000000-inner-product-space": "/roam/math/inner_product_space.typ",
-  "20260128T000000-density-operator": "/roam/QC/density_operator.typ",
-  "20260128T000000-observable-expectation": "/roam/QC/observable_expectation.typ",
-  "20260128T000000-quantum-state": "/roam/QC/quantum_state.typ",
-  "20260130T000000-variance": "/roam/QC/variance.typ",
-  "20260508T000000-20260508": "/roam/daily/uni/qc/ReadingGroup/20260508.typ",
-  "20260508T000000-basic-algebra": "/roam/daily/reading/basic algebra.typ",
-  "20260508T000000-strassen": "/roam/project/UNSW/ISO(202603)/strassen.typ",
-  "note-include-target": "/roam/note-include-target.typ",
-  "note-linked": "/roam/note-linked.typ",
-  "note-test": "/roam/note-test.typ",
-)
+// note.typ --- Default Typst note style
+//
+// Typst replacement for latex/default.cls plus the old generated note helper.
+
+#let note-accent = rgb("3c71b7")
+#let note-accent-soft = rgb("e6eef8")
+#let note-rule = rgb("c8c1b4")
+#let note-paper = rgb("e7e5df")
+#let note-ink = rgb("29251f")
+#let note-link-fill = rgb("1d4ed8")
 
 #let note-include-active = state("my-note-include-active", false)
-#let note-path(id) = if id in note-paths { note-paths.at(id) } else { panic("Unknown note id: " + id) }
+#let note-path(id) = "/_typst/notes/" + id + ".typ"
 #let note-import-path(id) = note-path(id)
 #let note-include(id) = {
   note-include-active.update(true)
@@ -24,44 +19,72 @@
 }
 #let note-transclude(id) = note-include(id)
 
+#let note-body-font = (
+  "New Computer Modern",
+  "FZLiuGongQuanKaiShuJF",
+  "Libertinus Serif",
+  "New Computer Modern",
+)
+#let note-heading-font = (
+  "Excalifont",
+  "FZLiuGongQuanKaiShuJF",
+  "New Computer Modern",
+)
+#let note-code-font = "Menlo"
+#let note-math-font = ("GFS Neohellenic Math",)
 
 #let note-theme(body) = {
   set page(
-    fill: rgb("e7e5df"),
+    fill: note-paper,
     margin: (x: 6.5em, y: 5.5em),
+    footer: context align(center)[
+      #text(fill: note-accent, size: 0.82em)[#counter(page).display()]
+    ],
   )
   set text(
-    font: ("New Computer Modern", "FZLiuGongQuanKaiShuJF", "Libertinus Serif", "New Computer Modern"),
+    font: note-body-font,
     size: 12pt,
-    fill: rgb("29251f"),
+    fill: note-ink,
     lang: "en",
   )
   set par(leading: 0.72em, justify: true)
   set table(
-    stroke: 0.65pt + rgb("d7ccb8"),
+    stroke: 0.65pt + note-rule,
     inset: (x: 0.62em, y: 0.48em),
   )
-  show heading: set text(font: ("New Computer Modern", "FZLiuGongQuanKaiShuJF", "New Computer Modern"), weight: "bold")
+  show heading: set text(font: note-heading-font, weight: "bold")
   show heading.where(level: 1): it => block[
-    #set text(fill: rgb("5c5244"), size: 1.22em, weight: "bold")
-    #it
-    #v(0.22em)
-    #line(length: 100%, stroke: 0.9pt + rgb("d8cfbf"))
+    #v(0.55em)
+    #block(
+      width: 100%,
+      fill: note-accent-soft,
+      stroke: 0.7pt + rgb("bfd0e5"),
+      radius: 3pt,
+      inset: (x: 0.76em, y: 0.48em),
+    )[
+      #text(fill: note-accent, size: 1.22em, weight: "bold")[#it]
+    ]
+    #v(0.18em)
   ]
   show heading.where(level: 2): it => block[
-    #set text(fill: rgb("6a5f4f"), weight: "semibold")
-    #it
+    #v(0.35em)
+    #grid(
+      columns: (0.28em, 1fr),
+      gutter: 0.56em,
+      rect(width: 0.28em, height: 1.05em, fill: note-accent, radius: 1pt),
+      text(fill: rgb("4a5d72"), weight: "semibold")[#it],
+    )
   ]
-  show raw: set text(font: "Fira Code", size: 0.92em)
-  show math.equation: set text(font: ("GFS Neohellenic Math"))
+  show raw: set text(font: note-code-font, size: 0.92em)
+  show math.equation: set text(font: note-math-font)
   show table.cell: set text(size: 0.95em)
   body
 }
 
-#let note-entry(body) = {
+#let note-entry(toc: true, body) = {
   show: note-theme
   context {
-    if not note-include-active.get() {
+    if not note-include-active.get() and toc {
       outline(title: [目录], depth: 2)
     }
   }
@@ -71,39 +94,24 @@
 #let note-card(title, accent, tint, marker, body) = {
   block(
     width: 100%,
-    fill: rgb("f4f3ef"),
-    stroke: 0.7pt + rgb("d0cdc4"),
-    radius: 7pt,
-    inset: 0pt,
+    fill: rgb(tint),
+    stroke: (left: 1.8pt + rgb(accent), rest: 0.35pt + rgb("d8d1c4")),
+    radius: 2pt,
+    inset: (x: 0.86em, y: 0.62em),
     breakable: true,
   )[
-    #block(
-      width: 100%,
-      fill: rgb(tint),
-      inset: (x: 0.78em, y: 0.42em),
-    )[
-      #text(
-        fill: rgb(accent),
-        weight: "bold",
-        size: 0.92em,
-      )[#title]
-    ]
-    #block(
-      width: 100%,
-      inset: (x: 0.92em, y: 0.76em),
-    )[
-      #{
-        show math.equation: set text(font: ("GFS Neohellenic Math"))
-        body
-      }
-      #v(0.42em)
-      #align(right)[
-        #text(
-          fill: rgb(accent),
-          size: 0.78em,
-        )[#marker]
+    #text(fill: rgb(accent), weight: "semibold", size: 0.9em)[#title]
+    #v(0.28em)
+    #{
+      show math.equation: set text(font: note-math-font)
+      body
+    }
+    #if marker != "" {
+      v(0.28em)
+      align(right)[
+        #text(fill: rgb(accent), size: 0.78em)[#marker]
       ]
-    ]
+    }
   ]
 }
 
@@ -130,7 +138,7 @@
 #let note(..args) = {
   let pos = args.pos()
   if pos.len() == 2 {
-    text(fill: rgb("1d4ed8"), underline(pos.at(1)))
+    text(fill: note-link-fill, underline(pos.at(1)))
   } else if pos.len() == 1 {
     note-card("📝 笔记", "26735f", "e1f1ea", "✎", pos.at(0))
   }
