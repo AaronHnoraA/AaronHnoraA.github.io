@@ -24,6 +24,7 @@ Each published note declares Typst metadata:
   date: "2026-05-11",
   tags: ("math", "draft"),
   aliases: (),
+  private: false,
 )) <note>
 ```
 
@@ -55,6 +56,8 @@ make publish
 `bin/publish-site` scans Typst note metadata, compiles public notes directly to `public/roam/**/*.pdf`, writes `public/js/data.js` for the archive and graph UI, copies static assets, and compiles `CV/main.typ` to `CV/Aaron_He_CV.pdf`.
 
 The note archive links directly to PDFs; the browser handles PDF viewing. There is no generated per-note HTML wrapper, and note-page CSS is not part of the PDF presentation. Missing public visual effects should be implemented with Typst in `_typst/publish.typ`.
+
+Private notes are sealed during publishing. Mark a note with `private: true`, `hidden: true`, `publish: false`, `visibility: "private"`, or a tag such as `"private"` / `"no-export"`. The source body, summary, tags, and outgoing references are not distributed; `bin/publish-site` writes a same-path PDF generated from `_typst/private.typ` that says the file has been sealed by the administrator.
 
 Note PDF compilation is incremental. Dependency snapshots live in `public/.deps/`; unchanged notes are skipped, while edited notes or changed Typst/image dependencies are recompiled.
 

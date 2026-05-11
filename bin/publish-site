@@ -14,6 +14,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC = ROOT / "public"
 PUBLISH_STYLE = ROOT / "_typst" / "publish.typ"
+PRIVATE_STYLE = ROOT / "_typst" / "private.typ"
 PUBLISH_STATE = PUBLIC / ".publish-state.json"
 PUBLISH_BASE_URL = os.environ.get("PUBLISH_BASE_URL", "")
 ASSET_VERSION = "20260511-typst"
@@ -21,6 +22,7 @@ IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".avif"}
 STATIC_EXTENSIONS = IMAGE_EXTENSIONS | {".css", ".js", ".pdf"}
 SKIP_DIRS = {".git", ".cache", ".direnv", ".venv", "node_modules", "public", "ltximg", "_typst", "__pycache__"}
 NOTE_RE = re.compile(r"#note\(\s*\"([^\"]+)\"\s*\)\s*\[([^\]]+)\]")
+IMAGE_RE = re.compile(r"#image\(\s*\"([^\"]+)\"")
 METADATA_RE = re.compile(r"#metadata\s*\(\((.*?)\)\)\s*<note>", re.S)
 FIELD_RE = re.compile(r"^\s*([a-zA-Z0-9_-]+)\s*:\s*(.+?)(?:,\s*)?$", re.M)
 PUBLISH_INPUT_PATHS = (
@@ -48,6 +50,7 @@ class Note:
     summary: str = ""
     refs: list[str] = field(default_factory=list)
     backlinks: list[str] = field(default_factory=list)
+    private: bool = False
 
     @property
     def link(self) -> str:
@@ -81,6 +84,15 @@ def parse_scalar(value: str) -> str:
     return value
 
 
+def parse_value(value: str) -> object:
+    stripped = value.strip().rstrip(",").strip()
+    if stripped.startswith("("):
+        return parse_tuple(stripped)
+    if stripped in {"true", "false"}:
+        return stripped == "true"
+    return parse_scalar(stripped)
+
+
 def parse_tuple(value: str) -> list[str]:
     return re.findall(r'"([^"]*)"', value)
 
@@ -91,13 +103,29 @@ def parse_metadata(text: str) -> dict[str, object] | None:
         return None
     data: dict[str, object] = {}
     for key, value in FIELD_RE.findall(match.group(1)):
-        if value.strip().startswith("("):
-            data[key] = parse_tuple(value)
-        else:
-            data[key] = parse_scalar(value)
+        data[key] = parse_value(value)
     if data.get("kind") != "note" or not data.get("id"):
         return None
     return data
+
+
+def truthy(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value or "").strip().lower() in {"true", "yes", "private", "hidden", "sealed", "no-export"}
+
+
+def private_metadata_p(metadata: dict[str, object], tags: list[str]) -> bool:
+    normalized_tags = {tag.lower() for tag in tags}
+    visibility = str(metadata.get("visibility") or metadata.get("access") or "").strip().lower()
+    return (
+        truthy(metadata.get("private"))
+        or truthy(metadata.get("hidden"))
+        or truthy(metadata.get("sealed"))
+        or metadata.get("publish") is False
+        or visibility in {"private", "hidden", "sealed"}
+        or bool(normalized_tags & {"private", "hidden", "sealed", "no-export", "noexport"})
+    )
 
 
 def clean_typst_text(text: str) -> str:
@@ -109,24 +137,51 @@ def clean_typst_text(text: str) -> str:
     return " ".join(text.split())
 
 
+def private_asset_paths(note: Note) -> set[Path]:
+    if not note.private:
+        return set()
+    try:
+        text = note.path.read_text(encoding="utf-8")
+    except OSError:
+        return set()
+    paths: set[Path] = set()
+    for raw_path in IMAGE_RE.findall(text):
+        image_path = Path(raw_path)
+        if image_path.is_absolute():
+            paths.add(image_path.resolve())
+        else:
+            paths.add((note.path.parent / image_path).resolve())
+    for rel_dir in (
+        Path("img") / note.path.stem,
+        Path("assets") / "img" / note.path.stem,
+    ):
+        directory = note.path.parent / rel_dir
+        if directory.exists():
+            paths.update(path.resolve() for path in directory.rglob("*") if path.is_file())
+    return paths
+
+
 def parse_note(path: Path) -> Note | None:
     text = path.read_text(encoding="utf-8")
     metadata = parse_metadata(text)
     if not metadata:
         return None
     rel_path = path.relative_to(ROOT).as_posix()
+    tags = [str(tag) for tag in metadata.get("tags", [])]
+    private = private_metadata_p(metadata, tags)
     refs = [target for target, _label in NOTE_RE.findall(text)]
-    summary = clean_typst_text(text)
+    summary = "This note has been sealed by the administrator." if private else clean_typst_text(text)
     return Note(
         path=path,
         rel_path=rel_path,
         id=str(metadata["id"]),
         title=str(metadata.get("title") or path.stem),
         date=str(metadata.get("date") or "Undated"),
-        tags=[str(tag) for tag in metadata.get("tags", [])],
+        tags=tags,
         aliases=[str(alias) for alias in metadata.get("aliases", [])],
         summary=summary[:180],
-        refs=sorted(set(refs)),
+        refs=[] if private else sorted(set(refs)),
+        private=private,
     )
 
 
@@ -228,6 +283,17 @@ def output_is_current(output_file: Path, deps_file: Path) -> bool:
     return True
 
 
+def deps_for_note(note: Note, notes_by_id: dict[str, Note]) -> set[str]:
+    inputs = {note.path.relative_to(ROOT).as_posix()}
+    inputs.add((PRIVATE_STYLE if note.private else PUBLISH_STYLE).relative_to(ROOT).as_posix())
+    if not note.private:
+        for ref in note.refs:
+            target = notes_by_id.get(ref)
+            if target:
+                inputs.add(target.path.relative_to(ROOT).as_posix())
+    return inputs
+
+
 def publish_url_for(note: Note) -> str:
     prefix = PUBLISH_BASE_URL.rstrip("/")
     return f"{prefix}/{note.link}" if prefix else f"/{note.link}"
@@ -247,6 +313,22 @@ def publish_source_for(note: Note, temp_file: Path, notes_by_id: dict[str, Note]
     temp_file.write_text(source, encoding="utf-8")
 
 
+def private_source_for(note: Note, temp_file: Path) -> None:
+    source = "\n".join(
+        [
+            '#import "/_typst/private.typ": *',
+            "",
+            "#private-note(",
+            f"  id: {typst_string(note.id)},",
+            f"  collection: {typst_string(note.group_label)},",
+            f"  date: {typst_string(note.date)},",
+            ")",
+            "",
+        ]
+    )
+    temp_file.write_text(source, encoding="utf-8")
+
+
 def publish_note_link(match: re.Match[str], notes_by_id: dict[str, Note]) -> str:
     target = notes_by_id.get(match.group(1))
     if not target:
@@ -261,11 +343,7 @@ def normalize_deps(raw_deps_file: Path, temp_file: Path, note: Note, notes_by_id
     except (OSError, json.JSONDecodeError):
         raw_inputs = []
     temp_real = temp_file.resolve()
-    inputs = {note.path.relative_to(ROOT).as_posix(), PUBLISH_STYLE.relative_to(ROOT).as_posix()}
-    for ref in note.refs:
-        target = notes_by_id.get(ref)
-        if target:
-            inputs.add(target.path.relative_to(ROOT).as_posix())
+    inputs = deps_for_note(note, notes_by_id)
     for dep in raw_inputs:
         dep_path = path_from_dep(str(dep)).resolve()
         if dep_path == temp_real:
@@ -288,7 +366,10 @@ def compile_note_pdf(note: Note, notes_by_id: dict[str, Note]) -> str:
     temp_file = note.path.with_name(f".{note.path.stem}.publish.tmp.typ")
     raw_deps_file = deps_file.with_suffix(".raw.json")
     try:
-        publish_source_for(note, temp_file, notes_by_id)
+        if note.private:
+            private_source_for(note, temp_file)
+        else:
+            publish_source_for(note, temp_file, notes_by_id)
         subprocess.run(
             [
                 "typst",
@@ -314,18 +395,20 @@ def compile_note_pdf(note: Note, notes_by_id: dict[str, Note]) -> str:
 
 
 def note_json(note: Note) -> dict[str, object]:
+    private_summary = "This note has been sealed by the administrator."
     return {
         "key": note.id,
         "id": note.id,
-        "title": note.title,
+        "title": "Sealed Document" if note.private else note.title,
         "link": note.link,
         "date": note.date,
-        "summary": note.summary,
+        "summary": private_summary if note.private else note.summary,
         "groupKey": note.group_key,
         "groupLabel": note.group_label,
         "section": note.section,
-        "hidden": False,
-        "tags": note.tags,
+        "hidden": note.private,
+        "private": note.private,
+        "tags": [] if note.private else note.tags,
         "refs": note.refs,
         "backlinks": note.backlinks,
     }
@@ -357,9 +440,15 @@ def _link_into_public(source: Path, target: Path) -> None:
     target.symlink_to(rel)
 
 
-def copy_static() -> None:
+def copy_static(notes: list[Note]) -> None:
+    private_assets = set()
+    for note in notes:
+        private_assets.update(private_asset_paths(note))
+
     for path in ROOT.rglob("*"):
         if not path.is_file():
+            continue
+        if path.resolve() in private_assets:
             continue
         rel = path.relative_to(ROOT)
         if should_skip(rel) or path.name.startswith(".") or path.name.endswith("~"):
@@ -432,7 +521,7 @@ def main() -> None:
 
     clean_stale_outputs(notes)
     cv_status = compile_cv()
-    copy_static()
+    copy_static(notes)
     compiled = 0
     skipped = 0
     for note in notes:
