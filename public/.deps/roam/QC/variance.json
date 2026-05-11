@@ -1,0 +1,7 @@
+{
+  "inputs": [
+    "_typst/note.typ",
+    "_typst/publish.typ",
+    "roam/QC/variance.typ"
+  ]
+}

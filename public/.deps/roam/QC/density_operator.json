@@ -1,0 +1,7 @@
+{
+  "inputs": [
+    "_typst/note.typ",
+    "_typst/publish.typ",
+    "roam/QC/density_operator.typ"
+  ]
+}

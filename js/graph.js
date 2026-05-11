@@ -26,6 +26,9 @@
     const listenForGlobalFilters = options.listenForGlobalFilters !== false;
     const dispatchTagEvents = options.dispatchTagEvents !== false;
     const dispatchFocusEvents = options.dispatchFocusEvents !== false;
+    const onNoteOpen = typeof options.onNoteOpen === "function" ? options.onNoteOpen : null;
+    const wantToolbar = options.toolbar === true
+      || (container && container.dataset && container.dataset.graphToolbar === "true");
 
     if (!container) {
       return null;
@@ -182,7 +185,7 @@
           <span>${note.backlinks.length} backlinks</span>
         </div>
         <div class="graph-inline-tags">${tags}</div>
-        <a class="graph-open-link" href="${escapeHtml(buildNoteHref(note))}">Open note</a>
+        <a class="graph-open-link" href="${escapeHtml(buildNoteHref(note))}" data-note-key="${escapeHtml(note.key)}">Open note</a>
       `;
 
       focusPanel.querySelectorAll(".graph-inline-tag").forEach((button) => {
@@ -194,6 +197,16 @@
           }
         });
       });
+
+      if (onNoteOpen) {
+        const openLink = focusPanel.querySelector(".graph-open-link");
+        if (openLink) {
+          openLink.addEventListener("click", (event) => {
+            event.preventDefault();
+            onNoteOpen(note);
+          });
+        }
+      }
     }
 
     function isNodeVisible(node) {
@@ -300,8 +313,62 @@
       return { width: nextWidth, height: nextHeight };
     }
 
+    let toolbarEl = null;
+    let toolbarSearchInput = null;
+    let searchFilterTimer = 0;
+
+    function applySearchFilter(rawText) {
+      const text = String(rawText || "").trim();
+      if (!text) {
+        setVisibleKeys(knowledge.notes.map((note) => note.key));
+        return;
+      }
+      const matched = knowledge.filterNotes
+        ? knowledge.filterNotes({ text, includeHidden: true })
+        : knowledge.notes;
+      setVisibleKeys(matched.map((note) => note.key));
+    }
+
+    function buildToolbar() {
+      if (!wantToolbar) {
+        return;
+      }
+      toolbarEl = document.createElement("div");
+      toolbarEl.className = "graph-toolbar";
+      toolbarEl.innerHTML = `
+        <input type="search" class="graph-toolbar-input" placeholder="Search..." autocomplete="off" />
+        <button type="button" class="graph-toolbar-btn" data-action="center" title="Center on visible">Center</button>
+        <button type="button" class="graph-toolbar-btn" data-action="reset" title="Reset filter">Reset</button>
+      `;
+      container.appendChild(toolbarEl);
+
+      toolbarSearchInput = toolbarEl.querySelector(".graph-toolbar-input");
+      toolbarSearchInput.addEventListener("input", (event) => {
+        const value = event.target.value;
+        window.clearTimeout(searchFilterTimer);
+        searchFilterTimer = window.setTimeout(() => applySearchFilter(value), 140);
+      });
+      toolbarSearchInput.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          toolbarSearchInput.value = "";
+          applySearchFilter("");
+        }
+      });
+
+      toolbarEl.querySelector('[data-action="center"]').addEventListener("click", () => {
+        refitGraph((node) => isNodeVisible(node), false);
+      });
+      toolbarEl.querySelector('[data-action="reset"]').addEventListener("click", () => {
+        if (toolbarSearchInput) toolbarSearchInput.value = "";
+        applySearchFilter("");
+        refitGraph((node) => isNodeVisible(node), true);
+      });
+    }
+
     function buildGraph() {
       container.innerHTML = "";
+      buildToolbar();
       ({ width, height } = measureContainerSize());
 
       svg = d3.select(container)
@@ -350,10 +417,19 @@
           }
 
           setSelected(node);
+
+          if (onNoteOpen && node.kind === "note") {
+            onNoteOpen(node.note);
+          }
         })
         .on("dblclick", (event, node) => {
           event.stopPropagation();
-          if (node.kind === "note") {
+          if (node.kind !== "note") {
+            return;
+          }
+          if (onNoteOpen) {
+            onNoteOpen(node.note);
+          } else {
             window.location.href = buildNoteHref(node.note);
           }
         })
@@ -485,6 +561,10 @@
       }
     }
 
+    function recenter() {
+      refitGraph((node) => isNodeVisible(node), false);
+    }
+
     const resizeObserver = new ResizeObserver(() => {
       if (resizeFrame) {
         window.cancelAnimationFrame(resizeFrame);
@@ -522,6 +602,7 @@
       focusPanel,
       setVisibleKeys,
       selectById,
+      recenter,
       destroy() {
         resizeObserver.disconnect();
         if (resizeFrame) {
@@ -543,9 +624,55 @@
     return api;
   }
 
+  function injectToolbarStyles() {
+    if (document.getElementById("graph-toolbar-styles")) {
+      return;
+    }
+    const style = document.createElement("style");
+    style.id = "graph-toolbar-styles";
+    style.textContent = `
+      #graph-container { position: relative; }
+      .graph-toolbar {
+        position: absolute; top: 8px; left: 8px; z-index: 5;
+        display: flex; gap: 6px; align-items: center;
+        background: rgba(255,255,255,0.92);
+        border: 1px solid rgba(0,0,0,0.12);
+        border-radius: 4px;
+        padding: 4px 6px;
+        font: 12px system-ui, -apple-system, "Helvetica Neue", sans-serif;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      }
+      .graph-toolbar-input {
+        border: 1px solid rgba(0,0,0,0.18);
+        border-radius: 3px;
+        padding: 3px 6px;
+        font: inherit;
+        outline: none;
+        width: 160px;
+      }
+      .graph-toolbar-input:focus { border-color: #5a79c7; }
+      .graph-toolbar-btn {
+        border: 1px solid rgba(0,0,0,0.18);
+        background: #f7f7f5;
+        border-radius: 3px;
+        padding: 3px 8px;
+        cursor: pointer;
+        font: inherit;
+      }
+      .graph-toolbar-btn:hover { background: #ebebe8; }
+      .graph-toolbar-btn:active { background: #dcdcd8; }
+    `;
+    document.head.appendChild(style);
+  }
+
+  injectToolbarStyles();
+
   window.initKnowledgeGraph = initKnowledgeGraph;
 
   document.addEventListener("DOMContentLoaded", () => {
+    if (window.__GRAPH_NO_AUTO_INIT__) {
+      return;
+    }
     initKnowledgeGraph();
   });
 })();

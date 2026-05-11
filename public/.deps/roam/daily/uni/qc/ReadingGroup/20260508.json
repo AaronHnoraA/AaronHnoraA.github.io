@@ -1,0 +1,23 @@
+{
+  "inputs": [
+    "_typst/note.typ",
+    "_typst/publish.typ",
+    "roam/daily/uni/qc/ReadingGroup/20260508.typ",
+    "roam/daily/uni/qc/ReadingGroup/img/20260508/20260508-141514_screenshot.png",
+    "roam/daily/uni/qc/ReadingGroup/img/20260508/20260508-141743_screenshot.png",
+    "roam/daily/uni/qc/ReadingGroup/img/20260508/20260508-142021_screenshot.png",
+    "roam/daily/uni/qc/ReadingGroup/img/20260508/20260508-142258_screenshot.png",
+    "roam/daily/uni/qc/ReadingGroup/img/20260508/20260508-142619_screenshot.png",
+    "roam/daily/uni/qc/ReadingGroup/img/20260508/20260508-142921_screenshot.png",
+    "roam/daily/uni/qc/ReadingGroup/img/20260508/20260508-142955_screenshot.png",
+    "roam/daily/uni/qc/ReadingGroup/img/20260508/20260508-143103_screenshot.png",
+    "roam/daily/uni/qc/ReadingGroup/img/20260508/20260508-144315_screenshot.png",
+    "roam/daily/uni/qc/ReadingGroup/img/20260508/20260508-144813_screenshot.png",
+    "roam/daily/uni/qc/ReadingGroup/img/20260508/20260508-144922_screenshot.png",
+    "roam/daily/uni/qc/ReadingGroup/img/20260508/20260508-145612_screenshot.png",
+    "roam/daily/uni/qc/ReadingGroup/img/20260508/20260508-145636_screenshot.png",
+    "roam/daily/uni/qc/ReadingGroup/img/20260508/20260508-145908_screenshot.png",
+    "roam/daily/uni/qc/ReadingGroup/img/20260508/20260508-153153_screenshot.png",
+    "roam/daily/uni/qc/ReadingGroup/img/20260508/20260508-153636_screenshot.png"
+  ]
+}

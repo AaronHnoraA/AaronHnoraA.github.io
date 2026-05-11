@@ -2,18 +2,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from html import escape
 from pathlib import Path
 import json
 import os
 import re
 import shutil
 import subprocess
-import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC = ROOT / "public"
+PUBLISH_STYLE = ROOT / "_typst" / "publish.typ"
 ASSET_VERSION = "20260511-typst"
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".avif"}
 STATIC_EXTENSIONS = IMAGE_EXTENSIONS | {".css", ".js", ".pdf"}
@@ -38,7 +37,7 @@ class Note:
 
     @property
     def link(self) -> str:
-        return f"{Path(self.rel_path).with_suffix('').as_posix()}.html"
+        return f"{Path(self.rel_path).with_suffix('').as_posix()}.pdf"
 
     @property
     def group_key(self) -> str:
@@ -129,106 +128,89 @@ def find_notes() -> list[Note]:
     return sorted(notes, key=lambda note: (note.date, note.title), reverse=True)
 
 
-def prefix_for(link: str) -> str:
-    depth = len(Path(link).parent.parts)
-    return "." if depth == 0 else "/".join([".."] * depth)
+def deps_file_for(output_file: Path) -> Path:
+    rel = output_file.relative_to(PUBLIC)
+    return PUBLIC / ".deps" / rel.with_suffix(".json")
 
 
-def site_root_for(link: str) -> str:
-    prefix = prefix_for(link)
-    return "./" if prefix == "." else f"{prefix}/"
+def path_from_dep(dep: str) -> Path:
+    path = Path(dep)
+    return path if path.is_absolute() else ROOT / path
 
 
-def head_html(note: Note, prefix: str) -> str:
-    current = note.link
-    site_root = site_root_for(current)
-    return "\n".join(
-        [
-            '<meta name="color-scheme" content="light" />',
-            f'<link rel="stylesheet" href="{prefix}/css/retro.css?v={ASSET_VERSION}" />',
-            '<link rel="shortcut icon" href="https://raw.githubusercontent.com/AaronHnoraA/AaronHnoraA.github.io/refs/heads/master/css/cv.svg" type="image/x-icon">',
-            '<script src="https://d3js.org/d3.v7.min.js"></script>',
-            f"<script>window.SITE_ROOT_PATH={json.dumps(site_root)};window.CURRENT_NOTE_LINK={json.dumps(current)};</script>",
-            f'<script defer src="{prefix}/js/data.js?v={ASSET_VERSION}"></script>',
-            f'<script defer src="{prefix}/js/knowledge.js?v={ASSET_VERSION}"></script>',
-            f'<script defer src="{prefix}/js/graph.js?v={ASSET_VERSION}"></script>',
-            f'<script defer src="{prefix}/js/note-page.js?v={ASSET_VERSION}"></script>',
-        ]
-    )
+def output_is_current(output_file: Path, deps_file: Path) -> bool:
+    if not output_file.exists() or not deps_file.exists():
+        return False
+    try:
+        deps = json.loads(deps_file.read_text(encoding="utf-8")).get("inputs", [])
+    except (OSError, json.JSONDecodeError):
+        return False
+    output_mtime = output_file.stat().st_mtime
+    for dep in deps:
+        dep_path = path_from_dep(str(dep))
+        if not dep_path.exists() or dep_path.stat().st_mtime > output_mtime:
+            return False
+    return True
 
 
-def extract_body(html: str) -> str:
-    match = re.search(r"<body[^>]*>(.*)</body>", html, re.S | re.I)
-    return match.group(1).strip() if match else html
-
-
-def replace_first_note_span(body: str, label: str, href: str) -> str:
-    span = f'<span style="text-decoration: underline">{escape(label)}</span>'
-    link = f'<a class="note-ref" href="{escape(href)}">{escape(label)}</a>'
-    if span in body:
-        return body.replace(span, link, 1)
-    return body
-
-
-def linkify_note_refs(note: Note, body: str, notes_by_id: dict[str, Note]) -> str:
+def publish_source_for(note: Note, temp_file: Path) -> None:
     source = note.path.read_text(encoding="utf-8")
-    output_dir = (PUBLIC / note.link).parent
-    for target_id, label in NOTE_RE.findall(source):
-        target = notes_by_id.get(target_id)
-        if not target:
+    source = source.replace('"/_typst/note.typ"', '"/_typst/publish.typ"', 1)
+    temp_file.write_text(source, encoding="utf-8")
+
+
+def normalize_deps(raw_deps_file: Path, temp_file: Path, note: Note) -> dict[str, list[str]]:
+    try:
+        raw_inputs = json.loads(raw_deps_file.read_text(encoding="utf-8")).get("inputs", [])
+    except (OSError, json.JSONDecodeError):
+        raw_inputs = []
+    temp_real = temp_file.resolve()
+    inputs = {note.path.relative_to(ROOT).as_posix(), PUBLISH_STYLE.relative_to(ROOT).as_posix()}
+    for dep in raw_inputs:
+        dep_path = path_from_dep(str(dep)).resolve()
+        if dep_path == temp_real:
             continue
-        href = os.path.relpath(PUBLIC / target.link, output_dir)
-        body = replace_first_note_span(body, label, href)
-    return body
+        try:
+            inputs.add(dep_path.relative_to(ROOT).as_posix())
+        except ValueError:
+            inputs.add(dep_path.as_posix())
+    return {"inputs": sorted(inputs)}
 
 
-def compile_note(note: Note, notes_by_id: dict[str, Note]) -> None:
-    out_file = PUBLIC / note.link
-    out_file.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(suffix=".html") as tmp:
+def compile_note_pdf(note: Note) -> str:
+    output_file = PUBLIC / note.link
+    deps_file = deps_file_for(output_file)
+    if output_is_current(output_file, deps_file):
+        return "skipped"
+
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    deps_file.parent.mkdir(parents=True, exist_ok=True)
+    temp_file = note.path.with_name(f".{note.path.stem}.publish.tmp.typ")
+    raw_deps_file = deps_file.with_suffix(".raw.json")
+    try:
+        publish_source_for(note, temp_file)
         subprocess.run(
             [
                 "typst",
                 "compile",
-                "--features",
-                "html",
                 "--root",
                 str(ROOT),
-                str(note.path),
-                tmp.name,
+                "--deps",
+                str(raw_deps_file),
+                str(temp_file),
+                str(output_file),
             ],
             check=True,
             cwd=ROOT,
         )
-        body = extract_body(Path(tmp.name).read_text(encoding="utf-8"))
-    body = linkify_note_refs(note, body, notes_by_id)
-    prefix = prefix_for(note.link)
-    out_file.write_text(
-        "\n".join(
-            [
-                "<!doctype html>",
-                '<html lang="en">',
-                "<head>",
-                '<meta charset="utf-8" />',
-                '<meta name="viewport" content="width=device-width, initial-scale=1.0" />',
-                f"<title>{escape(note.title)}</title>",
-                head_html(note, prefix),
-                "</head>",
-                (
-                    f'<body class="note-page" data-note-title="{escape(note.title)}" '
-                    f'data-note-group="{escape(note.group_label)}" data-note-date="{escape(note.date)}">'
-                ),
-                '<main id="content" class="content">',
-                f'<a id="ID-{escape(note.id)}" class="org-id-anchor" aria-hidden="true"></a>',
-                body,
-                "</main>",
-                "</body>",
-                "</html>",
-            ]
+        deps_file.write_text(
+            json.dumps(normalize_deps(raw_deps_file, temp_file, note), ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
         )
-        + "\n",
-        encoding="utf-8",
-    )
+    finally:
+        temp_file.unlink(missing_ok=True)
+        raw_deps_file.unlink(missing_ok=True)
+    return "compiled"
 
 
 def note_json(note: Note) -> dict[str, object]:
@@ -285,17 +267,33 @@ def copy_static() -> None:
             shutil.copy2(source, PUBLIC / output)
 
 
-def compile_cv() -> None:
+def compile_cv() -> str:
     source = ROOT / "CV" / "main.typ"
     if not source.exists():
-        return
+        return "missing"
     target = ROOT / "CV" / "Aaron_He_CV.pdf"
+    if target.exists() and source.stat().st_mtime <= target.stat().st_mtime:
+        return "skipped"
     subprocess.run(["typst", "compile", "--root", str(ROOT / "CV"), str(source), str(target)], check=True, cwd=ROOT)
+    return "compiled"
+
+
+def clean_stale_outputs(notes: list[Note]) -> None:
+    expected_pdfs = {note.link for note in notes}
+    roam_public = PUBLIC / "roam"
+    if roam_public.exists():
+        for html_file in roam_public.glob("**/*.html"):
+            html_file.unlink()
+        for pdf_file in roam_public.glob("**/*.pdf"):
+            rel = pdf_file.relative_to(PUBLIC).as_posix()
+            if rel not in expected_pdfs:
+                pdf_file.unlink()
+                deps_file_for(pdf_file).unlink(missing_ok=True)
+    for rel in ("diary.html", "sitemap-log.html", "CV/main.pdf"):
+        (PUBLIC / rel).unlink(missing_ok=True)
 
 
 def main() -> None:
-    if PUBLIC.exists():
-        shutil.rmtree(PUBLIC)
     PUBLIC.mkdir(exist_ok=True)
     notes = find_notes()
     notes_by_id = {note.id: note for note in notes}
@@ -307,12 +305,17 @@ def main() -> None:
     for note in notes:
         note.backlinks = sorted(set(backlinks.get(note.id, [])))
 
-    compile_cv()
+    clean_stale_outputs(notes)
+    cv_status = compile_cv()
     copy_static()
+    compiled = 0
+    skipped = 0
     for note in notes:
-        compile_note(note, notes_by_id)
+        status = compile_note_pdf(note)
+        compiled += status == "compiled"
+        skipped += status == "skipped"
     write_data(notes)
-    print(f"Published {len(notes)} Typst notes to {PUBLIC}")
+    print(f"Published {len(notes)} Typst notes to {PUBLIC} ({compiled} compiled, {skipped} skipped, CV {cv_status})")
 
 
 if __name__ == "__main__":
