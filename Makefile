@@ -3,11 +3,12 @@ CODEX ?= codex
 LLM_PROMPT ?= agent/skill/llm-maintenance.md
 LOOKUP_PROMPT ?= agent/skill/lookup.md
 LOOKUP_QUERY ?= $(or $(QUERY),$(Q))
+RSYNC_EXCLUDES := --exclude .deps/ --exclude .publish-state.json --exclude .DS_Store
 
 .PHONY: all force sync git dryrun clean cv llm lookup publish
 
 all: publish
-	rsync -avh --progress -e ssh ./ Aaron-nas:/volume1/web
+	rsync -avh --delete $(RSYNC_EXCLUDES) --progress -e ssh public/ Aaron-nas:/volume1/web/
 	git add -A
 	git diff --cached --quiet || git commit -m "site update: $$(date '+%Y-%m-%d %H:%M:%S')"
 	$(PUBLISH) --record-state
@@ -17,13 +18,13 @@ force:
 	PUBLISH_FORCE=1 $(PUBLISH)
 
 sync:
-	rsync -avh --progress -e ssh ./ Aaron-nas:/volume1/web
+	rsync -avh --delete $(RSYNC_EXCLUDES) --progress -e ssh public/ Aaron-nas:/volume1/web/
 
 git:
 	lazygit
 
 dryrun: publish
-	rsync -avh --progress -e ssh ./ Aaron-nas:/volume1/web
+	rsync -avh --delete --dry-run $(RSYNC_EXCLUDES) --progress -e ssh public/ Aaron-nas:/volume1/web/
 
 publish:
 	$(PUBLISH)

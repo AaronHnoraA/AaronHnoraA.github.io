@@ -438,14 +438,11 @@ def write_data(notes: list[Note]) -> None:
 
 
 def _link_into_public(source: Path, target: Path) -> None:
-    """Point TARGET at SOURCE via a relative symlink so dev edits stay live."""
+    """Copy SOURCE into TARGET for standalone public/ deployment."""
     target.parent.mkdir(parents=True, exist_ok=True)
-    rel = os.path.relpath(source, target.parent)
     if target.is_symlink() or target.exists():
-        if target.is_symlink() and os.readlink(target) == rel:
-            return
         target.unlink()
-    target.symlink_to(rel)
+    shutil.copy2(source, target)
 
 
 def copy_static(notes: list[Note]) -> None:
