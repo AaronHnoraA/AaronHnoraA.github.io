@@ -815,6 +815,33 @@ select {
   background-size: 28px 28px, 28px 28px, auto;
 }
 
+.graph-toolbar {
+  background: rgba(247, 239, 222, 0.95) !important;
+  border: 1px solid var(--retro-line-soft) !important;
+  color: var(--retro-ink);
+  font-family: var(--retro-sans) !important;
+}
+
+.graph-toolbar-input {
+  border-color: var(--retro-line-soft) !important;
+  background: #fffaee;
+  color: var(--retro-ink);
+}
+
+.graph-toolbar-input:focus {
+  border-color: var(--retro-accent) !important;
+}
+
+.graph-toolbar-btn {
+  background: var(--retro-paper-strong) !important;
+  border-color: var(--retro-line-soft) !important;
+  color: var(--retro-ink);
+}
+
+.graph-toolbar-btn:hover {
+  background: #e6d3ac !important;
+}
+
 .graph-focus {
   margin: 0.7rem 0 0;
 }

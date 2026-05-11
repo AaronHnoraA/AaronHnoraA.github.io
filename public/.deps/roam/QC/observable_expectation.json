@@ -2,6 +2,7 @@
   "inputs": [
     "_typst/note.typ",
     "_typst/publish.typ",
+    "bin/publish-site",
     "roam/QC/observable_expectation.typ",
     "roam/math/hermitian_matrix.typ",
     "roam/math/hilbert_space.typ"

@@ -93,6 +93,7 @@ $  lr(angle.l A angle.r)  =  lr(angle.l psi | hat(A) | psi angle.r) . $
 该公式并非新的物理假设，
 而是对“结果 × 概率”这一统计平均的紧凑线性代数表达。
 
+
 == 量化建模的视角
 
 从建模角度看，
@@ -109,3 +110,4 @@ $  lr(angle.l A angle.r)  =  lr(angle.l psi | hat(A) | psi angle.r) . $
 是一种对现实世界高度抽象但极为有效的量化方式，
 其目标并非还原“真实值”，
 而是实现可预测、可重复、可统计的实验描述。
+

@@ -287,6 +287,7 @@
           linkPrefix: siteRoot,
           initialVisibleKeys: noteGraphVisibleKeys,
           initialSelectedId: currentNote?.key || "",
+          toolbar: true,
           listenForGlobalFilters: false,
           dispatchTagEvents: false,
           dispatchFocusEvents: false,
@@ -328,7 +329,7 @@
           <button type="button" class="note-graph-window-close" data-note-graph-close aria-label="Close relationships window">Close</button>
         </div>
         <div class="note-graph-window-body">
-          <div class="note-graph-container" data-note-graph-container></div>
+          <div class="note-graph-container" data-note-graph-container data-graph-toolbar="true"></div>
           <div class="graph-focus empty" data-note-graph-focus aria-live="polite">
             <p class="graph-focus-copy">Select a node to inspect linked notes.</p>
           </div>
