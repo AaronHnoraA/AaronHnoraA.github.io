@@ -10,9 +10,11 @@ all: publish
 	rsync -avh --progress -e ssh ./ Aaron-nas:/volume1/web
 	git add -A
 	git diff --cached --quiet || git commit -m "site update: $$(date '+%Y-%m-%d %H:%M:%S')"
+	$(PUBLISH) --record-state
 	git push
 
-force: publish
+force:
+	PUBLISH_FORCE=1 $(PUBLISH)
 
 sync:
 	rsync -avh --progress -e ssh ./ Aaron-nas:/volume1/web

@@ -8,11 +8,14 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC = ROOT / "public"
 PUBLISH_STYLE = ROOT / "_typst" / "publish.typ"
+PUBLISH_STATE = PUBLIC / ".publish-state.json"
+PUBLISH_BASE_URL = os.environ.get("PUBLISH_BASE_URL", "")
 ASSET_VERSION = "20260511-typst"
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".avif"}
 STATIC_EXTENSIONS = IMAGE_EXTENSIONS | {".css", ".js", ".pdf"}
@@ -20,6 +23,17 @@ SKIP_DIRS = {".git", ".cache", ".direnv", ".venv", "node_modules", "public", "lt
 NOTE_RE = re.compile(r"#note\(\s*\"([^\"]+)\"\s*\)\s*\[([^\]]+)\]")
 METADATA_RE = re.compile(r"#metadata\s*\(\((.*?)\)\)\s*<note>", re.S)
 FIELD_RE = re.compile(r"^\s*([a-zA-Z0-9_-]+)\s*:\s*(.+?)(?:,\s*)?$", re.M)
+PUBLISH_INPUT_PATHS = (
+    "roam",
+    "_typst",
+    "CV",
+    "css",
+    "js",
+    "homepage.html",
+    "notes.html",
+    "bin/publish-site",
+    "Makefile",
+)
 
 
 @dataclass
@@ -133,12 +147,73 @@ def deps_file_for(output_file: Path) -> Path:
     return PUBLIC / ".deps" / rel.with_suffix(".json")
 
 
+def publish_forced() -> bool:
+    return os.environ.get("PUBLISH_FORCE") == "1"
+
+
+def git_head() -> str | None:
+    try:
+        return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+
+
+def git_inputs_dirty() -> bool:
+    try:
+        output = subprocess.check_output(
+            ["git", "status", "--porcelain", "--", *PUBLISH_INPUT_PATHS],
+            cwd=ROOT,
+            text=True,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return True
+    return bool(output.strip())
+
+
+def publish_outputs_exist(notes: list[Note]) -> bool:
+    required = [PUBLIC / "js" / "data.js", PUBLIC / "index.html", PUBLIC / "notes.html"]
+    required.extend(PUBLIC / note.link for note in notes)
+    cv_source = ROOT / "CV" / "main.typ"
+    if cv_source.exists():
+        required.append(ROOT / "CV" / "Aaron_He_CV.pdf")
+    return all(path.exists() for path in required)
+
+
+def publish_state_current(notes: list[Note], head: str | None) -> bool:
+    if publish_forced() or not head or git_inputs_dirty() or not PUBLISH_STATE.exists():
+        return False
+    try:
+        state = json.loads(PUBLISH_STATE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    return (
+        state.get("gitHead") == head
+        and state.get("dirty") is False
+        and state.get("noteCount") == len(notes)
+        and publish_outputs_exist(notes)
+    )
+
+
+def write_publish_state(notes: list[Note], compiled: int, skipped: int, cv_status: str, head: str | None) -> None:
+    state = {
+        "gitHead": head,
+        "dirty": git_inputs_dirty(),
+        "noteCount": len(notes),
+        "compiled": compiled,
+        "skipped": skipped,
+        "cv": cv_status,
+    }
+    PUBLISH_STATE.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
 def path_from_dep(dep: str) -> Path:
     path = Path(dep)
     return path if path.is_absolute() else ROOT / path
 
 
 def output_is_current(output_file: Path, deps_file: Path) -> bool:
+    if publish_forced():
+        return False
     if not output_file.exists() or not deps_file.exists():
         return False
     try:
@@ -153,19 +228,44 @@ def output_is_current(output_file: Path, deps_file: Path) -> bool:
     return True
 
 
-def publish_source_for(note: Note, temp_file: Path) -> None:
+def publish_url_for(note: Note) -> str:
+    prefix = PUBLISH_BASE_URL.rstrip("/")
+    return f"{prefix}/{note.link}" if prefix else f"/{note.link}"
+
+
+def typst_string(value: str) -> str:
+    return json.dumps(value, ensure_ascii=False)
+
+
+def publish_source_for(note: Note, temp_file: Path, notes_by_id: dict[str, Note]) -> None:
     source = note.path.read_text(encoding="utf-8")
     source = source.replace('"/_typst/note.typ"', '"/_typst/publish.typ"', 1)
+    source = NOTE_RE.sub(
+        lambda match: publish_note_link(match, notes_by_id),
+        source,
+    )
     temp_file.write_text(source, encoding="utf-8")
 
 
-def normalize_deps(raw_deps_file: Path, temp_file: Path, note: Note) -> dict[str, list[str]]:
+def publish_note_link(match: re.Match[str], notes_by_id: dict[str, Note]) -> str:
+    target = notes_by_id.get(match.group(1))
+    if not target:
+        return match.group(0)
+    label = match.group(2)
+    return f"#link({typst_string(publish_url_for(target))})[#text(fill: note-link-fill, underline([{label}]))]"
+
+
+def normalize_deps(raw_deps_file: Path, temp_file: Path, note: Note, notes_by_id: dict[str, Note]) -> dict[str, list[str]]:
     try:
         raw_inputs = json.loads(raw_deps_file.read_text(encoding="utf-8")).get("inputs", [])
     except (OSError, json.JSONDecodeError):
         raw_inputs = []
     temp_real = temp_file.resolve()
     inputs = {note.path.relative_to(ROOT).as_posix(), PUBLISH_STYLE.relative_to(ROOT).as_posix()}
+    for ref in note.refs:
+        target = notes_by_id.get(ref)
+        if target:
+            inputs.add(target.path.relative_to(ROOT).as_posix())
     for dep in raw_inputs:
         dep_path = path_from_dep(str(dep)).resolve()
         if dep_path == temp_real:
@@ -177,7 +277,7 @@ def normalize_deps(raw_deps_file: Path, temp_file: Path, note: Note) -> dict[str
     return {"inputs": sorted(inputs)}
 
 
-def compile_note_pdf(note: Note) -> str:
+def compile_note_pdf(note: Note, notes_by_id: dict[str, Note]) -> str:
     output_file = PUBLIC / note.link
     deps_file = deps_file_for(output_file)
     if output_is_current(output_file, deps_file):
@@ -188,7 +288,7 @@ def compile_note_pdf(note: Note) -> str:
     temp_file = note.path.with_name(f".{note.path.stem}.publish.tmp.typ")
     raw_deps_file = deps_file.with_suffix(".raw.json")
     try:
-        publish_source_for(note, temp_file)
+        publish_source_for(note, temp_file, notes_by_id)
         subprocess.run(
             [
                 "typst",
@@ -204,7 +304,7 @@ def compile_note_pdf(note: Note) -> str:
             cwd=ROOT,
         )
         deps_file.write_text(
-            json.dumps(normalize_deps(raw_deps_file, temp_file, note), ensure_ascii=False, indent=2) + "\n",
+            json.dumps(normalize_deps(raw_deps_file, temp_file, note, notes_by_id), ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
     finally:
@@ -246,6 +346,17 @@ def write_data(notes: list[Note]) -> None:
     (js_dir / "data.js").write_text(f"const SITE_DATA = {json.dumps(data, ensure_ascii=False, separators=(',', ':'))};\n", encoding="utf-8")
 
 
+def _link_into_public(source: Path, target: Path) -> None:
+    """Point TARGET at SOURCE via a relative symlink so dev edits stay live."""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    rel = os.path.relpath(source, target.parent)
+    if target.is_symlink() or target.exists():
+        if target.is_symlink() and os.readlink(target) == rel:
+            return
+        target.unlink()
+    target.symlink_to(rel)
+
+
 def copy_static() -> None:
     for path in ROOT.rglob("*"):
         if not path.is_file():
@@ -257,14 +368,12 @@ def copy_static() -> None:
             continue
         if path.suffix.lower() not in STATIC_EXTENSIONS:
             continue
-        target = PUBLIC / rel
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(path, target)
+        _link_into_public(path, PUBLIC / rel)
 
     for template, output in (("homepage.html", "index.html"), ("notes.html", "notes.html")):
         source = ROOT / template
         if source.exists():
-            shutil.copy2(source, PUBLIC / output)
+            _link_into_public(source, PUBLIC / output)
 
 
 def compile_cv() -> str:
@@ -272,7 +381,7 @@ def compile_cv() -> str:
     if not source.exists():
         return "missing"
     target = ROOT / "CV" / "Aaron_He_CV.pdf"
-    if target.exists() and source.stat().st_mtime <= target.stat().st_mtime:
+    if not publish_forced() and target.exists() and source.stat().st_mtime <= target.stat().st_mtime:
         return "skipped"
     subprocess.run(["typst", "compile", "--root", str(ROOT / "CV"), str(source), str(target)], check=True, cwd=ROOT)
     return "compiled"
@@ -293,7 +402,7 @@ def clean_stale_outputs(notes: list[Note]) -> None:
         (PUBLIC / rel).unlink(missing_ok=True)
 
 
-def main() -> None:
+def collect_notes() -> tuple[list[Note], dict[str, Note]]:
     PUBLIC.mkdir(exist_ok=True)
     notes = find_notes()
     notes_by_id = {note.id: note for note in notes}
@@ -304,6 +413,22 @@ def main() -> None:
             backlinks.setdefault(ref, []).append(note.id)
     for note in notes:
         note.backlinks = sorted(set(backlinks.get(note.id, [])))
+    return notes, notes_by_id
+
+
+def main() -> None:
+    notes, notes_by_id = collect_notes()
+
+    if "--record-state" in sys.argv[1:]:
+        head = git_head()
+        write_publish_state(notes, 0, len(notes), "recorded", head)
+        print(f"Recorded publish state for git {head[:12] if head else 'unknown'}")
+        return
+
+    head = git_head()
+    if publish_state_current(notes, head):
+        print(f"Published {len(notes)} Typst notes to {PUBLIC} (git {head[:12]} unchanged, skipped)")
+        return
 
     clean_stale_outputs(notes)
     cv_status = compile_cv()
@@ -311,10 +436,11 @@ def main() -> None:
     compiled = 0
     skipped = 0
     for note in notes:
-        status = compile_note_pdf(note)
+        status = compile_note_pdf(note, notes_by_id)
         compiled += status == "compiled"
         skipped += status == "skipped"
     write_data(notes)
+    write_publish_state(notes, compiled, skipped, cv_status, head)
     print(f"Published {len(notes)} Typst notes to {PUBLIC} ({compiled} compiled, {skipped} skipped, CV {cv_status})")
 
 

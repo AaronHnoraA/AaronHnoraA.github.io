@@ -333,6 +333,9 @@
       if (!wantToolbar) {
         return;
       }
+      if (window.getComputedStyle(container).position === "static") {
+        container.style.position = "relative";
+      }
       toolbarEl = document.createElement("div");
       toolbarEl.className = "graph-toolbar";
       toolbarEl.innerHTML = `
@@ -417,10 +420,6 @@
           }
 
           setSelected(node);
-
-          if (onNoteOpen && node.kind === "note") {
-            onNoteOpen(node.note);
-          }
         })
         .on("dblclick", (event, node) => {
           event.stopPropagation();
@@ -631,7 +630,6 @@
     const style = document.createElement("style");
     style.id = "graph-toolbar-styles";
     style.textContent = `
-      #graph-container { position: relative; }
       .graph-toolbar {
         position: absolute; top: 8px; left: 8px; z-index: 5;
         display: flex; gap: 6px; align-items: center;

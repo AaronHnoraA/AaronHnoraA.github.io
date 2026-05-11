@@ -70,3 +70,6 @@ Thumbs.db
 # 如果你有脚本生成的中间目录
 build/
 dist/
+
+# Publish acceleration state; records the last successfully built git HEAD.
+public/.publish-state.json

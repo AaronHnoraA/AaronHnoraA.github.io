@@ -1,4 +1,4 @@
-# Aaron's Typst Note System
+# Aaron's Typst Roam
 
 This directory is Aaron's personal knowledge base and published website source.
 
@@ -7,10 +7,10 @@ The canonical note format is Typst. Old Org files and org-roam are no longer par
 ## Layout
 
 - `roam/`: long-lived Typst notes, grouped by directory.
-- `_typst/`: shared Typst helper and generated wrapper files from `M-x my/note-db-sync`.
+- `_typst/`: shared Typst helpers, generated note wrappers, and publish-only PDF styling.
 - `CV/`: Typst CV source and generated PDF.
 - `public/`: generated website output.
-- `agent/`: AI-facing indexes, wiki summaries, and maintenance prompts derived from Typst notes.
+- `agent/`: AI-facing indexes, wiki summaries, and maintenance prompts. The existing index layer is kept until the Typst index refresh is handled separately.
 
 ## Note Metadata
 
@@ -33,6 +33,17 @@ Cross-note links use the note helper:
 #note("20260511T120000-example")[Example]
 ```
 
+Run `M-x my/note-db-sync` from Emacs after changing note identity, aliases, tags, or links. It rebuilds the local note database and refreshes `_typst/notes/<id>.typ` wrappers used by `note-include`, `note-transclude`, and cross-file imports.
+
+Daily writing imports the normal helper:
+
+```typst
+#import "/_typst/note.typ": *
+#show: note-entry
+```
+
+Publishing does not require notes to import a second style. `bin/publish-site` compiles a temporary source that redirects the first `"/_typst/note.typ"` import to `"/_typst/publish.typ"`, so public PDF-only visual changes belong in `_typst/publish.typ`.
+
 ## Publishing
 
 Run:
@@ -41,6 +52,14 @@ Run:
 make publish
 ```
 
-`bin/publish-site` scans Typst note metadata, compiles notes to HTML with Typst, writes `public/js/data.js` for the note graph/archive UI, copies static assets, and compiles `CV/main.typ` to `CV/Aaron_He_CV.pdf`.
+`bin/publish-site` scans Typst note metadata, compiles public notes directly to `public/roam/**/*.pdf`, writes `public/js/data.js` for the archive and graph UI, copies static assets, and compiles `CV/main.typ` to `CV/Aaron_He_CV.pdf`.
+
+The note archive links directly to PDFs; the browser handles PDF viewing. There is no generated per-note HTML wrapper, and note-page CSS is not part of the PDF presentation. Missing public visual effects should be implemented with Typst in `_typst/publish.typ`.
+
+Note PDF compilation is incremental. Dependency snapshots live in `public/.deps/`; unchanged notes are skipped, while edited notes or changed Typst/image dependencies are recompiled.
+
+After a successful publish, ignored state file `public/.publish-state.json` records the current git `HEAD`. If the relevant publishing inputs are clean and the same `HEAD` is published again, `make publish` skips the whole publish pass. `make all` refreshes that state after its site commit so the next run can skip immediately. Use `make force` to bypass the manifest and recompile outputs.
+
+Published `#note("id")[Title]` references are rewritten into clickable PDF links. By default links use site-root paths such as `/roam/math/example.pdf`; set `PUBLISH_BASE_URL=https://example.com` if the PDF should contain absolute web URLs.
 
 `make all` publishes, syncs to the NAS target, commits changed output, and pushes.
