@@ -24,7 +24,7 @@ Hilbert space is a big space.
 
 
 ** 1. 数学理解 (Mathematical Understanding)
-本质是将欧几里得空间 (\(\mathbb{R}^{n}\)) 推广到*无限维*，并保留几何直观。
+本质是将欧几里得空间 ($\mathbb{R}^{n}$) 推广到*无限维*，并保留几何直观。
 
 - *核心定义*: 一个*完备 (Complete)* 的*内积空间 (Inner Product Space)*。
   - *内积 ($\langle u, v \rangle$)*: 定义了“角度”和“投影”。若内积为 0，则两向量正交。
@@ -69,47 +69,49 @@ Hilbert space is a big space.
     ** Step 1：选取正交基
 
     由 Gram–Schmidt 正交化，存在正交基：
-    \[
+$
     \{e_1,e_2,\dots,e_N\}
-    \]
+$
 
     ** Step 2：设 $\{v_i\}$ 为柯西列
 
     对任意 $\varepsilon>0$，存在 $n$，
     使得当 $i,j>n$ 时：
-    \[
+$
     d(v_i,v_j)<\varepsilon
-    \]
+$
 
     ** Step 3：写成坐标形式
 
     对每个 $i$，存在唯一的 $z_{ik}\in\mathbb C$，
     使得：
-    \[
+$
     v_i=\sum_{k=1}^N z_{ik}e_k
-    \]
+$
 
 
     ** Step 4：距离的坐标表达
 
     由正交性：
-    \[
+$
     d(v_i,v_j)^2
     =\sum_{k=1}^N |z_{ik}-z_{jk}|^2
     <\varepsilon^2
-    \]
+$
 
     ** Step 5：拆分为实部与虚部
 
     记：
-    \[
+$
     z_{ik}=x_{ik}+iy_{ik}
-    \]
+$
 
     则：
-    \[\sum_{k=1}^N |x_{ik}-x_{jk}|^2
+    $
+\sum_{k=1}^N |x_{ik}-x_{jk}|^2
     +\sum_{k=1}^N |y_{ik}-y_{jk}|^2
-    < \varepsilon^2\]
+    < \varepsilon^2
+$
 
     ** Step 6：坐标收敛
 
@@ -119,27 +121,27 @@ Hilbert space is a big space.
     由 $\mathbb R$ 的完备性，
     存在 $x_k,y_k\in\mathbb R$，
     使得：
-    \[
+$
     x_{ik}\to x_k,\quad y_{ik}\to y_{k}
-    \]
+$
 
     ** Step 7：构造极限向量
 
     令：
-    \[
+$
     z_k=x_k+iy_k,\quad
     v=\sum_{k=1}^N z_k e_k
-    \]
+$
 
     则：
-    \[
+$
     d(v_i,v)\to 0
-    \]
+$
 
     故：
-    \[
+$
     v_i\to v
-    \]
+$
 
     * 结论
 

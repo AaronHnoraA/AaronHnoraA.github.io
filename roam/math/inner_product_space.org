@@ -31,13 +31,13 @@
   - 标量乘法：$\cdot$
 
 - 给定一个二元函数
-\[
+$
 f: V \times V \to F
-\]
+$
 通常记作：
-\[
+$
 f(v,w) = \langle v,w\rangle
-\]
+$
 
 * 内积的公理化定义
 
@@ -61,13 +61,13 @@ f(v,w) = \langle v,w\rangle
 * 正交的定义
 
 若
-\[
+$
 \langle v,w\rangle = 0
-\]
+$
 则记为
-\[
+$
 v \perp w
-\]
+$
 
 称 $v$ 与 $w$ *正交（orthogonal / perpendicular）*
 
