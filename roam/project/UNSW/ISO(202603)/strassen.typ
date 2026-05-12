@@ -14,7 +14,7 @@
 
 = 总览
 
-这份笔记围绕 Strassen 1987 中的 tensor complexity / asymptotic rank / laser method 思想展开。
+这份笔记围绕 #zoterolink("zotero://select/items/1_C4ULFN2X")[Strassen] 1987 中的 tensor complexity / asymptotic rank / laser method 思想展开。
 
 核心问题：
 
@@ -75,6 +75,9 @@ Examples:
 == Tensor representation of a bilinear map
 
 Given finite-dimensional vector spaces $U,V,W$, a bilinear map
+
+
+
 
 $ f:U times  V ->  W $
 
@@ -319,7 +322,7 @@ Use $g$ as an oracle. Before feeding inputs into $g$, apply linear preprocessing
 
 If
 
-$ f <=  g, $
+$ f <= g, $
 
 then an algorithm for $g$ gives an algorithm for $f$.
 

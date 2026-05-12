@@ -34,7 +34,7 @@
 
 这是因为
 #proof[
-每一个物理量测出来都是实数, 因此我们有:
+    每一个物理量测出来都是实数, 因此我们有
 $   lr(angle.l O angle.r)  =  lr(angle.l O angle.r) ^* $
 对于任意量子态 $ lr(|psi angle.r)  $，有
 $      lr(angle.l psi | hat(O) | psi angle.r)  =  lr(angle.l psi | hat(O)^(dagger) | psi angle.r)  $
@@ -110,4 +110,3 @@ $  lr(angle.l A angle.r)  =  lr(angle.l psi | hat(A) | psi angle.r) . $
 是一种对现实世界高度抽象但极为有效的量化方式，
 其目标并非还原“真实值”，
 而是实现可预测、可重复、可统计的实验描述。
-

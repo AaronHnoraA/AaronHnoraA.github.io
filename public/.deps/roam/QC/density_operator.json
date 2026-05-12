@@ -1,6 +1,6 @@
 {
   "inputs": [
-    "_typst/note.typ",
+    "/Users/hc/.config/emacs/lisp/note/typst/note.typ",
     "_typst/publish.typ",
     "bin/publish-site",
     "roam/QC/density_operator.typ",

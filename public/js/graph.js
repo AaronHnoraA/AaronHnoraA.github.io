@@ -315,18 +315,252 @@
 
     let toolbarEl = null;
     let toolbarSearchInput = null;
+    let toolbarStatus = null;
+    let toolbarSuggestionBox = null;
+    let toolbarSuggestions = [];
+    let toolbarActiveSuggestionIndex = -1;
+    let toolbarClickListener = null;
     let searchFilterTimer = 0;
+
+    function uniqueSorted(values) {
+      return Array.from(new Set(values.map((value) => String(value || "").trim()).filter(Boolean)))
+        .sort((a, b) => a.localeCompare(b));
+    }
+
+    function quoteSearchValue(value) {
+      const text = String(value || "");
+      if (/[\s"]/u.test(text)) {
+        return `"${text.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+      }
+      return text;
+    }
+
+    function graphSuggestionSources() {
+      const notes = Array.isArray(knowledge.notes) ? knowledge.notes : [];
+      return {
+        tag: uniqueSorted((knowledge.tags || []).map((tag) => tag.name)),
+        alias: uniqueSorted(notes.flatMap((note) => note.aliases || [])),
+        path: uniqueSorted(notes.map((note) => note.path).filter(Boolean)),
+        title: uniqueSorted(notes.map((note) => note.title).filter(Boolean)),
+        group: uniqueSorted(notes.flatMap((note) => [note.groupKey, note.groupLabel]).filter(Boolean)),
+        section: uniqueSorted(notes.map((note) => note.section).filter(Boolean)),
+      };
+    }
+
+    function graphSuggestionField(token) {
+      const raw = String(token || "");
+      const lower = raw.toLowerCase();
+      if (lower.startsWith("#")) {
+        return { field: "tag", query: lower.slice(1), sigil: "#" };
+      }
+
+      const match = lower.match(/^([a-z]+):(.*)$/);
+      if (!match) {
+        return null;
+      }
+
+      const aliases = {
+        tags: "tag",
+        aka: "alias",
+        aliases: "alias",
+        file: "path",
+        folder: "group",
+      };
+      const field = aliases[match[1]] || match[1];
+      if (!["tag", "alias", "path", "title", "group", "section"].includes(field)) {
+        return null;
+      }
+
+      return { field, query: match[2], sigil: "" };
+    }
+
+    function currentSearchToken() {
+      if (!toolbarSearchInput) {
+        return null;
+      }
+
+      const value = toolbarSearchInput.value;
+      const cursor = toolbarSearchInput.selectionStart ?? value.length;
+      let start = cursor;
+      let end = cursor;
+
+      while (start > 0 && !/\s/u.test(value[start - 1])) start -= 1;
+      while (end < value.length && !/\s/u.test(value[end])) end += 1;
+
+      return {
+        value,
+        start,
+        end,
+        token: value.slice(start, end),
+      };
+    }
+
+    function buildGraphSuggestions() {
+      const tokenInfo = currentSearchToken();
+      if (!tokenInfo) {
+        return [];
+      }
+
+      const token = tokenInfo.token;
+      const lowerToken = token.toLowerCase();
+      const sources = graphSuggestionSources();
+      const field = graphSuggestionField(token);
+      const fieldLabels = [
+        { field: "tag", label: "tag:", detail: "filter by tag" },
+        { field: "alias", label: "alias:", detail: "filter by alias" },
+        { field: "path", label: "path:", detail: "filter by path" },
+        { field: "title", label: "title:", detail: "filter by title" },
+        { field: "group", label: "group:", detail: "filter by folder/group" },
+        { field: "section", label: "section:", detail: "filter by section" },
+      ];
+
+      if (field) {
+        return (sources[field.field] || [])
+          .filter((value) => value.toLowerCase().includes(field.query))
+          .slice(0, 10)
+          .map((value) => ({
+            field: field.field,
+            label: field.sigil ? `${field.sigil}${value}` : `${field.field}:${value}`,
+            detail: field.field,
+            replacement: field.sigil
+              ? `${field.sigil}${quoteSearchValue(value)}`
+              : `${field.field}:${quoteSearchValue(value)}`,
+          }));
+      }
+
+      const fieldSuggestions = fieldLabels
+        .filter((item) => item.label.startsWith(lowerToken))
+        .map((item) => ({
+          ...item,
+          replacement: item.label,
+        }));
+
+      if (!lowerToken) {
+        return fieldSuggestions;
+      }
+
+      const valueSuggestions = [
+        ...sources.tag
+          .filter((value) => value.toLowerCase().includes(lowerToken))
+          .slice(0, 5)
+          .map((value) => ({
+            field: "tag",
+            label: `tag:${value}`,
+            detail: "tag",
+            replacement: `tag:${quoteSearchValue(value)}`,
+          })),
+        ...sources.alias
+          .filter((value) => value.toLowerCase().includes(lowerToken))
+          .slice(0, 3)
+          .map((value) => ({
+            field: "alias",
+            label: `alias:${value}`,
+            detail: "alias",
+            replacement: `alias:${quoteSearchValue(value)}`,
+          })),
+        ...sources.path
+          .filter((value) => value.toLowerCase().includes(lowerToken))
+          .slice(0, 3)
+          .map((value) => ({
+            field: "path",
+            label: `path:${value}`,
+            detail: "path",
+            replacement: `path:${quoteSearchValue(value)}`,
+          })),
+      ];
+
+      return [...fieldSuggestions, ...valueSuggestions].slice(0, 12);
+    }
+
+    function closeToolbarSuggestions() {
+      toolbarSuggestions = [];
+      toolbarActiveSuggestionIndex = -1;
+      if (toolbarSuggestionBox) {
+        toolbarSuggestionBox.hidden = true;
+        toolbarSuggestionBox.innerHTML = "";
+      }
+      if (toolbarSearchInput) {
+        toolbarSearchInput.setAttribute("aria-expanded", "false");
+      }
+    }
+
+    function setActiveToolbarSuggestion(index) {
+      if (!toolbarSuggestionBox || toolbarSuggestions.length === 0) {
+        toolbarActiveSuggestionIndex = -1;
+        return;
+      }
+
+      toolbarActiveSuggestionIndex = (index + toolbarSuggestions.length) % toolbarSuggestions.length;
+      toolbarSuggestionBox.querySelectorAll(".graph-toolbar-suggestion").forEach((button, buttonIndex) => {
+        const active = buttonIndex === toolbarActiveSuggestionIndex;
+        button.classList.toggle("is-active", active);
+        button.setAttribute("aria-selected", active ? "true" : "false");
+      });
+    }
+
+    function applyToolbarSuggestion(suggestion) {
+      const tokenInfo = currentSearchToken();
+      if (!tokenInfo || !suggestion || !toolbarSearchInput) {
+        return;
+      }
+
+      const before = tokenInfo.value.slice(0, tokenInfo.start);
+      const after = tokenInfo.value.slice(tokenInfo.end).replace(/^\s+/u, "");
+      const needsTrailingSpace = suggestion.replacement.endsWith(":") ? "" : " ";
+      const nextValue = `${before}${suggestion.replacement}${needsTrailingSpace}${after}`;
+      const nextCursor = before.length + suggestion.replacement.length + needsTrailingSpace.length;
+
+      toolbarSearchInput.value = nextValue;
+      toolbarSearchInput.focus();
+      toolbarSearchInput.setSelectionRange(nextCursor, nextCursor);
+      closeToolbarSuggestions();
+      applySearchFilter(nextValue);
+    }
+
+    function showToolbarSuggestions() {
+      if (!toolbarSuggestionBox || !toolbarSearchInput) {
+        return;
+      }
+
+      toolbarSuggestions = buildGraphSuggestions();
+      toolbarActiveSuggestionIndex = -1;
+
+      if (toolbarSuggestions.length === 0) {
+        closeToolbarSuggestions();
+        return;
+      }
+
+      toolbarSuggestionBox.innerHTML = toolbarSuggestions
+        .map((suggestion, index) => `
+          <button type="button" class="graph-toolbar-suggestion" data-index="${index}" role="option" aria-selected="false">
+            <span>${escapeHtml(suggestion.label)}</span>
+            <small>${escapeHtml(suggestion.detail)}</small>
+          </button>
+        `)
+        .join("");
+      toolbarSuggestionBox.hidden = false;
+      toolbarSearchInput.setAttribute("aria-expanded", "true");
+
+      toolbarSuggestionBox.querySelectorAll(".graph-toolbar-suggestion").forEach((button) => {
+        button.addEventListener("mousedown", (event) => event.preventDefault());
+        button.addEventListener("click", () => {
+          applyToolbarSuggestion(toolbarSuggestions[Number(button.dataset.index)]);
+        });
+      });
+    }
 
     function applySearchFilter(rawText) {
       const text = String(rawText || "").trim();
       if (!text) {
         setVisibleKeys(knowledge.notes.map((note) => note.key));
+        if (toolbarStatus) toolbarStatus.textContent = `${knowledge.notes.length} notes`;
         return;
       }
       const matched = knowledge.filterNotes
         ? knowledge.filterNotes({ text, includeHidden: true })
         : knowledge.notes;
       setVisibleKeys(matched.map((note) => note.key));
+      if (toolbarStatus) toolbarStatus.textContent = `${matched.length} notes`;
     }
 
     function buildToolbar() {
@@ -339,31 +573,66 @@
       toolbarEl = document.createElement("div");
       toolbarEl.className = "graph-toolbar";
       toolbarEl.innerHTML = `
-        <input type="search" class="graph-toolbar-input" placeholder="Search..." autocomplete="off" />
+        <input type="search" class="graph-toolbar-input" placeholder="Search title, body, tag:, alias:, path:" autocomplete="off" aria-autocomplete="list" aria-expanded="false" />
+        <span class="graph-toolbar-status">${knowledge.notes.length} notes</span>
         <button type="button" class="graph-toolbar-btn" data-action="center" title="Center on visible">Center</button>
         <button type="button" class="graph-toolbar-btn" data-action="reset" title="Reset filter">Reset</button>
+        <div class="graph-toolbar-suggestions" role="listbox" hidden></div>
       `;
       container.appendChild(toolbarEl);
 
       toolbarSearchInput = toolbarEl.querySelector(".graph-toolbar-input");
+      toolbarStatus = toolbarEl.querySelector(".graph-toolbar-status");
+      toolbarSuggestionBox = toolbarEl.querySelector(".graph-toolbar-suggestions");
       toolbarSearchInput.addEventListener("input", (event) => {
         const value = event.target.value;
         window.clearTimeout(searchFilterTimer);
         searchFilterTimer = window.setTimeout(() => applySearchFilter(value), 140);
+        showToolbarSuggestions();
       });
       toolbarSearchInput.addEventListener("keydown", (event) => {
+        if (event.key === "ArrowDown" && toolbarSuggestions.length > 0) {
+          event.preventDefault();
+          setActiveToolbarSuggestion(toolbarActiveSuggestionIndex + 1);
+          return;
+        }
+        if (event.key === "ArrowUp" && toolbarSuggestions.length > 0) {
+          event.preventDefault();
+          setActiveToolbarSuggestion(toolbarActiveSuggestionIndex - 1);
+          return;
+        }
+        if (event.key === "Enter" && toolbarActiveSuggestionIndex >= 0) {
+          event.preventDefault();
+          applyToolbarSuggestion(toolbarSuggestions[toolbarActiveSuggestionIndex]);
+          return;
+        }
         if (event.key === "Escape") {
           event.preventDefault();
+          if (toolbarSuggestionBox && !toolbarSuggestionBox.hidden) {
+            closeToolbarSuggestions();
+            return;
+          }
           toolbarSearchInput.value = "";
           applySearchFilter("");
         }
       });
+      toolbarSearchInput.addEventListener("focus", showToolbarSuggestions);
+      if (toolbarClickListener) {
+        document.removeEventListener("click", toolbarClickListener);
+      }
+      toolbarClickListener = (event) => {
+        if (toolbarEl && !toolbarEl.contains(event.target)) {
+          closeToolbarSuggestions();
+        }
+      };
+      document.addEventListener("click", toolbarClickListener);
 
       toolbarEl.querySelector('[data-action="center"]').addEventListener("click", () => {
         refitGraph((node) => isNodeVisible(node), false);
       });
       toolbarEl.querySelector('[data-action="reset"]').addEventListener("click", () => {
         if (toolbarSearchInput) toolbarSearchInput.value = "";
+        closeToolbarSuggestions();
         applySearchFilter("");
         refitGraph((node) => isNodeVisible(node), true);
       });
@@ -610,6 +879,10 @@
         if (filtersListener) {
           document.removeEventListener("knowledge:filters-changed", filtersListener);
         }
+        if (toolbarClickListener) {
+          document.removeEventListener("click", toolbarClickListener);
+          toolbarClickListener = null;
+        }
         if (simulation) {
           simulation.stop();
         }
@@ -633,6 +906,7 @@
       .graph-toolbar {
         position: absolute; top: 8px; left: 8px; z-index: 5;
         display: flex; gap: 6px; align-items: center;
+        max-width: calc(100% - 16px);
         background: rgba(255,255,255,0.92);
         border: 1px solid rgba(0,0,0,0.12);
         border-radius: 4px;
@@ -646,9 +920,14 @@
         padding: 3px 6px;
         font: inherit;
         outline: none;
-        width: 160px;
+        width: min(320px, 42vw);
       }
       .graph-toolbar-input:focus { border-color: #5a79c7; }
+      .graph-toolbar-status {
+        color: rgba(0,0,0,0.58);
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+      }
       .graph-toolbar-btn {
         border: 1px solid rgba(0,0,0,0.18);
         background: #f7f7f5;
@@ -659,6 +938,56 @@
       }
       .graph-toolbar-btn:hover { background: #ebebe8; }
       .graph-toolbar-btn:active { background: #dcdcd8; }
+      .graph-toolbar-suggestions {
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 4px;
+        width: min(360px, calc(100vw - 24px));
+        max-height: min(320px, calc(100vh - 96px));
+        overflow: auto;
+        background: rgba(255,255,255,0.98);
+        border: 1px solid rgba(0,0,0,0.14);
+        border-radius: 4px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.16);
+        padding: 4px;
+      }
+      .graph-toolbar-suggestion {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        width: 100%;
+        border: 0;
+        border-radius: 3px;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+        font: inherit;
+        padding: 5px 7px;
+        text-align: left;
+      }
+      .graph-toolbar-suggestion small {
+        color: rgba(0,0,0,0.48);
+        flex: 0 0 auto;
+      }
+      .graph-toolbar-suggestion:hover,
+      .graph-toolbar-suggestion.is-active {
+        background: #eceff7;
+      }
+      @media (max-width: 560px) {
+        .graph-toolbar {
+          right: 8px;
+          flex-wrap: wrap;
+        }
+        .graph-toolbar-input {
+          width: 100%;
+          min-width: 0;
+        }
+        .graph-toolbar-suggestions {
+          right: 4px;
+          width: auto;
+        }
+      }
     `;
     document.head.appendChild(style);
   }

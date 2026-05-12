@@ -14,7 +14,7 @@
 
 = Basic Algebra (Reading Note)
 
-// #+Book: #link("zotero://select/items/1_MXR8MV8H")[Jacobson (1985)]
+Book: #zoterolink("zotero://select/items/1_MXR8MV8H")[Jacobson (1985)]
 
 = The Krull-schmit Theorem
 
