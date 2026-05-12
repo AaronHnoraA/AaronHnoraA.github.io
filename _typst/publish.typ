@@ -9,6 +9,36 @@
 #let publish-rule = rgb("9d7a51")
 #let note-link-fill = rgb("1d3f66")
 
+#let publish-page-background = [
+  #place(top + left)[
+    #rect(width: 100%, height: 100%, fill: publish-paper)
+  ]
+  #place(top + left, dx: 1.1em, dy: 1.1em)[
+    #rect(
+      width: 100% - 2.2em,
+      height: 100% - 2.2em,
+      stroke: 0.45pt + rgb("c7a982"),
+      radius: 3pt,
+    )
+  ]
+  #place(top + left, dx: 2.0em, dy: 2.0em)[
+    #rect(
+      width: 34%,
+      height: 0.42em,
+      fill: rgb("c9ad83"),
+      radius: 1pt,
+    )
+  ]
+  #place(bottom + right, dx: -2.0em, dy: -2.0em)[
+    #rect(
+      width: 28%,
+      height: 0.34em,
+      fill: rgb("c9ad83"),
+      radius: 1pt,
+    )
+  ]
+]
+
 #let publish-theme = note-theme.with(
   page-fill: publish-paper,
   page-margin: (x: 5.8em, y: 4.9em),
@@ -38,7 +68,7 @@
 )
 
 #let note-entry(toc: true, body) = {
-  set page(paper: "a4")
+  set page(paper: "a4", background: publish-page-background)
   note-entry-with(
     body,
     toc: toc,
