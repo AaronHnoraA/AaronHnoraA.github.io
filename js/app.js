@@ -168,15 +168,21 @@ document.addEventListener("DOMContentLoaded", () => {
     const filtered = knowledge.filterNotes({ text: state.text, tags: Array.from(state.tags) });
 
     return filtered.map((note) => {
-      let score = 0;
+      let score = knowledge.scoreNote
+        ? knowledge.scoreNote(note, state.text, Array.from(state.tags))
+        : 0;
       let tagScore = 0;
 
-      terms.forEach((term) => {
-        if (note.title.toLowerCase().includes(term)) score += 5;
-        if (note.tags.some((tag) => tag.includes(term))) score += 3;
-        if (note.summary.toLowerCase().includes(term)) score += 2;
-        if (note.groupLabel.toLowerCase().includes(term)) score += 1;
-      });
+      if (!knowledge.scoreNote) {
+        terms.forEach((term) => {
+          if (note.title.toLowerCase().includes(term)) score += 5;
+          if (note.aliases && note.aliases.some((alias) => alias.toLowerCase().includes(term))) score += 4;
+          if (note.tags.some((tag) => tag.includes(term))) score += 3;
+          if (note.summary.toLowerCase().includes(term)) score += 2;
+          if ((note.path || "").toLowerCase().includes(term)) score += 1;
+          if (note.groupLabel.toLowerCase().includes(term)) score += 1;
+        });
+      }
 
       Array.from(state.tags).forEach((tag) => {
         if (note.tags.includes(tag)) {
@@ -705,8 +711,9 @@ document.addEventListener("DOMContentLoaded", () => {
       .filter((tag) => tag.name.includes(trimmed))
       .slice(0, 6);
 
-    const matchedNotes = selectableNotes
-      .filter((note) => note.title.toLowerCase().includes(trimmed))
+    const matchedNotes = (knowledge.filterNotes
+      ? knowledge.filterNotes({ text: trimmed })
+      : selectableNotes.filter((note) => note.title.toLowerCase().includes(trimmed)))
       .slice(0, 6);
 
     if (matchedTags.length === 0 && matchedNotes.length === 0) {

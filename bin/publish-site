@@ -52,6 +52,7 @@ class Note:
     tags: list[str] = field(default_factory=list)
     aliases: list[str] = field(default_factory=list)
     summary: str = ""
+    search_text: str = ""
     refs: list[str] = field(default_factory=list)
     backlinks: list[str] = field(default_factory=list)
     private: bool = False
@@ -179,7 +180,7 @@ def parse_note(path: Path) -> Note | None:
     tags = [str(tag) for tag in metadata.get("tags", [])]
     private = private_path_p(rel) or private_metadata_p(metadata, tags)
     refs = [target for target, _label in NOTE_RE.findall(text)]
-    summary = "This note has been sealed by the administrator." if private else clean_typst_text(text)
+    search_text = "This note has been sealed by the administrator." if private else clean_typst_text(text)
     return Note(
         path=path,
         rel_path=rel_path,
@@ -188,7 +189,8 @@ def parse_note(path: Path) -> Note | None:
         date=str(metadata.get("date") or "Undated"),
         tags=tags,
         aliases=[str(alias) for alias in metadata.get("aliases", [])],
-        summary=summary[:180],
+        summary=search_text[:180],
+        search_text=search_text,
         refs=sorted(set(refs)),
         private=private,
     )
@@ -409,14 +411,17 @@ def note_json(note: Note) -> dict[str, object]:
         "id": note.id,
         "title": note.title,
         "link": note.link,
+        "path": note.rel_path,
         "date": note.date,
         "summary": private_summary if note.private else note.summary,
+        "searchText": private_summary if note.private else note.search_text,
         "groupKey": note.group_key,
         "groupLabel": note.group_label,
         "section": note.section,
         "hidden": note.private,
         "private": note.private,
         "tags": [] if note.private else note.tags,
+        "aliases": [] if note.private else note.aliases,
         "refs": note.refs,
         "backlinks": note.backlinks,
     }
