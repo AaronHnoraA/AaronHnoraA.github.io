@@ -2,6 +2,7 @@
   "inputs": [
     "_typst/note.typ",
     "_typst/publish.typ",
+    "bin/publish-site",
     "roam/math/inner_product_space.typ"
   ]
 }

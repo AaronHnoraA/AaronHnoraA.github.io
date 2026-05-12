@@ -2,6 +2,7 @@
   "inputs": [
     "_typst/note.typ",
     "_typst/publish.typ",
+    "bin/publish-site",
     "roam/QC/density_operator.typ",
     "roam/QC/quantum_state.typ"
   ]
