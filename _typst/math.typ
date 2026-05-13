@@ -1,0 +1,1 @@
+/Users/hc/.config/emacs/lisp/note/typst/math.typ

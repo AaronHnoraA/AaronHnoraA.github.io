@@ -1,5 +1,6 @@
 {
   "inputs": [
+    "/Users/hc/.config/emacs/lisp/note/typst/math.typ",
     "/Users/hc/.config/emacs/lisp/note/typst/note.typ",
     "_typst/publish.typ",
     "bin/publish-site",
