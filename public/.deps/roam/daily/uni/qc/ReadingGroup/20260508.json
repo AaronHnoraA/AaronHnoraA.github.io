@@ -1,5 +1,6 @@
 {
   "inputs": [
+    "/Users/hc/.config/emacs/lisp/note/typst/private.typ",
     "_typst/private.typ",
     "bin/publish-site",
     "roam/daily/uni/qc/ReadingGroup/20260508.typ"

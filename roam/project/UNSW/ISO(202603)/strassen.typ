@@ -42,6 +42,8 @@ Strassen 的思想不是只研究一个固定 tensor 的 rank，而是研究 ten
 
 == Matrix multiplication exponent
 
+
+
 #definition[
 The matrix multiplication exponent $ omega $ is the infimum of all real numbers $ tau $ such that $n times  n$ matrix multiplication can be computed using
 $ O(n^( tau + epsilon )) $
@@ -57,6 +59,7 @@ $  omega
 #note[
 中文：$ omega $ 描述的是矩阵乘法复杂度的渐近增长率，不是某个固定 $n$ 的精确乘法次数。
 ]
+
 
 == Bilinear map
 
@@ -76,9 +79,6 @@ Examples:
 == Tensor representation of a bilinear map
 
 Given finite-dimensional vector spaces $U,V,W$, a bilinear map
-
-
-
 
 $ f:U times  V ->  W $
 
