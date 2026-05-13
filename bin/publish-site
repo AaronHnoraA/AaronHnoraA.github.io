@@ -313,9 +313,38 @@ def typst_string(value: str) -> str:
     return json.dumps(value, ensure_ascii=False)
 
 
+def typst_tuple(values: list[str]) -> str:
+    if not values:
+        return "()"
+    body = ", ".join(typst_string(value) for value in values)
+    if len(values) == 1:
+        body += ","
+    return f"({body})"
+
+
+def publish_show_rule_for(note: Note) -> str:
+    return "\n".join(
+        [
+            "#show: publish-entry.with(",
+            f"  title: {typst_string(note.title)},",
+            f"  date: {typst_string(note.date)},",
+            f"  collection: {typst_string(note.group_label)},",
+            f"  tags: {typst_tuple(note.tags)},",
+            f"  summary: {typst_string(note.summary)},",
+            f"  path: {typst_string(note.rel_path)},",
+            ")",
+        ]
+    )
+
+
 def publish_source_for(note: Note, temp_file: Path, notes_by_id: dict[str, Note]) -> None:
     source = note.path.read_text(encoding="utf-8")
     source = source.replace('"/_typst/note.typ"', '"/_typst/publish.typ"', 1)
+    show_rule = publish_show_rule_for(note)
+    if "#show: note-entry" in source:
+        source = source.replace("#show: note-entry", show_rule, 1)
+    else:
+        source = f"{show_rule}\n{source}"
     source = NOTE_RE.sub(
         lambda match: publish_note_link(match, notes_by_id),
         source,

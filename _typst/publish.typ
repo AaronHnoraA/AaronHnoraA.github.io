@@ -67,19 +67,95 @@
   heading2-rule-text-fill: rgb("4b3827"),
 )
 
-#let note-entry(toc: true, body) = {
+#let publish-cover(
+  title: none,
+  date: none,
+  collection: none,
+  tags: (),
+  summary: none,
+  path: none,
+) = {
+  block(
+    width: 100%,
+    fill: rgb("efe3cc"),
+    stroke: (left: 3pt + publish-accent, rest: 0.55pt + rgb("b49367")),
+    radius: 2pt,
+    inset: (x: 1.1em, y: 1.0em),
+    breakable: false,
+  )[
+    #text(fill: rgb("735639"), size: 0.78em, weight: "semibold")[PUBLIC NOTE]
+    #v(0.5em)
+    #text(fill: publish-accent, size: 2.05em, weight: "bold")[#if title != none { title } else { "Untitled" }]
+    #if summary != none and summary != "" {
+      v(0.75em)
+      text(fill: rgb("4b3827"), size: 0.96em)[#summary]
+    }
+    #v(0.9em)
+    #grid(
+      columns: (auto, 1fr),
+      gutter: 0.5em,
+      row-gutter: 0.28em,
+      text(fill: rgb("735639"), size: 0.76em, weight: "semibold")[Collection],
+      text(fill: publish-ink, size: 0.86em)[#if collection != none { collection } else { "Note" }],
+      text(fill: rgb("735639"), size: 0.76em, weight: "semibold")[Date],
+      text(fill: publish-ink, size: 0.86em)[#if date != none { date } else { "Undated" }],
+      text(fill: rgb("735639"), size: 0.76em, weight: "semibold")[Path],
+      text(fill: rgb("5c4a36"), size: 0.78em)[#if path != none { path } else { "" }],
+    )
+    #if tags.len() > 0 {
+      v(0.7em)
+      for tag in tags {
+        box(
+          fill: rgb("f7ecd7"),
+          stroke: 0.45pt + rgb("c2a37a"),
+          radius: 1.5pt,
+          inset: (x: 0.42em, y: 0.12em),
+        )[
+          #text(fill: rgb("684a2c"), size: 0.76em)[#tag]
+        ]
+        h(0.28em)
+      }
+    }
+  ]
+  v(0.9em)
+}
+
+#let publish-toc-wrapper(it) = block(
+  width: 100%,
+  fill: rgb("efe3cc"),
+  stroke: 0.55pt + rgb("b49367"),
+  radius: 2pt,
+  inset: 0.8em,
+)[#it]
+
+#let publish-entry(
+  title: none,
+  date: none,
+  collection: none,
+  tags: (),
+  summary: none,
+  path: none,
+  toc: true,
+  body,
+) = {
   set page(paper: "a4", background: publish-page-background)
-  note-entry-with(
-    body,
-    toc: toc,
-    theme: publish-theme,
-    toc-title: [Contents],
-    toc-wrapper: it => block(
-        width: 100%,
-        fill: rgb("efe3cc"),
-        stroke: 0.55pt + rgb("b49367"),
-        radius: 2pt,
-        inset: 0.8em,
-      )[#it],
+  show: publish-theme
+  publish-cover(
+    title: title,
+    date: date,
+    collection: collection,
+    tags: tags,
+    summary: summary,
+    path: path,
   )
+  context {
+    if not note-include-active.get() and toc {
+      publish-toc-wrapper(outline(title: [Contents], depth: 2))
+    }
+  }
+  body
+}
+
+#let note-entry(toc: true, body) = {
+  publish-entry(toc: toc, body)
 }
