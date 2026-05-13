@@ -22,6 +22,7 @@
 How can we compare bilinear computational problems using tensors, restriction, degeneration, and asymptotic rank?
 ]
 
+
 中文主线：
 
 - 把矩阵乘法看成 bilinear map。
@@ -36,8 +37,6 @@ How can we compare bilinear computational problems using tensors, restriction, d
 #summary[
 Strassen 的思想不是只研究一个固定 tensor 的 rank，而是研究 tensor 在 direct sum、tensor product、restriction、degeneration、asymptotic limit 下形成的复杂度结构。
 ]
-
-
 
 = 核心概念
 
