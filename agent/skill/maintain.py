@@ -14,7 +14,6 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[2]
 AGENT_DIR = ROOT / "agent"
 ROAM_DIR = ROOT / "roam"
-DAILY_DIR = ROOT / "daily"
 INDEX_DIR = AGENT_DIR / "index"
 WIKI_DIR = AGENT_DIR / "wiki"
 WIKI_NOTES_DIR = WIKI_DIR / "notes"
@@ -23,13 +22,11 @@ STATE_FILE = STATE_DIR / "maintain-state.json"
 DEFAULT_SAMPLE_RATIO = 0.15
 DEFAULT_MIN_SAMPLE = 1
 
-TITLE_RE = re.compile(r"^#\+title:\s*(.+)$", re.IGNORECASE)
-DATE_RE = re.compile(r"^#\+date:\s*(.+)$", re.IGNORECASE)
-FILETAGS_RE = re.compile(r"^#\+filetags:\s*(.+)$", re.IGNORECASE)
-ID_RE = re.compile(r"^:ID:\s*(.+)$", re.IGNORECASE)
-HEADING_RE = re.compile(r"^(\*+)\s+(.+)$")
-ID_LINK_RE = re.compile(r"\[\[id:([^\]]+)\](?:\[([^\]]*)\])?\]")
-ORG_LINK_RE = re.compile(r"\[\[(?:id:|file:)?[^\]]+\](?:\[([^\]]+)\])?\]")
+HEADING_RE = re.compile(r"^(=+)\s+(.+)$")
+NOTE_LINK_RE = re.compile(r'#note\("([^"]+)"\)')
+TYPST_STRING_RE = re.compile(r'"((?:[^"\\]|\\.)*)"')
+METADATA_RE = re.compile(r"#metadata\(\((.*?)\)\)\s*<note>", re.DOTALL)
+METADATA_PAIR_RE = re.compile(r"([A-Za-z0-9_-]+)\s*:\s*")
 
 
 @dataclass
@@ -76,9 +73,11 @@ class Note:
         )
 
 
-def clean_org_markup(text: str) -> str:
-    text = ORG_LINK_RE.sub(lambda match: match.group(1) or "", text)
-    text = text.replace("*", "").replace("~", "")
+def clean_typst_markup(text: str) -> str:
+    text = re.sub(r'#note\("[^"]+"\)\[([^\]]+)\]', r"\1", text)
+    text = re.sub(r"#\w+(?:\([^)]*\))?\[([^\]]*)\]", r"\1", text)
+    text = text.replace("*", "").replace("`", "")
+    text = text.replace("#", "")
     return " ".join(text.split())
 
 
@@ -99,21 +98,41 @@ def unique(values: list[str]) -> list[str]:
     return result
 
 
-def wiki_path_for(org_path: Path) -> Path:
-    source_root = note_source_root(org_path)
-    rel = org_path.relative_to(source_root).with_suffix(".md")
-    if source_root == ROAM_DIR:
-        return WIKI_NOTES_DIR / rel
-    source_prefix = source_root.relative_to(ROOT)
-    return WIKI_NOTES_DIR / source_prefix / rel
+def wiki_path_for(note_path: Path) -> Path:
+    return WIKI_NOTES_DIR / note_path.relative_to(ROAM_DIR).with_suffix(".md")
 
 
-def note_source_root(org_path: Path) -> Path:
-    if org_path.is_relative_to(ROAM_DIR):
-        return ROAM_DIR
-    if org_path.is_relative_to(DAILY_DIR):
-        return DAILY_DIR
-    raise ValueError(f"Unsupported note path: {org_path}")
+def typst_unescape(value: str) -> str:
+    return (
+        value
+        .replace(r"\\", "\\")
+        .replace(r"\"", '"')
+        .replace(r"\n", "\n")
+        .replace(r"\t", "\t")
+    )
+
+
+def parse_typst_metadata(text: str) -> dict[str, object]:
+    match = METADATA_RE.search(text)
+    if not match:
+        return {}
+    body = match.group(1)
+    fields: dict[str, object] = {}
+    pairs = list(METADATA_PAIR_RE.finditer(body))
+    for index, pair in enumerate(pairs):
+        key = pair.group(1)
+        start = pair.end()
+        end = pairs[index + 1].start() if index + 1 < len(pairs) else len(body)
+        raw = body[start:end].strip().rstrip(",").strip()
+        if raw.startswith("("):
+            fields[key] = [typst_unescape(item.group(1)) for item in TYPST_STRING_RE.finditer(raw)]
+        else:
+            string_match = TYPST_STRING_RE.search(raw)
+            if string_match:
+                fields[key] = typst_unescape(string_match.group(1)).strip()
+            elif raw:
+                fields[key] = raw
+    return fields
 
 
 def parse_note(path: Path) -> Note:
@@ -121,73 +140,48 @@ def parse_note(path: Path) -> Note:
     text = path.read_text(encoding="utf-8")
     lines = text.splitlines()
     note = Note(path=path, rel_path=rel_path, wiki_path=wiki_path_for(path))
+    metadata = parse_typst_metadata(text)
+    note.id = str(metadata.get("id", ""))
+    note.title = str(metadata.get("title", ""))
+    note.date = str(metadata.get("date", ""))
+    raw_tags = metadata.get("tags", [])
+    note.tags = [str(tag).strip() for tag in raw_tags if str(tag).strip()] if isinstance(raw_tags, list) else []
 
-    in_drawer = False
     in_block = False
-    in_latex = False
     summary_done = False
     summary_parts: list[str] = []
-    outgoing_ids: list[str] = []
+    outgoing_ids: list[str] = NOTE_LINK_RE.findall(text)
 
     for line in lines:
         stripped = line.strip()
-        lower = stripped.lower()
-
-        if stripped == ":PROPERTIES:":
-            in_drawer = True
-        elif stripped == ":END:" and in_drawer:
-            in_drawer = False
-
-        id_match = ID_RE.match(stripped)
-        if id_match:
-            note.id = id_match.group(1).strip()
-
-        title_match = TITLE_RE.match(stripped)
-        if title_match:
-            note.title = clean_org_markup(title_match.group(1).strip())
-
-        date_match = DATE_RE.match(stripped)
-        if date_match:
-            note.date = date_match.group(1).strip()
-
-        tags_match = FILETAGS_RE.match(stripped)
-        if tags_match:
-            note.tags = parse_tags(tags_match.group(1))
 
         heading_match = HEADING_RE.match(line)
         if heading_match:
             level = len(heading_match.group(1))
-            title = clean_org_markup(heading_match.group(2))
+            title = clean_typst_markup(heading_match.group(2))
             note.headings.append((level, title))
 
-        outgoing_ids.extend(match.group(1).strip() for match in ID_LINK_RE.finditer(line))
-
-        if lower.startswith("#+begin_"):
+        if stripped.startswith("#metadata("):
             in_block = True
             continue
-        if lower.startswith("#+end_"):
+        if in_block and stripped.endswith("<note>"):
             in_block = False
-            continue
-        if stripped.startswith(r"\begin{"):
-            in_latex = True
-            continue
-        if stripped.startswith(r"\end{"):
-            in_latex = False
             continue
         if summary_done:
             continue
-        if in_drawer or in_block:
+        if in_block:
             continue
-        if in_latex:
+        if not stripped or stripped.startswith("#import") or stripped.startswith("#show") or stripped.startswith("#set"):
             continue
-        if not stripped or stripped.startswith("#+") or stripped.startswith(":"):
-            continue
-        if stripped.startswith("|"):
+        if stripped.startswith("#") and not stripped.startswith("#note"):
             continue
         if heading_match:
+            cleaned_heading = clean_typst_markup(heading_match.group(2))
+            if cleaned_heading:
+                summary_parts.append(cleaned_heading)
             continue
 
-        cleaned = clean_org_markup(stripped)
+        cleaned = clean_typst_markup(stripped)
         if cleaned:
             summary_parts.append(cleaned)
         if len(" ".join(summary_parts)) >= 420:
@@ -332,9 +326,9 @@ def parse_changed_paths(output: str) -> set[str]:
         path_text = line[3:] if len(line) > 3 and line[1] == " " else line
         if " -> " in path_text:
             path_text = path_text.split(" -> ", 1)[1]
-        if not path_text.endswith(".org"):
+        if not path_text.endswith(".typ"):
             continue
-        if not (path_text.startswith("roam/") or path_text.startswith("daily/")):
+        if not path_text.startswith("roam/"):
             continue
         changed.add(path_text)
     return changed
@@ -346,7 +340,7 @@ def git_changed_org_paths(last_head: str) -> set[str]:
     if last_head:
         try:
             committed = subprocess.run(
-                ["git", "diff", "--name-only", f"{last_head}..HEAD", "--", "roam", "daily"],
+                ["git", "diff", "--name-only", f"{last_head}..HEAD", "--", "roam"],
                 cwd=ROOT,
                 check=True,
                 capture_output=True,
@@ -358,7 +352,7 @@ def git_changed_org_paths(last_head: str) -> set[str]:
 
     try:
         working = subprocess.run(
-            ["git", "status", "--short", "--untracked-files=all", "--", "roam", "daily"],
+            ["git", "status", "--short", "--untracked-files=all", "--", "roam"],
             cwd=ROOT,
             check=True,
             capture_output=True,
@@ -424,25 +418,25 @@ def render_index_readme(notes: list[Note]) -> str:
             "Generated by `python3 agent/skill/maintain.py`.",
             "",
             f"- Notes indexed: {len(notes)}",
-            "- Main index: `org-roam-index.md`",
+            "- Main index: `typst-note-index.md`",
             "- Title index: `titles.md`",
             "- Path index: `paths.md`",
             "- Tag index: `tags.md`",
             "- Link graph: `graph.md`",
             "- Backlink index: `backlinks.md`",
-            "- Sources covered: `roam/` and `daily/`",
+            "- Sources covered: `roam/`",
         ]
     )
 
 
-def render_org_roam_index(notes: list[Note], backlinks: dict[str, list[Note]]) -> str:
+def render_typst_note_index(notes: list[Note], backlinks: dict[str, list[Note]]) -> str:
     lines = [
-        "# Org Note Index",
+        "# Typst Note Index",
         "",
         "| Title | Path | Tags | Summary |",
         "| --- | --- | --- | --- |",
     ]
-    index_file = INDEX_DIR / "org-roam-index.md"
+    index_file = INDEX_DIR / "typst-note-index.md"
     for note in notes:
         tags = ", ".join(note.tags)
         lines.append(
@@ -563,7 +557,7 @@ def render_wiki_readme(notes: list[Note]) -> str:
     lines = [
         "# Agent Wiki",
         "",
-        "Condensed Markdown views generated from `roam/` and `daily/` Org notes. These files are for fast AI lookup; edit the source Org files instead.",
+        "Condensed Markdown views generated from `roam/` Typst notes. These files are for fast AI lookup; edit the source Typst files instead.",
         "",
         "## Notes",
         "",
@@ -621,7 +615,7 @@ def main() -> None:
     WIKI_DIR.mkdir(parents=True, exist_ok=True)
     WIKI_NOTES_DIR.mkdir(parents=True, exist_ok=True)
 
-    note_paths = sorted([*ROAM_DIR.rglob("*.org"), *DAILY_DIR.rglob("*.org")])
+    note_paths = sorted(ROAM_DIR.rglob("*.typ"))
     notes, deleted, reparsed = load_notes(note_paths)
     notes_by_id = {note.id: note for note in notes if note.id}
     backlinks = build_backlinks(notes)
@@ -636,7 +630,7 @@ def main() -> None:
             stale_wiki.unlink()
 
     write_if_changed(INDEX_DIR / "README.md", render_index_readme(notes))
-    write_if_changed(INDEX_DIR / "org-roam-index.md", render_org_roam_index(notes, backlinks))
+    write_if_changed(INDEX_DIR / "typst-note-index.md", render_typst_note_index(notes, backlinks))
     write_if_changed(INDEX_DIR / "titles.md", render_titles(notes))
     write_if_changed(INDEX_DIR / "paths.md", render_paths(notes))
     write_if_changed(INDEX_DIR / "tags.md", render_tags(notes))
@@ -654,7 +648,7 @@ def main() -> None:
 
     print(
         "Indexed "
-        f"{len(notes)} Org notes into {INDEX_DIR.relative_to(ROOT)} and {WIKI_DIR.relative_to(ROOT)}. "
+        f"{len(notes)} Typst notes into {INDEX_DIR.relative_to(ROOT)} and {WIKI_DIR.relative_to(ROOT)}. "
         f"Reparsed {reparsed} notes; reused cache for {len(notes) - reparsed}; removed {len(deleted)} deleted notes."
     )
 

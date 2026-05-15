@@ -10,7 +10,7 @@ The canonical note format is Typst. Old Org files and org-roam are no longer par
 - `_typst/`: shared Typst helpers, generated note wrappers, and publish-only PDF styling.
 - `CV/`: Typst CV source and generated PDF.
 - `public/`: generated website output.
-- `agent/`: AI-facing indexes, wiki summaries, and maintenance prompts. The existing index layer is kept until the Typst index refresh is handled separately.
+- `agent/`: AI-facing indexes, wiki summaries, and maintenance prompts generated from `roam/**/*.typ`.
 
 ## Note Metadata
 
@@ -34,6 +34,8 @@ Cross-note links use the note helper:
 ```
 
 Run `M-x my/note-db-sync` from Emacs after changing note identity, aliases, tags, or links. It rebuilds the local note database and refreshes `_typst/notes/<id>.typ` wrappers used by `note-include`, `note-transclude`, and cross-file imports.
+
+Run `make maintain` after note content changes when the AI-facing Markdown indexes under `agent/` should be refreshed.
 
 Daily writing imports the normal helper:
 

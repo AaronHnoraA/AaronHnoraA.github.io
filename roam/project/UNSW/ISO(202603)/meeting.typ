@@ -18,7 +18,7 @@
 在结构上，本文先把输入张量化为 *minimal support spaces* 上的 concise / non-degenerate 形式，再构造
 $ S := A ⊕ B $
 并引入 *switching automorphism*。核心命题是：当 $A, B$ 都在其 minimal support spaces 上看待时，
-$ A ≅ B $
+$ A G tilde.equiv H  B $
 当且仅当
 $ S $
 存在把三条腿上的第一块与第二块同时交换的 switching automorphism。
