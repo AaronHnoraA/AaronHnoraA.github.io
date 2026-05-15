@@ -2,7 +2,6 @@
 #import "/_typst/note.typ": *
 #show: note-entry
 #set heading(numbering: "1.")
-#set math.equation(numbering: "(1)")
 
 
 #metadata((
@@ -45,7 +44,7 @@ $ S $
   ], [
     一页证明草稿：
     (i) minimal support spaces 内在性；
-      (ii) $A ≅ B <=> A directsum B$ 含 switching automorphism；
+      (ii) $A ≅ B <=> A plus.o B$ 含 switching automorphism；
     (iii) 一段 caveat：generator set 不必字面含 switch。
   ], [
     先与 Euan 对表，再把 oracle 问题抛给 Youming；与 Murray 对接 idempotent 记号。
@@ -85,7 +84,7 @@ $ S $
 #summary("Aaron 的任务定位")[
   Aaron 的定位不是“把整篇论文从头到尾写完”，而是把现在最容易导致全篇崩掉的三件事先钉死：
 
-  其一，*语言统一*：Strassen 的 bilinear map 语言、Euan note 中的 Krull–Schmidt 语言、项目最终要写的 $U ⊗ V ⊗ W$ 群作用语言，要放进同一个字典里。
+  其一，*语言统一*：Strassen 的 bilinear map 语言、Euan note 中的 Krull–Schmidt 语言、项目最终要写的 $U times.o V times.o W$ 群作用语言，要放进同一个字典里。
 
   其二，*关键 iff 的证明封口*：
   $ A ≅ B ⟺ A ⊕ B $
@@ -326,7 +325,7 @@ Strassen 在 1987 年把 bilinear complexity、tensor、restriction、degenerati
 #summary("为什么本文主证明不必在一开始就假设 indecomposable")[
   核心 iff
   $
-    A ≅ B ⟺ A directsum B
+    A ≅ B ⟺ A plus.o B
   $
   含 switch，本身只是一个“块交换”命题，不要求 $A$、$B$ 预先 indecomposable。
 
@@ -695,7 +694,7 @@ Strassen 在 1987 年把 bilinear complexity、tensor、restriction、degenerati
 
   1. minimal support reduction 是线性代数问题，时间多项式于 $N$；
   2. 构造 $S = A ⊕ B$ 也是多项式时间；
-  3. 若采用 TA-all，后处理复杂度是 $poly(N)$ 乘以 oracle 输出长度；
+      3. 若采用 TA-all，后处理复杂度是 $ "Pol"(n) $ 乘以 oracle 输出长度；
   4. 若采用 TA-gen 且底域为有限域，则后处理可以借助标准矩阵群与有限置换群的标准算法，在维数与 $log q$ 的多项式时间内完成；
   5. 若采用 centroid / idempotent 路线，则在有限域上可调用有限维代数结构算法求 primitive idempotents，通常为随机多项式时间。
 ]
@@ -703,7 +702,7 @@ Strassen 在 1987 年把 bilinear complexity、tensor、restriction、degenerati
 #remark("有限域与无限域对比")[
   结构定理与 switching criterion 本身并不依赖有限域；真正依赖有限域的是“oracle 返回有限生成元后，我们怎样把它变成一个可计算的有限对象”。
 
-  在有限域上，$GL_n(F_q)$ 本身是有限群，matrix-group 与 permutation-group 理论都比较成熟；而在无限域上，$"Aut"(T)$ 往往是无限的，甚至不应期望存在一个简短的“整群生成元表”。因此，若底域未指定，本文建议明确分开：
+  在有限域上，$"GL"_n(F_q)$ 本身是有限群，matrix-group 与 permutation-group 理论都比较成熟；而在无限域上，$"Aut"(T)$ 往往是无限的，甚至不应期望存在一个简短的“整群生成元表”。因此，若底域未指定，本文建议明确分开：
 
   *结构层面*：任意域。
 

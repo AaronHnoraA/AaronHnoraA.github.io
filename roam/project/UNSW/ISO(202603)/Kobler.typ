@@ -1,7 +1,6 @@
 #import "/_typst/note.typ": *
 #show: note-entry
 #set heading(numbering: "1.")
-#set math.equation(numbering: "(1)")
 
 #metadata((
     kind: "note",
@@ -16,13 +15,16 @@
 
     My task is to use scam the book and then try to contribute connection between:
 
-    $ d"GA" <=_p "GI" <=_p "GA" $ and
+    #note-equation("eq:1")[
+      $ d"GA" <=_p "GI" <=_p "GA" $
+    ] and
     $ #note-pin("a") d"TA" <=_p "TI" #note-pin("b") <=_p "cTA" $.
-    In (1), $d"GA" <=_p "GI"$ can be understanded by coloring operations. And the (1) is proved true by others. $"TI" <=_p "cTA"$ is known by us.
+    In @eq:1, $d"GA" <=_p "GI"$ can be understanded by coloring operations. And @eq:1 is proved true by others. $"TI" <=_p "cTA"$ is known by us.
 
     #note-pinit-point-from(("a", "b"))[
         This is not known now
     ]
+
 
 ]
 
