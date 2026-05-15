@@ -18,15 +18,13 @@
 
     $ d"GA" <=_p "GI" <=_p "GA" $ and
     $ #note-pin("a") d"TA" <=_p "TI" #note-pin("b") <=_p "cTA" $.
-    In (1), $d"GA" <=_p "GI"$ can be understanded by coloring operations. And the (1) is proved true by others. $"TI" <=_p "cTA"$ is known by us. asdas as das da das da a ds
+    In (1), $d"GA" <=_p "GI"$ can be understanded by coloring operations. And the (1) is proved true by others. $"TI" <=_p "cTA"$ is known by us.
 
     #note-pinit-point-from(("a", "b"))[
         This is not known now
     ]
 
 ]
-
-
 
 
 
