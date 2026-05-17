@@ -40,6 +40,7 @@ exports/
 .eshell/
 .tramp/
 .auto-save-list/
+.org-src-edit/
 
 # 备份 / 自动保存
 *~
@@ -70,6 +71,11 @@ Thumbs.db
 # 如果你有脚本生成的中间目录
 build/
 dist/
+tmp/
+public/Aaronnote/release/
+
+# Local assistant/editor state
+.claude/
 
 # Publish acceleration state; records the last successfully built git HEAD.
 public/.publish-state.json
