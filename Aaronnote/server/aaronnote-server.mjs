@@ -2,7 +2,7 @@
 import { createServer as createHttpServer } from "node:http";
 import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { homedir, tmpdir } from "node:os";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -46,6 +46,16 @@ const contentTypes = new Map([
   [".jpg", "image/jpeg"],
   [".jpeg", "image/jpeg"],
   [".gif", "image/gif"],
+  [".webp", "image/webp"],
+  [".avif", "image/avif"],
+  [".bmp", "image/bmp"],
+  [".pdf", "application/pdf"],
+  [".txt", "text/plain; charset=utf-8"],
+  [".md", "text/markdown; charset=utf-8"],
+  [".markdown", "text/markdown; charset=utf-8"],
+  [".mp3", "audio/mpeg"],
+  [".mp4", "video/mp4"],
+  [".mov", "video/quicktime"],
   [".woff", "font/woff"],
   [".woff2", "font/woff2"],
   [".ttf", "font/ttf"],
@@ -108,6 +118,172 @@ function safeFile(input) {
   return file;
 }
 
+function fileContentType(file) {
+  return contentTypes.get(extname(file).toLowerCase()) || "application/octet-stream";
+}
+
+function sanitizeAssetName(input, fallback = "attachment") {
+  const raw = basename(String(input || fallback)).normalize("NFKC");
+  const safe = raw
+    .replace(/[\u0000-\u001f<>:"/\\|?*]+/g, "-")
+    .replace(/\s+/g, "-")
+    .trim()
+    .replace(/^\.+$/, "");
+  return safe || fallback;
+}
+
+function imageAssetP(name, type = "") {
+  if (String(type).toLowerCase().startsWith("image/")) return true;
+  return new Set([".avif", ".bmp", ".gif", ".jpeg", ".jpg", ".png", ".svg", ".webp"])
+    .has(extname(name).toLowerCase());
+}
+
+async function uniqueAssetPath(dir, name) {
+  const ext = extname(name);
+  const stem = basename(name, ext) || "attachment";
+  let candidate = join(dir, name);
+  for (let i = 2; existsSync(candidate); i++) {
+    candidate = join(dir, `${stem}-${i}${ext}`);
+  }
+  return candidate;
+}
+
+function markdownRelativePath(fromFile, targetFile) {
+  const fromDir = fromFile ? dirname(safeFile(fromFile)) : noteRoot;
+  let rel = relative(fromDir, targetFile).split(sep).join("/");
+  if (!rel.startsWith(".") && !rel.startsWith("/")) rel = `./${rel}`;
+  return rel;
+}
+
+function assetFolderName(current) {
+  if (!current) return "scratch";
+  const ext = extname(current);
+  return sanitizeAssetName(basename(current, ext), "note");
+}
+
+function resolveMediaFile(file, base = "") {
+  const raw = String(file || "");
+  if (!raw) {
+    const err = new Error("Missing media file");
+    err.statusCode = 400;
+    throw err;
+  }
+  const baseDir = base ? dirname(safeFile(base)) : noteRoot;
+  const resolved = isAbsolute(raw) ? resolve(raw) : resolve(baseDir, raw);
+  if (!inside(resolved, noteRoot)) {
+    const err = new Error(`Media file is outside note root: ${resolved}`);
+    err.statusCode = 403;
+    throw err;
+  }
+  return resolved;
+}
+
+async function storeAsset(body) {
+  const current = body.file ? safeFile(body.file) : "";
+  const originalName = sanitizeAssetName(body.name, imageAssetP("", body.type) ? "image.png" : "attachment");
+  const isImage = imageAssetP(originalName, body.type);
+  const baseDir = current ? dirname(current) : noteRoot;
+  const targetDir = join(baseDir, isImage ? "images" : "attachments", assetFolderName(current));
+  if (!inside(targetDir, noteRoot)) {
+    const err = new Error(`Asset directory is outside note root: ${targetDir}`);
+    err.statusCode = 403;
+    throw err;
+  }
+  const rawData = String(body.data || "");
+  if (!rawData) {
+    const err = new Error("Missing asset data");
+    err.statusCode = 400;
+    throw err;
+  }
+  const target = await uniqueAssetPath(targetDir, originalName);
+  await mkdir(targetDir, { recursive: true });
+  await writeFile(target, Buffer.from(rawData, "base64"));
+  return {
+    ok: true,
+    file: target,
+    name: basename(target),
+    type: fileContentType(target),
+    isImage,
+    markdownPath: markdownRelativePath(current, target),
+  };
+}
+
+async function pathSuggestionsForFile(file) {
+  const current = file ? safeFile(file) : "";
+  const out = new Set();
+  async function walk(dir) {
+    let entries = [];
+    try {
+      entries = await readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.name.startsWith(".")) continue;
+      const full = join(dir, entry.name);
+      if (!inside(full, noteRoot)) continue;
+      if (entry.isDirectory()) {
+        if (excludedDirs.has(entry.name)) continue;
+        out.add(`${markdownRelativePath(current, full)}/`);
+        await walk(full);
+        continue;
+      }
+      if (!entry.isFile()) continue;
+      const ext = extname(entry.name).toLowerCase();
+      if (!contentTypes.has(ext) && !imageAssetP(entry.name)) continue;
+      out.add(markdownRelativePath(current, full));
+    }
+  }
+  await walk(noteRoot);
+  return [...out].sort((a, b) => a.localeCompare(b)).slice(0, 2000);
+}
+
+function recentStoreFile() {
+  return join(workspaceRoot, "var", "Aaronnote", "recent.json");
+}
+
+function normalizeRecentNotes(entries) {
+  if (!Array.isArray(entries)) return [];
+  const byFile = new Map();
+  for (const item of entries) {
+    const file = item && typeof item.file === "string" ? item.file : "";
+    const openedAt = item && typeof item.openedAt === "number" ? item.openedAt : NaN;
+    if (!file || !Number.isFinite(openedAt)) continue;
+    let safe;
+    try {
+      safe = safeFile(file);
+    } catch {
+      continue;
+    }
+    const current = byFile.get(safe);
+    if (!current || openedAt > current.openedAt) byFile.set(safe, { file: safe, openedAt });
+  }
+  return [...byFile.values()].sort((a, b) => b.openedAt - a.openedAt).slice(0, 24);
+}
+
+async function readRecentNotes() {
+  try {
+    const raw = await readFile(recentStoreFile(), "utf8");
+    return normalizeRecentNotes(JSON.parse(raw));
+  } catch {
+    return [];
+  }
+}
+
+async function writeRecentNotes(entries) {
+  const file = recentStoreFile();
+  await mkdir(dirname(file), { recursive: true });
+  await writeFile(file, `${JSON.stringify(normalizeRecentNotes(entries), null, 2)}\n`, "utf8");
+}
+
+async function touchRecentNote(file, openedAt = Date.now()) {
+  const safe = safeFile(file);
+  const recent = await readRecentNotes();
+  const next = normalizeRecentNotes([{ file: safe, openedAt }, ...recent]);
+  await writeRecentNotes(next);
+  return next;
+}
+
 function modeForFile(file) {
   const lower = file.toLowerCase();
   return lower.endsWith(".md") || lower.endsWith(".markdown") ? "markdown" : "source";
@@ -145,6 +321,75 @@ function parseMetaBlock(content) {
     }
   }
   return meta;
+}
+
+function metaBlockRange(content) {
+  const match = content.match(/^\s*#\+begin\s+meta\s*\r?\n[\s\S]*?\r?\n\s*#\+end\s+meta\s*(?:\r?\n)*/im);
+  if (!match || match.index == null) return null;
+  return { from: match.index, to: match.index + match[0].length, text: match[0] };
+}
+
+function hasRoamMeta(content) {
+  return Object.keys(noteMetadata(content)).length > 0;
+}
+
+function normalizeTags(tags) {
+  return [...new Set((Array.isArray(tags) ? tags : parseListValue(tags))
+    .map((tag) => String(tag).trim())
+    .filter(Boolean))].sort((a, b) => a.localeCompare(b));
+}
+
+function ensureDate(value = "") {
+  return String(value || new Date().toISOString().slice(0, 10));
+}
+
+function buildMetaBlock(fields) {
+  const tags = normalizeTags(fields.tags || []);
+  const refs = normalizeTags(fields.refs || []);
+  const aliases = normalizeTags(fields.aliases || []);
+  const lines = [
+    "#+begin meta",
+    `id: ${fields.id}`,
+    `title: ${fields.title}`,
+    `date: ${ensureDate(fields.date)}`,
+    `kind: ${fields.kind || "note"}`,
+    `tags: ${tags.join(", ")}`,
+    `refs: ${refs.join(", ")}`,
+  ];
+  if (aliases.length > 0) lines.push(`aliases: ${aliases.join(", ")}`);
+  if (fields.source) lines.push(`source: ${fields.source}`);
+  if (fields.summary) lines.push(`summary: ${String(fields.summary).replace(/\r?\n/g, " ")}`);
+  lines.push("#+end meta", "");
+  return lines.join("\n");
+}
+
+function metaFieldsForFile(file, content, patch = {}) {
+  const current = noteMetadata(content);
+  const title = String(patch.title || current.title || titleFromContent(file, content) || basename(file, extname(file)) || "Untitled").trim();
+  const id = String(patch.id || current.id || `${timestampId()}-${slugifyTitle(title)}`).trim();
+  return {
+    ...current,
+    ...patch,
+    id,
+    title,
+    date: ensureDate(patch.date || current.date),
+    kind: patch.kind || current.kind || "note",
+    tags: normalizeTags(patch.tags ?? current.tags ?? []),
+    refs: normalizeTags(patch.refs ?? current.refs ?? []),
+    aliases: normalizeTags(patch.aliases ?? current.aliases ?? []),
+  };
+}
+
+function removeMetaBlock(content) {
+  const range = metaBlockRange(content);
+  if (!range) return content;
+  return `${content.slice(0, range.from)}${content.slice(range.to)}`.replace(/^\s+/, "");
+}
+
+function upsertMetaBlock(file, content, patch = {}) {
+  const nextMeta = buildMetaBlock(metaFieldsForFile(file, content, patch));
+  const body = removeMetaBlock(content);
+  return `${nextMeta}\n${body.replace(/^\s+/, "")}`;
 }
 
 function yamlishValue(content, key) {
@@ -305,13 +550,38 @@ function tagsFromContent(content) {
   return tags;
 }
 
-function refsFromContent(content) {
+function decodeRef(ref) {
+  try {
+    return decodeURIComponent(ref);
+  } catch {
+    return ref;
+  }
+}
+
+function refFromRoamHref(href) {
+  const match = String(href || "").trim().match(/^roam:\/\/(.+)$/i);
+  if (!match) return "";
+  return decodeRef(
+    match[1]
+      .split(/[?#]/, 1)[0]
+      .replace(/^\/+/, "")
+      .replace(/[.,;:]+$/, ""),
+  ).trim();
+}
+
+export function refsFromContent(content) {
   const meta = noteMetadata(content);
   const refs = new Set(Array.isArray(meta.refs) ? meta.refs : []);
   for (const match of content.matchAll(/#note\("([^"]+)"\)/g)) refs.add(match[1]);
   for (const match of content.matchAll(/\[\[([^\]\n]+)\]\]/g)) refs.add(match[1].trim());
   for (const match of content.matchAll(/\]\(([^)\n]+\.md)(?:#[^)]*)?\)/g)) {
     refs.add(decodeURIComponent(match[1]));
+  }
+  for (const match of content.matchAll(/\]\((roam:\/\/[^)\n]+)\)/gi)) {
+    refs.add(refFromRoamHref(match[1]));
+  }
+  for (const match of content.matchAll(/\broam:\/\/[^\s<>)\]]+/gi)) {
+    refs.add(refFromRoamHref(match[0]));
   }
   return [...refs].filter(Boolean);
 }
@@ -403,6 +673,7 @@ async function scanNotes() {
       const relPath = relative(noteScanRoot, file);
       const groupKey = groupKeyFor(file);
       const id = idFromContent(file, noteScanRoot, content);
+      const roam = hasRoamMeta(content);
       notes.push({
         key: id,
         id,
@@ -422,6 +693,7 @@ async function scanNotes() {
         tags: tagsFromContent(content),
         refs: refsFromContent(content),
         backlinks: [],
+        roam,
       });
     } catch {}
   }
@@ -524,38 +796,197 @@ async function readNote(file) {
   };
 }
 
+function roamDbFile() {
+  return join(noteRoot, "roam.db");
+}
+
+function sqlString(value) {
+  return `'${String(value ?? "").replace(/'/g, "''")}'`;
+}
+
+function sqlNumber(value) {
+  return Number.isFinite(value) ? String(value) : "0";
+}
+
+function notePosition(content) {
+  const range = metaBlockRange(content);
+  if (!range) return 1;
+  return range.to + 1;
+}
+
+async function syncRoamDb(notes = null) {
+  const scanned = notes ?? await scanNotes();
+  const roamNotes = scanned.filter((note) => note.roam && note.file);
+  const roamIds = new Set(roamNotes.map((note) => note.id));
+  const statements = [
+    "PRAGMA foreign_keys = OFF;",
+    "BEGIN;",
+    `CREATE TABLE IF NOT EXISTS files (
+      path text primary key,
+      mtime real not null,
+      title text,
+      node_id text,
+      size integer not null default 0
+    );`,
+    `CREATE TABLE IF NOT EXISTS nodes (
+      id text primary key,
+      file text not null,
+      title text not null,
+      date text,
+      position integer not null,
+      summary text not null default ''
+    );`,
+    "CREATE TABLE IF NOT EXISTS tags (node_id text not null, tag text not null);",
+    "CREATE TABLE IF NOT EXISTS aliases (node_id text not null, alias text not null);",
+    "CREATE TABLE IF NOT EXISTS links (source_id text not null, target_id text not null, file text not null, line integer not null, label text);",
+    "CREATE INDEX IF NOT EXISTS note_nodes_file_idx on nodes(file);",
+    "CREATE INDEX IF NOT EXISTS note_tags_node_idx on tags(node_id);",
+    "CREATE INDEX IF NOT EXISTS note_aliases_node_idx on aliases(node_id);",
+    "CREATE INDEX IF NOT EXISTS note_links_target_idx on links(target_id);",
+    "CREATE INDEX IF NOT EXISTS note_links_source_idx on links(source_id);",
+    "DELETE FROM links;",
+    "DELETE FROM tags;",
+    "DELETE FROM aliases;",
+    "DELETE FROM nodes;",
+    "DELETE FROM files;",
+  ];
+
+  for (const note of roamNotes) {
+    let info = null;
+    let content = "";
+    try {
+      info = await stat(note.file);
+      content = await readFile(note.file, "utf8");
+    } catch {
+      continue;
+    }
+    statements.push(
+      `INSERT INTO files(path, mtime, title, node_id, size) VALUES (${[
+        sqlString(note.file),
+        sqlNumber(info.mtimeMs / 1000),
+        sqlString(note.title || ""),
+        sqlString(note.id || ""),
+        sqlNumber(info.size),
+      ].join(", ")});`,
+      `INSERT INTO nodes(id, file, title, date, position, summary) VALUES (${[
+        sqlString(note.id || ""),
+        sqlString(note.file),
+        sqlString(note.title || "Untitled"),
+        sqlString(note.date || ""),
+        sqlNumber(notePosition(content)),
+        sqlString(note.summary || ""),
+      ].join(", ")});`,
+    );
+    for (const tag of note.tags || []) {
+      statements.push(`INSERT INTO tags(node_id, tag) VALUES (${sqlString(note.id)}, ${sqlString(tag)});`);
+    }
+    for (const alias of note.aliases || []) {
+      statements.push(`INSERT INTO aliases(node_id, alias) VALUES (${sqlString(note.id)}, ${sqlString(alias)});`);
+    }
+    for (const targetId of note.refs || []) {
+      if (!roamIds.has(targetId)) continue;
+      statements.push(`INSERT INTO links(source_id, target_id, file, line, label) VALUES (${[
+        sqlString(note.id),
+        sqlString(targetId),
+        sqlString(note.file),
+        "1",
+        sqlString(""),
+      ].join(", ")});`);
+    }
+  }
+  statements.push("COMMIT;");
+  await execFileAsync("sqlite3", [roamDbFile(), statements.join("\n")], {
+    cwd: noteRoot,
+    maxBuffer: 1024 * 1024 * 8,
+  });
+  return scanned;
+}
+
 async function createNode(body) {
   const title = String(body.title || "Untitled").trim() || "Untitled";
+  const nodeType = String(body.nodeType || body.type || "roam").toLowerCase() === "regular" ? "regular" : "roam";
+  const roam = nodeType === "roam";
   const id = String(body.id || `${timestampId()}-${slugifyTitle(title)}`).trim();
   const tags = Array.isArray(body.tags) ? body.tags.map(String).filter(Boolean) : [];
-  const dir = resolve(noteRoot, String(body.directory || "."));
-  if (!inside(dir, noteRoot)) {
-    const err = new Error(`Directory is outside note root: ${dir}`);
+  const rawPath = String(body.path || body.file || "").trim();
+  const directory = String(body.directory || ".").trim() || ".";
+  const defaultName = `${slugifyTitle(roam ? id : title)}.md`;
+  let relativePath = rawPath
+    ? rawPath
+    : join(directory, defaultName);
+  if (relativePath.endsWith("/") || relativePath.endsWith(sep)) {
+    relativePath = join(relativePath, defaultName);
+  } else if (!extname(relativePath)) {
+    relativePath = `${relativePath}.md`;
+  }
+  const file = resolve(noteRoot, relativePath);
+  if (!inside(file, noteRoot)) {
+    const err = new Error(`File is outside note root: ${file}`);
     err.statusCode = 403;
     throw err;
   }
+  if (!/\.(?:md|markdown)$/i.test(file)) {
+    const err = new Error("New notes must use .md or .markdown");
+    err.statusCode = 400;
+    throw err;
+  }
+  const dir = dirname(file);
   await mkdir(dir, { recursive: true });
   await writeFile(join(dir, ".aaronnote-keep"), "", { flag: "a" }).catch(() => {});
-  const file = join(dir, `${slugifyTitle(id)}.md`);
   if (existsSync(file)) {
     const err = new Error(`Node already exists: ${file}`);
     err.statusCode = 409;
     throw err;
   }
-  const content = [
-    "#+begin meta",
-    `id: ${id}`,
-    `title: ${title}`,
-    `date: ${new Date().toISOString().slice(0, 10)}`,
-    `tags: ${tags.join(", ")}`,
-    "refs:",
-    "#+end meta",
-    "",
-    `# ${title}`,
-    "",
-  ].join("\n");
+  const content = roam
+    ? [
+        buildMetaBlock({
+          id,
+          title,
+          date: new Date().toISOString().slice(0, 10),
+          kind: body.kind || "note",
+          tags,
+          refs: [],
+        }),
+        `# ${title}`,
+        "",
+      ].join("\n")
+    : [`# ${title}`, ""].join("\n");
   await writeFile(file, content, "utf8");
-  return readNote(file);
+  const opened = await readNote(file);
+  if (roam) await syncRoamDb(opened.notes);
+  return opened;
+}
+
+async function deleteNote(body) {
+  const file = safeFile(body.file);
+  await rm(file, { force: true });
+  const notes = await scanNotes();
+  await syncRoamDb(notes);
+  return { type: "deleted", ok: true, file, notes };
+}
+
+async function updateCurrentNoteMeta(body, action) {
+  const file = safeFile(body.file);
+  const content = typeof body.content === "string" ? body.content : await readFile(file, "utf8");
+  let next = content;
+  if (action === "remove") {
+    next = removeMetaBlock(content);
+  } else if (action === "tag") {
+    const currentTags = tagsFromContent(content);
+    const incoming = Array.isArray(body.tags) ? body.tags : parseListValue(body.tags || "");
+    next = upsertMetaBlock(file, content, { tags: normalizeTags([...currentTags, ...incoming]) });
+  } else {
+    next = upsertMetaBlock(file, content, {
+      title: body.title,
+      tags: body.tags || tagsFromContent(content),
+      kind: body.kind || "note",
+    });
+  }
+  if (next !== content) await writeFile(file, next, "utf8");
+  const opened = await readNote(file);
+  await syncRoamDb(opened.notes);
+  return opened;
 }
 
 async function readRequestJson(req) {
@@ -594,8 +1025,36 @@ async function routeApi(req, res) {
       return true;
     }
 
-    if (req.method === "GET" && (url.pathname === "/api/notes" || url.pathname === "/api/roamdb/sync")) {
+    if (req.method === "GET" && url.pathname === "/api/notes") {
       sendJson(res, 200, { type: "notes", notes: await scanNotes(), root: noteRoot });
+      return true;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/roamdb/sync") {
+      const notes = await syncRoamDb();
+      sendJson(res, 200, { type: "notes", notes, root: noteRoot, db: roamDbFile() });
+      return true;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/recent") {
+      sendJson(res, 200, { type: "recent", recent: await readRecentNotes() });
+      return true;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/path-suggestions") {
+      sendJson(res, 200, {
+        type: "path-suggestions",
+        paths: await pathSuggestionsForFile(url.searchParams.get("file") || ""),
+      });
+      return true;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/recent") {
+      const body = await readRequestJson(req);
+      sendJson(res, 200, {
+        type: "recent",
+        recent: await touchRecentNote(String(body.file || ""), Number(body.openedAt) || Date.now()),
+      });
       return true;
     }
 
@@ -604,11 +1063,50 @@ async function routeApi(req, res) {
       return true;
     }
 
+    if (req.method === "POST" && url.pathname === "/api/delete") {
+      sendJson(res, 200, await deleteNote(await readRequestJson(req)));
+      return true;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/meta/add") {
+      sendJson(res, 200, await updateCurrentNoteMeta(await readRequestJson(req), "add"));
+      return true;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/meta/remove") {
+      sendJson(res, 200, await updateCurrentNoteMeta(await readRequestJson(req), "remove"));
+      return true;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/tags/add") {
+      sendJson(res, 200, await updateCurrentNoteMeta(await readRequestJson(req), "tag"));
+      return true;
+    }
+
     if (req.method === "POST" && url.pathname === "/api/save") {
       const body = await readRequestJson(req);
       const file = safeFile(body.file);
       await writeFile(file, String(body.content ?? ""));
-      sendJson(res, 200, { type: "saved", ok: true, file, message: "Saved", notes: await scanNotes() });
+      const notes = await scanNotes();
+      await syncRoamDb(notes);
+      sendJson(res, 200, { type: "saved", ok: true, file, message: "Saved", notes });
+      return true;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/asset") {
+      sendJson(res, 200, await storeAsset(await readRequestJson(req)));
+      return true;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/media") {
+      const file = resolveMediaFile(url.searchParams.get("file"), url.searchParams.get("base"));
+      const info = await stat(file);
+      if (!info.isFile()) {
+        const err = new Error(`Not a regular media file: ${file}`);
+        err.statusCode = 404;
+        throw err;
+      }
+      await sendTextFile(res, file, fileContentType(file));
       return true;
     }
 
@@ -646,7 +1144,7 @@ async function routeRoamTools(req, res) {
   const url = new URL(req.url || "/", `http://${host}:${port}`);
   if (req.method !== "GET") return false;
   if (url.pathname === "/roam-tools/data.js") {
-    const notes = await scanNotes();
+    const notes = (await scanNotes()).filter((note) => note.roam);
     const tags = [...new Set(notes.flatMap((note) => note.tags || []))].sort();
     const data = {
       meta: {
@@ -675,29 +1173,69 @@ async function routeRoamTools(req, res) {
   return false;
 }
 
-let vite;
-const server = createHttpServer(async (req, res) => {
-  if ((req.url || "").startsWith("/api/") && await routeApi(req, res)) return;
-  if ((req.url || "").startsWith("/roam-tools/") && await routeRoamTools(req, res)) return;
-  vite.middlewares(req, res, () => {
+export async function startAaronnoteServer(options = {}) {
+  host = String(options.host || args.host || process.env.AARONNOTE_HOST || "127.0.0.1");
+  port = Number(options.port ?? args.port ?? process.env.AARONNOTE_PORT ?? 5179);
+  noteRoot = resolve(String(options.root || args.root || process.env.AARONNOTE_ROOT || join(appDir, "..", "roam")));
+  noteScanRoot = noteRoot;
+  workspaceRoot = resolve(String(options.workspaceRoot || process.env.AARONNOTE_WORKSPACE_ROOT || resolve(appDir, "..")));
+  publishJsDir = resolve(String(options.publishJsDir || process.env.AARONNOTE_PUBLISH_JS_DIR || join(workspaceRoot, "js")));
+  const staticDir = options.staticDir || process.env.AARONNOTE_STATIC_DIR;
+
+  let vite;
+  const server = createHttpServer(async (req, res) => {
+    if ((req.url || "").startsWith("/api/") && await routeApi(req, res)) return;
+    if ((req.url || "").startsWith("/roam-tools/") && await routeRoamTools(req, res)) return;
+    if (staticDir && await serveStaticFile(req, res, resolve(String(staticDir)))) return;
+    if (vite) {
+      vite.middlewares(req, res, () => {
+        res.statusCode = 404;
+        res.end("Not found");
+      });
+      return;
+    }
     res.statusCode = 404;
     res.end("Not found");
   });
-});
 
-vite = await createViteServer({
-  configFile: join(appDir, "vite.aaronnote.config.ts"),
-  server: {
-    middlewareMode: true,
-    host,
-    hmr: { server },
-  },
-  appType: "spa",
-});
+  if (!staticDir) {
+    const { createServer: createViteServer } = await import("vite");
+    vite = await createViteServer({
+      configFile: join(appDir, "vite.aaronnote.config.ts"),
+      server: {
+        middlewareMode: true,
+        host,
+        hmr: { server },
+      },
+      appType: "spa",
+    });
+  }
 
-server.listen(port, host, () => {
+  await new Promise((resolveListen, rejectListen) => {
+    server.once("error", rejectListen);
+    server.listen(port, host, resolveListen);
+  });
+  const address = server.address();
+  const actualPort = typeof address === "object" && address ? address.port : port;
+  const url = `http://${host}:${actualPort}/`;
   console.log(`Aaronnote root: ${noteRoot}`);
   console.log(`Aaronnote notes: ${noteScanRoot}`);
   console.log(`Aaronnote snippets: ${snippetDirs().join(":") || "(none)"}`);
-  console.log(`Aaronnote URL: http://${host}:${port}/`);
-});
+  console.log(`Aaronnote URL: ${url}`);
+  return {
+    server,
+    vite,
+    host,
+    port: actualPort,
+    url,
+    close: async () => {
+      await vite?.close?.();
+      await new Promise((resolveClose) => server.close(resolveClose));
+    },
+  };
+}
+
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isMain) {
+  await startAaronnoteServer();
+}

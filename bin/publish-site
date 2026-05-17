@@ -4,6 +4,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
+import html
 import json
 import os
 import re
@@ -11,25 +12,18 @@ import shutil
 import subprocess
 import sys
 
+import markdown
+
 
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC = ROOT / "public"
-PUBLISH_STYLE = ROOT / "_typst" / "publish.typ"
-PRIVATE_STYLE = ROOT / "_typst" / "private.typ"
 PUBLISH_STATE = PUBLIC / ".publish-state.json"
-PUBLISH_BASE_URL = os.environ.get("PUBLISH_BASE_URL", "")
-ASSET_VERSION = "20260511-typst"
+ASSET_VERSION = "20260517-md"
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".avif"}
 STATIC_EXTENSIONS = IMAGE_EXTENSIONS | {".css", ".js", ".pdf"}
 SKIP_DIRS = {".git", ".cache", ".direnv", ".venv", "node_modules", "public", "ltximg", "_typst", "__pycache__"}
-NOTE_RE = re.compile(r"#note\(\s*\"([^\"]+)\"\s*\)\s*\[([^\]]+)\]")
-IMAGE_RE = re.compile(r"#image\(\s*\"([^\"]+)\"")
-METADATA_RE = re.compile(r"#metadata\s*\(\((.*?)\)\)\s*<note>", re.S)
-FIELD_RE = re.compile(r"^\s*([a-zA-Z0-9_-]+)\s*:\s*(.+?)(?:,\s*)?$", re.M)
 PUBLISH_INPUT_PATHS = (
     "roam",
-    "_typst",
-    "CV",
     "css",
     "js",
     "homepage.html",
@@ -41,6 +35,13 @@ PRIVATE_PATH_PREFIXES = (
     Path("roam/daily"),
     Path("roam/project"),
 )
+
+FRONT_MATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n?", re.S)
+ORG_META_RE = re.compile(r"\A#\+begin(?:_|\s+)meta\s*\n(.*?)^#\+end(?:_|\s+)meta\s*\n?", re.S | re.M)
+ORG_ENV_RE = re.compile(r"(?ms)^#\+begin(?:_|\s+)([A-Za-z][\w-]*)(?:\s+([^\n]+?))?\s*\n(.*?)^\s*#\+end(?:_|\s+)\1\s*$")
+MD_IMAGE_RE = re.compile(r"!\[[^\]]*\]\(([^)]+)\)")
+MD_LINK_RE = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
+HTML_MD_LINK_RE = re.compile(r'href="([^"#?:]+)\.md((?:#[^"]*)?)"')
 
 
 @dataclass
@@ -60,7 +61,7 @@ class Note:
 
     @property
     def link(self) -> str:
-        return f"{Path(self.rel_path).with_suffix('').as_posix()}.pdf"
+        return f"{Path(self.rel_path).with_suffix('').as_posix()}.html"
 
     @property
     def group_key(self) -> str:
@@ -86,45 +87,55 @@ def should_skip(path: Path) -> bool:
 def iter_project_files() -> Iterator[Path]:
     for dirpath, dirnames, filenames in os.walk(ROOT, onerror=lambda _err: None):
         rel_dir = Path(dirpath).relative_to(ROOT)
-        dirnames[:] = [
-            dirname
-            for dirname in dirnames
-            if not should_skip(rel_dir / dirname)
-        ]
+        dirnames[:] = [dirname for dirname in dirnames if not should_skip(rel_dir / dirname)]
         for filename in filenames:
             yield Path(dirpath) / filename
 
 
-def parse_scalar(value: str) -> str:
-    value = value.strip().rstrip(",").strip()
-    if value.startswith('"') and value.endswith('"'):
-        return value[1:-1].replace('\\"', '"')
-    return value
-
-
-def parse_value(value: str) -> object:
-    stripped = value.strip().rstrip(",").strip()
-    if stripped.startswith("("):
-        return parse_tuple(stripped)
-    if stripped in {"true", "false"}:
-        return stripped == "true"
-    return parse_scalar(stripped)
-
-
-def parse_tuple(value: str) -> list[str]:
-    return re.findall(r'"([^"]*)"', value)
-
-
-def parse_metadata(text: str) -> dict[str, object] | None:
-    match = METADATA_RE.search(text)
+def parse_metadata_block(text: str) -> tuple[dict[str, object], str]:
+    match = ORG_META_RE.match(text)
+    if match:
+        return parse_meta_lines(match.group(1), org_style=True), text[match.end():]
+    match = FRONT_MATTER_RE.match(text)
     if not match:
-        return None
-    data: dict[str, object] = {}
-    for key, value in FIELD_RE.findall(match.group(1)):
-        data[key] = parse_value(value)
-    if data.get("kind") != "note" or not data.get("id"):
-        return None
-    return data
+        return {}, text
+    return parse_meta_lines(match.group(1), org_style=False), text[match.end():]
+
+
+def parse_meta_lines(raw: str, org_style: bool) -> dict[str, object]:
+    metadata: dict[str, object] = {}
+    current_list: str | None = None
+    for raw_line in raw.splitlines():
+        line = raw_line.rstrip()
+        item = re.match(r"^\s*-\s*(.+?)\s*$", line)
+        if item and current_list:
+            metadata.setdefault(current_list, [])
+            assert isinstance(metadata[current_list], list)
+            metadata[current_list].append(parse_yaml_scalar(item.group(1)))
+            continue
+        pair = re.match(r"^([A-Za-z0-9_-]+):(?:\s*(.*))?$", line)
+        if not pair:
+            continue
+        key, value = pair.group(1), (pair.group(2) or "").strip()
+        if value == "":
+            metadata[key] = []
+            current_list = key
+        else:
+            if org_style and key in {"tags", "aliases", "refs"}:
+                metadata[key] = [part.strip() for part in value.split(",") if part.strip()]
+            else:
+                metadata[key] = parse_yaml_scalar(value)
+            current_list = None
+    return metadata
+
+
+def parse_yaml_scalar(value: str) -> object:
+    value = value.strip()
+    if value in {"true", "false"}:
+        return value == "true"
+    if value.startswith('"') and value.endswith('"'):
+        return value[1:-1].replace('\\"', '"').replace("\\\\", "\\")
+    return value
 
 
 def truthy(value: object) -> bool:
@@ -150,13 +161,14 @@ def private_path_p(rel_path: Path) -> bool:
     return any(rel_path == prefix or prefix in rel_path.parents for prefix in PRIVATE_PATH_PREFIXES)
 
 
-def clean_typst_text(text: str) -> str:
-    text = METADATA_RE.sub("", text)
-    text = re.sub(r"#import[^\n]*|#show:[^\n]*|#set[^\n]*", "", text)
-    text = NOTE_RE.sub(lambda m: m.group(2), text)
-    text = re.sub(r"#\w+\s*\[|\]|\$|=+|//.*", " ", text)
-    text = re.sub(r"[*_`#{}()]", " ", text)
-    return " ".join(text.split())
+def clean_markdown_text(text: str) -> str:
+    _metadata, body = parse_metadata_block(text)
+    body = re.sub(r"```.*?```", " ", body, flags=re.S)
+    body = ORG_ENV_RE.sub(lambda match: match.group(3), body)
+    body = re.sub(r"!\[[^\]]*\]\([^)]+\)", " ", body)
+    body = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", body)
+    body = re.sub(r"#+|[*_`$>|-]", " ", body)
+    return " ".join(body.split())
 
 
 def private_asset_paths(note: Note) -> set[Path]:
@@ -167,12 +179,12 @@ def private_asset_paths(note: Note) -> set[Path]:
     except OSError:
         return set()
     paths: set[Path] = set()
-    for raw_path in IMAGE_RE.findall(text):
-        image_path = Path(raw_path)
-        if image_path.is_absolute():
-            paths.add(image_path.resolve())
+    for raw_path in MD_IMAGE_RE.findall(text):
+        asset_path = Path(raw_path.split("#", 1)[0])
+        if asset_path.is_absolute():
+            paths.add(asset_path.resolve())
         else:
-            paths.add((note.path.parent / image_path).resolve())
+            paths.add((note.path.parent / asset_path).resolve())
     for rel_dir in (
         Path("img") / note.path.stem,
         Path("assets") / "img" / note.path.stem,
@@ -185,26 +197,28 @@ def private_asset_paths(note: Note) -> set[Path]:
 
 def parse_note(path: Path) -> Note | None:
     text = path.read_text(encoding="utf-8")
-    metadata = parse_metadata(text)
-    if not metadata:
+    metadata, _body = parse_metadata_block(text)
+    note_id = metadata.get("id")
+    if not note_id:
         return None
     rel = path.relative_to(ROOT)
     rel_path = rel.as_posix()
-    tags = [str(tag) for tag in metadata.get("tags", [])]
+    tags = [str(tag) for tag in metadata.get("tags", [])] if isinstance(metadata.get("tags"), list) else []
+    aliases = [str(alias) for alias in metadata.get("aliases", [])] if isinstance(metadata.get("aliases"), list) else []
     private = private_path_p(rel) or private_metadata_p(metadata, tags)
-    refs = [target for target, _label in NOTE_RE.findall(text)]
-    search_text = "This note has been sealed by the administrator." if private else clean_typst_text(text)
+    refs = sorted(set(MD_LINK_RE.findall(text)))
+    search_text = "This note has been sealed by the administrator." if private else clean_markdown_text(text)
     return Note(
         path=path,
         rel_path=rel_path,
-        id=str(metadata["id"]),
+        id=str(note_id),
         title=str(metadata.get("title") or path.stem),
         date=str(metadata.get("date") or "Undated"),
         tags=tags,
-        aliases=[str(alias) for alias in metadata.get("aliases", [])],
+        aliases=aliases,
         summary=search_text[:180],
         search_text=search_text,
-        refs=sorted(set(refs)),
+        refs=refs,
         private=private,
     )
 
@@ -212,10 +226,12 @@ def parse_note(path: Path) -> Note | None:
 def find_notes() -> list[Note]:
     notes: list[Note] = []
     for path in iter_project_files():
-        if path.suffix != ".typ":
+        if path.suffix != ".md":
             continue
         rel = path.relative_to(ROOT)
         if should_skip(rel) or path.name.endswith("~"):
+            continue
+        if not rel.parts or rel.parts[0] != "roam":
             continue
         note = parse_note(path)
         if note:
@@ -241,11 +257,7 @@ def git_head() -> str | None:
 
 def git_inputs_dirty() -> bool:
     try:
-        output = subprocess.check_output(
-            ["git", "status", "--porcelain", "--", *PUBLISH_INPUT_PATHS],
-            cwd=ROOT,
-            text=True,
-        )
+        output = subprocess.check_output(["git", "status", "--porcelain", "--", *PUBLISH_INPUT_PATHS], cwd=ROOT, text=True)
     except (subprocess.CalledProcessError, FileNotFoundError):
         return True
     return bool(output.strip())
@@ -254,9 +266,6 @@ def git_inputs_dirty() -> bool:
 def publish_outputs_exist(notes: list[Note]) -> bool:
     required = [PUBLIC / "js" / "data.js", PUBLIC / "index.html", PUBLIC / "notes.html"]
     required.extend(PUBLIC / note.link for note in notes)
-    cv_source = ROOT / "CV" / "main.typ"
-    if cv_source.exists():
-        required.append(ROOT / "CV" / "Aaron_He_CV.pdf")
     return all(path.exists() for path in required)
 
 
@@ -275,14 +284,13 @@ def publish_state_current(notes: list[Note], head: str | None) -> bool:
     )
 
 
-def write_publish_state(notes: list[Note], compiled: int, skipped: int, cv_status: str, head: str | None) -> None:
+def write_publish_state(notes: list[Note], rendered: int, skipped: int, head: str | None) -> None:
     state = {
         "gitHead": head,
         "dirty": git_inputs_dirty(),
         "noteCount": len(notes),
-        "compiled": compiled,
+        "rendered": rendered,
         "skipped": skipped,
-        "cv": cv_status,
     }
     PUBLISH_STATE.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
@@ -309,143 +317,89 @@ def output_is_current(output_file: Path, deps_file: Path) -> bool:
     return True
 
 
-def deps_for_note(note: Note, notes_by_id: dict[str, Note]) -> set[str]:
-    inputs = {note.path.relative_to(ROOT).as_posix(), "bin/publish-site"}
-    inputs.add((PRIVATE_STYLE if note.private else PUBLISH_STYLE).relative_to(ROOT).as_posix())
-    for ref in note.refs:
-        target = notes_by_id.get(ref)
-        if target:
-            inputs.add(target.path.relative_to(ROOT).as_posix())
-    return inputs
+def deps_for_note(note: Note) -> set[str]:
+    return {
+        note.path.relative_to(ROOT).as_posix(),
+        "bin/publish-site",
+        "css/retro.css",
+        "js/data.js",
+        "js/knowledge.js",
+        "js/note-page.js",
+        "js/graph.js",
+    }
 
 
-def publish_url_for(note: Note) -> str:
-    prefix = PUBLISH_BASE_URL.rstrip("/")
-    return f"{prefix}/{note.link}" if prefix else f"/{note.link}"
+def render_org_envs(text: str) -> str:
+    def repl(match: re.Match[str]) -> str:
+        kind = match.group(1).lower()
+        title = (match.group(2) or "").strip()
+        body = markdown.markdown(render_org_envs(match.group(3).strip()), extensions=["extra", "sane_lists"])
+        title_html = f'<p><strong>{html.escape(title)}</strong></p>' if title else ""
+        return f'\n<div class="{html.escape(kind)}">{title_html}{body}</div>\n'
+
+    previous = None
+    while previous != text:
+        previous = text
+        text = ORG_ENV_RE.sub(repl, text)
+    return text
 
 
-def typst_string(value: str) -> str:
-    return json.dumps(value, ensure_ascii=False)
+def render_markdown_body(note: Note, markdown_text: str) -> str:
+    _metadata, body = parse_metadata_block(markdown_text)
+    first_heading = re.compile(rf"\A\s*#\s+{re.escape(note.title)}\s*(?:\n+|\Z)")
+    body = first_heading.sub("", body, count=1)
+    body = render_org_envs(body)
+    rendered = markdown.markdown(body, extensions=["extra", "toc", "sane_lists", "tables", "fenced_code"])
+    rendered = HTML_MD_LINK_RE.sub(r'href="\1.html\2"', rendered)
+    return rendered
 
 
-def typst_tuple(values: list[str]) -> str:
-    if not values:
-        return "()"
-    body = ", ".join(typst_string(value) for value in values)
-    if len(values) == 1:
-        body += ","
-    return f"({body})"
+def site_root_for(note: Note) -> str:
+    depth = len(Path(note.rel_path).parent.parts)
+    return "../" * depth or "./"
 
 
-def publish_show_rule_for(note: Note) -> str:
-    return "\n".join(
-        [
-            "#show: publish-entry.with(",
-            f"  title: {typst_string(note.title)},",
-            f"  date: {typst_string(note.date)},",
-            f"  collection: {typst_string(note.group_label)},",
-            f"  tags: {typst_tuple(note.tags)},",
-            f"  summary: {typst_string(note.summary)},",
-            f"  path: {typst_string(note.rel_path)},",
-            ")",
-        ]
-    )
+def note_page_html(note: Note, content_html: str) -> str:
+    root = site_root_for(note)
+    body_class = "hidden-note-page" if note.private else "note-page"
+    if note.private:
+        content_html = (
+            '<p class="sealed-note-message">This note has been sealed by the administrator.</p>'
+        )
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{html.escape(note.title)} | Aaron He</title>
+  <link rel="stylesheet" href="{root}css/retro.css?v={ASSET_VERSION}" />
+  <script>window.CURRENT_NOTE_LINK = {json.dumps(note.link)}; window.SITE_ROOT_PATH = {json.dumps(root)};</script>
+</head>
+<body class="{body_class}">
+  <main id="content">
+    <h1 class="title">{html.escape(note.title)}</h1>
+    {content_html}
+  </main>
+  <script src="{root}js/data.js?v={ASSET_VERSION}"></script>
+  <script src="{root}js/knowledge.js?v={ASSET_VERSION}"></script>
+  <script src="{root}js/graph.js?v={ASSET_VERSION}"></script>
+  <script src="{root}js/note-page.js?v={ASSET_VERSION}"></script>
+</body>
+</html>
+"""
 
 
-def publish_source_for(note: Note, temp_file: Path, notes_by_id: dict[str, Note]) -> None:
-    source = note.path.read_text(encoding="utf-8")
-    source = source.replace('"/_typst/note.typ"', '"/_typst/publish.typ"', 1)
-    show_rule = publish_show_rule_for(note)
-    if "#show: note-entry" in source:
-        source = source.replace("#show: note-entry", show_rule, 1)
-    else:
-        source = f"{show_rule}\n{source}"
-    source = NOTE_RE.sub(
-        lambda match: publish_note_link(match, notes_by_id),
-        source,
-    )
-    temp_file.write_text(source, encoding="utf-8")
-
-
-def private_source_for(note: Note, temp_file: Path) -> None:
-    source = "\n".join(
-        [
-            '#import "/_typst/private.typ": *',
-            "",
-            "#private-note(",
-            f"  id: {typst_string(note.id)},",
-            f"  collection: {typst_string(note.group_label)},",
-            f"  date: {typst_string(note.date)},",
-            ")",
-            "",
-        ]
-    )
-    temp_file.write_text(source, encoding="utf-8")
-
-
-def publish_note_link(match: re.Match[str], notes_by_id: dict[str, Note]) -> str:
-    target = notes_by_id.get(match.group(1))
-    if not target:
-        return match.group(0)
-    label = match.group(2)
-    return f"#link({typst_string(publish_url_for(target))})[#text(fill: note-link-fill, underline([{label}]))]"
-
-
-def normalize_deps(raw_deps_file: Path, temp_file: Path, note: Note, notes_by_id: dict[str, Note]) -> dict[str, list[str]]:
-    try:
-        raw_inputs = json.loads(raw_deps_file.read_text(encoding="utf-8")).get("inputs", [])
-    except (OSError, json.JSONDecodeError):
-        raw_inputs = []
-    temp_real = temp_file.resolve()
-    inputs = deps_for_note(note, notes_by_id)
-    for dep in raw_inputs:
-        dep_path = path_from_dep(str(dep)).resolve()
-        if dep_path == temp_real:
-            continue
-        try:
-            inputs.add(dep_path.relative_to(ROOT).as_posix())
-        except ValueError:
-            inputs.add(dep_path.as_posix())
-    return {"inputs": sorted(inputs)}
-
-
-def compile_note_pdf(note: Note, notes_by_id: dict[str, Note]) -> str:
+def render_note_html(note: Note) -> str:
     output_file = PUBLIC / note.link
     deps_file = deps_file_for(output_file)
     if output_is_current(output_file, deps_file):
         return "skipped"
-
     output_file.parent.mkdir(parents=True, exist_ok=True)
     deps_file.parent.mkdir(parents=True, exist_ok=True)
-    temp_file = note.path.with_name(f".{note.path.stem}.publish.tmp.typ")
-    raw_deps_file = deps_file.with_suffix(".raw.json")
-    try:
-        if note.private:
-            private_source_for(note, temp_file)
-        else:
-            publish_source_for(note, temp_file, notes_by_id)
-        subprocess.run(
-            [
-                "typst",
-                "compile",
-                "--root",
-                str(ROOT),
-                "--deps",
-                str(raw_deps_file),
-                str(temp_file),
-                str(output_file),
-            ],
-            check=True,
-            cwd=ROOT,
-        )
-        deps_file.write_text(
-            json.dumps(normalize_deps(raw_deps_file, temp_file, note, notes_by_id), ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
-    finally:
-        temp_file.unlink(missing_ok=True)
-        raw_deps_file.unlink(missing_ok=True)
-    return "compiled"
+    markdown_text = note.path.read_text(encoding="utf-8")
+    output_file.write_text(note_page_html(note, render_markdown_body(note, markdown_text)), encoding="utf-8")
+    deps_file.write_text(json.dumps({"inputs": sorted(deps_for_note(note))}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return "rendered"
 
 
 def note_json(note: Note) -> dict[str, object]:
@@ -486,8 +440,7 @@ def write_data(notes: list[Note]) -> None:
     (js_dir / "data.js").write_text(f"const SITE_DATA = {json.dumps(data, ensure_ascii=False, separators=(',', ':'))};\n", encoding="utf-8")
 
 
-def _link_into_public(source: Path, target: Path) -> None:
-    """Copy SOURCE into TARGET for standalone public/ deployment."""
+def _copy_into_public(source: Path, target: Path) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.is_symlink() or target.exists():
         target.unlink()
@@ -500,9 +453,7 @@ def copy_static(notes: list[Note]) -> None:
         private_assets.update(private_asset_paths(note))
 
     for path in iter_project_files():
-        if not path.is_file():
-            continue
-        if path.resolve() in private_assets:
+        if not path.is_file() or path.resolve() in private_assets:
             continue
         rel = path.relative_to(ROOT)
         if should_skip(rel) or path.name.startswith(".") or path.name.endswith("~"):
@@ -511,34 +462,21 @@ def copy_static(notes: list[Note]) -> None:
             continue
         if path.suffix.lower() not in STATIC_EXTENSIONS:
             continue
-        _link_into_public(path, PUBLIC / rel)
+        _copy_into_public(path, PUBLIC / rel)
 
     for template, output in (("homepage.html", "index.html"), ("notes.html", "notes.html")):
         source = ROOT / template
         if source.exists():
-            _link_into_public(source, PUBLIC / output)
-
-
-def compile_cv() -> str:
-    source = ROOT / "CV" / "main.typ"
-    if not source.exists():
-        return "missing"
-    target = ROOT / "CV" / "Aaron_He_CV.pdf"
-    if not publish_forced() and target.exists() and source.stat().st_mtime <= target.stat().st_mtime:
-        return "skipped"
-    subprocess.run(["typst", "compile", "--root", str(ROOT / "CV"), str(source), str(target)], check=True, cwd=ROOT)
-    return "compiled"
+            _copy_into_public(source, PUBLIC / output)
 
 
 def clean_stale_outputs(notes: list[Note]) -> None:
-    expected_pdfs = {note.link for note in notes}
+    expected_html = {note.link for note in notes}
     private_assets = set()
     for note in notes:
         private_assets.update(private_asset_paths(note))
     roam_public = PUBLIC / "roam"
     if roam_public.exists():
-        for html_file in roam_public.glob("**/*.html"):
-            html_file.unlink()
         for source_asset in private_assets:
             try:
                 rel = source_asset.relative_to(ROOT)
@@ -547,11 +485,14 @@ def clean_stale_outputs(notes: list[Note]) -> None:
             public_asset = PUBLIC / rel
             if public_asset.exists() or public_asset.is_symlink():
                 public_asset.unlink()
+        for html_file in roam_public.glob("**/*.html"):
+            rel = html_file.relative_to(PUBLIC).as_posix()
+            if rel not in expected_html:
+                html_file.unlink()
+                deps_file_for(html_file).unlink(missing_ok=True)
         for pdf_file in roam_public.glob("**/*.pdf"):
-            rel = pdf_file.relative_to(PUBLIC).as_posix()
-            if rel not in expected_pdfs:
-                pdf_file.unlink()
-                deps_file_for(pdf_file).unlink(missing_ok=True)
+            pdf_file.unlink()
+            deps_file_for(pdf_file).unlink(missing_ok=True)
     for rel in ("diary.html", "sitemap-log.html", "CV/main.pdf"):
         (PUBLIC / rel).unlink(missing_ok=True)
 
@@ -560,42 +501,56 @@ def collect_notes() -> tuple[list[Note], dict[str, Note]]:
     PUBLIC.mkdir(exist_ok=True)
     notes = find_notes()
     notes_by_id = {note.id: note for note in notes}
+    notes_by_rel = {note.rel_path: note for note in notes}
     backlinks: dict[str, list[str]] = {note.id: [] for note in notes}
+
     for note in notes:
-        note.refs = sorted(ref for ref in set(note.refs) if ref in notes_by_id and ref != note.id)
+        resolved_refs: set[str] = set()
+        for ref in note.refs:
+            if re.match(r"^[a-z][a-z0-9+.-]*:", ref, flags=re.I):
+                continue
+            ref_path = (note.path.parent / ref.split("#", 1)[0]).resolve()
+            try:
+                rel = ref_path.relative_to(ROOT).as_posix()
+            except ValueError:
+                continue
+            target = notes_by_rel.get(rel)
+            if target and target.id != note.id:
+                resolved_refs.add(target.id)
+        note.refs = sorted(resolved_refs)
         for ref in note.refs:
             backlinks.setdefault(ref, []).append(note.id)
+
     for note in notes:
         note.backlinks = sorted(set(backlinks.get(note.id, [])))
     return notes, notes_by_id
 
 
 def main() -> None:
-    notes, notes_by_id = collect_notes()
+    notes, _notes_by_id = collect_notes()
 
     if "--record-state" in sys.argv[1:]:
         head = git_head()
-        write_publish_state(notes, 0, len(notes), "recorded", head)
+        write_publish_state(notes, 0, len(notes), head)
         print(f"Recorded publish state for git {head[:12] if head else 'unknown'}")
         return
 
     head = git_head()
     if publish_state_current(notes, head):
-        print(f"Published {len(notes)} Typst notes to {PUBLIC} (git {head[:12]} unchanged, skipped)")
+        print(f"Published {len(notes)} Markdown notes to {PUBLIC} (git {head[:12]} unchanged, skipped)")
         return
 
     clean_stale_outputs(notes)
-    cv_status = compile_cv()
     copy_static(notes)
-    compiled = 0
+    rendered = 0
     skipped = 0
     for note in notes:
-        status = compile_note_pdf(note, notes_by_id)
-        compiled += status == "compiled"
+        status = render_note_html(note)
+        rendered += status == "rendered"
         skipped += status == "skipped"
     write_data(notes)
-    write_publish_state(notes, compiled, skipped, cv_status, head)
-    print(f"Published {len(notes)} Typst notes to {PUBLIC} ({compiled} compiled, {skipped} skipped, CV {cv_status})")
+    write_publish_state(notes, rendered, skipped, head)
+    print(f"Published {len(notes)} Markdown notes to {PUBLIC} ({rendered} rendered, {skipped} skipped)")
 
 
 if __name__ == "__main__":

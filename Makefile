@@ -5,7 +5,7 @@ LOOKUP_PROMPT ?= agent/skill/lookup.md
 LOOKUP_QUERY ?= $(or $(QUERY),$(Q))
 RSYNC_EXCLUDES := --exclude .deps/ --exclude .publish-state.json --exclude .DS_Store
 
-.PHONY: all force sync git dryrun clean cv llm lookup maintain publish start
+.PHONY: all force sync git dryrun clean cv llm lookup maintain publish build
 
 all: publish
 	rsync -avh --delete $(RSYNC_EXCLUDES) --progress -e ssh public/ Aaron-nas:/volume1/web/public/
@@ -37,13 +37,13 @@ llm:
 
 lookup:
 	@LOOKUP_QUERY="$(LOOKUP_QUERY)"; \
-	$(CODEX) --cd . --sandbox read-only --ask-for-approval never "$$(cat $(LOOKUP_PROMPT); if [ -n "$$LOOKUP_QUERY" ]; then printf '\n\n## Initial User Query\n\n%s\n' "$$LOOKUP_QUERY"; else printf '\n\n## Interactive Mode\n\nAsk the user for the first lookup query before searching. Keep the session read-only and verify precise claims against original Typst files.\n'; fi)"
+	$(CODEX) --cd . --sandbox read-only --ask-for-approval never "$$(cat $(LOOKUP_PROMPT); if [ -n "$$LOOKUP_QUERY" ]; then printf '\n\n## Initial User Query\n\n%s\n' "$$LOOKUP_QUERY"; else printf '\n\n## Interactive Mode\n\nAsk the user for the first lookup query before searching. Keep the session read-only and verify precise claims against original Markdown files.\n'; fi)"
 
 maintain:
 	python3 agent/skill/maintain.py
 
-start:
-	$(MAKE) -C Aaronnote start
+build:
+	$(MAKE) -C Aaronnote build
 
 
 clean:

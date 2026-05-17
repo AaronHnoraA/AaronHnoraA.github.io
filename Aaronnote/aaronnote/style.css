@@ -230,7 +230,7 @@ input {
 .aaronnote-editor {
   min-width: 0;
   min-height: calc(100vh - 46px);
-  padding: 38px 32px 72px;
+  padding: 24px 22px 56px;
   overflow: auto;
   background: var(--aaron-paper);
 }
@@ -240,7 +240,7 @@ input {
 }
 
 .aaronnote-editor .typora-web-wrap {
-  max-width: 900px;
+  max-width: 1160px;
   margin: 0 auto;
 }
 
@@ -256,7 +256,7 @@ input {
 }
 
 .aaronnote-editor .ProseMirror {
-  padding: 48px 24px 72px;
+  padding: 36px 18px 64px;
   background: transparent;
   border: 0;
   box-shadow: none;
@@ -264,7 +264,7 @@ input {
 
 .aaronnote-editor.is-source-mode .typora-web-source {
   min-height: calc(100vh - 46px);
-  padding: 32px 42px 80px;
+  padding: 28px 34px 76px;
   background: var(--aaron-paper);
 }
 
@@ -272,15 +272,18 @@ input {
 .aaronnote-graph {
   min-height: calc(100vh - 46px);
   box-sizing: border-box;
-  padding: 48px 32px 64px;
+  padding: 18px 20px 32px;
   background: var(--aaron-paper-bg);
 }
 
 .aaronnote-notes-inner,
 .aaronnote-graph-inner {
-  max-width: 1040px;
+  width: min(1680px, calc(100vw - 40px));
+  max-width: none;
+  min-height: calc(100vh - 96px);
+  box-sizing: border-box;
   margin: 0 auto;
-  padding: 40px 44px;
+  padding: 28px 32px;
   background: var(--aaron-paper);
   border: 1px solid var(--aaron-paper-line);
   box-shadow: var(--aaron-shadow);
@@ -339,15 +342,16 @@ input {
 }
 
 .aaronnote-graph-grid {
-  min-height: 480px;
+  height: calc(100vh - 242px);
+  min-height: 560px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
   gap: 14px;
 }
 
 .aaronnote-graph-canvas,
 .aaronnote-graph-focus {
-  min-height: 480px;
+  min-height: 0;
   border: 1px solid var(--aaron-paper-line);
   background: var(--aaron-paper-soft);
 }
@@ -361,7 +365,6 @@ input {
   display: block;
   width: 100%;
   height: 100%;
-  min-height: 480px;
   cursor: grab;
   touch-action: none;
 }
@@ -557,6 +560,112 @@ input {
   font-size: 24px;
 }
 
+.aaronnote-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  background: rgb(30 26 22 / 22%);
+}
+
+.aaronnote-modal[hidden] {
+  display: none;
+}
+
+.aaronnote-modal-panel {
+  width: min(460px, calc(100vw - 32px));
+  border: 1px solid var(--aaron-paper-line);
+  background: var(--aaron-paper);
+  box-shadow: var(--aaron-shadow);
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+}
+
+.aaronnote-modal-panel h2 {
+  margin: 0 0 4px;
+  color: var(--aaron-red-dark);
+  font: 750 20px/1.2 var(--aaron-font-sans);
+}
+
+.aaronnote-modal-panel label {
+  display: grid;
+  gap: 5px;
+  color: var(--aaron-muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.aaronnote-modal-panel input,
+.aaronnote-modal-panel select {
+  height: 34px;
+  box-sizing: border-box;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 3px;
+  padding: 0 9px;
+  background: var(--aaron-paper-soft);
+  color: var(--aaron-ink);
+}
+
+.aaronnote-modal-path-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.aaronnote-modal-path-row button {
+  min-height: 34px;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 3px;
+  padding: 0 12px;
+  background: var(--aaron-paper-soft);
+  color: var(--aaron-ink);
+  cursor: pointer;
+}
+
+.aaronnote-modal-tag-picker {
+  max-height: 112px;
+  overflow: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 2px;
+}
+
+.aaronnote-modal-tag-picker button {
+  min-height: 24px;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 3px;
+  padding: 0 8px;
+  background: var(--aaron-paper-soft);
+  color: var(--aaron-ink);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.aaronnote-modal-tag-picker button:hover {
+  border-color: var(--aaron-red);
+  color: var(--aaron-red-dark);
+}
+
+.aaronnote-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.aaronnote-modal-actions button {
+  min-height: 30px;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 3px;
+  padding: 0 12px;
+  background: var(--aaron-paper-soft);
+  color: var(--aaron-ink);
+  cursor: pointer;
+}
+
 [data-vim-mode="normal"] .aaronnote-editor .ProseMirror,
 [data-vim-mode="visual"] .aaronnote-editor .ProseMirror,
 [data-vim-mode="visual-line"] .aaronnote-editor .ProseMirror,
@@ -586,7 +695,7 @@ input {
   border: 0;
   border-radius: 0;
   background: transparent;
-  padding: 48px 24px 72px;
+  padding: 36px 18px 64px;
   color: var(--aaron-ink);
   box-shadow: none;
 }
@@ -700,10 +809,10 @@ input {
 
 .aaronnote-floating-toc {
   position: fixed;
-  right: 22px;
+  right: 18px;
   top: 78px;
   z-index: 45;
-  width: 272px;
+  width: 300px;
   max-height: min(520px, calc(100vh - 120px));
   overflow: hidden;
   border: 1px solid var(--aaron-paper-line);
@@ -812,6 +921,8 @@ input {
 
   .aaronnote-notes-inner,
   .aaronnote-graph-inner {
+    width: auto;
+    min-height: calc(100vh - 74px);
     padding: 22px 18px;
   }
 
@@ -820,6 +931,12 @@ input {
     grid-template-columns: 1fr;
   }
 
+  .aaronnote-graph-grid {
+    height: auto;
+    min-height: 0;
+  }
+
+  .aaronnote-graph-canvas,
   .aaronnote-graph-focus {
     min-height: 220px;
   }

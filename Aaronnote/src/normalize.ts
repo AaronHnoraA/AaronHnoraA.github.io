@@ -61,6 +61,7 @@ export type NormalizeState = {
 };
 
 type BlockPlan = { blockStart: number; spans: InlineSpan[] };
+type ManagedMarkType = NonNullable<typeof schema.marks[string]>;
 
 // Walk the doc, return per-textblock parse plan + absolute-pos delim list.
 function computePlan(doc: PMNode): {
@@ -131,6 +132,12 @@ function computePlan(doc: PMNode): {
 const normalizeKey = new PluginKey<NormalizeState>("normalize-inline");
 
 export function normalizeInlinePlugin(): Plugin<NormalizeState> {
+  const managedTypes = collectInlineFeatures()
+    .flatMap((f) => f.markNames)
+    .map((n) => schema.marks[n])
+    .filter((t): t is ManagedMarkType => !!t);
+  const managedTypeSet = new Set(managedTypes);
+
   return new Plugin<NormalizeState>({
     key: normalizeKey,
 
@@ -151,10 +158,6 @@ export function normalizeInlinePlugin(): Plugin<NormalizeState> {
       if (!planState) return null;
       const { blocks } = planState;
       const tr = newState.tr;
-      const managedNames = collectInlineFeatures().flatMap((f) => f.markNames);
-      const managedTypes = managedNames
-        .map((n) => schema.marks[n])
-        .filter((t): t is NonNullable<typeof t> => !!t);
       let changed = false;
 
       for (const { blockPos, plan } of blocks) {
@@ -171,7 +174,7 @@ export function normalizeInlinePlugin(): Plugin<NormalizeState> {
           let hasManaged = false;
           blockNode.content.forEach((child) => {
             for (const mk of child.marks)
-              if (managedTypes.includes(mk.type)) { hasManaged = true; return; }
+              if (managedTypeSet.has(mk.type)) { hasManaged = true; return; }
           });
           if (!hasManaged) continue;
         }

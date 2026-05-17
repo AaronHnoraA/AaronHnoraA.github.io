@@ -1,50 +1,44 @@
-# Aaron's Typst Roam
+# Aaron's Markdown Roam
 
 This directory is Aaron's personal knowledge base and published website source.
 
-The canonical note format is Typst. Old Org files and org-roam are no longer part of the maintained workflow; note identity, tags, links, and publishing metadata live in `.typ` files.
+The canonical note format is Markdown. Note identity, tags, links, and publishing metadata live in `#+begin meta` blocks in `roam/**/*.md`.
 
 ## Layout
 
-- `roam/`: long-lived Typst notes, grouped by directory.
-- `_typst/`: shared Typst helpers, generated note wrappers, and publish-only PDF styling.
-- `CV/`: Typst CV source and generated PDF.
+- `roam/`: long-lived Markdown notes, grouped by directory.
+- `CV/`: CV source and generated PDF. This is separate from the note publishing pipeline.
 - `public/`: generated website output.
-- `agent/`: AI-facing indexes, wiki summaries, and maintenance prompts generated from `roam/**/*.typ`.
+- `agent/`: AI-facing indexes, wiki summaries, and maintenance prompts generated from `roam/**/*.md`.
 
 ## Note Metadata
 
-Each published note declares Typst metadata:
+Each published note declares an org-env meta block:
 
-```typst
-#metadata((
-  kind: "note",
-  id: "20260511T120000-example",
-  title: "Example",
-  date: "2026-05-11",
-  tags: ("math", "draft"),
-  aliases: (),
-)) <note>
+```md
+#+begin meta
+id: 20260511T120000-example
+title: Example
+date: 2026-05-11
+tags: math, draft
+#+end meta
 ```
 
-Cross-note links use the note helper:
+Cross-note links use normal relative Markdown links:
 
-```typst
-#note("20260511T120000-example")[Example]
+```md
+[Example](../math/example.md)
 ```
 
-Run `M-x my/note-db-sync` from Emacs after changing note identity, aliases, tags, or links. It rebuilds the local note database and refreshes `_typst/notes/<id>.typ` wrappers used by `note-include`, `note-transclude`, and cross-file imports.
+Block notes use the org-env syntax supported by Aaronnote:
+
+```md
+#+begin theorem Optional title
+Statement.
+#+end theorem
+```
 
 Run `make maintain` after note content changes when the AI-facing Markdown indexes under `agent/` should be refreshed.
-
-Daily writing imports the normal helper:
-
-```typst
-#import "/_typst/note.typ": *
-#show: note-entry
-```
-
-Publishing does not require notes to import a second style. `bin/publish-site` compiles a temporary source that redirects the first `"/_typst/note.typ"` import to `"/_typst/publish.typ"`, so public PDF-only visual changes belong in `_typst/publish.typ`.
 
 ## Publishing
 
@@ -54,16 +48,12 @@ Run:
 make publish
 ```
 
-`bin/publish-site` scans Typst note metadata, compiles public notes directly to `public/roam/**/*.pdf`, writes `public/js/data.js` for the archive and graph UI, copies static assets, and compiles `CV/main.typ` to `CV/Aaron_He_CV.pdf`.
+`bin/publish-site` scans Markdown note metadata, renders notes to `public/roam/**/*.html`, writes `public/js/data.js` for the archive and graph UI, and copies static assets.
 
-The note archive links directly to PDFs; the browser handles PDF viewing. There is no generated per-note HTML wrapper, and note-page CSS is not part of the PDF presentation. Missing public visual effects should be implemented with Typst in `_typst/publish.typ`.
+Private areas are sealed during publishing. `bin/publish-site` treats every note under `roam/daily/` and `roam/project/` as private by default; change `PRIVATE_PATH_PREFIXES` there to add or remove folder-level shields. A single note can also opt in with `private: true`, `hidden: true`, `publish: false`, `visibility: "private"`, or a tag such as `"private"` / `"no-export"`. Private notes are hidden from the public note list and search, but their titles and note links remain in graph data so relationships stay connected. The source body, summary, tags, and private note assets are not distributed.
 
-Private areas are sealed during publishing. `bin/publish-site` treats every note under `roam/daily/` and `roam/project/` as private by default; change `PRIVATE_PATH_PREFIXES` there to add or remove folder-level shields. A single note can also opt in with `private: true`, `hidden: true`, `publish: false`, `visibility: "private"`, or a tag such as `"private"` / `"no-export"`. Private notes are hidden from the public note list and search, but their titles and note links remain in graph data so relationships stay connected. The source body, summary, tags, and private note assets are not distributed; `bin/publish-site` writes a same-path PDF generated from `_typst/private.typ` that says the file has been sealed by the administrator.
+Note HTML rendering is incremental. Dependency snapshots live in `public/.deps/`; unchanged notes are skipped.
 
-Note PDF compilation is incremental. Dependency snapshots live in `public/.deps/`; unchanged notes are skipped, while edited notes or changed Typst/image dependencies are recompiled.
-
-After a successful publish, ignored state file `public/.publish-state.json` records the current git `HEAD`. If the relevant publishing inputs are clean and the same `HEAD` is published again, `make publish` skips the whole publish pass. `make all` refreshes that state after its site commit so the next run can skip immediately. Use `make force` to bypass the manifest and recompile outputs.
-
-Published `#note("id")[Title]` references are rewritten into clickable PDF links. By default links use site-root paths such as `/roam/math/example.pdf`; set `PUBLISH_BASE_URL=https://example.com` if the PDF should contain absolute web URLs.
+After a successful publish, ignored state file `public/.publish-state.json` records the current git `HEAD`. If the relevant publishing inputs are clean and the same `HEAD` is published again, `make publish` skips the whole publish pass. `make all` refreshes that state after its site commit so the next run can skip immediately. Use `make force` to bypass the manifest and render outputs.
 
 `make all` publishes, syncs to the NAS target, commits changed output, and pushes.

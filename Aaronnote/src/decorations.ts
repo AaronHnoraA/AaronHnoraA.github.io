@@ -10,10 +10,20 @@
 // (cursor outside).
 
 import { Plugin, PluginKey, type EditorState } from "prosemirror-state";
-import { Decoration, DecorationSet } from "prosemirror-view";
+import { Decoration, DecorationSet, type EditorView } from "prosemirror-view";
 
 import { renderMathLazy } from "./math-render.ts";
 import { getDelims, getExtras, getWidgets, type WidgetDecoration } from "./normalize.ts";
+
+declare global {
+  interface Window {
+    AaronnoteResolveAssetUrl?: (src: string) => string;
+  }
+}
+
+function resolveAssetUrl(src: string): string {
+  return window.AaronnoteResolveAssetUrl?.(src) ?? src;
+}
 
 // Widget builders — keyed by `kind`. A widget renders as a DOM element
 // at a specific position; decorations.ts decides whether to emit it based
@@ -22,7 +32,7 @@ const widgetBuilders: Record<string, (attrs: Record<string, string>) => HTMLElem
   "math-render": (attrs) => {
     const display = attrs.display === "1";
     const tex = attrs.tex ?? "";
-    const el = document.createElement(display ? "div" : "span");
+    const el = document.createElement("span");
     el.className = display ? "aaronnote-math-block" : "aaronnote-math-inline";
     el.setAttribute("data-tex", tex);
     el.setAttribute("contenteditable", "false");
@@ -59,7 +69,7 @@ const widgetBuilders: Record<string, (attrs: Record<string, string>) => HTMLElem
   "image-render": (attrs) => {
     const img = document.createElement("img");
     img.className = "image-render";
-    if (attrs.src) img.setAttribute("src", attrs.src);
+    if (attrs.src) img.setAttribute("src", resolveAssetUrl(attrs.src));
     if (attrs.alt) img.setAttribute("alt", attrs.alt);
     if (attrs.title) img.setAttribute("title", attrs.title);
     return img;
@@ -133,12 +143,23 @@ function buildWidget(w: WidgetDecoration): HTMLElement {
   return el;
 }
 
+function buildWidgetLazy(w: WidgetDecoration): (view: EditorView, getPos: () => number | undefined) => HTMLElement {
+  return (_view, getPos) => {
+    const el = buildWidget(w);
+    const pos = getPos();
+    if (typeof pos === "number") el.setAttribute("data-pos", String(pos));
+    return el;
+  };
+}
+
 function buildDecorationSet(state: EditorState): DecorationSet {
   const decos: Decoration[] = [];
   const cursor = state.selection.empty ? state.selection.from : null;
   for (const d of getDelims(state)) {
     const cursorInside =
       cursor !== null && cursor >= d.spanFrom && cursor <= d.spanTo;
+    const cursorInsideMath =
+      cursor !== null && cursor > d.spanFrom && cursor < d.spanTo;
     if (d.forceHidden) {
       decos.push(
         Decoration.inline(d.from, d.to, {
@@ -150,7 +171,8 @@ function buildDecorationSet(state: EditorState): DecorationSet {
     if (d.softInside) {
       // Soft range: hidden when cursor outside, plain (no decoration)
       // when cursor inside so the chars render as ordinary text.
-      if (!cursorInside) {
+      const inside = d.className === "math-source-hidden" ? cursorInsideMath : cursorInside;
+      if (!inside) {
         decos.push(Decoration.inline(d.from, d.to, { class: d.className ?? "syntax-hidden" }));
       }
       continue;
@@ -167,11 +189,15 @@ function buildDecorationSet(state: EditorState): DecorationSet {
   for (const w of getWidgets(state)) {
     const cursorInsideSpan =
       cursor !== null && cursor >= w.spanFrom && cursor <= w.spanTo;
-    if (w.when === "inside" && !cursorInsideSpan) continue;
-    if (w.when === "outside" && cursorInsideSpan) continue;
-    const dom = buildWidget(w);
+    const cursorInsideMathSpan =
+      cursor !== null && cursor > w.spanFrom && cursor < w.spanTo;
+    const inside = w.kind === "math-render" && w.attrs?.display === "1"
+      ? cursorInsideMathSpan
+      : cursorInsideSpan;
+    if (w.when === "inside" && !inside) continue;
+    if (w.when === "outside" && inside) continue;
     decos.push(
-      Decoration.widget(w.pos, dom, {
+      Decoration.widget(w.pos, buildWidgetLazy(w), {
         side: w.side ?? -1,
         key: `${w.kind}@${w.pos}:${JSON.stringify(w.attrs ?? {})}`,
         ignoreSelection: true,

@@ -16,11 +16,20 @@
 import { EditorState, TextSelection } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { redo, undo } from "prosemirror-history";
+import { DOMSerializer } from "prosemirror-model";
 
 import { defaultPlugins } from "./editor.ts";
 import { parse } from "./parser.ts";
 import { schema } from "./schema.ts";
 import { serialize } from "./serializer.ts";
+
+export function normalizePastedSourceText(text: string): string {
+  return text
+    .replace(/\r\n?/g, "\n")
+    .replace(/\u0008/g, String.raw`\b`)
+    .replace(/\u000c/g, String.raw`\f`)
+    .replace(/\u000b/g, String.raw`\v`);
+}
 
 export interface EditorOptions {
   /** Initial markdown the editor opens with. Defaults to empty. */
@@ -36,6 +45,8 @@ export interface EditorOptions {
 export interface Editor {
   /** Current markdown — renders source from the live PM doc, or returns the textarea contents in source mode. */
   getMarkdown(): string;
+  /** Render the current document to HTML for clipboard/export integrations. */
+  getHTML(): string;
   /** Replace the document. Works in either rendered or source mode. */
   setMarkdown(md: string): void;
   /** Insert plain source text at the current selection, optionally replacing chars before point. */
@@ -57,6 +68,7 @@ export interface Editor {
     before: string;
     after: string;
     rect: { left: number; top: number; bottom: number } | null;
+    rectAtOffset: (offset: number) => { left: number; top: number; bottom: number } | null;
   };
   /** Flip between rendered and raw-source views. ⌘/ does the same. */
   toggleSource(): void;
@@ -88,6 +100,15 @@ export function createEditor(
   let inSource = false;
   let sourceValueOnEnter = "";
 
+  function emitChange(md: string | (() => string)): void {
+    if (!options.onChange) return;
+    if (options.onChange.length === 0) {
+      (options.onChange as () => void)();
+      return;
+    }
+    options.onChange(typeof md === "function" ? md() : md);
+  }
+
   function buildView(initialMd: string): EditorView {
     const doc = initialMd ? parse(initialMd) : schema.nodes.doc.createAndFill()!;
     const base = EditorState.create({
@@ -105,11 +126,25 @@ export function createEditor(
       dispatchTransaction(tr) {
         const next = v.state.apply(tr);
         v.updateState(next);
-        if (tr.docChanged) options.onChange?.(serialize(next.doc));
+        if (tr.docChanged) emitChange(() => serialize(next.doc));
       },
       handleDOMEvents: {
         focus: () => { options.onFocus?.(); return false; },
         blur: () => { options.onBlur?.(); return false; },
+        paste: (view, event) => {
+          const data = event.clipboardData;
+          if (!data || data.files.length > 0) return false;
+          const text = data.getData("text/plain");
+          if (!text) return false;
+          event.preventDefault();
+          const { from, to } = view.state.selection;
+          view.dispatch(
+            view.state.tr
+              .insertText(normalizePastedSourceText(text), from, to)
+              .scrollIntoView(),
+          );
+          return true;
+        },
       },
     });
     return v;
@@ -203,6 +238,13 @@ export function createEditor(
     }
   }
 
+  function markdownToHTML(md: string): string {
+    const doc = parse(md);
+    const container = document.createElement("div");
+    container.appendChild(DOMSerializer.fromSchema(schema).serializeFragment(doc.content, { document }));
+    return container.innerHTML;
+  }
+
   function enterSource(): void {
     const md = serialize(view.state.doc);
     const mdCursor = renderedCursorToMdOffset();
@@ -235,7 +277,7 @@ export function createEditor(
     editorHost.hidden = false;
     view.focus();
     inSource = false;
-    if (md !== sourceValueOnEnter) options.onChange?.(serialize(view.state.doc));
+    if (md !== sourceValueOnEnter) emitChange(() => serialize(view.state.doc));
   }
 
   // ⌘/ on Mac, Ctrl+/ elsewhere. Window-level keydown so it works
@@ -267,7 +309,7 @@ export function createEditor(
   // owns the scroll, never the textarea.
   sourceTextarea.addEventListener("input", () => {
     autoSizeSource();
-    options.onChange?.(sourceTextarea.value);
+    emitChange(sourceTextarea.value);
   });
 
   view = buildView(options.initialContent ?? "");
@@ -275,6 +317,9 @@ export function createEditor(
   return {
     getMarkdown(): string {
       return inSource ? sourceTextarea.value : serialize(view.state.doc);
+    },
+    getHTML(): string {
+      return inSource ? markdownToHTML(sourceTextarea.value) : view.dom.innerHTML;
     },
     setMarkdown(md: string): void {
       if (inSource) {
@@ -293,7 +338,7 @@ export function createEditor(
         sourceTextarea.setRangeText(text, replaceStart, end, "end");
         autoSizeSource();
         sourceTextarea.focus();
-        options.onChange?.(sourceTextarea.value);
+        emitChange(sourceTextarea.value);
         return { from: replaceStart, to: replaceStart + text.length };
       } else {
         const { from, to } = view.state.selection;
@@ -363,7 +408,7 @@ export function createEditor(
         sourceTextarea.setRangeText(text, start, end, select === "all" ? "select" : select);
         autoSizeSource();
         sourceTextarea.focus();
-        options.onChange?.(sourceTextarea.value);
+        emitChange(sourceTextarea.value);
         return { from: start, to: start + text.length };
       }
       const max = view.state.doc.content.size;
@@ -406,10 +451,12 @@ export function createEditor(
       if (inSource) {
         const pos = sourceTextarea.selectionStart ?? sourceTextarea.value.length;
         const rect = caretRectInTextarea(pos);
+        const contextStart = Math.max(0, pos - maxChars);
         return {
-          before: sourceTextarea.value.slice(Math.max(0, pos - maxChars), pos),
+          before: sourceTextarea.value.slice(contextStart, pos),
           after: sourceTextarea.value.slice(pos, pos + maxChars),
           rect,
+          rectAtOffset: (offset: number) => caretRectInTextarea(contextStart + offset),
         };
       }
       const sel = view.state.selection;
@@ -422,8 +469,10 @@ export function createEditor(
         }
       })();
       const $from = sel.$from;
+      const contextStart = Math.max(0, $from.parentOffset - maxChars);
+      const parentStart = sel.from - $from.parentOffset;
       const before = $from.parent.textBetween(
-        Math.max(0, $from.parentOffset - maxChars),
+        contextStart,
         $from.parentOffset,
         "\n",
         "\n",
@@ -434,7 +483,19 @@ export function createEditor(
         "\n",
         "\n",
       );
-      return { before, after, rect };
+      return {
+        before,
+        after,
+        rect,
+        rectAtOffset: (offset: number) => {
+          try {
+            const r = view.coordsAtPos(parentStart + contextStart + offset);
+            return { left: r.left, top: r.top, bottom: r.bottom };
+          } catch {
+            return null;
+          }
+        },
+      };
     },
     toggleSource(): void {
       if (inSource) exitSource();

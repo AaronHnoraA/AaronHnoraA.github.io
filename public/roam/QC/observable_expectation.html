@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Observable &amp; Expectation | Aaron He</title>
+  <link rel="stylesheet" href="../../css/retro.css?v=20260517-md" />
+  <script>window.CURRENT_NOTE_LINK = "roam/QC/observable_expectation.html"; window.SITE_ROOT_PATH = "../../";</script>
+</head>
+<body class="note-page">
+  <main id="content">
+    <h1 class="title">Observable &amp; Expectation</h1>
+    <h1 id="1-hermitian-matrix">1. 可观测量为什么是厄米算符(<a href="../math/hermitian_matrix.html">Hermitian Matrix</a>)</h1>
+<p>在量子力学中：</p>
+<ul>
+<li>每一个物理可观测量 A</li>
+<li>都对应一个厄米算符 Â, 在希尔伯特空间(<a href="../math/hilbert_space.html">Hilbert Space</a>)内.</li>
+</ul>
+<p>原因有两个：</p>
+<ol>
+<li>本征值必须是实数（实验结果）</li>
+<li>本征态可以正交分解（概率解释）</li>
+</ol>
+<h1 id="2">2. 期望值的物理意义</h1>
+<p>设系统处于态 |ψ⟩，
+对同一个系统做大量重复实验：</p>
+<p>每一次测量得到一个本征值 a_n
+出现概率为 p_n</p>
+<p>统计平均值是：
+⟨A⟩ = ∑ a_n p_n</p>
+<p>谱定理告诉我们：</p>
+<ul>
+<li>p_n = |⟨a_n|ψ⟩|²</li>
+</ul>
+<p>代入并整理，得到一个<em>极其紧凑的表达式</em>：</p>
+<p>⟨A⟩ = ⟨ψ| Â |ψ⟩</p>
+<p>这不是“定义”，
+而是从统计平均 <em>严格推导出来的结果</em>。</p>
+<h1 id="3">3. 谱理论的核心结论</h1>
+<p>对任意厄米算符 A：</p>
+<ul>
+<li>所有可能测量结果 ∈ A 的谱</li>
+<li>离散谱 → 本征值</li>
+<li>连续谱 → 广义本征态</li>
+</ul>
+<p>如果将 |ψ⟩ 在本征基中展开：</p>
+<pre><code class="language-typst">#table(
+  columns: 2,
+  [ψ⟩ = ∑ c_n], [a_n⟩],
+)
+</code></pre>
+<p>那么：</p>
+<ul>
+<li>|c_n|² = 测到 a_n 的概率</li>
+</ul>
+<p>量子力学的概率性，
+并不是“测量扰动”，
+而是状态在谱分解中的 <em>几何投影</em>。</p>
+  </main>
+  <script src="../../js/data.js?v=20260517-md"></script>
+  <script src="../../js/knowledge.js?v=20260517-md"></script>
+  <script src="../../js/graph.js?v=20260517-md"></script>
+  <script src="../../js/note-page.js?v=20260517-md"></script>
+</body>
+</html>

@@ -230,7 +230,7 @@ input {
 .aaronnote-editor {
   min-width: 0;
   min-height: calc(100vh - 46px);
-  padding: 38px 32px 72px;
+  padding: 24px 22px 56px;
   overflow: auto;
   background: var(--aaron-paper);
 }
@@ -240,7 +240,7 @@ input {
 }
 
 .aaronnote-editor .typora-web-wrap {
-  max-width: 900px;
+  max-width: 1160px;
   margin: 0 auto;
 }
 
@@ -256,7 +256,7 @@ input {
 }
 
 .aaronnote-editor .ProseMirror {
-  padding: 48px 24px 72px;
+  padding: 36px 18px 64px;
   background: transparent;
   border: 0;
   box-shadow: none;
@@ -264,7 +264,7 @@ input {
 
 .aaronnote-editor.is-source-mode .typora-web-source {
   min-height: calc(100vh - 46px);
-  padding: 32px 42px 80px;
+  padding: 28px 34px 76px;
   background: var(--aaron-paper);
 }
 
@@ -586,7 +586,7 @@ input {
   border: 0;
   border-radius: 0;
   background: transparent;
-  padding: 48px 24px 72px;
+  padding: 36px 18px 64px;
   color: var(--aaron-ink);
   box-shadow: none;
 }
@@ -700,10 +700,10 @@ input {
 
 .aaronnote-floating-toc {
   position: fixed;
-  right: 22px;
+  right: 18px;
   top: 78px;
   z-index: 45;
-  width: 272px;
+  width: 300px;
   max-height: min(520px, calc(100vh - 120px));
   overflow: hidden;
   border: 1px solid var(--aaron-paper-line);

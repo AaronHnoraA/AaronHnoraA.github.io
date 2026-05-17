@@ -295,7 +295,14 @@ When nil, use `yas-snippet-dirs' if it is bound, otherwise
         (push (match-string 1) refs))
       (goto-char (point-min))
       (while (re-search-forward "\\[\\[\\([^]\n]+\\)\\]\\]" nil t)
-        (push (string-trim (match-string 1)) refs)))
+        (push (string-trim (match-string 1)) refs))
+      (goto-char (point-min))
+      (while (re-search-forward "\\_<roam://\\([^][()<>[:space:]\n]+\\)" nil t)
+        (push (url-unhex-string
+               (replace-regexp-in-string
+                "[.,;:]+\\'" ""
+                (string-remove-prefix "/" (match-string 1))))
+              refs)))
     (delete-dups (seq-filter (lambda (ref) (not (string-empty-p ref))) refs))))
 
 (defun Aaronnote--scan-note-summary ()
@@ -561,7 +568,13 @@ When nil, use `yas-snippet-dirs' if it is bound, otherwise
                   ("message" . "Bad save payload"))))))
        ((equal type "open-file")
         (when-let* ((file (alist-get 'file message)))
-          (run-at-time 0 nil #'find-file file)))
+          (run-at-time
+           0 nil
+           (lambda ()
+             (let ((target (file-truename file)))
+               (setq Aaronnote--active-file target)
+               (find-file target)
+               (Aaronnote--send ws (Aaronnote--open-payload)))))))
        ((equal type "open-url")
         (when-let* ((url (alist-get 'url message)))
           (Aaronnote--open-system-url url)))))))

@@ -47,12 +47,31 @@ describe("round-trip: blocks", () => {
     roundTripStable("```\nline 1\nline 2\nline 3\n```"));
   test("display math with line fences", () =>
     roundTripStable("$$\na^2 + b^2 = c^2\n$$"));
+  test("display math with TeX array commands", () =>
+    roundTripStable(String.raw`$$
+\begin{array}{ccccc}
+d\mathrm{GA} & \le_p & \mathrm{GI} & \le_p & \mathrm{GA} \\
+\downarrow & & \downarrow & & \downarrow \\
+d\mathrm{TA} & \overset{?}{\le_p} & \mathrm{TI} & \le_p & \mathrm{cTA}
+\end{array}
+$$`));
   test("display math with same-line fences", () =>
     roundTripStable("$$ E = mc^2 $$"));
   test("org proof block", () =>
     roundTripStable("#+begin proof Proof. test\nline one\nline two\n#+end proof"));
   test("org block with zotero link", () =>
     roundTripStable("#+begin summary\nThis is a [Zotero](zotero://select/items/1_54IJ8DAF) link.\n#+end summary"));
+  test("org block with blockquote", () =>
+    roundTripStable("#+begin summary\n> quoted\n#+end summary"));
+  test("org block with display math", () =>
+    roundTripStable(String.raw`#+begin summary
+$$
+\begin{array}{cc}
+\mathrm{GA} & \le_p \\
+\downarrow & \mathrm{GI}
+\end{array}
+$$
+#+end summary`));
   // Indented (4-space) code: md-it produces a `code_block` token with no
   // markup, same shape as a fenced block w/ no lang. Round-trip is at
   // doc level — md-text serialises to the fenced form (no `style` attr

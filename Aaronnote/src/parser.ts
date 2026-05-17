@@ -64,6 +64,13 @@ const featureTokens = collectParserTokens();
 
 type Frame = { type: NodeType; attrs: Attrs | null; content: PMNode[] };
 
+function isRawMathParagraph(content: string): boolean {
+  const text = content.trim();
+  if (!text) return false;
+  if (/^\$\$[\s\S]*\$\$$/.test(text)) return true;
+  return /^\$[ \t]*\n[\s\S]*\n[ \t]*\$[ \t]*$/.test(text);
+}
+
 export class ParserState {
   private stack: Frame[] = [{ type: schema.nodes.doc, attrs: null, content: [] }];
   private marks: readonly Mark[] = Mark.none;
@@ -109,6 +116,10 @@ export class ParserState {
 
   addInlineTokens(tokens: readonly Token[] = []): void {
     for (const token of tokens) handleInline(this, token);
+  }
+
+  addBlockTokens(tokens: readonly Token[] = []): void {
+    for (const token of tokens) handleBlock(this, token);
   }
 
   finish(): PMNode {
@@ -186,6 +197,10 @@ function handleBlock(state: ParserState, token: Token): void {
       state.push(nodes.horizontal_rule.create());
       return;
     case "inline": {
+      if (isRawMathParagraph(token.content)) {
+        state.addText(token.content);
+        return;
+      }
       for (const child of token.children ?? []) handleInline(state, child);
       return;
     }

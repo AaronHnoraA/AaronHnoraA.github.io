@@ -1,0 +1,7 @@
+# -*- mode: snippet -*-
+# name: cp
+# key: cp
+# group: Emacs migrated
+# source: /Users/hc/.config/emacs/snippets/org-mode/caption
+# --
+#+CAPTION: caption

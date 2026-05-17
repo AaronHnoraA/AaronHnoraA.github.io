@@ -1,7 +1,9 @@
 import { describe, expect, test } from "@voidzero-dev/vite-plus-test";
 
 import type { Editor } from "../src/lib.ts";
+import { createEditor } from "../src/lib.ts";
 import { SnippetSession } from "../aaronnote/snippets.ts";
+import { feedEvent } from "../specs/events.ts";
 
 class TextEditor {
   text = "";
@@ -84,5 +86,72 @@ describe("aaronnote snippets", () => {
 
     expect(session.next()).toBe(true);
     expect(editor.textBetween(editor.selection.from, editor.selection.to)).toBe("b");
+  });
+
+  test("org-env snippets map title, content, and final cursor stops after render", () => {
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const editor = createEditor(mount);
+    try {
+      const session = new SnippetSession(editor);
+      expect(session.insert({
+        key: "thm",
+        name: "Theorem block",
+        mode: "markdown-mode",
+        body: "#+begin theorem ${1:name}\n${2:Statement.}\n#+end theorem\n$0",
+      })).toBe(true);
+
+      const block = editor.view.state.doc.child(0);
+      expect(block.type.name).toBe("org_env_block");
+      expect(block.attrs.kind).toBe("theorem");
+
+      const title = mount.querySelector<HTMLInputElement>(".org-env-heading-title");
+      expect(title).not.toBeNull();
+      expect(document.activeElement).toBe(title);
+      title!.value = "Spectral";
+      title!.dispatchEvent(new Event("input", { bubbles: true }));
+
+      expect(session.next()).toBe(true);
+      let selection = editor.getSelection();
+      expect(editor.textBetween(selection.from, selection.to)).toBe("Statement.");
+
+      editor.replaceRange(selection.from, selection.to, "Every normal operator is diagonalizable.", "end");
+      expect(session.next()).toBe(true);
+      selection = editor.getSelection();
+      expect(editor.view.state.selection.$from.parent.type.name).toBe("paragraph");
+      expect(selection.from).toBe(selection.to);
+      expect(editor.getMarkdown()).toBe(
+        "#+begin theorem Spectral\nEvery normal operator is diagonalizable.\n#+end theorem",
+      );
+    } finally {
+      editor.destroy();
+      mount.remove();
+    }
+  });
+
+  test("display-math snippet keeps the editable field inside the math body", () => {
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const editor = createEditor(mount);
+    try {
+      const session = new SnippetSession(editor);
+      expect(session.insert({
+        key: ":",
+        name: "Display math",
+        mode: "markdown-mode",
+        body: "$$\n$1\n$$\n$0",
+      })).toBe(true);
+
+      let selection = editor.getSelection();
+      expect(selection.from).toBe(selection.to);
+      editor.replaceRange(selection.from, selection.to, "a", "end");
+      expect(editor.getMarkdown()).toBe("$$\na\n$$");
+
+      feedEvent(editor.view, "<Enter>");
+      expect(editor.getMarkdown()).toBe("$$\na\n\n$$");
+    } finally {
+      editor.destroy();
+      mount.remove();
+    }
   });
 });

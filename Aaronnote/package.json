@@ -1,7 +1,7 @@
 {
   "name": "aaronnote",
   "version": "0.3.1",
-  "description": "Aaronnote: an Emacs-hosted Typora-style Markdown editor.",
+  "description": "AaronNote: a roam-centered Typora-style Markdown editor.",
   "license": "MIT",
   "author": "Yanzhen Yu",
   "homepage": "https://yuyz0112.github.io/typora-web/",
@@ -10,7 +10,7 @@
     "url": "git+https://github.com/Yuyz0112/typora-web.git"
   },
   "type": "module",
-  "main": "./dist/lib/typora-web.js",
+  "main": "./desktop/main.mjs",
   "module": "./dist/lib/typora-web.js",
   "exports": {
     ".": {
@@ -31,6 +31,7 @@
     "start": "node server/aaronnote-server.mjs",
     "start:vite": "vp dev --config vite.aaronnote.config.ts --host 127.0.0.1",
     "build:aaronnote": "tsc && vp build --config vite.aaronnote.config.ts",
+    "build:desktop": "node --check desktop/main.mjs && node --check server/aaronnote-server.mjs && npm run build:aaronnote && electron-builder --mac dir",
     "build": "tsc && vp build",
     "build:lib": "tsc && vp build --config vite.lib.config.ts",
     "preview": "vp preview",
@@ -39,6 +40,8 @@
   },
   "devDependencies": {
     "@types/markdown-it": "^14.1.2",
+    "electron": "^37.8.0",
+    "electron-builder": "^26.0.12",
     "happy-dom": "^20.9.0",
     "typescript": "~6.0.2",
     "vite": "npm:@voidzero-dev/vite-plus-core@latest",
@@ -63,5 +66,47 @@
     "prosemirror-transform": "^1.12.0",
     "prosemirror-view": "^1.41.8",
     "temml": "^0.13.3"
+  },
+  "build": {
+    "appId": "com.aaronnote.desktop",
+    "productName": "AaronNote",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "desktop/**/*",
+      "server/**/*",
+      "dist/aaronnote/**/*",
+      "snippets/**/*",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../js",
+        "to": "js",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "fileAssociations": [
+      {
+        "ext": [
+          "md",
+          "markdown"
+        ],
+        "name": "Markdown Document",
+        "role": "Editor"
+      }
+    ],
+    "mac": {
+      "identity": null,
+      "icon": "build/Aaronnote.icns",
+      "category": "public.app-category.productivity",
+      "target": [
+        "dir"
+      ]
+    }
   }
 }

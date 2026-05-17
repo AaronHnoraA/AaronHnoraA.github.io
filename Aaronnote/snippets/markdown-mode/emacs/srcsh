@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: Org shell src block
+# key: srcsh
+# group: Emacs migrated
+# source: /Users/hc/.config/emacs/snippets/org-mode/srcsh_Org_Src_Shell
+# --
+#+begin_src sh${1:}
+$0
+#+end_src

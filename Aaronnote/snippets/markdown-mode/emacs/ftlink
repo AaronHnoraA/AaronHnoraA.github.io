@@ -1,0 +1,8 @@
+# -*- mode: snippet -*-
+# name: Org file target link
+# key: ftlink
+# group: Emacs migrated
+# source: /Users/hc/.config/emacs/snippets/org-mode/ftlink_Org_File_Target_Link
+# --
+# --
+[[file:${1:path.org}::${2:target}][$3]]$0

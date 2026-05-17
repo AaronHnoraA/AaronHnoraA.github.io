@@ -46,6 +46,27 @@ export const mdConfig: SerializerConfig = {
   codeMarkAsBacktickFence: false,
 };
 
+function isRawMathParagraph(content: string): boolean {
+  const text = content.trim();
+  if (!text) return false;
+  if (/^\$\$[\s\S]*\$\$$/.test(text)) return true;
+  return /^\$[ \t]*\n[\s\S]*\n[ \t]*\$[ \t]*$/.test(text);
+}
+
+function rawTextOnly(node: PMNode): string | null {
+  let text = "";
+  let ok = true;
+  node.forEach((child) => {
+    if (!ok) return;
+    if (!child.isText || child.marks.length > 0) {
+      ok = false;
+      return;
+    }
+    text += child.text ?? "";
+  });
+  return ok ? text : null;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Position markers: inject a character at a PM position. `side` picks which
 // boundary of a mark we fire at:
@@ -267,6 +288,24 @@ export type BlockHandler = (state: SerializerState, node: PMNode) => void;
 
 const coreBlockHandlers: Record<string, BlockHandler> = {
   paragraph: (state, node) => {
+    const raw = rawTextOnly(node);
+    if (raw != null && isRawMathParagraph(raw)) {
+      state.write();
+      state.tick("inner");
+      for (const ch of raw) {
+        state.tick("inner");
+        if (ch === "\n") {
+          state.out += "\n";
+          if (state.delim) state.out += state.delim;
+        } else {
+          state.out += ch;
+        }
+        state.advance(1);
+      }
+      state.tick("inner");
+      state.closeBlock(node);
+      return;
+    }
     state.renderInline(node);
     state.closeBlock(node);
   },

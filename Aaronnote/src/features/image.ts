@@ -4,6 +4,16 @@ import { Plugin } from "prosemirror-state";
 import { markConsumed, type InlineSpan } from "../inline-parse.ts";
 import type { FeatureSpec, InlineFeatureSpec } from "./_types.ts";
 
+declare global {
+  interface Window {
+    AaronnoteResolveAssetUrl?: (src: string) => string;
+  }
+}
+
+function resolveImageSrc(src: string): string {
+  return window.AaronnoteResolveAssetUrl?.(src) ?? src;
+}
+
 // image in Typora-pilot (method B) mode.
 //
 // Source `![alt](src "title")` lives verbatim in the textblock text:
@@ -144,7 +154,7 @@ function imageLoadProbePlugin(): Plugin {
         };
         probeImg.onload = (): void => finish("ok");
         probeImg.onerror = (): void => finish("error");
-        probeImg.src = src;
+        probeImg.src = resolveImageSrc(src);
       };
       const scanDoc = (): void => {
         editorView.state.doc.descendants((node) => {
@@ -181,11 +191,14 @@ function imageFileInputPlugin(): Plugin {
         if (!posStr) return;
         const pos = Number(posStr);
         if (!Number.isFinite(pos)) return;
-        // Use a blob URL instead of a base64 data URL — base64 dumps tens
-        // of KB into the doc text per image, which is unreadable in the
-        // source view and bloats the transaction. blob URLs are short,
-        // session-scoped, and load directly into <img>. (Persisting across
-        // reloads is a separate problem — out of scope for the pilot.)
+        const handled = !editorView.dom.dispatchEvent(
+          new CustomEvent("aaronnote:insert-files", {
+            bubbles: true,
+            cancelable: true,
+            detail: { files: [file], pos, mode: "image-src" },
+          }),
+        );
+        if (handled) return;
         const url = URL.createObjectURL(file);
         editorView.dispatch(editorView.state.tr.insertText(url, pos));
       };

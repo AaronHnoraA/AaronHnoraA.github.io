@@ -1,11 +1,18 @@
 import type { Editor } from "../src/lib.ts";
+import type { EditorView } from "prosemirror-view";
 import type { SnippetSummary } from "./types.ts";
+
+type SnippetTarget = {
+  kind: "org-title";
+  blockPos: number;
+};
 
 export type SnippetTabstop = {
   index: number;
   from: number;
   to: number;
   primary: boolean;
+  target?: SnippetTarget;
 };
 
 type ParsedSnippet = {
@@ -19,6 +26,49 @@ type SnippetFrame = {
   cursor: number;
   activeIndex: number | null;
 };
+
+type OrgEnvSnippet = {
+  kind: string;
+  titleFrom: number | null;
+  titleTo: number | null;
+  contentStart: number;
+  contentEnd: number;
+  closeFrom: number;
+};
+
+function escapeRegExp(src: string): string {
+  return src.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
+}
+
+function normalizeSnippetBody(body: string): string {
+  return body.replace(/(^|\n)([ \t]*\$\$[\s\S]*?\n[ \t]*\$\$)\n(\$0)$/, "$1$2$3");
+}
+
+function parseOrgEnvSnippetText(text: string): OrgEnvSnippet | null {
+  const open = text.match(/^#\+begin(?:_|\s+)([A-Za-z][\w-]*)(?:\s+([^\n]*?))?[ \t]*\n/i);
+  if (!open) return null;
+  const kind = open[1]!.toLowerCase();
+  const closeRe = new RegExp(`\\n[ \\t]*#\\+end(?:_|\\s+)${escapeRegExp(kind)}[ \\t]*(?:\\n|$)`, "gi");
+  let close: RegExpExecArray | null = null;
+  let next: RegExpExecArray | null;
+  while ((next = closeRe.exec(text))) close = next;
+  if (!close || close.index == null) return null;
+
+  const title = open[2] ?? "";
+  const titleStart = title ? open[0].indexOf(title) : -1;
+  return {
+    kind,
+    titleFrom: titleStart >= 0 ? titleStart : null,
+    titleTo: titleStart >= 0 ? titleStart + title.length : null,
+    contentStart: open[0].length,
+    contentEnd: close.index,
+    closeFrom: close.index + 1,
+  };
+}
+
+function editorView(editor: Editor): EditorView | null {
+  return (editor as { view?: EditorView }).view ?? null;
+}
 
 function sortedStopIndexes(stops: SnippetTabstop[]): number[] {
   const indexes = [...new Set(stops.map((stop) => stop.index))];
@@ -49,7 +99,7 @@ function mapSelectionThroughReplacement(
 }
 
 export function expandSnippetBody(snippet: SnippetSummary): ParsedSnippet {
-  const body = snippet.body ?? "";
+  const body = normalizeSnippetBody(snippet.body ?? "");
   const values = new Map<number, string>();
   const tabstops: SnippetTabstop[] = [];
   let text = "";
@@ -138,11 +188,10 @@ export class SnippetSession {
     const replaceTo = selection.to;
     const inserted = this.editor.insertText(text, deleteBefore);
     this.mapReplacement(replaceFrom, replaceTo, inserted.to - inserted.from);
+    const stops = this.mapInsertedStops(text, tabstops, inserted.from);
     const frame: SnippetFrame = {
-      stops: tabstops.map((stop) => ({
+      stops: stops.map((stop) => ({
         ...stop,
-        from: inserted.from + stop.from,
-        to: inserted.from + stop.to,
       })),
       order: sortedStopIndexes(tabstops),
       cursor: -1,
@@ -174,7 +223,7 @@ export class SnippetSession {
         continue;
       }
       frame.activeIndex = index;
-      this.editor.setSelection(target.from, target.to);
+      this.selectStop(target);
       return true;
     }
     return false;
@@ -195,7 +244,7 @@ export class SnippetSession {
         ?? frame.stops.find((stop) => stop.index === index);
       if (!target) continue;
       frame.activeIndex = index;
-      this.editor.setSelection(target.from, target.to);
+      this.selectStop(target);
       return true;
     }
     return false;
@@ -209,6 +258,7 @@ export class SnippetSession {
     if (frame.activeIndex == null) return;
     const primary = frame.stops.find((stop) => stop.index === frame.activeIndex && stop.primary);
     if (!primary) return;
+    if (primary.target?.kind === "org-title") return;
 
     const selection = this.editor.getSelection();
     let restoreSelection = selection;
@@ -276,6 +326,137 @@ export class SnippetSession {
         stop.to = Math.max(stop.from + newSize, stop.to + delta);
       }
     }
+  }
+
+  private selectStop(stop: SnippetTabstop): void {
+    if (stop.target?.kind === "org-title") {
+      const view = editorView(this.editor);
+      const dom = view?.nodeDOM(stop.target.blockPos);
+      const input = dom instanceof HTMLElement
+        ? dom.querySelector<HTMLInputElement>(".org-env-heading-title")
+        : null;
+      if (input) {
+        input.focus();
+        input.setSelectionRange(0, input.value.length);
+        return;
+      }
+    }
+    this.editor.setSelection(stop.from, stop.to);
+  }
+
+  private mapInsertedStops(
+    text: string,
+    tabstops: SnippetTabstop[],
+    insertedFrom: number,
+  ): SnippetTabstop[] {
+    const org = parseOrgEnvSnippetText(text);
+    if (!org) {
+      return tabstops.map((stop) => ({
+        ...stop,
+        from: insertedFrom + stop.from,
+        to: insertedFrom + stop.to,
+      }));
+    }
+
+    const view = editorView(this.editor);
+    const hit = view ? this.activeOrgEnvBlock(view, org.kind) : null;
+    if (!hit) {
+      return tabstops.map((stop) => ({
+        ...stop,
+        from: insertedFrom + stop.from,
+        to: insertedFrom + stop.to,
+      }));
+    }
+
+    const blockStart = hit.blockPos + 1;
+    const contentTextStart = this.firstOrgEnvTextblockStart(view!, hit.blockPos) ?? blockStart;
+    let exitPos: number | null = null;
+    const ensureExitPos = (): number => {
+      if (exitPos != null) return exitPos;
+      exitPos = this.ensureParagraphAfterOrgBlock(view!, hit.blockPos);
+      return exitPos;
+    };
+
+    return tabstops.map((stop) => {
+      if (
+        org.titleFrom != null
+        && org.titleTo != null
+        && stop.from >= org.titleFrom
+        && stop.to <= org.titleTo
+      ) {
+        return {
+          ...stop,
+          from: blockStart,
+          to: blockStart,
+          target: { kind: "org-title", blockPos: hit.blockPos },
+        };
+      }
+      if (stop.from >= org.contentStart && stop.to <= org.contentEnd) {
+        return {
+          ...stop,
+          from: contentTextStart + (stop.from - org.contentStart),
+          to: contentTextStart + (stop.to - org.contentStart),
+        };
+      }
+      if (stop.index === 0 && stop.from >= org.closeFrom) {
+        const pos = ensureExitPos();
+        return { ...stop, from: pos, to: pos };
+      }
+      return {
+        ...stop,
+        from: insertedFrom + stop.from,
+        to: insertedFrom + stop.to,
+      };
+    });
+  }
+
+  private firstOrgEnvTextblockStart(view: EditorView, blockPos: number): number | null {
+    const node = view.state.doc.nodeAt(blockPos);
+    if (!node) return null;
+    let found: number | null = null;
+    node.descendants((child, pos) => {
+      if (!child.isTextblock) return true;
+      found = blockPos + pos + 2;
+      return false;
+    });
+    return found;
+  }
+
+  private activeOrgEnvBlock(
+    view: EditorView,
+    kind: string,
+  ): { blockPos: number } | null {
+    const { selection, doc } = view.state;
+    const $from = selection.$from;
+    for (let depth = $from.depth; depth > 0; depth--) {
+      const node = $from.node(depth);
+      if (node.type.name === "org_env_block" && String(node.attrs.kind || "").toLowerCase() === kind) {
+        return { blockPos: $from.before(depth) };
+      }
+    }
+
+    let found: { blockPos: number } | null = null;
+    doc.descendants((node, pos) => {
+      if (found) return false;
+      if (node.type.name === "org_env_block" && String(node.attrs.kind || "").toLowerCase() === kind) {
+        found = { blockPos: pos };
+        return false;
+      }
+      return true;
+    });
+    return found;
+  }
+
+  private ensureParagraphAfterOrgBlock(view: EditorView, blockPos: number): number {
+    const { state } = view;
+    const node = state.doc.nodeAt(blockPos);
+    if (!node) return Math.min(blockPos + 1, state.doc.content.size);
+    const blockEnd = blockPos + node.nodeSize;
+    const next = blockEnd < state.doc.content.size ? state.doc.nodeAt(blockEnd) : null;
+    if (next?.type.name !== "paragraph") {
+      view.dispatch(state.tr.insert(blockEnd, state.schema.nodes.paragraph.create()));
+    }
+    return blockEnd + 1;
   }
 }
 

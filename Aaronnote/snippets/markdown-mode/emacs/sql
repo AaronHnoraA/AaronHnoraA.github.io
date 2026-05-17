@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: org-sql
+# key: sql
+# group: Emacs migrated
+# source: /Users/hc/.config/emacs/snippets/org-mode/sql
+# --
+#+BEGIN_SRC sql
+select * from $0 limit 1
+#+END_SRC

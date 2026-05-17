@@ -17,6 +17,7 @@ export type NoteSummary = {
   tags?: string[];
   refs?: string[];
   backlinks?: string[];
+  roam?: boolean;
 };
 
 export type SnippetSummary = {

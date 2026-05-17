@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: vb
+# key: vb
+# group: Emacs migrated
+# source: /Users/hc/.config/emacs/snippets/org-mode/verb
+# --
+#+begin_src verb -n :wrap src ob-verb-response
+
+#+end_src

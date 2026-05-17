@@ -1,1 +1,0 @@
-/Users/hc/.config/emacs/lisp/note/typst/publish.typ

@@ -1,5 +1,5 @@
+import type { Fragment, Node as PMNode, NodeType, ResolvedPos, Schema } from "prosemirror-model";
 import type { RuleBlock } from "markdown-it/lib/parser_block.mjs";
-import type { Node as PMNode } from "prosemirror-model";
 import { Plugin, TextSelection } from "prosemirror-state";
 import type { EditorView, NodeView, ViewMutationRecord } from "prosemirror-view";
 
@@ -45,6 +45,11 @@ function parseOrgEnvText(text: string): { kind: string; title: string; content: 
   };
 }
 
+function paragraphFromText(schema: Schema, text: string): PMNode | null {
+  if (!text) return null;
+  return schema.nodes.paragraph.createChecked(null, schema.text(text));
+}
+
 function orgEnvCommitPlugin(): Plugin {
   return new Plugin({
     appendTransaction(_trs, _oldState, newState) {
@@ -64,14 +69,27 @@ function orgEnvCommitPlugin(): Plugin {
       });
       const replacement = found[0];
       if (!replacement) return null;
-      const textNodes = replacement.content ? [newState.schema.text(replacement.content)] : [];
+      const paragraph = paragraphFromText(newState.schema, replacement.content);
       const block = orgEnvType.createChecked({
         kind: replacement.kind,
         title: replacement.title,
-      }, textNodes);
+      }, paragraph ? [paragraph] : []);
       return newState.tr.replaceWith(replacement.from, replacement.to, block);
     },
   });
+}
+
+function orgEnvDepth($pos: ResolvedPos, orgEnvType: NodeType): number {
+  for (let depth = $pos.depth; depth > 0; depth--) {
+    if ($pos.node(depth).type === orgEnvType) return depth;
+  }
+  return -1;
+}
+
+function fragmentChildren(fragment: Fragment): PMNode[] {
+  const children: PMNode[] = [];
+  fragment.forEach((child) => children.push(child));
+  return children;
 }
 
 class OrgEnvNodeView implements NodeView {
@@ -92,7 +110,7 @@ class OrgEnvNodeView implements NodeView {
     this.dom = document.createElement("org-env-block");
     this.label = document.createElement("span");
     this.title = document.createElement("input");
-    this.contentDOM = document.createElement("span");
+    this.contentDOM = document.createElement("div");
     this.metaDOM = document.createElement("div");
 
     this.label.className = "org-env-heading-label";
@@ -122,6 +140,7 @@ class OrgEnvNodeView implements NodeView {
         }
       }
     });
+    this.contentDOM.addEventListener("mousedown", (event) => this.selectContentFromMouse(event));
 
     const heading = document.createElement("span");
     heading.className = "org-env-heading";
@@ -178,6 +197,42 @@ class OrgEnvNodeView implements NodeView {
     );
   }
 
+  private selectContentFromMouse(event: MouseEvent): void {
+    if (event.button !== 0) return;
+    const target = event.target;
+    if (
+      target instanceof Element
+      && target.closest("a, button, input, textarea, select")
+    ) {
+      return;
+    }
+    const pos = this.getPos();
+    if (typeof pos !== "number") return;
+
+    const { state } = this.view;
+    const start = pos + 1;
+    if (this.node.childCount === 0) {
+      event.preventDefault();
+      const tr = state.tr.insert(start, state.schema.nodes.paragraph.create());
+      tr.setSelection(TextSelection.create(tr.doc, start + 1));
+      this.view.dispatch(tr.scrollIntoView());
+      this.view.focus();
+      return;
+    }
+
+    const end = pos + this.node.nodeSize - 1;
+    const hit = this.view.posAtCoords({ left: event.clientX, top: event.clientY });
+    const hitPos = typeof hit?.pos === "number" ? hit.pos : end;
+    const clamped = Math.max(start, Math.min(hitPos, end));
+    event.preventDefault();
+    this.view.dispatch(
+      state.tr
+        .setSelection(TextSelection.near(state.doc.resolve(clamped), hitPos >= end ? -1 : 1))
+        .scrollIntoView(),
+    );
+    this.view.focus();
+  }
+
   private metaEntries(): Array<{ key: string; value: string }> {
     return this.node.textContent
       .split(/\r?\n/)
@@ -232,10 +287,14 @@ class OrgEnvNodeView implements NodeView {
     if (next === this.node.textContent) return;
     const start = pos + 1;
     const end = start + this.node.content.size;
+    const paragraph = next ? this.view.state.schema.nodes.paragraph.createChecked(
+      null,
+      this.view.state.schema.text(next),
+    ) : null;
     this.view.dispatch(this.view.state.tr.replaceWith(
       start,
       end,
-      next ? this.view.state.schema.text(next) : [],
+      paragraph ? [paragraph] : [],
     ));
   }
 }
@@ -285,8 +344,7 @@ const orgEnvRule: RuleBlock = (state, startLine, endLine, silent) => {
   const token = state.push("org_env_block", "div", 0);
   token.block = true;
   token.content = content;
-  token.children = [];
-  state.md.inline.parse(content, state.md, state.env, token.children);
+  token.children = state.md.parse(content, state.env);
   token.meta = {
     kind,
     title: open[2]?.trim() ?? "",
@@ -304,7 +362,7 @@ export const orgEnv: FeatureSpec = {
   nodes: {
     org_env_block: {
       group: "block",
-      content: "inline*",
+      content: "block*",
       defining: true,
       attrs: {
         kind: { default: "note" },
@@ -314,6 +372,7 @@ export const orgEnv: FeatureSpec = {
         {
           tag: "org-env-block",
           preserveWhitespace: "full",
+          contentElement: ".org-env-content",
           getAttrs: (dom) => ({
             kind: (dom as HTMLElement).dataset.kind || "note",
             title: (dom as HTMLElement).dataset.title || "",
@@ -327,7 +386,7 @@ export const orgEnv: FeatureSpec = {
           "data-title": node.attrs.title,
           "data-label": envLabel(String(node.attrs.kind)),
         },
-        0,
+        ["div", { class: "org-env-content" }, 0],
       ],
     },
   },
@@ -346,7 +405,7 @@ export const orgEnv: FeatureSpec = {
         kind: tok.meta?.kind ?? "note",
         title: tok.meta?.title ?? "",
       });
-      state.addInlineTokens(tok.children ?? []);
+      state.addBlockTokens(tok.children ?? []);
       state.closeNode();
     },
   },
@@ -356,8 +415,11 @@ export const orgEnv: FeatureSpec = {
       const kind = String(node.attrs.kind || "note");
       const title = String(node.attrs.title || "");
       state.write(`#+begin ${kind}${title ? ` ${title}` : ""}\n`);
-      state.renderInline(node);
-      state.write(`\n#+end ${kind}`);
+      if (node.childCount > 0) {
+        state.renderBlockChildren(node);
+        state.flushClose(true);
+      }
+      state.write(`#+end ${kind}`);
       state.closeBlock(node);
     },
   },
@@ -365,29 +427,63 @@ export const orgEnv: FeatureSpec = {
   keymap: (schema) => ({
     Enter: (state, dispatch) => {
       const sel = state.selection;
+      const $from = sel.$from;
+      const $to = sel.$to;
+      const orgEnvType = schema.nodes.org_env_block;
+      if (orgEnvDepth($from, orgEnvType) < 0) return false;
+      if ($to.parent !== $from.parent) return false;
+      if ($from.parent.type !== orgEnvType) return false;
+
+      if (dispatch) {
+        dispatch(state.tr.insertText("\n", sel.from, sel.to).scrollIntoView());
+      }
+      return true;
+    },
+
+    "Mod-Enter": (state, dispatch) => {
+      const sel = state.selection;
       if (!sel.empty) return false;
       const $from = sel.$from;
       const orgEnvType = schema.nodes.org_env_block;
-      if ($from.parent.type !== orgEnvType) return false;
+      const depth = orgEnvDepth($from, orgEnvType);
+      if (depth < 0) return false;
 
-      const text = $from.parent.textContent;
-      const offset = $from.parentOffset;
-      if (offset === text.length && text.endsWith("\n")) {
-        if (dispatch) {
-          const tr = state.tr;
-          const blockEnd = $from.after();
-          tr.delete(blockEnd - 2, blockEnd - 1);
-          const newBlockEnd = blockEnd - 1;
-          if (newBlockEnd >= tr.doc.content.size) {
-            tr.insert(newBlockEnd, schema.nodes.paragraph.create());
-          }
-          tr.setSelection(TextSelection.create(tr.doc, newBlockEnd + 1));
-          dispatch(tr);
+      if (dispatch) {
+        const node = $from.node(depth);
+        const blockStart = $from.before(depth);
+        const blockEnd = $from.after(depth);
+        const offset = sel.from - (blockStart + 1);
+        const tr = state.tr;
+        const headText = node.textBetween(0, offset, "\n", "\n");
+        const tailText = node.textBetween(offset, node.content.size, "\n", "\n");
+
+        if (!headText) {
+          tr.insert(blockStart, schema.nodes.paragraph.create());
+          tr.setSelection(TextSelection.create(tr.doc, blockStart + 1));
+          dispatch(tr.scrollIntoView());
+          return true;
         }
-        return true;
-      }
 
-      return false;
+        if (!tailText) {
+          tr.insert(blockEnd, schema.nodes.paragraph.create());
+          tr.setSelection(TextSelection.create(tr.doc, blockEnd + 1));
+          dispatch(tr.scrollIntoView());
+          return true;
+        }
+
+        const before = node.content.cut(0, offset);
+        const after = node.content.cut(offset);
+        const beforeBlock = orgEnvType.createChecked(node.attrs, before);
+        const afterBlocks = fragmentChildren(after);
+        tr.replaceWith(blockStart, blockEnd, [
+          beforeBlock,
+          ...(afterBlocks.length > 0 ? afterBlocks : [schema.nodes.paragraph.create()]),
+        ]);
+        const paraStart = blockStart + beforeBlock.nodeSize;
+        tr.setSelection(TextSelection.create(tr.doc, paraStart + 1));
+        dispatch(tr.scrollIntoView());
+      }
+      return true;
     },
 
     ArrowDown: (state, dispatch) => {
@@ -395,12 +491,15 @@ export const orgEnv: FeatureSpec = {
       if (!sel.empty) return false;
       const $from = sel.$from;
       const orgEnvType = schema.nodes.org_env_block;
-      if ($from.parent.type !== orgEnvType) return false;
-      const tail = $from.parent.textContent.slice($from.parentOffset);
-      if (tail.includes("\n")) return false;
+      const depth = orgEnvDepth($from, orgEnvType);
+      if (depth < 0) return false;
+      const node = $from.node(depth);
+      const offset = sel.from - ($from.before(depth) + 1);
+      const tail = node.textBetween(offset, node.content.size, "\n", "\n");
+      if (tail) return false;
       if (dispatch) {
         const tr = state.tr;
-        const blockEnd = $from.after();
+        const blockEnd = $from.after(depth);
         if (blockEnd >= tr.doc.content.size) {
           tr.insert(blockEnd, schema.nodes.paragraph.create());
         }

@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: Org Mermaid src block
+# key: srcmmd
+# group: Emacs migrated
+# source: /Users/hc/.config/emacs/snippets/org-mode/srcmmd_Org_Src_Mermaid
+# --
+#+begin_src mermaid${1:}
+$0
+#+end_src

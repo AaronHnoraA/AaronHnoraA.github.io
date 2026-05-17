@@ -11,45 +11,70 @@ import { markdownInputRules, spaceBreaksStoredMarks } from "./input-rules.ts";
 import { normalizeInlinePlugin } from "./normalize.ts";
 import { schema } from "./schema.ts";
 
-function externalProtocolHref(href: string): boolean {
-  const match = href.match(/^([A-Za-z][\w+.-]*):/);
-  if (!match) return false;
-  return !["http", "https", "mailto"].includes(match[1]!.toLowerCase());
+declare global {
+  interface Window {
+    AaronnoteResolveAssetUrl?: (src: string) => string;
+  }
 }
 
-function openExternalHref(href: string): void {
+function hrefProtocol(href: string): string | null {
+  const match = href.match(/^([A-Za-z][\w+.-]*):/);
+  return match?.[1]?.toLowerCase() ?? null;
+}
+
+function externalProtocolHref(href: string): boolean {
+  const protocol = hrefProtocol(href);
+  return protocol != null && !["http", "https", "mailto"].includes(protocol);
+}
+
+function internalNoteHref(href: string): boolean {
+  const raw = href.trim();
+  if (!raw || raw.startsWith("#")) return false;
+  if (hrefProtocol(raw)) return false;
+  const path = raw.split(/[?#]/, 1)[0] ?? "";
+  return /\.(?:md|markdown)$/i.test(path);
+}
+
+function followsOnPlainClick(href: string): boolean {
+  const protocol = hrefProtocol(href);
+  if (/^roam:\/\//i.test(href)) return true;
+  if (protocol && !["http", "https", "mailto"].includes(protocol)) return true;
+  return internalNoteHref(href);
+}
+
+function openExternalHref(href: string, options: { newWindow?: boolean } = {}): void {
+  const appHref = /^roam:\/\//i.test(href) || internalNoteHref(href) || externalProtocolHref(href);
+  const resolvedHref = appHref ? href : window.AaronnoteResolveAssetUrl?.(href) ?? href;
   const event = new CustomEvent("aaronnote:open-url", {
     bubbles: true,
     cancelable: true,
-    detail: { href },
+    detail: { href: resolvedHref, newWindow: options.newWindow === true },
   });
-  if (document.dispatchEvent(event) && externalProtocolHref(href)) {
-    window.location.href = href;
+  if (document.dispatchEvent(event) && externalProtocolHref(resolvedHref)) {
+    window.location.href = resolvedHref;
     return;
   }
   if (!event.defaultPrevented) {
-    window.open(href, "_blank", "noopener,noreferrer");
+    window.open(resolvedHref, "_blank", "noopener,noreferrer");
   }
 }
 
-// Open `<a>` links on Cmd/Ctrl+click. Inside contenteditable, a plain
-// click moves the caret instead of navigating — opting in to the
-// modifier preserves selection-by-click while letting users follow
-// links. Auto-collected by collectPlugins indirectly via this module
-// so the lib's defaultPlugins() ships it.
+// Open external web links on Cmd/Ctrl+click. Note links and app/protocol
+// links are commands in the note surface, so a plain click should follow
+// them instead of requiring source-mode style editing.
 function openLinkOnModClickPlugin(): Plugin {
   return new Plugin({
     props: {
       handleClick(_view, _pos, event) {
-        const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
-        const mod = isMac ? event.metaKey : event.ctrlKey;
-        if (!mod) return false;
         const a = (event.target as Element | null)?.closest("a");
         if (!a) return false;
         const href = a.getAttribute("href");
         if (!href) return false;
+        const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
+        const mod = isMac ? event.metaKey : event.ctrlKey;
+        if (!followsOnPlainClick(href) && !mod) return false;
         event.preventDefault();
-        openExternalHref(href);
+        openExternalHref(href, { newWindow: event.altKey || event.metaKey });
         return true;
       },
     },

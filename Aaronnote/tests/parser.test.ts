@@ -81,6 +81,20 @@ describe("parser: block nodes", () => {
     expect(p.textContent).toBe("$$\na^2 + b^2 = c^2\n$$");
   });
 
+  test("display math preserves TeX command backslashes and row separators", () => {
+    const source = String.raw`$$
+\begin{array}{ccccc}
+d\mathrm{GA} & \le_p & \mathrm{GI} & \le_p & \mathrm{GA} \\
+\downarrow & & \downarrow & & \downarrow \\
+d\mathrm{TA} & \overset{?}{\le_p} & \mathrm{TI} & \le_p & \mathrm{cTA}
+\end{array}
+$$`;
+    const doc = parse(source);
+    const p = doc.child(0);
+    expect(p.type).toBe(schema.nodes.paragraph);
+    expect(p.textContent).toBe(source);
+  });
+
   test("same-line double-dollar math source stays editable text", () => {
     const doc = parse("$$ E = mc^2 $$");
     const p = doc.child(0);
@@ -101,11 +115,34 @@ describe("parser: block nodes", () => {
     const doc = parse("#+begin summary\nThis is a [Zotero](zotero://select/items/1_54IJ8DAF) link.\n#+end summary");
     const block = doc.child(0);
     expect(block.type).toBe(schema.nodes.org_env_block);
-    const linkText = block.child(1);
+    const paragraph = block.child(0);
+    const linkText = paragraph.child(1);
     const linkMark = linkText.marks[0];
     expect(linkText.text).toBe("Zotero");
     expect(linkMark.type.name).toBe("link");
     expect(linkMark.attrs.href).toBe("zotero://select/items/1_54IJ8DAF");
+  });
+
+  test("org block content supports normal blockquote parsing", () => {
+    const doc = parse("#+begin summary\n> quoted\n#+end summary");
+    const block = doc.child(0);
+    expect(block.type).toBe(schema.nodes.org_env_block);
+    expect(block.child(0).type).toBe(schema.nodes.blockquote);
+    expect(block.child(0).textContent).toBe("quoted");
+  });
+
+  test("org block display math preserves TeX backslashes", () => {
+    const source = String.raw`$$
+\begin{array}{cc}
+\mathrm{GA} & \le_p \\
+\downarrow & \mathrm{GI}
+\end{array}
+$$`;
+    const doc = parse(`#+begin summary\n${source}\n#+end summary`);
+    const block = doc.child(0);
+    const paragraph = block.child(0);
+    expect(paragraph.type).toBe(schema.nodes.paragraph);
+    expect(paragraph.textContent).toBe(source);
   });
 });
 

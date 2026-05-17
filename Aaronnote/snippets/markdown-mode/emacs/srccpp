@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: Org C++ src block
+# key: srccpp
+# group: Emacs migrated
+# source: /Users/hc/.config/emacs/snippets/org-mode/srccpp_Org_Src_Cpp
+# --
+#+begin_src C++${1:}
+$0
+#+end_src

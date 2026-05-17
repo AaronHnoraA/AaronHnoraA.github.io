@@ -1,0 +1,16 @@
+# -*- mode: snippet -*-
+# name: order
+# key: order
+# group: Emacs migrated
+# source: /Users/hc/.config/emacs/snippets/org-mode/order
+# --
+#+BEGIN_SRC plantuml :file ./image/time.svg
+!define LIGHTGREEN
+!includeurl /Users/van/org/org-roam/emacs/C4-PlantUML/juststyle.puml
+skinparam backgroundColor transparent
+
+A -> B: reqest
+B -> B: handle
+B -> A: response
+
+#+END_SRC

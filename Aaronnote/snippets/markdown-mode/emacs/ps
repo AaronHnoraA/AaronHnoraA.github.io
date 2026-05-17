@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: plantuml-style
+# key: ps
+# group: Emacs migrated
+# source: /Users/hc/.config/emacs/snippets/org-mode/plantuml-style
+# --
+#DARKORANGE/LIGHTORANGE/DARKBLUE/LIGHTBLUE/DARKRED/LIGHTRED/DARKGREEN/LIGHTGREEN
+!define DARKBLUE
+!includeurl ~/org/org-roam/emacs/C4-PlantUML/juststyle.puml

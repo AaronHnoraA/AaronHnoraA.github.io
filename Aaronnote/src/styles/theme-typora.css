@@ -228,6 +228,16 @@
 
 .ProseMirror org-env-block .org-env-content {
   display: block;
+  min-height: 1.35em;
+  white-space: pre-wrap;
+}
+
+.ProseMirror org-env-block .org-env-content > :first-child {
+  margin-top: 0;
+}
+
+.ProseMirror org-env-block .org-env-content > :last-child {
+  margin-bottom: 0;
 }
 
 .ProseMirror org-env-block .org-env-content a {

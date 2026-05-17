@@ -1,8 +1,11 @@
 {
   "inputs": [
-    "/Users/hc/.config/emacs/lisp/note/typst/private.typ",
-    "_typst/private.typ",
     "bin/publish-site",
-    "roam/daily/reading/basic algebra.typ"
+    "css/retro.css",
+    "js/data.js",
+    "js/graph.js",
+    "js/knowledge.js",
+    "js/note-page.js",
+    "roam/daily/reading/basic algebra.md"
   ]
 }

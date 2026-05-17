@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: Org DOT src block
+# key: srcdot
+# group: Emacs migrated
+# source: /Users/hc/.config/emacs/snippets/org-mode/srcdot_Org_Src_Dot
+# --
+#+begin_src dot${1:}
+$0
+#+end_src

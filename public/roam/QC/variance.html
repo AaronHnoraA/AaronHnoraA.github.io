@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Variance | Aaron He</title>
+  <link rel="stylesheet" href="../../css/retro.css?v=20260517-md" />
+  <script>window.CURRENT_NOTE_LINK = "roam/QC/variance.html"; window.SITE_ROOT_PATH = "../../";</script>
+</head>
+<body class="note-page">
+  <main id="content">
+    <h1 class="title">Variance</h1>
+    <h1 id="variance">方差 (Variance)</h1>
+<div class="definition"><p><strong>$ [ Delta  (M)]^(2)</strong></p><p>&amp;= angle.l (M  -  lr(angle.l M angle.r) )^2 angle.r  \</p>
+<p>&amp;=  lr(angle.l M^(2) angle.r)  -  lr(angle.l M angle.r) ^(2) $</p></div>
+
+<div class="proof"><p><strong>设方差 (Variance) 的定义为：</strong></p><p>$     "Var" =  sum _i p_i (m_i -  lr(angle.l M angle.r) )^2 $</p>
+<pre><code>展开括号内的平方项：
+$     &amp;=  sum _i p_i (m_i^2 - 2m_i lr(angle.l M angle.r)  +  lr(angle.l M angle.r) ^2)  \
+
+&amp;=  sum _i p_i m_i^2 - 2 lr(angle.l M angle.r)   sum _i p_i m_i +  lr(angle.l M angle.r) ^2  sum _i p_i
+ $
+</code></pre>
+<div class="attention"><p><strong>其中利用以下统计性质：</strong></p><ol>
+<li>$ sum _i p_i m_i =  lr(angle.l M angle.r) $ (期望值的定义)<ol start="2">
+<li>$ sum _i p_i = 1$ (概率归一化条件)
+代入上式进行化简：</li>
+</ol>
+</li>
+</ol></div>
+
+<pre><code>$     &amp;= (  sum _i p_i m_i^2 ) - 2 lr(angle.l M angle.r)   dot.op   lr(angle.l M angle.r)  +  lr(angle.l M angle.r) ^2  dot.op  1  \
+
+&amp;= (  sum _i p_i m_i^2 ) - 2 lr(angle.l M angle.r) ^2 +  lr(angle.l M angle.r) ^2  \
+
+&amp;= (  sum _i p_i m_i^2 ) -  lr(angle.l M angle.r) ^2
+ $
+
+对于算符 $M^2$，其期望值写作：
+</code></pre>
+<p>$      lr(angle.l M^2 angle.r)  =  lr(angle.l psi | M^2 | psi angle.r)  =  lr(angle.l psi | M  dot.op  M | psi angle.r)  $</p>
+<pre><code>考察算符 $M$ 的本征方程 $M lr(|m_i angle.r)  = m_i lr(|m_i angle.r) $，则 $M^2$ 的作用如下：
+</code></pre>
+<p>$     M  dot.op  M  =&gt;  m_i' = m_i^2 $
+    即 $M^2$ 的本征值为 $m_i^2$。</p>
+<pre><code>此时对应的概率 $p_i'$ 为：
+</code></pre>
+<p>$     p_i' = | lr(angle.l m_i' | psi angle.r) |^2 $</p>
+<pre><code>但在笔记中特别强调了一个核心性质（红色标注部分）：
+
+这意味着算符平方后，本征态没有改变，因此概率分布保持一致：
+</code></pre>
+<p>$     p_i' = | lr(angle.l m_i | psi angle.r) |^2 = p_i $</p>
+<pre><code>因此，$M^2$ 的期望值就是 $m_i^2$ 的加权和：
+</code></pre>
+<p>$      lr(angle.l M^2 angle.r)  =  sum  m_i^2 p_i =  sum  p_i m_i^2 $</p>
+<pre><code>结合第 1 部分的展开结果与第 2 部分的算符期望定义，得证：
+</code></pre>
+<p>$      therefore  "Var" =  lr(angle.l M^2 angle.r)  -  lr(angle.l M angle.r) ^2 $
+    ■</p></div>
+
+<!-- #+INCLUDE: "./quantum_state.org" -->
+
+<p>end of file</p>
+  </main>
+  <script src="../../js/data.js?v=20260517-md"></script>
+  <script src="../../js/knowledge.js?v=20260517-md"></script>
+  <script src="../../js/graph.js?v=20260517-md"></script>
+  <script src="../../js/note-page.js?v=20260517-md"></script>
+</body>
+</html>
