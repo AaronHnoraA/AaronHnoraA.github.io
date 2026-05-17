@@ -74,7 +74,7 @@ input {
 }
 
 .aaronnote-toolbar {
-  min-height: 48px;
+  min-height: 44px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto auto;
   align-items: center;
@@ -230,23 +230,30 @@ input {
 .aaronnote-editor {
   min-width: 0;
   min-height: calc(100vh - 46px);
-  padding: 24px 22px 56px;
+  padding: 10px clamp(24px, 3vw, 56px) 48px;
   overflow: auto;
   background: var(--aaron-paper);
 }
 
 .aaronnote-editor.is-source-mode {
-  padding: 0;
+  padding: 18px 24px 52px;
 }
 
 .aaronnote-editor .typora-web-wrap {
-  max-width: 1160px;
+  width: min(1720px, calc(100vw - 64px));
+  max-width: none !important;
   margin: 0 auto;
 }
 
 .aaronnote-editor.is-source-mode .typora-web-wrap {
-  max-width: none;
-  margin: 0;
+  width: min(1780px, calc(100vw - 48px));
+  max-width: none !important;
+  margin: 0 auto;
+}
+
+.aaronnote-editor .typora-web-editor-host {
+  width: 100%;
+  max-width: none !important;
 }
 
 .aaronnote-editor .ProseMirror,
@@ -256,31 +263,44 @@ input {
 }
 
 .aaronnote-editor .ProseMirror {
-  padding: 36px 18px 64px;
+  width: 100%;
+  max-width: none !important;
+  padding: 18px 0 52px;
   background: transparent;
   border: 0;
   box-shadow: none;
 }
 
 .aaronnote-editor.is-source-mode .typora-web-source {
-  min-height: calc(100vh - 46px);
-  padding: 28px 34px 76px;
-  background: var(--aaron-paper);
+  min-height: calc(100vh - 138px);
+  padding: 28px 30px 72px;
+  background: color-mix(in srgb, var(--aaron-paper), white 8%);
+  border-left: 3px solid var(--aaron-red);
+  box-shadow: 0 0 0 1px var(--aaron-paper-line) inset;
+}
+
+.aaronnote-editor.is-source-mode .typora-web-editor-host[hidden],
+.aaronnote-editor.is-source-mode .ProseMirror[hidden],
+.aaronnote-editor .typora-web-source[hidden] {
+  display: none !important;
 }
 
 .aaronnote-notes,
 .aaronnote-graph {
   min-height: calc(100vh - 46px);
   box-sizing: border-box;
-  padding: 48px 32px 64px;
+  padding: 18px 20px 32px;
   background: var(--aaron-paper-bg);
 }
 
 .aaronnote-notes-inner,
 .aaronnote-graph-inner {
-  max-width: 1040px;
+  width: min(1680px, calc(100vw - 40px));
+  max-width: none;
+  min-height: calc(100vh - 96px);
+  box-sizing: border-box;
   margin: 0 auto;
-  padding: 40px 44px;
+  padding: 28px 32px;
   background: var(--aaron-paper);
   border: 1px solid var(--aaron-paper-line);
   box-shadow: var(--aaron-shadow);
@@ -339,15 +359,16 @@ input {
 }
 
 .aaronnote-graph-grid {
-  min-height: 480px;
+  height: calc(100vh - 242px);
+  min-height: 560px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
   gap: 14px;
 }
 
 .aaronnote-graph-canvas,
 .aaronnote-graph-focus {
-  min-height: 480px;
+  min-height: 0;
   border: 1px solid var(--aaron-paper-line);
   background: var(--aaron-paper-soft);
 }
@@ -361,7 +382,6 @@ input {
   display: block;
   width: 100%;
   height: 100%;
-  min-height: 480px;
   cursor: grab;
   touch-action: none;
 }
@@ -557,6 +577,112 @@ input {
   font-size: 24px;
 }
 
+.aaronnote-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  background: rgb(30 26 22 / 22%);
+}
+
+.aaronnote-modal[hidden] {
+  display: none;
+}
+
+.aaronnote-modal-panel {
+  width: min(460px, calc(100vw - 32px));
+  border: 1px solid var(--aaron-paper-line);
+  background: var(--aaron-paper);
+  box-shadow: var(--aaron-shadow);
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+}
+
+.aaronnote-modal-panel h2 {
+  margin: 0 0 4px;
+  color: var(--aaron-red-dark);
+  font: 750 20px/1.2 var(--aaron-font-sans);
+}
+
+.aaronnote-modal-panel label {
+  display: grid;
+  gap: 5px;
+  color: var(--aaron-muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.aaronnote-modal-panel input,
+.aaronnote-modal-panel select {
+  height: 34px;
+  box-sizing: border-box;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 3px;
+  padding: 0 9px;
+  background: var(--aaron-paper-soft);
+  color: var(--aaron-ink);
+}
+
+.aaronnote-modal-path-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.aaronnote-modal-path-row button {
+  min-height: 34px;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 3px;
+  padding: 0 12px;
+  background: var(--aaron-paper-soft);
+  color: var(--aaron-ink);
+  cursor: pointer;
+}
+
+.aaronnote-modal-tag-picker {
+  max-height: 112px;
+  overflow: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 2px;
+}
+
+.aaronnote-modal-tag-picker button {
+  min-height: 24px;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 3px;
+  padding: 0 8px;
+  background: var(--aaron-paper-soft);
+  color: var(--aaron-ink);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.aaronnote-modal-tag-picker button:hover {
+  border-color: var(--aaron-red);
+  color: var(--aaron-red-dark);
+}
+
+.aaronnote-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.aaronnote-modal-actions button {
+  min-height: 30px;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 3px;
+  padding: 0 12px;
+  background: var(--aaron-paper-soft);
+  color: var(--aaron-ink);
+  cursor: pointer;
+}
+
 [data-vim-mode="normal"] .aaronnote-editor .ProseMirror,
 [data-vim-mode="visual"] .aaronnote-editor .ProseMirror,
 [data-vim-mode="visual-line"] .aaronnote-editor .ProseMirror,
@@ -569,15 +695,14 @@ input {
 .aaronnote-vim-cursor {
   position: fixed;
   z-index: 70;
-  background: color-mix(in srgb, var(--aaron-ink), transparent 25%);
+  background: var(--aaron-ink);
   border-radius: 1px;
   pointer-events: none;
-  mix-blend-mode: multiply;
 }
 
 [data-vim-mode="visual"] .aaronnote-vim-cursor,
 [data-vim-mode="visual-line"] .aaronnote-vim-cursor {
-  background: rgb(148 95 28 / 72%);
+  background: rgb(148 95 28 / 88%);
 }
 
 .aaronnote-editor .typora-web-source {
@@ -601,8 +726,13 @@ input {
   width: fit-content;
   max-width: 100%;
   margin: 0.22em auto;
-  overflow: visible;
+  overflow: hidden;
   text-align: center;
+}
+
+.aaronnote-math-block.is-math-scaled,
+.aaronnote-math-preview.is-math-scaled {
+  overflow: hidden;
 }
 
 .aaronnote-math-error {
@@ -635,21 +765,42 @@ input {
   width: 100%;
   min-height: 32px;
   border: 0;
+  border-left: 3px solid transparent;
   border-radius: 3px;
   display: grid;
-  grid-template-columns: minmax(64px, auto) minmax(0, 1fr);
+  grid-template-columns: 22px minmax(64px, auto) minmax(0, 1fr) 16px;
   align-items: center;
-  gap: 10px;
-  padding: 5px 8px;
+  gap: 8px;
+  padding: 5px 8px 5px 5px;
   background: transparent;
   color: var(--aaron-ink);
   cursor: pointer;
   text-align: left;
 }
 
-.aaronnote-snippet-option:hover,
-.aaronnote-snippet-option.is-active {
+.aaronnote-snippet-option:hover {
   background: var(--aaron-paper-soft);
+}
+
+.aaronnote-snippet-option.is-active {
+  border-left-color: var(--aaron-red);
+  background: color-mix(in srgb, var(--aaron-paper-soft), var(--aaron-red) 7%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--aaron-red), transparent 62%),
+    0 1px 0 rgb(255 255 255 / 48%) inset;
+}
+
+.aaronnote-snippet-option.is-active::after {
+  content: "↵";
+  color: var(--aaron-red-dark);
+  font: 800 12px/1 var(--aaron-font-sans);
+  text-align: center;
+}
+
+.aaronnote-snippet-option-number {
+  color: var(--aaron-muted);
+  font: 700 11px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  text-align: right;
 }
 
 .aaronnote-snippet-option-key {
@@ -657,6 +808,11 @@ input {
   text-overflow: ellipsis;
   white-space: nowrap;
   font: 600 12px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.aaronnote-snippet-option.is-active .aaronnote-snippet-option-number,
+.aaronnote-snippet-option.is-active .aaronnote-snippet-option-key {
+  color: var(--aaron-red-dark);
 }
 
 .aaronnote-snippet-option-detail {
@@ -669,9 +825,9 @@ input {
 }
 
 .aaronnote-math-preview {
-  max-width: min(420px, calc(100vw - 16px));
-  max-height: 240px;
-  overflow: auto;
+  max-width: min(560px, calc(100vw - 16px));
+  max-height: none;
+  overflow: hidden;
   padding: 10px 12px;
   color: var(--aaron-ink);
 }
@@ -812,6 +968,8 @@ input {
 
   .aaronnote-notes-inner,
   .aaronnote-graph-inner {
+    width: auto;
+    min-height: calc(100vh - 74px);
     padding: 22px 18px;
   }
 
@@ -820,6 +978,12 @@ input {
     grid-template-columns: 1fr;
   }
 
+  .aaronnote-graph-grid {
+    height: auto;
+    min-height: 0;
+  }
+
+  .aaronnote-graph-canvas,
   .aaronnote-graph-focus {
     min-height: 220px;
   }

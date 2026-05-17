@@ -4,14 +4,34 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Quantum State | Aaron He</title>
-  <link rel="stylesheet" href="../../css/retro.css?v=20260517-md" />
-  <script>window.CURRENT_NOTE_LINK = "roam/QC/quantum_state.html"; window.SITE_ROOT_PATH = "../../";</script>
+  <link rel="stylesheet" href="../../Aaronnote/aaronnote/style.css?v=20260518-aaronnote" />
+  <link rel="stylesheet" href="../../Aaronnote/src/styles/widgets.css?v=20260518-aaronnote" />
+  <link rel="stylesheet" href="../../Aaronnote/src/styles/theme-typora.css?v=20260518-aaronnote" />
+  <link rel="stylesheet" href="../../css/aaronnote-published.css?v=20260518-aaronnote" />
 </head>
-<body class="note-page">
-  <main id="content">
-    <h1 class="title">Quantum State</h1>
-    <h1 id="1-hilbert-space">1. 量子态的数学载体：希尔伯特空间(<a href="../math/hilbert_space.html">Hilbert Space</a>)</h1>
-<p>在量子力学中，每一个物理系统，都对应一个 <em>复希尔伯特空间</em> H。</p>
+<body class="aaronnote-shell published-note-page">
+  <header class="aaronnote-toolbar">
+    <div class="aaronnote-title">
+      <strong>Aaronnote</strong>
+      <span>QC / 2026-01-28</span>
+    </div>
+    <nav class="aaronnote-actions" aria-label="Published note navigation">
+      <a href="../../index.html">Home</a>
+      <a href="../../notes.html">Archive</a>
+    </nav>
+    <span class="aaronnote-status">Published HTML</span>
+  </header>
+  <main class="aaronnote-body">
+    <section class="aaronnote-editor">
+      <div class="typora-web-wrap">
+        <div class="typora-web-editor-host">
+          <article id="content" class="ProseMirror" data-note-title="Quantum State">
+            <h1 class="title">Quantum State</h1>
+            <h1 id="1-量子态的数学载体希尔伯特空间hilbert-space">1.
+量子态的数学载体：希尔伯特空间(<a
+href="../math/hilbert_space.html">Hilbert Space</a>)</h1>
+<p>在量子力学中，每一个物理系统，都对应一个 <em>复希尔伯特空间</em>
+H。</p>
 <p>H 具备三个关键结构：</p>
 <ul>
 <li>线性结构（可以相加、数乘）</li>
@@ -21,17 +41,15 @@
 <p>在实际物理中，我们通常假设 H 是 <em>可分的</em>，
 意思是：它有一个可数的正交基，
 这与“有限次实验可以确定状态”这一物理事实相匹配。</p>
-<h1 id="2">2. 量子态不是矢量，而是“束”</h1>
-<p><em>关键结论：</em>
-量子态 ≠ 希尔伯特空间中的某一个具体矢量
-量子态 = <em>一维子空间</em>（又叫“束”）</p>
-<p>原因是：
-如果两个矢量只差一个整体相位</p>
-<pre><code class="language-typst">#table(
-  columns: 2,
-  [ψ⟩ 和 e^{iθ}], [ψ⟩],
-)
-</code></pre>
+<h1 id="2-量子态不是矢量而是束">2. 量子态不是矢量，而是“束”</h1>
+<p><em>关键结论：</em> 量子态 ≠ 希尔伯特空间中的某一个具体矢量 量子态 =
+<em>一维子空间</em>（又叫“束”）</p>
+<p>原因是： 如果两个矢量只差一个整体相位</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode typst"><code class="sourceCode typst"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">#</span>table<span class="op">(</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  columns<span class="op">:</span> <span class="dv">2</span><span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="op">[</span>ψ⟩ 和 e^{iθ}<span class="op">],</span> <span class="op">[</span>ψ⟩<span class="op">],</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">)</span></span></code></pre></div>
 <p>那么：</p>
 <ul>
 <li>所有可观测量的概率</li>
@@ -43,11 +61,10 @@
 <li>所有长度为 1 的矢量</li>
 <li>按“相差一个相位”分成的等价类</li>
 </ul>
-<p>数学上，这叫：
-<em>射影希尔伯特空间</em> P(H)</p>
-<h1 id="3">3. 为什么平时还在用“态矢”这个说法？</h1>
-<p>虽然严格来说量子态是“束”，
-但在很多情形下：</p>
+<p>数学上，这叫： <em>射影希尔伯特空间</em> P(H)</p>
+<h1 id="3-为什么平时还在用态矢这个说法">3.
+为什么平时还在用“态矢”这个说法？</h1>
+<p>虽然严格来说量子态是“束”， 但在很多情形下：</p>
 <ul>
 <li>选定一个代表元 |ψ⟩ 计算</li>
 <li>最终结果与相位无关</li>
@@ -57,12 +74,11 @@
 <li>用 |ψ⟩ 代指这个束</li>
 <li>称之为“态矢”</li>
 </ul>
-<p>这是一个 <em>计算上的简化</em>，
-而不是概念上的严格等价。</p>
+<p>这是一个 <em>计算上的简化</em>， 而不是概念上的严格等价。</p>
+          </article>
+        </div>
+      </div>
+    </section>
   </main>
-  <script src="../../js/data.js?v=20260517-md"></script>
-  <script src="../../js/knowledge.js?v=20260517-md"></script>
-  <script src="../../js/graph.js?v=20260517-md"></script>
-  <script src="../../js/note-page.js?v=20260517-md"></script>
 </body>
 </html>

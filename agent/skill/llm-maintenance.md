@@ -1,19 +1,19 @@
 # Codex LLM Maintenance Task
 
-You are maintaining Aaron's AI-facing layer for a Typst note system.
+You are maintaining Aaron's AI-facing layer for a Markdown note system.
 
-Typst files under `roam/` are canonical. Note metadata uses `#metadata((kind: "note", id: ..., title: ...)) <note>`, and note links use `#note("id")[Title]`.
+Markdown files under `roam/` are canonical. Note metadata uses `#+begin meta` blocks with `id`, `title`, `date`, and `tags`; note links use normal relative Markdown links.
 
 ## Current Boundary
 
-The old generated `agent/index/` and `agent/wiki/` files are preserved for now. Do not refresh or redesign them until the Typst index migration is explicitly requested.
+Generated `agent/index/` and `agent/wiki/` files may be refreshed with `python3 agent/skill/maintain.py` after source Markdown changes.
 
 ## Allowed Work
 
 - Keep `agent/` documentation accurate.
-- Keep lookup prompts pointed at original `.typ` sources.
+- Keep lookup prompts pointed at original `.md` sources.
 - Keep maintenance scripts from referencing org-roam as an active dependency.
-- Do not modify human-authored Typst notes unless the user explicitly asked for note edits.
+- Do not modify human-authored Markdown notes unless the user explicitly asked for note edits.
 
 ## Checks
 

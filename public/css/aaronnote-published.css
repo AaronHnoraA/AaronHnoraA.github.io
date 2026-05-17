@@ -1,0 +1,30 @@
+.published-note-page .aaronnote-actions a {
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 3px;
+  padding: 0 10px;
+  background: var(--aaron-paper);
+  color: var(--aaron-ink);
+  text-decoration: none;
+}
+
+.published-note-page .aaronnote-actions a:hover {
+  border-color: var(--aaron-red);
+  background: var(--aaron-paper-soft);
+}
+
+.published-note-page .ProseMirror {
+  box-sizing: border-box;
+}
+
+.published-note-page .ProseMirror org-env-block .org-env-heading-title[data-empty="true"] {
+  display: none;
+}
+
+.published-note-page .sealed-note-message {
+  margin: 1.25rem 0 0;
+  color: var(--aaron-muted);
+  text-align: center;
+}

@@ -4,112 +4,154 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Hilbert Space | Aaron He</title>
-  <link rel="stylesheet" href="../../css/retro.css?v=20260517-md" />
-  <script>window.CURRENT_NOTE_LINK = "roam/math/hilbert_space.html"; window.SITE_ROOT_PATH = "../../";</script>
+  <link rel="stylesheet" href="../../Aaronnote/aaronnote/style.css?v=20260518-aaronnote" />
+  <link rel="stylesheet" href="../../Aaronnote/src/styles/widgets.css?v=20260518-aaronnote" />
+  <link rel="stylesheet" href="../../Aaronnote/src/styles/theme-typora.css?v=20260518-aaronnote" />
+  <link rel="stylesheet" href="../../css/aaronnote-published.css?v=20260518-aaronnote" />
 </head>
-<body class="note-page">
-  <main id="content">
-    <h1 class="title">Hilbert Space</h1>
-    <h1 id="hilbert-space">Hilbert Space 希尔伯特空间</h1>
-<div class="attention"><p><strong>Hilbert space is a big space.</strong></p><p>----- Carlton Caves</p></div>
-
-<h2 id="1-mathematical-understanding">1. 数学理解 (Mathematical Understanding)</h2>
-<p>本质是将欧几里得空间 ($bb(R)^(n)$) 推广到<em>无限维</em>，并保留几何直观。</p>
+<body class="aaronnote-shell published-note-page">
+  <header class="aaronnote-toolbar">
+    <div class="aaronnote-title">
+      <strong>Aaronnote</strong>
+      <span>Math / 2026-01-26</span>
+    </div>
+    <nav class="aaronnote-actions" aria-label="Published note navigation">
+      <a href="../../index.html">Home</a>
+      <a href="../../notes.html">Archive</a>
+    </nav>
+    <span class="aaronnote-status">Published HTML</span>
+  </header>
+  <main class="aaronnote-body">
+    <section class="aaronnote-editor">
+      <div class="typora-web-wrap">
+        <div class="typora-web-editor-host">
+          <article id="content" class="ProseMirror" data-note-title="Hilbert Space">
+            <h1 class="title">Hilbert Space</h1>
+            <h1 id="hilbert-space-希尔伯特空间">Hilbert Space 希尔伯特空间</h1>
+<p><org-env-block data-kind="attention" data-title="Hilbert" data-label="Attention"><span class="org-env-heading"><span class="org-env-heading-label">Attention</span><span class="org-env-heading-title" data-empty="false">Hilbert</span></span><div class="org-env-content"><p>Hilbert
+space is a big space. ----- Carlton Caves</p></div></org-env-block></p>
+<h2 id="1-数学理解-mathematical-understanding">1. 数学理解 (Mathematical
+Understanding)</h2>
+<p>本质是将欧几里得空间 (<span
+class="math inline"><em>b</em><em>b</em>(<em>R</em>)<sup>(</sup><em>n</em>)</span>)
+推广到<em>无限维</em>，并保留几何直观。</p>
 <ul>
-<li><em>核心定义</em>: 一个<em>完备 (Complete)</em> 的<em>内积空间 (Inner Product Space)</em>。</li>
-<li><em>内积 ($ lr(angle.l u, v angle.r) $)</em>: 定义了“角度”和“投影”。若内积为 0，则两向量正交。</li>
-<li><em>范数 ($||v||$)</em>: 由内积导出 ($||v|| = sqrt( lr(angle.l v, v angle.r) )$)，定义了向量的“长度”。</li>
-<li><em>完备性</em>: 空间内的柯西序列收敛于空间内（保证极限存在，微积分可行）。</li>
-<li><em>常见例子</em>:</li>
-<li>$bb(R)^n$ (有限维希尔伯特空间)。</li>
-<li>$L^2$ 空间 (平方可积函数空间，量子力学中最常用)。</li>
+<li><p><em>核心定义</em>: 一个<em>完备 (Complete)</em> 的<em>内积空间
+(Inner Product Space)</em>。</p>
+<ul>
+<li><em>内积 ($ lr(angle.l u, v angle.r) $)</em>:
+定义了“角度”和“投影”。若内积为 0，则两向量正交。</li>
+<li><em>范数 (<span class="math inline">||<em>v</em>||</span>)</em>:
+由内积导出 (<span
+class="math inline">||<em>v</em>|| = <em>s</em><em>q</em><em>r</em><em>t</em>(<em>l</em><em>r</em>(<em>a</em><em>n</em><em>g</em><em>l</em><em>e</em>.<em>l</em><em>v</em>, <em>v</em><em>a</em><em>n</em><em>g</em><em>l</em><em>e</em>.<em>r</em>))</span>)，定义了向量的“长度”。</li>
+<li><em>完备性</em>:
+空间内的柯西序列收敛于空间内（保证极限存在，微积分可行）。</li>
+</ul></li>
+<li><p><em>常见例子</em>:</p>
+<ul>
+<li><span
+class="math inline"><em>b</em><em>b</em>(<em>R</em>)<sup><em>n</em></sup></span>
+(有限维希尔伯特空间)。</li>
+<li><span class="math inline"><em>L</em><sup>2</sup></span> 空间
+(平方可积函数空间，量子力学中最常用)。</li>
+</ul></li>
 </ul>
-<h2 id="2-quantum-applications">2. 量子应用 (Quantum Applications)</h2>
+<h2 id="2-量子应用-quant-量子应p-quaions">2. 量子应用 (Quant. 量子应p
+(Quaions)</h2>
 <p>量子力学的公理化数学基础。</p>
 <ul>
-<li><em>态 (State)</em>: 物理系统的状态由希尔伯特空间中的<em>射线</em>（归一化向量 $ lr(|psi angle.r) $）描述。</li>
-<li><em>叠加原理</em>: 向量的线性组合仍然是空间中的一个有效向量。</li>
-<li><em>可观测量</em>: 对应于作用在空间上的<em>厄米算符 (Hermitian Operators)</em>。</li>
+<li><p><em>态 (State)</em>:
+物理系统的状态由希尔伯特空间中的<em>射线</em>（归一化向量 $ lr(|psi
+angle.r) $）描述。</p></li>
+<li><p><em>叠加原理</em>:
+向量的线性组合仍然是空间中的一个有效向量。</p></li>
+<li><p><em>可观测量</em>: 对应于作用在空间上的<em>厄米算符 (Hermitian
+Operators)</em>。</p>
+<ul>
 <li>算符的<em>本征值</em>是测量的可能结果。</li>
 <li>算符的<em>本征态</em>构成空间的基底。</li>
-<li><em>概率 (Born Rule)</em>: 概率幅由内积给出，概率为内积的模方 ($P = | lr(angle.l phi | psi angle.r) |^2$)。</li>
+</ul></li>
+<li><p><em>概率 (Born Rule)</em>: 概率幅由内积给出，概率为内积的模方
+(<span
+class="math inline"><em>P</em> = |<em>l</em><em>r</em>(<em>a</em><em>n</em><em>g</em><em>l</em><em>e</em>.<em>l</em><em>p</em><em>h</em><em>i</em>|<em>p</em><em>s</em><em>i</em><em>a</em><em>n</em><em>g</em><em>l</em><em>e</em>.<em>r</em>)|<sup>2</sup></span>)。</p></li>
 </ul>
-<h1 id="_1">有限维必完备</h1>
-<div class="theorem"><p><strong>在有限维内积空间中，所有柯西序列均收敛于该空间内的某个向量。因此，有限维内积空间([Inner Product Space](inner_product_space.md))天然是完备的，即有限维内积空间即为希尔伯特空间。</strong></p></div>
-
-<div class="proof"><p><strong># 证明思路</strong></p><ul>
-<li>选取正交基<ul>
+<p><span
+class="math display"><em>d</em>(<em>v</em><sub><em>i</em></sub>, <em>v</em><sub><em>j</em></sub>)<sup>2</sup> = <em>s</em><em>u</em><em>m</em><sub>(</sub><em>k</em> = 1)<sup><em>N</em></sup>|<em>z</em><sub>(</sub><em>i</em><em>k</em>) − <em>z</em><sub>(</sub><em>j</em><em>k</em>)|<sup>2</sup> &lt; <em>e</em><em>p</em><em>s</em><em>i</em><em>l</em><em>o</em><em>n</em>.<em>a</em><em>l</em><em>t</em><sup>2</sup></span></p>
+<h1 id="ss">ss</h1>
+<p>有限维必完备</p>
+<p><org-env-block data-kind="theorem" data-title="在有限维内积空间中，所有柯西序列均收敛于该空间内的某个向量。因此，有限维内积空间([Inner Product Space](inner_product_space.md))天然是完备的，即有限维内积空间即为希尔伯特空间。" data-label="Theorem"><span class="org-env-heading"><span class="org-env-heading-label">Theorem</span><span class="org-env-heading-title" data-empty="false">在有限维内积空间中，所有柯西序列均收敛于该空间内的某个向量。因此，有限维内积空间(<a
+href="inner_product_space.html">Inner Product
+Space</a>)天然是完备的，即有限维内积空间即为希尔伯特空间。</span></span><div class="org-env-content"></div></org-env-block></p>
+<p><org-env-block data-kind="proof" data-title="# 证明思路" data-label="Proof"><span class="org-env-heading"><span class="org-env-heading-label">Proof</span><span class="org-env-heading-title" data-empty="false">#
+证明思路</span></span><div class="org-env-content"><pre><code>-
+选取正交基</p>
+<ul>
 <li>将向量柯西列转化为坐标柯西列</li>
 <li>利用实数/复数的完备性</li>
-<li>再拼回向量极限</li>
+<li>再拼回向量极限</code></pre></li>
 </ul>
-</li>
-</ul>
-<h1>证明</h1>
-<pre><code>设 $V$ 是 $N$ 维复内积空间。
-</code></pre>
-<h2>Step 1：选取正交基</h2>
-<pre><code>由 Gram–Schmidt 正交化，存在正交基：
-</code></pre>
-<p>$     {e_1,e_2, dots ,e_N} $</p>
-<h2>Step 2：设 ${v_i}$ 为柯西列</h2>
+<h1 id="证明">证明</h1>
+<pre><code>设 $V$ 是 $N$ 维复内积空间。</code></pre>
+<h2 id="step-1选取正交基">Step 1：选取正交基</h2>
+<pre><code>由 Gram–Schmidt 正交化，存在正交基：</code></pre>
+<p>$$</p>
+<pre><code> {e\_1,e\_2, dots ,e\_N} </code></pre>
+<p>$$</p>
+<h2 id="step-2设-v_i-为柯西列">Step 2：设 <span
+class="math inline"><em>v</em><sub><em>i</em></sub></span> 为柯西列</h2>
 <pre><code>对任意 $ epsilon.alt &gt;0$，存在 $n$，
-使得当 $i,j&gt;n$ 时：
-</code></pre>
-<p>$     d(v_i,v_j)&lt; epsilon.alt  $</p>
-<h2>Step 3：写成坐标形式</h2>
+使得当 $i,j&gt;n$ 时：</code></pre>
+<p>$$</p>
+<pre><code> d(v_i,v_j)&lt; \epsilon.alt  </code></pre>
+<p>$$</p>
+<h2 id="step-3写成坐标形式">Step 3：写成坐标形式</h2>
 <pre><code>对每个 $i$，存在唯一的 $z_(i k) in bb(C)$，
-使得：
-</code></pre>
-<p>$     v_i= sum <em>(k=1)^N z</em>(i k)e_k $</p>
-<h2>Step 4：距离的坐标表达</h2>
-<pre><code>由正交性：
-</code></pre>
-<p>$     d(v_i,v_j)^2
-    = sum <em>(k=1)^N |z</em>(i k)-z_(j k)|^2
-    &lt; epsilon.alt ^2 $</p>
-<h2>Step 5：拆分为实部与虚部</h2>
-<pre><code>记：
-</code></pre>
-<p>$     z_(i k)=x_(i k)+i y_(i k) $</p>
+使得：</code></pre>
+<p><span
+class="math display"><em>v</em><sub><em>i</em></sub> = <em>s</em><em>u</em><em>m</em><sub>(</sub><em>k</em> = 1)<sup><em>N</em></sup><em>z</em><sub>(</sub><em>i</em><em>k</em>)<em>e</em><sub><em>k</em></sub></span></p>
+<h2 id="step-4距离的坐标表达">Step 4：距离的坐标表达</h2>
+<pre><code>由正交性：</code></pre>
+<p><span
+class="math display"><em>s</em><em>d</em>(<em>v</em><sub><em>i</em></sub>, <em>v</em><sub><em>j</em></sub>)<sup>2</sup> = <em>s</em><em>u</em><em>m</em><sub>(</sub><em>k</em> = 1)<sup><em>N</em></sup>|<em>z</em><sub>(</sub><em>i</em><em>k</em>) − <em>z</em><sub>(</sub><em>j</em><em>k</em>)|<sup>2</sup> &lt; <em>e</em><em>p</em><em>s</em><em>i</em><em>l</em><em>o</em><em>n</em>.<em>a</em><em>l</em><em>t</em><sup>2</sup></span></p>
+<h2 id="step-5拆分为实部与虚部">Step 5：拆分为实部与虚部</h2>
+<pre><code>记：</code></pre>
+<p><span
+class="math display"><em>z</em><sub>(</sub><em>i</em><em>k</em>) = <em>x</em><sub>(</sub><em>i</em><em>k</em>) + <em>i</em><em>y</em><sub>(</sub><em>i</em><em>k</em>)</span></p>
 <pre><code>则：
-$  sum _(k=1)^N |x_(i k)-x_(j k)|^2
+$$
+  sum _(k=1)^N |x_(i k)-x_(j k)|^2
 
-+ sum _(k=1)^N |y_(i k)-y_(j k)|^2
-&lt;  epsilon.alt ^2 $
-</code></pre>
-<h2>Step 6：坐标收敛</h2>
+<ul>
+<li>sum <em>(k=1)^N |y</em>(i k)-y_(j k)|^2 &lt; epsilon.alt ^2
+$$</code></pre></li>
+</ul>
+<h2 id="step-6坐标收敛">Step 6：坐标收敛</h2>
 <pre><code>对每个 $k$，
 ${x_(i k)}_i,{y_(i k)}_i$ 为实数柯西列。
 
-由 $bb(R)$ 的完备性，
-存在 $x_k,y_k in bb(R)$，
-使得：
-</code></pre>
-<p>$     x_(i k) -&gt;  x_k, quad  y_(i k) -&gt;  y_(k) $</p>
-<h2>Step 7：构造极限向量</h2>
-<pre><code>令：
-</code></pre>
-<p>$     z_k=x_k+i y_k, quad
-    v= sum _(k=1)^N z_k e_k $</p>
-<pre><code>则：
-</code></pre>
-<p>$     d(v_i,v) -&gt;  0 $</p>
-<pre><code>故：
-</code></pre>
-<p>$     v_i -&gt;  v $</p>
-<h1>结论</h1>
-<pre><code>有限维内积空间是完备的。
-</code></pre></div>
+<p>由 <span class="math inline"><em>b</em><em>b</em>(<em>R</em>)</span>
+的完备性， 存在 <span
+class="math inline"><em>x</em><sub><em>k</em></sub>, <em>y</em><sub><em>k</em></sub><em>i</em><em>n</em><em>b</em><em>b</em>(<em>R</em>)</span>，
+使得：</code></pre></p>
+<p><span
+class="math display"><em>x</em><sub><em>i</em><em>k</em></sub> → <em>x</em><sub><em>k</em></sub>,  <em>y</em><sub><em>i</em><em>k</em></sub> → <em>y</em><sub><em>k</em></sub></span></p>
+<h2 id="step-7构造极限向量">Step 7：构造极限向量</h2>
+<pre><code>令：</code></pre>
+<p>$ z_k=x_k+i y_k, quad v= sum _(k=1)^N z_k e_k $</p>
+<pre><code>则：</code></pre>
+<p>$ d(v_i,v) -&gt; 0 $</p>
+<pre><code>故：</code></pre>
+<p>$ v_i \to v $</p>
+<h1 id="结论">结论</h1>
+<pre><code>有限维内积空间是完备的。</code></pre></div></org-env-block>
 
-<h1 id="_2">希尔伯特空间的相互作用</h1>
-<div class="theorem"><p><strong>希尔伯特空间的相互作用</strong></p><p>给定任意两个（或更多）希尔伯特空间，利用直和或张量积的方式，可以给出一个更大的希尔伯特空间。</p></div>
-
+<h1 id="希尔伯特空间的相互作用">希尔伯特空间的相互作用</h1>
+<p><org-env-block data-kind="theorem" data-title="希尔伯特空间的相互作用" data-label="Theorem"><span class="org-env-heading"><span class="org-env-heading-label">Theorem</span><span class="org-env-heading-title" data-empty="false">希尔伯特空间的相互作用</span></span><div class="org-env-content"><p>给定任意两个（或更多）希尔伯特空间，利用直和或张量积的方式，可以给出一个更大的希尔伯特空间。</p></div></org-env-block></p>
 <p>这意味着 这为量子力学中张量积干涉两个量子系统提供了理论支撑.</p>
+          </article>
+        </div>
+      </div>
+    </section>
   </main>
-  <script src="../../js/data.js?v=20260517-md"></script>
-  <script src="../../js/knowledge.js?v=20260517-md"></script>
-  <script src="../../js/graph.js?v=20260517-md"></script>
-  <script src="../../js/note-page.js?v=20260517-md"></script>
 </body>
 </html>

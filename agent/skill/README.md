@@ -6,7 +6,7 @@ Autonomous tooling edits are gated by [develop.md](/Users/hc/HC/Org/agent/develo
 
 - `llm-maintenance.md`: prompt used by `make llm` to delegate targeted maintenance to Codex.
 - `lookup.md`: prompt used by `make lookup` for interactive read-only note retrieval with original-source verification.
-- `maintain.py`: legacy index/wiki generator. Leave it paused until the Typst index migration is handled separately.
+- `maintain.py`: Markdown index/wiki generator for `roam/**/*.md`.
 - `check_agent_text_limits.py`: verifies the 500-character limits for `agent/project-overview.md` and `agent/growth-log.md`.
 
 Run the full maintenance workflow through:

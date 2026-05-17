@@ -4,83 +4,100 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Inner Product Space | Aaron He</title>
-  <link rel="stylesheet" href="../../css/retro.css?v=20260517-md" />
-  <script>window.CURRENT_NOTE_LINK = "roam/math/inner_product_space.html"; window.SITE_ROOT_PATH = "../../";</script>
+  <link rel="stylesheet" href="../../Aaronnote/aaronnote/style.css?v=20260518-aaronnote" />
+  <link rel="stylesheet" href="../../Aaronnote/src/styles/widgets.css?v=20260518-aaronnote" />
+  <link rel="stylesheet" href="../../Aaronnote/src/styles/theme-typora.css?v=20260518-aaronnote" />
+  <link rel="stylesheet" href="../../css/aaronnote-published.css?v=20260518-aaronnote" />
 </head>
-<body class="note-page">
-  <main id="content">
-    <h1 class="title">Inner Product Space</h1>
-    <h1 id="inner-product-space">Inner Product Space 内积空间</h1>
+<body class="aaronnote-shell published-note-page">
+  <header class="aaronnote-toolbar">
+    <div class="aaronnote-title">
+      <strong>Aaronnote</strong>
+      <span>Math / 2026-01-27</span>
+    </div>
+    <nav class="aaronnote-actions" aria-label="Published note navigation">
+      <a href="../../index.html">Home</a>
+      <a href="../../notes.html">Archive</a>
+    </nav>
+    <span class="aaronnote-status">Published HTML</span>
+  </header>
+  <main class="aaronnote-body">
+    <section class="aaronnote-editor">
+      <div class="typora-web-wrap">
+        <div class="typora-web-editor-host">
+          <article id="content" class="ProseMirror" data-note-title="Inner Product Space">
+            <h1 class="title">Inner Product Space</h1>
+            <h1 id="inner-product-space-内积空间">Inner Product Space 内积空间</h1>
 <ul>
-<li>标量域 $F$：</li>
-<li>$bb(R)$（实数）</li>
-<li>
-<p>$bb(C)$（复数）</p>
-</li>
-<li>
-<p>$V$ 是定义在域 $(F,+, times )$ 上的向量空间</p>
-</li>
+<li><p>标量域 <span class="math inline"><em>F</em></span>：</p>
+<ul>
+<li><span
+class="math inline"><em>b</em><em>b</em>(<em>R</em>)</span>（实数）</li>
+<li><span
+class="math inline"><em>b</em><em>b</em>(<em>C</em>)</span>（复数）</li>
+</ul></li>
+<li><p><span class="math inline"><em>V</em></span> 是定义在域 <span
+class="math inline">(<em>F</em>, +, <em>t</em><em>i</em><em>m</em><em>e</em><em>s</em>)</span>
+上的向量空间</p>
+<ul>
 <li>向量加法：$ plus.circle $</li>
-<li>
-<p>标量乘法：$ dot.op $</p>
-</li>
-<li>
-<p>给定一个二元函数
-$ f: V  times  V  -&gt;  F $
-通常记作：
-$ f(v,w) =  lr(angle.l v,w angle.r)  $</p>
-</li>
+<li>标量乘法：$ dot.op $</li>
+</ul></li>
+<li><p>给定一个二元函数 $ f: V times V -&gt; F $ 通常记作： $ f(v,w) =
+lr(angle.l v,w angle.r) $</p></li>
 </ul>
-<h1 id="_1">内积的公理化定义</h1>
-<p>若 $ lr(angle.l dot.op , dot.op angle.r) $ 满足下表中的全部条件，则称其为 $V$ 上的一个 <em>内积</em>。</p>
-<pre><code class="language-typst">#table(
-  columns: 3,
-  [性质名称], [前提条件], [数学表述], [共轭对称], [$ forall  v,w in  V$], [$ lr(angle.l v,w angle.r)  = overline( lr(angle.l w,v angle.r) )$], [加法线性], [$ forall  v,w,a in  V$], [$ lr(angle.l v plus.circle  w, a angle.r)  =  lr(angle.l v,a angle.r)  +  lr(angle.l w,a angle.r) $], [齐次线性], [$ forall  v,w in  V,\  forall   lambda  in  F$], [$ lr(angle.l lambda  dot.op  v, w angle.r)  =  lambda  thin  lr(angle.l v,w angle.r) $], [非负性], [$ forall  v in  V$], [$ lr(angle.l v,v angle.r)   &gt;=  0$], [非退化性], [$ forall  v in  V$], [$ lr(angle.l v,v angle.r)  = 0  &lt;==&gt;  v=0_V$],
-)
-</code></pre>
+<h1 id="内积的公理化定义">内积的公理化定义</h1>
+<p>若 $ lr(angle.l dot.op , dot.op angle.r) $
+满足下表中的全部条件，则称其为 <span
+class="math inline"><em>V</em></span> 上的一个 <em>内积</em>。</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode typst"><code class="sourceCode typst"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">#</span>table<span class="op">(</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  columns<span class="op">:</span> <span class="dv">3</span><span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="op">[</span>性质名称<span class="op">],</span> <span class="op">[</span>前提条件<span class="op">],</span> <span class="op">[</span>数学表述<span class="op">],</span> <span class="op">[</span>共轭对称<span class="op">],</span> <span class="op">[</span><span class="ss">$ forall  v,w in  V$</span><span class="op">],</span> <span class="op">[</span><span class="ss">$ lr(angle.l v,w angle.r)  = overline( lr(angle.l w,v angle.r) )$</span><span class="op">],</span> <span class="op">[</span>加法线性<span class="op">],</span> <span class="op">[</span><span class="ss">$ forall  v,w,a in  V$</span><span class="op">],</span> <span class="op">[</span><span class="ss">$ lr(angle.l v plus.circle  w, a angle.r)  =  lr(angle.l v,a angle.r)  +  lr(angle.l w,a angle.r) $</span><span class="op">],</span> <span class="op">[</span>齐次线性<span class="op">],</span> <span class="op">[</span><span class="ss">$ forall  v,w in  V,\  forall   lambda  in  F$</span><span class="op">],</span> <span class="op">[</span><span class="ss">$ lr(angle.l lambda  dot.op  v, w angle.r)  =  lambda  thin  lr(angle.l v,w angle.r) $</span><span class="op">],</span> <span class="op">[</span>非负性<span class="op">],</span> <span class="op">[</span><span class="ss">$ forall  v in  V$</span><span class="op">],</span> <span class="op">[</span><span class="ss">$ lr(angle.l v,v angle.r)   &gt;=  0$</span><span class="op">],</span> <span class="op">[</span>非退化性<span class="op">],</span> <span class="op">[</span><span class="ss">$ forall  v in  V$</span><span class="op">],</span> <span class="op">[</span><span class="ss">$ lr(angle.l v,v angle.r)  = 0  &lt;==&gt;  v=0_V$</span><span class="op">],</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">)</span></span></code></pre></div>
 <p>📌 以上线性条件是指 <em>对第一个变量线性</em>。</p>
-<h1 id="_2">实内积空间与复内积空间</h1>
+<h1 id="实内积空间与复内积空间">实内积空间与复内积空间</h1>
 <ul>
-<li>若 $F=bb(R)$，称 $V$ 为 <em>实内积空间</em></li>
-<li>若 $F=bb(C)$，称 $V$ 为 <em>复内积空间</em></li>
+<li>若 <span
+class="math inline"><em>F</em> = <em>b</em><em>b</em>(<em>R</em>)</span>，称
+<span class="math inline"><em>V</em></span> 为 <em>实内积空间</em></li>
+<li>若 <span
+class="math inline"><em>F</em> = <em>b</em><em>b</em>(<em>C</em>)</span>，称
+<span class="math inline"><em>V</em></span> 为 <em>复内积空间</em></li>
 </ul>
-<h1 id="_3">正交的定义</h1>
-<p>若
-$  lr(angle.l v,w angle.r)  = 0 $
-则记为
-$ v  perp  w $</p>
-<p>称 $v$ 与 $w$ <em>正交（orthogonal / perpendicular）</em></p>
-<h1 id="vs">定义顺序的分歧（数学 vs 物理）</h1>
-<h2 id="_4">数学上的约定</h2>
+<h1 id="正交的定义">正交的定义</h1>
+<p>若 $ lr(angle.l v,w angle.r) = 0 $ 则记为 $ v perp w $</p>
+<p>称 <span class="math inline"><em>v</em></span> 与 <span
+class="math inline"><em>w</em></span> <em>正交（orthogonal /
+perpendicular）</em></p>
+<h1 id="定义顺序的分歧数学-vs-物理">定义顺序的分歧（数学 vs 物理）</h1>
+<h2 id="数学上的约定">数学上的约定</h2>
 <ul>
 <li>内积对 <em>第一个变量线性</em></li>
 <li>对第二个变量共轭线性</li>
 </ul>
 <p>这是线性代数、泛函分析中的主流约定。</p>
-<h2 id="_5">物理学（狄拉克符号）的约定</h2>
-<p>为配合 $ lr(angle.l psi | phi angle.r) $ 的书写顺序，物理学家常采用相反的线性约定：</p>
-<pre><code class="language-typst">#table(
-  columns: 2,
-  [性质], [数学表述], [加法线性], [$ lr(angle.l a, v plus.circle  w angle.r)  =  lr(angle.l a,v angle.r)  +  lr(angle.l a,w angle.r) $], [齐次线性], [$ lr(angle.l v,  lambda  dot.op  w angle.r)  =  lambda  thin  lr(angle.l v,w angle.r) $],
-)
-</code></pre>
+<h2 id="物理学狄拉克符号的约定">物理学（狄拉克符号）的约定</h2>
+<p>为配合 $ lr(angle.l psi | phi angle.r) $
+的书写顺序，物理学家常采用相反的线性约定：</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode typst"><code class="sourceCode typst"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">#</span>table<span class="op">(</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  columns<span class="op">:</span> <span class="dv">2</span><span class="op">,</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="op">[</span>性质<span class="op">],</span> <span class="op">[</span>数学表述<span class="op">],</span> <span class="op">[</span>加法线性<span class="op">],</span> <span class="op">[</span><span class="ss">$ lr(angle.l a, v plus.circle  w angle.r)  =  lr(angle.l a,v angle.r)  +  lr(angle.l a,w angle.r) $</span><span class="op">],</span> <span class="op">[</span>齐次线性<span class="op">],</span> <span class="op">[</span><span class="ss">$ lr(angle.l v,  lambda  dot.op  w angle.r)  =  lambda  thin  lr(angle.l v,w angle.r) $</span><span class="op">],</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="op">)</span></span></code></pre></div>
 <p>即：<em>对第二个变量线性</em>。</p>
-<h2 id="_6">重要说明</h2>
+<h2 id="重要说明">重要说明</h2>
 <ul>
 <li>真正影响定理形式的是“线性作用在哪个变量”</li>
 <li>两种定义在数学上是等价的</li>
 <li>但使用公式和定理时，必须保持顺序一致</li>
 </ul>
-<p>1 现有内积
-2 内积又到长度
-3 长度诱导的范数
-4 范数诱导的距离
-5 距离看极限
-6 内积空间的完备性</p>
+<p>1 现有内积 2 内积又到长度 3 长度诱导的范数 4 范数诱导的距离 5
+距离看极限 6 内积空间的完备性</p>
+          </article>
+        </div>
+      </div>
+    </section>
   </main>
-  <script src="../../js/data.js?v=20260517-md"></script>
-  <script src="../../js/knowledge.js?v=20260517-md"></script>
-  <script src="../../js/graph.js?v=20260517-md"></script>
-  <script src="../../js/note-page.js?v=20260517-md"></script>
 </body>
 </html>

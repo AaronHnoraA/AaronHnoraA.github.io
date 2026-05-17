@@ -4,21 +4,39 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Density Operator | Aaron He</title>
-  <link rel="stylesheet" href="../../css/retro.css?v=20260517-md" />
-  <script>window.CURRENT_NOTE_LINK = "roam/QC/density_operator.html"; window.SITE_ROOT_PATH = "../../";</script>
+  <link rel="stylesheet" href="../../Aaronnote/aaronnote/style.css?v=20260518-aaronnote" />
+  <link rel="stylesheet" href="../../Aaronnote/src/styles/widgets.css?v=20260518-aaronnote" />
+  <link rel="stylesheet" href="../../Aaronnote/src/styles/theme-typora.css?v=20260518-aaronnote" />
+  <link rel="stylesheet" href="../../css/aaronnote-published.css?v=20260518-aaronnote" />
 </head>
-<body class="note-page">
-  <main id="content">
-    <h1 class="title">Density Operator</h1>
-    <h1 id="1">1. 为什么要引入密度算符</h1>
-<p>并不是所有状态(<a href="quantum_state.html">Quantum State</a>)都能用一个 |ψ⟩ 描述。</p>
+<body class="aaronnote-shell published-note-page">
+  <header class="aaronnote-toolbar">
+    <div class="aaronnote-title">
+      <strong>Aaronnote</strong>
+      <span>QC / 2026-01-28</span>
+    </div>
+    <nav class="aaronnote-actions" aria-label="Published note navigation">
+      <a href="../../index.html">Home</a>
+      <a href="../../notes.html">Archive</a>
+    </nav>
+    <span class="aaronnote-status">Published HTML</span>
+  </header>
+  <main class="aaronnote-body">
+    <section class="aaronnote-editor">
+      <div class="typora-web-wrap">
+        <div class="typora-web-editor-host">
+          <article id="content" class="ProseMirror" data-note-title="Density Operator">
+            <h1 class="title">Density Operator</h1>
+            <h1 id="1-为什么要引入密度算符">1. 为什么要引入密度算符</h1>
+<p>并不是所有状态(<a href="quantum_state.html">Quantum
+State</a>)都能用一个 |ψ⟩ 描述。</p>
 <p>例如：</p>
 <ul>
 <li>我们只知道系统以概率 p_i 处于 |ψ_i⟩</li>
 <li>但不知道“到底是哪一个”</li>
 </ul>
 <p>这时，用“态矢”已经不够了。</p>
-<h1 id="2">2. 密度算符的定义</h1>
+<h1 id="2-密度算符的定义">2. 密度算符的定义</h1>
 <p>一个量子态可以用算符 ρ 表示，满足：</p>
 <ul>
 <li>ρ ≥ 0（非负）</li>
@@ -27,9 +45,8 @@
 </ul>
 <p>期望值公式统一为：</p>
 <p>⟨A⟩ = tr(A ρ)</p>
-<h1 id="3">3. 纯态是特殊的密度算符</h1>
-<p>若系统处于纯态 |ψ⟩，
-定义：</p>
+<h1 id="3-纯态是特殊的密度算符">3. 纯态是特殊的密度算符</h1>
+<p>若系统处于纯态 |ψ⟩， 定义：</p>
 <p>ρ_ψ = |ψ⟩⟨ψ|</p>
 <p>这是一个：</p>
 <ul>
@@ -37,22 +54,20 @@
 <li>秩为 1</li>
 <li>ρ² = ρ</li>
 </ul>
-<p>此时：
-tr(A ρ_ψ) = ⟨ψ|A|ψ⟩</p>
+<p>此时： tr(A ρ_ψ) = ⟨ψ|A|ψ⟩</p>
 <p>与态矢公式完全一致。</p>
-<h1 id="4">4. 纯态与混合态的几何结构</h1>
+<h1 id="4-纯态与混合态的几何结构">4. 纯态与混合态的几何结构</h1>
 <ul>
 <li>所有密度算符构成一个 <em>凸集</em></li>
 <li>纯态 = 极端点（不可再分）</li>
 <li>混合态 = 纯态的凸组合</li>
 </ul>
-<p>可以理解为：
-纯态是“信息最完整的状态”，
-混合态是“经典不确定性 + 量子不确定性”的叠加。</p>
+<p>可以理解为： 纯态是“信息最完整的状态”， 混合态是“经典不确定性 +
+量子不确定性”的叠加。</p>
+          </article>
+        </div>
+      </div>
+    </section>
   </main>
-  <script src="../../js/data.js?v=20260517-md"></script>
-  <script src="../../js/knowledge.js?v=20260517-md"></script>
-  <script src="../../js/graph.js?v=20260517-md"></script>
-  <script src="../../js/note-page.js?v=20260517-md"></script>
 </body>
 </html>

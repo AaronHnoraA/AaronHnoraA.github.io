@@ -1,6 +1,6 @@
 # Agent Wiki
 
-Condensed Markdown views generated from `roam/` Typst notes. These files are for fast AI lookup; edit the source Typst files instead.
+Condensed Markdown views generated from `roam/**/*.md`. These files are for fast AI lookup; edit the source Markdown files instead.
 
 ## Notes
 

@@ -1,11 +1,10 @@
 {
   "inputs": [
+    "Aaronnote/aaronnote/style.css",
+    "Aaronnote/src/styles/theme-typora.css",
+    "Aaronnote/src/styles/widgets.css",
     "bin/publish-site",
-    "css/retro.css",
-    "js/data.js",
-    "js/graph.js",
-    "js/knowledge.js",
-    "js/note-page.js",
+    "css/aaronnote-published.css",
     "roam/QC/density_operator.md"
   ]
 }

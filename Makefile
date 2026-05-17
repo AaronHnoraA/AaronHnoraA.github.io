@@ -30,7 +30,7 @@ publish:
 	$(PUBLISH)
 
 cv:
-	typst compile --root CV CV/main.typ CV/Aaron_He_CV.pdf
+	cd CV && latexmk -xelatex -interaction=nonstopmode -halt-on-error -jobname=Aaron_He_CV main.tex
 
 llm:
 	$(CODEX) exec --cd . --sandbox workspace-write --full-auto - < $(LLM_PROMPT)

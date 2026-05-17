@@ -7,8 +7,8 @@ from pathlib import Path
 import os
 import re
 import random
-import shutil
 import subprocess
+from urllib.parse import unquote
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -22,11 +22,10 @@ STATE_FILE = STATE_DIR / "maintain-state.json"
 DEFAULT_SAMPLE_RATIO = 0.15
 DEFAULT_MIN_SAMPLE = 1
 
-HEADING_RE = re.compile(r"^(=+)\s+(.+)$")
-NOTE_LINK_RE = re.compile(r'#note\("([^"]+)"\)')
-TYPST_STRING_RE = re.compile(r'"((?:[^"\\]|\\.)*)"')
-METADATA_RE = re.compile(r"#metadata\(\((.*?)\)\)\s*<note>", re.DOTALL)
-METADATA_PAIR_RE = re.compile(r"([A-Za-z0-9_-]+)\s*:\s*")
+HEADING_RE = re.compile(r"^(#{1,6})\s+(.+)$")
+FRONT_MATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n?", re.S)
+ORG_META_RE = re.compile(r"\A#\+begin(?:_|\s+)meta\s*\n(.*?)^#\+end(?:_|\s+)meta\s*\n?", re.S | re.M)
+MD_LINK_RE = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
 
 
 @dataclass
@@ -40,6 +39,7 @@ class Note:
     tags: list[str] = field(default_factory=list)
     headings: list[tuple[int, str]] = field(default_factory=list)
     summary: str = ""
+    outgoing_refs: list[str] = field(default_factory=list)
     outgoing_ids: list[str] = field(default_factory=list)
 
     def to_state(self) -> dict[str, object]:
@@ -53,6 +53,7 @@ class Note:
             "tags": self.tags,
             "headings": self.headings,
             "summary": self.summary,
+            "outgoing_refs": self.outgoing_refs,
             "outgoing_ids": self.outgoing_ids,
         }
 
@@ -69,23 +70,19 @@ class Note:
             tags=[str(tag) for tag in data.get("tags", [])],
             headings=[(int(level), str(title)) for level, title in data.get("headings", [])],
             summary=str(data.get("summary", "")),
+            outgoing_refs=[str(item) for item in data.get("outgoing_refs", [])],
             outgoing_ids=[str(item) for item in data.get("outgoing_ids", [])],
         )
 
 
-def clean_typst_markup(text: str) -> str:
-    text = re.sub(r'#note\("[^"]+"\)\[([^\]]+)\]', r"\1", text)
-    text = re.sub(r"#\w+(?:\([^)]*\))?\[([^\]]*)\]", r"\1", text)
-    text = text.replace("*", "").replace("`", "")
-    text = text.replace("#", "")
+def clean_markdown_markup(text: str) -> str:
+    text = re.sub(r"!\[[^\]]*\]\([^)]+\)", " ", text)
+    text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
+    text = re.sub(r"</?[^>]+>", " ", text)
+    text = text.replace("\\_", "_")
+    text = re.sub(r"[#>*_`~$|]", " ", text)
+    text = re.sub(r"^\s*[-+]\s+", "", text)
     return " ".join(text.split())
-
-
-def parse_tags(raw: str) -> list[str]:
-    raw = raw.strip()
-    if raw.startswith(":") and raw.endswith(":"):
-        return [part for part in raw.strip(":").split(":") if part]
-    return [part.strip(" :") for part in raw.split(",") if part.strip(" :")]
 
 
 def unique(values: list[str]) -> list[str]:
@@ -102,86 +99,109 @@ def wiki_path_for(note_path: Path) -> Path:
     return WIKI_NOTES_DIR / note_path.relative_to(ROAM_DIR).with_suffix(".md")
 
 
-def typst_unescape(value: str) -> str:
-    return (
-        value
-        .replace(r"\\", "\\")
-        .replace(r"\"", '"')
-        .replace(r"\n", "\n")
-        .replace(r"\t", "\t")
-    )
+def parse_metadata_block(text: str) -> tuple[dict[str, object], str]:
+    match = ORG_META_RE.match(text)
+    if match:
+        return parse_meta_lines(match.group(1), org_style=True), text[match.end():]
+    match = FRONT_MATTER_RE.match(text)
+    if match:
+        return parse_meta_lines(match.group(1), org_style=False), text[match.end():]
+    return {}, text
 
 
-def parse_typst_metadata(text: str) -> dict[str, object]:
-    match = METADATA_RE.search(text)
-    if not match:
-        return {}
-    body = match.group(1)
-    fields: dict[str, object] = {}
-    pairs = list(METADATA_PAIR_RE.finditer(body))
-    for index, pair in enumerate(pairs):
-        key = pair.group(1)
-        start = pair.end()
-        end = pairs[index + 1].start() if index + 1 < len(pairs) else len(body)
-        raw = body[start:end].strip().rstrip(",").strip()
-        if raw.startswith("("):
-            fields[key] = [typst_unescape(item.group(1)) for item in TYPST_STRING_RE.finditer(raw)]
+def parse_meta_lines(raw: str, org_style: bool) -> dict[str, object]:
+    metadata: dict[str, object] = {}
+    current_list: str | None = None
+    for raw_line in raw.splitlines():
+        line = raw_line.rstrip()
+        item = re.match(r"^\s*-\s*(.+?)\s*$", line)
+        if item and current_list:
+            metadata.setdefault(current_list, [])
+            assert isinstance(metadata[current_list], list)
+            metadata[current_list].append(parse_yaml_scalar(item.group(1)))
+            continue
+        pair = re.match(r"^([A-Za-z0-9_-]+):(?:\s*(.*))?$", line)
+        if not pair:
+            continue
+        key, value = pair.group(1), (pair.group(2) or "").strip()
+        if value == "":
+            metadata[key] = []
+            current_list = key
+        elif org_style and key in {"tags", "aliases", "refs"}:
+            metadata[key] = [normalize_meta_string(part) for part in value.split(",") if part.strip()]
+            current_list = None
         else:
-            string_match = TYPST_STRING_RE.search(raw)
-            if string_match:
-                fields[key] = typst_unescape(string_match.group(1)).strip()
-            elif raw:
-                fields[key] = raw
-    return fields
+            metadata[key] = parse_yaml_scalar(value)
+            current_list = None
+    return metadata
+
+
+def normalize_meta_string(value: object) -> str:
+    return str(value).strip().strip('"').replace("\\_", "_")
+
+
+def parse_yaml_scalar(value: str) -> object:
+    value = value.strip()
+    if value in {"true", "false"}:
+        return value == "true"
+    if value.startswith('"') and value.endswith('"'):
+        return value[1:-1].replace('\\"', '"').replace("\\\\", "\\").replace("\\_", "_")
+    return value.replace("\\_", "_")
+
+
+def metadata_list(metadata: dict[str, object], key: str) -> list[str]:
+    value = metadata.get(key, [])
+    if isinstance(value, list):
+        return [normalize_meta_string(item) for item in value if normalize_meta_string(item)]
+    if isinstance(value, str):
+        return [normalize_meta_string(part) for part in value.split(",") if part.strip()]
+    return []
 
 
 def parse_note(path: Path) -> Note:
     rel_path = path.relative_to(ROOT).as_posix()
     text = path.read_text(encoding="utf-8")
-    lines = text.splitlines()
+    metadata, body = parse_metadata_block(text)
+    lines = body.splitlines()
     note = Note(path=path, rel_path=rel_path, wiki_path=wiki_path_for(path))
-    metadata = parse_typst_metadata(text)
     note.id = str(metadata.get("id", ""))
     note.title = str(metadata.get("title", ""))
     note.date = str(metadata.get("date", ""))
-    raw_tags = metadata.get("tags", [])
-    note.tags = [str(tag).strip() for tag in raw_tags if str(tag).strip()] if isinstance(raw_tags, list) else []
+    note.tags = metadata_list(metadata, "tags")
 
-    in_block = False
     summary_done = False
     summary_parts: list[str] = []
-    outgoing_ids: list[str] = NOTE_LINK_RE.findall(text)
+    outgoing_refs = metadata_list(metadata, "refs") + [ref.strip() for ref in MD_LINK_RE.findall(body)]
+    in_code_fence = False
 
     for line in lines:
         stripped = line.strip()
 
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            in_code_fence = not in_code_fence
+            continue
+        if in_code_fence:
+            continue
+
         heading_match = HEADING_RE.match(line)
         if heading_match:
             level = len(heading_match.group(1))
-            title = clean_typst_markup(heading_match.group(2))
+            title = clean_markdown_markup(heading_match.group(2))
             note.headings.append((level, title))
 
-        if stripped.startswith("#metadata("):
-            in_block = True
-            continue
-        if in_block and stripped.endswith("<note>"):
-            in_block = False
-            continue
         if summary_done:
             continue
-        if in_block:
+        if not stripped:
             continue
-        if not stripped or stripped.startswith("#import") or stripped.startswith("#show") or stripped.startswith("#set"):
-            continue
-        if stripped.startswith("#") and not stripped.startswith("#note"):
+        if stripped.startswith("#+begin") or stripped.startswith("#+end"):
             continue
         if heading_match:
-            cleaned_heading = clean_typst_markup(heading_match.group(2))
+            cleaned_heading = clean_markdown_markup(heading_match.group(2))
             if cleaned_heading:
                 summary_parts.append(cleaned_heading)
             continue
 
-        cleaned = clean_typst_markup(stripped)
+        cleaned = clean_markdown_markup(stripped)
         if cleaned:
             summary_parts.append(cleaned)
         if len(" ".join(summary_parts)) >= 420:
@@ -189,7 +209,7 @@ def parse_note(path: Path) -> Note:
 
     note.title = note.title or path.stem.replace("_", " ").title()
     note.summary = truncate(" ".join(summary_parts), 420)
-    note.outgoing_ids = unique(outgoing_ids)
+    note.outgoing_refs = unique(outgoing_refs)
     return note
 
 
@@ -213,6 +233,40 @@ def note_link(from_file: Path, note: Note) -> str:
 
 def source_link(from_file: Path, note: Note) -> str:
     return f"[{note.rel_path}]({rel_link(from_file, note.path)})"
+
+
+def split_markdown_ref(raw_ref: str) -> str:
+    ref = raw_ref.strip()
+    if ref.startswith("<") and ref.endswith(">"):
+        ref = ref[1:-1]
+    return unquote(ref.split("#", 1)[0].strip())
+
+
+def external_ref_p(ref: str) -> bool:
+    return bool(re.match(r"^[a-z][a-z0-9+.-]*:", ref, flags=re.I))
+
+
+def resolve_markdown_links(notes: list[Note]) -> None:
+    by_id = {note.id: note for note in notes if note.id}
+    by_rel_path = {note.rel_path: note for note in notes}
+    for note in notes:
+        outgoing_ids: list[str] = []
+        for raw_ref in note.outgoing_refs:
+            if raw_ref in by_id:
+                outgoing_ids.append(raw_ref)
+                continue
+            ref = split_markdown_ref(raw_ref)
+            if not ref or external_ref_p(ref):
+                continue
+            ref_path = (note.path.parent / ref).resolve()
+            try:
+                rel_path = ref_path.relative_to(ROOT).as_posix()
+            except ValueError:
+                continue
+            target = by_rel_path.get(rel_path)
+            if target and target.id != note.id:
+                outgoing_ids.append(target.id)
+        note.outgoing_ids = unique(outgoing_ids)
 
 
 def build_backlinks(notes: list[Note]) -> dict[str, list[Note]]:
@@ -326,7 +380,7 @@ def parse_changed_paths(output: str) -> set[str]:
         path_text = line[3:] if len(line) > 3 and line[1] == " " else line
         if " -> " in path_text:
             path_text = path_text.split(" -> ", 1)[1]
-        if not path_text.endswith(".typ"):
+        if not path_text.endswith(".md"):
             continue
         if not path_text.startswith("roam/"):
             continue
@@ -334,7 +388,7 @@ def parse_changed_paths(output: str) -> set[str]:
     return changed
 
 
-def git_changed_org_paths(last_head: str) -> set[str]:
+def git_changed_note_paths(last_head: str) -> set[str]:
     changed: set[str] = set()
 
     if last_head:
@@ -374,7 +428,7 @@ def load_notes(paths: list[Path]) -> tuple[list[Note], list[str], int]:
     fingerprints: dict[str, dict[str, int]] = {}
     reparsed = 0
     last_head = str(state.get("last_head", ""))
-    git_changed = git_changed_org_paths(last_head)
+    git_changed = git_changed_note_paths(last_head)
     head = current_head()
 
     for rel_path, path in path_by_rel.items():
@@ -406,6 +460,7 @@ def load_notes(paths: list[Path]) -> tuple[list[Note], list[str], int]:
 
     deleted = sorted(set(previous) - set(path_by_rel))
     notes = sorted(notes_by_rel.values(), key=lambda note: note.rel_path.lower())
+    resolve_markdown_links(notes)
     save_state(notes, fingerprints, head)
     return notes, deleted, reparsed
 
@@ -418,7 +473,7 @@ def render_index_readme(notes: list[Note]) -> str:
             "Generated by `python3 agent/skill/maintain.py`.",
             "",
             f"- Notes indexed: {len(notes)}",
-            "- Main index: `typst-note-index.md`",
+            "- Main index: `markdown-note-index.md`",
             "- Title index: `titles.md`",
             "- Path index: `paths.md`",
             "- Tag index: `tags.md`",
@@ -429,14 +484,14 @@ def render_index_readme(notes: list[Note]) -> str:
     )
 
 
-def render_typst_note_index(notes: list[Note], backlinks: dict[str, list[Note]]) -> str:
+def render_markdown_note_index(notes: list[Note], backlinks: dict[str, list[Note]]) -> str:
     lines = [
-        "# Typst Note Index",
+        "# Markdown Note Index",
         "",
         "| Title | Path | Tags | Summary |",
         "| --- | --- | --- | --- |",
     ]
-    index_file = INDEX_DIR / "typst-note-index.md"
+    index_file = INDEX_DIR / "markdown-note-index.md"
     for note in notes:
         tags = ", ".join(note.tags)
         lines.append(
@@ -557,7 +612,7 @@ def render_wiki_readme(notes: list[Note]) -> str:
     lines = [
         "# Agent Wiki",
         "",
-        "Condensed Markdown views generated from `roam/` Typst notes. These files are for fast AI lookup; edit the source Typst files instead.",
+        "Condensed Markdown views generated from `roam/**/*.md`. These files are for fast AI lookup; edit the source Markdown files instead.",
         "",
         "## Notes",
         "",
@@ -615,7 +670,7 @@ def main() -> None:
     WIKI_DIR.mkdir(parents=True, exist_ok=True)
     WIKI_NOTES_DIR.mkdir(parents=True, exist_ok=True)
 
-    note_paths = sorted(ROAM_DIR.rglob("*.typ"))
+    note_paths = sorted(ROAM_DIR.rglob("*.md"))
     notes, deleted, reparsed = load_notes(note_paths)
     notes_by_id = {note.id: note for note in notes if note.id}
     backlinks = build_backlinks(notes)
@@ -630,7 +685,10 @@ def main() -> None:
             stale_wiki.unlink()
 
     write_if_changed(INDEX_DIR / "README.md", render_index_readme(notes))
-    write_if_changed(INDEX_DIR / "typst-note-index.md", render_typst_note_index(notes, backlinks))
+    legacy_index = INDEX_DIR / "typst-note-index.md"
+    if legacy_index.exists():
+        legacy_index.unlink()
+    write_if_changed(INDEX_DIR / "markdown-note-index.md", render_markdown_note_index(notes, backlinks))
     write_if_changed(INDEX_DIR / "titles.md", render_titles(notes))
     write_if_changed(INDEX_DIR / "paths.md", render_paths(notes))
     write_if_changed(INDEX_DIR / "tags.md", render_tags(notes))
@@ -648,7 +706,7 @@ def main() -> None:
 
     print(
         "Indexed "
-        f"{len(notes)} Typst notes into {INDEX_DIR.relative_to(ROOT)} and {WIKI_DIR.relative_to(ROOT)}. "
+        f"{len(notes)} Markdown notes into {INDEX_DIR.relative_to(ROOT)} and {WIKI_DIR.relative_to(ROOT)}. "
         f"Reparsed {reparsed} notes; reused cache for {len(notes) - reparsed}; removed {len(deleted)} deleted notes."
     )
 

@@ -12,18 +12,21 @@ import shutil
 import subprocess
 import sys
 
-import markdown
-
 
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC = ROOT / "public"
 PUBLISH_STATE = PUBLIC / ".publish-state.json"
 ASSET_VERSION = "20260517-md"
+NOTE_THEME_VERSION = "20260518-aaronnote"
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".avif"}
 STATIC_EXTENSIONS = IMAGE_EXTENSIONS | {".css", ".js", ".pdf"}
-SKIP_DIRS = {".git", ".cache", ".direnv", ".venv", "node_modules", "public", "ltximg", "_typst", "__pycache__"}
+SKIP_DIRS = {".git", ".git-rewrite", ".cache", ".direnv", ".venv", "node_modules", "public", "release", "ltximg", "_typst", "__pycache__"}
 PUBLISH_INPUT_PATHS = (
     "roam",
+    "CV",
+    "Aaronnote/aaronnote/style.css",
+    "Aaronnote/src/styles/theme-typora.css",
+    "Aaronnote/src/styles/widgets.css",
     "css",
     "js",
     "homepage.html",
@@ -42,6 +45,111 @@ ORG_ENV_RE = re.compile(r"(?ms)^#\+begin(?:_|\s+)([A-Za-z][\w-]*)(?:\s+([^\n]+?)
 MD_IMAGE_RE = re.compile(r"!\[[^\]]*\]\(([^)]+)\)")
 MD_LINK_RE = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
 HTML_MD_LINK_RE = re.compile(r'href="([^"#?:]+)\.md((?:#[^"]*)?)"')
+
+
+def render_inline_markdown(text: str) -> str:
+    escaped = html.escape(text)
+    escaped = re.sub(r"`([^`]+)`", r"<code>\1</code>", escaped)
+    escaped = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", escaped)
+    escaped = re.sub(r"\*([^*]+)\*", r"<em>\1</em>", escaped)
+    escaped = re.sub(r"!\[([^\]]*)\]\(([^)]+)\)", r'<img src="\2" alt="\1" />', escaped)
+    escaped = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', escaped)
+    return escaped
+
+
+def fallback_markdown_to_html(text: str) -> str:
+    lines = text.splitlines()
+    blocks: list[str] = []
+    paragraph: list[str] = []
+    list_items: list[str] = []
+    in_code = False
+    code_lang = ""
+    code_lines: list[str] = []
+
+    def flush_paragraph() -> None:
+        nonlocal paragraph
+        if paragraph:
+            blocks.append(f"<p>{render_inline_markdown(' '.join(paragraph))}</p>")
+            paragraph = []
+
+    def flush_list() -> None:
+        nonlocal list_items
+        if list_items:
+            items = "".join(f"<li>{render_inline_markdown(item)}</li>" for item in list_items)
+            blocks.append(f"<ul>{items}</ul>")
+            list_items = []
+
+    for line in lines:
+        fence = re.match(r"^```([A-Za-z0-9_-]*)\s*$", line)
+        if fence:
+            if in_code:
+                class_attr = f' class="language-{html.escape(code_lang)}"' if code_lang else ""
+                blocks.append(f"<pre><code{class_attr}>{html.escape(chr(10).join(code_lines))}</code></pre>")
+                in_code = False
+                code_lang = ""
+                code_lines = []
+            else:
+                flush_paragraph()
+                flush_list()
+                in_code = True
+                code_lang = fence.group(1)
+            continue
+        if in_code:
+            code_lines.append(line)
+            continue
+
+        stripped = line.strip()
+        if not stripped:
+            flush_paragraph()
+            flush_list()
+            continue
+
+        heading = re.match(r"^(#{1,6})\s+(.+)$", stripped)
+        if heading:
+            flush_paragraph()
+            flush_list()
+            level = len(heading.group(1))
+            title = heading.group(2).strip()
+            slug = re.sub(r"[^A-Za-z0-9\u3400-\u9fff_-]+", "-", title).strip("-").lower()
+            blocks.append(f'<h{level} id="{html.escape(slug)}">{render_inline_markdown(title)}</h{level}>')
+            continue
+
+        item = re.match(r"^[-*+]\s+(.+)$", stripped)
+        if item:
+            flush_paragraph()
+            list_items.append(item.group(1))
+            continue
+
+        if stripped.startswith("<") and stripped.endswith(">"):
+            flush_paragraph()
+            flush_list()
+            blocks.append(stripped)
+            continue
+
+        paragraph.append(stripped)
+
+    flush_paragraph()
+    flush_list()
+    if in_code:
+        class_attr = f' class="language-{html.escape(code_lang)}"' if code_lang else ""
+        blocks.append(f"<pre><code{class_attr}>{html.escape(chr(10).join(code_lines))}</code></pre>")
+    return "\n".join(blocks)
+
+
+def markdown_to_html(text: str) -> str:
+    pandoc = shutil.which("pandoc")
+    if pandoc:
+        try:
+            return subprocess.run(
+                [pandoc, "--from", "gfm+raw_html", "--to", "html"],
+                input=text,
+                text=True,
+                check=True,
+                capture_output=True,
+            ).stdout.strip()
+        except (OSError, subprocess.CalledProcessError):
+            pass
+    return fallback_markdown_to_html(text)
 
 
 @dataclass
@@ -122,11 +230,15 @@ def parse_meta_lines(raw: str, org_style: bool) -> dict[str, object]:
             current_list = key
         else:
             if org_style and key in {"tags", "aliases", "refs"}:
-                metadata[key] = [part.strip() for part in value.split(",") if part.strip()]
+                metadata[key] = [normalize_meta_string(part) for part in value.split(",") if part.strip()]
             else:
                 metadata[key] = parse_yaml_scalar(value)
             current_list = None
     return metadata
+
+
+def normalize_meta_string(value: object) -> str:
+    return str(value).strip().strip('"').replace("\\_", "_")
 
 
 def parse_yaml_scalar(value: str) -> object:
@@ -134,8 +246,8 @@ def parse_yaml_scalar(value: str) -> object:
     if value in {"true", "false"}:
         return value == "true"
     if value.startswith('"') and value.endswith('"'):
-        return value[1:-1].replace('\\"', '"').replace("\\\\", "\\")
-    return value
+        return value[1:-1].replace('\\"', '"').replace("\\\\", "\\").replace("\\_", "_")
+    return value.replace("\\_", "_")
 
 
 def truthy(value: object) -> bool:
@@ -164,7 +276,12 @@ def private_path_p(rel_path: Path) -> bool:
 def clean_markdown_text(text: str) -> str:
     _metadata, body = parse_metadata_block(text)
     body = re.sub(r"```.*?```", " ", body, flags=re.S)
-    body = ORG_ENV_RE.sub(lambda match: match.group(3), body)
+    body = re.sub(r"<!--.*?-->", " ", body, flags=re.S)
+    previous = None
+    while previous != body:
+        previous = body
+        body = ORG_ENV_RE.sub(lambda match: match.group(3), body)
+    body = re.sub(r"(?m)^#\+(?:begin|end)(?:_|\s+)[^\n]*", " ", body)
     body = re.sub(r"!\[[^\]]*\]\([^)]+\)", " ", body)
     body = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", body)
     body = re.sub(r"#+|[*_`$>|-]", " ", body)
@@ -321,21 +438,52 @@ def deps_for_note(note: Note) -> set[str]:
     return {
         note.path.relative_to(ROOT).as_posix(),
         "bin/publish-site",
-        "css/retro.css",
-        "js/data.js",
-        "js/knowledge.js",
-        "js/note-page.js",
-        "js/graph.js",
+        "Aaronnote/aaronnote/style.css",
+        "Aaronnote/src/styles/widgets.css",
+        "Aaronnote/src/styles/theme-typora.css",
+        "css/aaronnote-published.css",
     }
+
+
+ORG_ENV_LABELS = {
+    "proof": "Proof",
+    "theorem": "Theorem",
+    "thm": "Theorem",
+    "lemma": "Lemma",
+    "proposition": "Proposition",
+    "prop": "Proposition",
+    "corollary": "Corollary",
+    "cor": "Corollary",
+    "definition": "Definition",
+    "defn": "Definition",
+    "summary": "Summary",
+    "remark": "Remark",
+    "example": "Example",
+    "note": "Note",
+    "info": "Info",
+    "attention": "Attention",
+    "property": "Property",
+    "warning": "Warning",
+}
 
 
 def render_org_envs(text: str) -> str:
     def repl(match: re.Match[str]) -> str:
         kind = match.group(1).lower()
         title = (match.group(2) or "").strip()
-        body = markdown.markdown(render_org_envs(match.group(3).strip()), extensions=["extra", "sane_lists"])
-        title_html = f'<p><strong>{html.escape(title)}</strong></p>' if title else ""
-        return f'\n<div class="{html.escape(kind)}">{title_html}{body}</div>\n'
+        body = markdown_to_html(render_org_envs(match.group(3).strip()))
+        label = ORG_ENV_LABELS.get(kind, kind.title())
+        title_attr = "false" if title else "true"
+        return (
+            f'\n<org-env-block data-kind="{html.escape(kind)}" data-title="{html.escape(title)}" '
+            f'data-label="{html.escape(label)}">'
+            '<span class="org-env-heading">'
+            f'<span class="org-env-heading-label">{html.escape(label)}</span>'
+            f'<span class="org-env-heading-title" data-empty="{title_attr}">{html.escape(title)}</span>'
+            '</span>'
+            f'<div class="org-env-content">{body}</div>'
+            '</org-env-block>\n'
+        )
 
     previous = None
     while previous != text:
@@ -349,7 +497,7 @@ def render_markdown_body(note: Note, markdown_text: str) -> str:
     first_heading = re.compile(rf"\A\s*#\s+{re.escape(note.title)}\s*(?:\n+|\Z)")
     body = first_heading.sub("", body, count=1)
     body = render_org_envs(body)
-    rendered = markdown.markdown(body, extensions=["extra", "toc", "sane_lists", "tables", "fenced_code"])
+    rendered = markdown_to_html(body)
     rendered = HTML_MD_LINK_RE.sub(r'href="\1.html\2"', rendered)
     return rendered
 
@@ -361,29 +509,51 @@ def site_root_for(note: Note) -> str:
 
 def note_page_html(note: Note, content_html: str) -> str:
     root = site_root_for(note)
-    body_class = "hidden-note-page" if note.private else "note-page"
+    body_class = "aaronnote-shell published-note-page"
+    if note.private:
+        body_class += " hidden-note-page"
     if note.private:
         content_html = (
             '<p class="sealed-note-message">This note has been sealed by the administrator.</p>'
         )
+    note_title = html.escape(note.title)
+    note_group = html.escape(note.group_label)
+    note_date = html.escape(note.date)
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>{html.escape(note.title)} | Aaron He</title>
-  <link rel="stylesheet" href="{root}css/retro.css?v={ASSET_VERSION}" />
-  <script>window.CURRENT_NOTE_LINK = {json.dumps(note.link)}; window.SITE_ROOT_PATH = {json.dumps(root)};</script>
+  <title>{note_title} | Aaron He</title>
+  <link rel="stylesheet" href="{root}Aaronnote/aaronnote/style.css?v={NOTE_THEME_VERSION}" />
+  <link rel="stylesheet" href="{root}Aaronnote/src/styles/widgets.css?v={NOTE_THEME_VERSION}" />
+  <link rel="stylesheet" href="{root}Aaronnote/src/styles/theme-typora.css?v={NOTE_THEME_VERSION}" />
+  <link rel="stylesheet" href="{root}css/aaronnote-published.css?v={NOTE_THEME_VERSION}" />
 </head>
 <body class="{body_class}">
-  <main id="content">
-    <h1 class="title">{html.escape(note.title)}</h1>
-    {content_html}
+  <header class="aaronnote-toolbar">
+    <div class="aaronnote-title">
+      <strong>Aaronnote</strong>
+      <span>{note_group} / {note_date}</span>
+    </div>
+    <nav class="aaronnote-actions" aria-label="Published note navigation">
+      <a href="{root}index.html">Home</a>
+      <a href="{root}notes.html">Archive</a>
+    </nav>
+    <span class="aaronnote-status">Published HTML</span>
+  </header>
+  <main class="aaronnote-body">
+    <section class="aaronnote-editor">
+      <div class="typora-web-wrap">
+        <div class="typora-web-editor-host">
+          <article id="content" class="ProseMirror" data-note-title="{note_title}">
+            <h1 class="title">{note_title}</h1>
+            {content_html}
+          </article>
+        </div>
+      </div>
+    </section>
   </main>
-  <script src="{root}js/data.js?v={ASSET_VERSION}"></script>
-  <script src="{root}js/knowledge.js?v={ASSET_VERSION}"></script>
-  <script src="{root}js/graph.js?v={ASSET_VERSION}"></script>
-  <script src="{root}js/note-page.js?v={ASSET_VERSION}"></script>
 </body>
 </html>
 """
@@ -428,7 +598,7 @@ def note_json(note: Note) -> dict[str, object]:
 def write_data(notes: list[Note]) -> None:
     js_dir = PUBLIC / "js"
     js_dir.mkdir(parents=True, exist_ok=True)
-    tags = sorted({tag for note in notes for tag in note.tags})
+    tags = sorted({tag for note in notes if not note.private for tag in note.tags})
     data = {
         "meta": {
             "generatedAt": subprocess.check_output(["date", "+%Y-%m-%d %H:%M:%S %z"], text=True).strip(),
