@@ -88,6 +88,20 @@ describe("aaronnote snippets", () => {
     expect(editor.textBetween(editor.selection.from, editor.selection.to)).toBe("b");
   });
 
+  test("plain child snippet without tabstops does not advance the parent snippet", () => {
+    const editor = new TextEditor();
+    const session = new SnippetSession(editor.asEditor());
+    session.insert({ key: ";", name: "Inline math", mode: "markdown-mode", body: "$${1:x}$ $0" });
+
+    editor.replaceRange(editor.selection.from, editor.selection.to, "aaaa", "end");
+    expect(session.insert({ key: "aaaa", name: "Alpha", mode: "tex-mode", body: "\\alpha" }, 4)).toBe(true);
+
+    expect(editor.text).toBe("$\\alpha$ ");
+    expect(editor.selection).toEqual({ from: "$\\alpha".length, to: "$\\alpha".length });
+    expect(session.next()).toBe(true);
+    expect(editor.selection).toEqual({ from: "$\\alpha$ ".length, to: "$\\alpha$ ".length });
+  });
+
   test("org-env snippets map title, content, and final cursor stops after render", () => {
     const mount = document.createElement("div");
     document.body.appendChild(mount);
@@ -149,6 +163,57 @@ describe("aaronnote snippets", () => {
 
       feedEvent(editor.view, "<Enter>");
       expect(editor.getMarkdown()).toBe("$$\na\n\n$$");
+    } finally {
+      editor.destroy();
+      mount.remove();
+    }
+  });
+
+  test("tex snippet confirmed inside display math keeps selection inside the formula", () => {
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const editor = createEditor(mount);
+    try {
+      editor.setMarkdown("$$\nfrac\n$$");
+      editor.setSelection(1 + "$$\nfrac".length);
+      const session = new SnippetSession(editor);
+      expect(session.insert({
+        key: "frac",
+        name: "Fraction",
+        mode: "tex-mode",
+        body: "\\frac{${1:a}}{${2:b}}$0",
+      }, 4)).toBe(true);
+
+      expect(editor.getMarkdown()).toBe("$$\n\\frac{a}{b}\n$$");
+      const selection = editor.getSelection();
+      expect(editor.textBetween(selection.from, selection.to)).toBe("a");
+      expect(editor.view.state.selection.$from.parent.textContent).toBe("$$\n\\frac{a}{b}\n$$");
+    } finally {
+      editor.destroy();
+      mount.remove();
+    }
+  });
+
+  test("plain tex snippet confirmed inside inline math keeps cursor before the closing dollar", () => {
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+      const editor = createEditor(mount);
+    try {
+      editor.setMarkdown("$aaaa$");
+      editor.setSelection(1 + "$aaaa".length);
+      const session = new SnippetSession(editor);
+      expect(session.insert({
+        key: "aaaa",
+        name: "Alpha",
+        mode: "tex-mode",
+        body: "\\alpha",
+      }, 4)).toBe(true);
+
+      expect(editor.getMarkdown()).toBe("$\\alpha$");
+      const selection = editor.getSelection();
+      expect(selection.from).toBe(selection.to);
+      expect(editor.textBetween(selection.from - "\\alpha".length, selection.from)).toBe("\\alpha");
+      expect(editor.textBetween(selection.from, selection.from + 1)).toBe("$");
     } finally {
       editor.destroy();
       mount.remove();

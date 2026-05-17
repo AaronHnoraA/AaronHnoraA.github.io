@@ -20,7 +20,7 @@ export function updateVimCursor(
     return;
   }
   const height = Math.max(16, ctx.rect.bottom - ctx.rect.top);
-  const width = mode === "visual-line" ? 4 : Math.max(8, Math.min(14, height * 0.58));
+  const width = mode === "visual-line" ? 4 : 3;
   el.style.left = `${ctx.rect.left}px`;
   el.style.top = `${ctx.rect.top}px`;
   el.style.width = `${width}px`;

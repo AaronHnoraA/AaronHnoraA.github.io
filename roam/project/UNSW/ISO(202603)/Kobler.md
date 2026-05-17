@@ -54,7 +54,7 @@ has a valid tensor-side counterpart.
 
  The currently unclear part is whether the proposed tensor-side analogue  
 
-$$ d\mathrm{TA} \overset{?}{\le_p} \mathrm{TI} > $$ 
+$$ d\mathrm{TA} \overset{?}{\le_p} \mathrm{TI}  $$ 
 
  can be proved by adapting the graph-side reduction  
 
@@ -62,6 +62,7 @@ $$  d\mathrm{GA} \le_p \mathrm{GI}.  $$
 #+end summary
 
 ## 
+
 Complexity Theory
 
 # Reductions

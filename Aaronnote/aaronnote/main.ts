@@ -1200,6 +1200,7 @@ function renderSnippetPopup(prefix: string, rect: { left: number; top: number; b
   const nextKey = `${prefix}\n${snippetPopupIndex}\n${snippetPopupItems.map((snippet) => `${snippet.mode}:${snippet.key}:${snippet.name}`).join("\n")}`;
   if (!snippetPopup.hidden && snippetRenderKey === nextKey) {
     placeFloating(snippetPopup, rect);
+    snippetPopup.querySelector(".aaronnote-snippet-option.is-active")?.scrollIntoView({ block: "nearest" });
     return;
   }
   snippetRenderKey = nextKey;
@@ -1210,13 +1211,16 @@ function renderSnippetPopup(prefix: string, rect: { left: number; top: number; b
     button.className = index === snippetPopupIndex
       ? "aaronnote-snippet-option is-active"
       : "aaronnote-snippet-option";
+    const number = document.createElement("span");
+    number.className = "aaronnote-snippet-option-number";
+    number.textContent = index < 9 ? String(index + 1) : index === 9 ? "0" : "";
     const key = document.createElement("span");
     key.className = "aaronnote-snippet-option-key";
     key.textContent = snippetLabel(snippet);
     const detail = document.createElement("span");
     detail.className = "aaronnote-snippet-option-detail";
     detail.textContent = snippetDetail(snippet);
-    button.append(key, detail);
+    button.append(number, key, detail);
     button.addEventListener("mousedown", (event) => {
       event.preventDefault();
       snippetPopupIndex = index;
@@ -1227,6 +1231,7 @@ function renderSnippetPopup(prefix: string, rect: { left: number; top: number; b
   snippetPopup.dataset.prefix = prefix;
   snippetPopup.hidden = false;
   placeFloating(snippetPopup, rect);
+  snippetPopup.querySelector(".aaronnote-snippet-option.is-active")?.scrollIntoView({ block: "nearest" });
 }
 
 function snippetContextMode(ctx: ReturnType<typeof editor.cursorContext>): string {
@@ -1237,10 +1242,6 @@ function snippetContextMode(ctx: ReturnType<typeof editor.cursorContext>): strin
 function updateSnippetPopup(ctx: ReturnType<typeof editor.cursorContext>): void {
   const active = document.activeElement;
   if (!active || !host.contains(active)) {
-    hideSnippetPopup();
-    return;
-  }
-  if (mathAtCursor(ctx)) {
     hideSnippetPopup();
     return;
   }
@@ -1296,6 +1297,15 @@ function handleSnippetPopupKey(event: KeyboardEvent): boolean {
   if (snippetPopupItems.length === 0) {
     hideSnippetPopup();
     return false;
+  }
+  if (event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey && /^\d$/.test(event.key)) {
+    const index = event.key === "0" ? 9 : Number(event.key) - 1;
+    if (index >= 0 && index < snippetPopupItems.length) {
+      event.preventDefault();
+      snippetPopupIndex = index;
+      chooseSnippetPopupItem();
+      return true;
+    }
   }
   if (event.key === "ArrowDown") {
     event.preventDefault();
@@ -1357,18 +1367,24 @@ function onlySpace(src: string, from: number, to: number): boolean {
 function isDoubleDollarAt(src: string, pos: number): boolean {
   return (
     src.slice(pos, pos + 2) === "$$" &&
-    !isEscaped(src, pos) &&
-    src[pos - 1] !== "$" &&
-    src[pos + 2] !== "$"
+    !isEscaped(src, pos)
   );
 }
 
 function isDisplayOpen(src: string, openFrom: number): boolean {
-  return isDoubleDollarAt(src, openFrom) && onlySpace(src, lineStart(src, openFrom), openFrom);
+  return (
+    isDoubleDollarAt(src, openFrom) &&
+    onlySpace(src, lineStart(src, openFrom), openFrom) &&
+    onlySpace(src, openFrom + 2, lineEnd(src, openFrom + 2))
+  );
 }
 
 function isDisplayClose(src: string, closeFrom: number): boolean {
-  return isDoubleDollarAt(src, closeFrom) && onlySpace(src, closeFrom + 2, lineEnd(src, closeFrom + 2));
+  return (
+    isDoubleDollarAt(src, closeFrom) &&
+    onlySpace(src, lineStart(src, closeFrom), closeFrom) &&
+    onlySpace(src, closeFrom + 2, lineEnd(src, closeFrom + 2))
+  );
 }
 
 function mathAtCursor(ctx: ReturnType<typeof editor.cursorContext>): { tex: string; display: boolean; rect: { left: number; top: number; bottom: number } | null } | null {
@@ -1505,6 +1521,10 @@ function scheduleAssistUpdate(options: { snippets?: boolean } = {}): void {
       updateSelectionTool();
     });
   }, 35);
+}
+
+function updateVimCursorNow(): void {
+  updateVimCursor(vimCursor, editor, vimMode, editor.cursorContext(1600));
 }
 
 function renderSnippets(): void {
@@ -1977,6 +1997,7 @@ document.addEventListener("keydown", (event) => {
     }
   }
   if (vim.handleKeyDown(event)) {
+    updateVimCursorNow();
     event.stopPropagation();
     return;
   }
@@ -2031,13 +2052,22 @@ document.addEventListener("keyup", (event) => {
   if (event.key !== "Escape") snippetSuppressedPrefix = "";
   scheduleAssistUpdate();
 });
-document.addEventListener("selectionchange", scheduleAssistUpdate);
+document.addEventListener("selectionchange", () => {
+  updateVimCursorNow();
+  scheduleAssistUpdate();
+});
 document.addEventListener("mouseup", scheduleAssistUpdate);
-window.addEventListener("resize", scheduleAssistUpdate);
+window.addEventListener("resize", () => {
+  updateVimCursorNow();
+  scheduleAssistUpdate();
+});
 window.addEventListener("resize", () => {
   if (!graphPage.hidden) scheduleRenderGraph(180);
 });
-window.addEventListener("scroll", scheduleAssistUpdate, true);
+window.addEventListener("scroll", () => {
+  updateVimCursorNow();
+  scheduleAssistUpdate();
+}, true);
 
 void loadServerRecentNotes();
 

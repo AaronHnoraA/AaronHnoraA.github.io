@@ -189,6 +189,7 @@ export class SnippetSession {
     const inserted = this.editor.insertText(text, deleteBefore);
     this.mapReplacement(replaceFrom, replaceTo, inserted.to - inserted.from);
     const stops = this.mapInsertedStops(text, tabstops, inserted.from);
+    if (stops.length === 0) return true;
     const frame: SnippetFrame = {
       stops: stops.map((stop) => ({
         ...stop,

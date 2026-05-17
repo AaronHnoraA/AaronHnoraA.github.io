@@ -678,15 +678,14 @@ input {
 .aaronnote-vim-cursor {
   position: fixed;
   z-index: 70;
-  background: color-mix(in srgb, var(--aaron-ink), transparent 25%);
+  background: var(--aaron-ink);
   border-radius: 1px;
   pointer-events: none;
-  mix-blend-mode: multiply;
 }
 
 [data-vim-mode="visual"] .aaronnote-vim-cursor,
 [data-vim-mode="visual-line"] .aaronnote-vim-cursor {
-  background: rgb(148 95 28 / 72%);
+  background: rgb(148 95 28 / 88%);
 }
 
 .aaronnote-editor .typora-web-source {
@@ -746,9 +745,9 @@ input {
   border: 0;
   border-radius: 3px;
   display: grid;
-  grid-template-columns: minmax(64px, auto) minmax(0, 1fr);
+  grid-template-columns: 22px minmax(64px, auto) minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   padding: 5px 8px;
   background: transparent;
   color: var(--aaron-ink);
@@ -759,6 +758,12 @@ input {
 .aaronnote-snippet-option:hover,
 .aaronnote-snippet-option.is-active {
   background: var(--aaron-paper-soft);
+}
+
+.aaronnote-snippet-option-number {
+  color: var(--aaron-muted);
+  font: 700 11px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  text-align: right;
 }
 
 .aaronnote-snippet-option-key {

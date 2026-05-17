@@ -18,6 +18,13 @@ export const autoPairSpecs: FeatureSpecs = {
       checkpoints: [{ at: 1, expect: "(|)" }],
     },
     {
+      id: "brace-at-eol",
+      label: "{ at end of line auto-pairs to {}",
+      seed: "",
+      events: ["{"],
+      checkpoints: [{ at: 1, expect: "{|}" }],
+    },
+    {
       id: "bracket-before-space",
       label: "[ before space still auto-pairs",
       seed: "",
@@ -55,6 +62,16 @@ export const autoPairSpecs: FeatureSpecs = {
       ],
     },
     {
+      id: "backspace-empties-brace-pair",
+      label: "Backspace inside empty {} removes both chars",
+      seed: "",
+      events: ["{", "<Backspace>"],
+      checkpoints: [
+        { at: 1, expect: "{|}" },
+        { at: 2, expect: "|" },
+      ],
+    },
+    {
       id: "skip-over-closing-bracket",
       label: "] inside [|] skips past, no duplicate",
       seed: "",
@@ -72,6 +89,16 @@ export const autoPairSpecs: FeatureSpecs = {
       checkpoints: [
         { at: 1, expect: "(|)" },
         { at: 2, expect: "()|" },
+      ],
+    },
+    {
+      id: "skip-over-closing-brace",
+      label: "} inside {|} skips past, no duplicate",
+      seed: "",
+      events: ["{", "}"],
+      checkpoints: [
+        { at: 1, expect: "{|}" },
+        { at: 2, expect: "{}|" },
       ],
     },
     {

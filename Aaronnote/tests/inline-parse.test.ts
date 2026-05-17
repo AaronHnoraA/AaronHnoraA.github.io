@@ -104,19 +104,8 @@ describe("parseInline", () => {
     ]);
   });
 
-  test("same-line double-dollar display math is recognized", () => {
-    expect(parseInline("$$ ssada sad $$")).toMatchObject([
-      {
-        type: "math",
-        from: 2,
-        to: 13,
-        openFrom: 0,
-        openTo: 2,
-        closeFrom: 13,
-        closeTo: 15,
-        attrs: { tex: "ssada sad", delimiter: "$$", display: true },
-      },
-    ]);
+  test("same-line double-dollar source is not stable display math", () => {
+    expect(parseInline("$$ ssada sad $$").filter((span) => span.type === "math")).toEqual([]);
   });
 
   test("empty display math fence stays a display math span", () => {
@@ -134,33 +123,17 @@ describe("parseInline", () => {
     ]);
   });
 
-  test("display math may close at the end of the formula line", () => {
+  test("display math close fence must be on its own line", () => {
     expect(parseInline(String.raw`$$
-d\mathrm{GA} \le_p \mathrm{GI} $$`)).toMatchObject([
-      {
-        type: "math",
-        openFrom: 0,
-        openTo: 2,
-        attrs: { tex: String.raw`d\mathrm{GA} \le_p \mathrm{GI}`, delimiter: "$$", display: true },
-      },
-    ]);
+d\mathrm{GA} \le_p \mathrm{GI} $$`).filter((span) => span.type === "math")).toEqual([]);
   });
 
-  test("display math may put content on the opening line", () => {
-    expect(parseInline("$$ adad\n$$")).toMatchObject([
-      {
-        type: "math",
-        openFrom: 0,
-        openTo: 2,
-        closeFrom: 8,
-        closeTo: 10,
-        attrs: { tex: "adad", delimiter: "$$", display: true },
-      },
-    ]);
+  test("display math open fence must be on its own line", () => {
+    expect(parseInline("$$ adad\n$$").filter((span) => span.type === "math")).toEqual([]);
   });
 
   test("display math preserves internal blank lines", () => {
-    expect(parseInline("$$ asdasda\n\nasdasd\n\nadasda s $$")).toMatchObject([
+    expect(parseInline("$$\nasdasda\n\nasdasd\n\nadasda s\n$$")).toMatchObject([
       {
         type: "math",
         openFrom: 0,

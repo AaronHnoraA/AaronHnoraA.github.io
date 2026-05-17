@@ -2,41 +2,45 @@
 id: 20260127T000000-hermitian-matrix
 title: Hermitian Matrix
 date: 2026-01-27
-tags: math, QC, concept
-source: roam/math/hermitian_matrix.md
+kind: note
+tags: concept, math, QC
+refs: 
+source: roam/math/hermitian\_matrix.md
 #+end meta
+
 # Hermitian Matrix
+
 # Hermitian Matrix 厄米矩阵
 
 埃尔米特矩阵（英语：Hermitian matrix，又译作厄米特矩阵，厄米矩阵），也称自伴随矩阵，是共轭对称的方阵。埃尔米特矩阵中每一个第 $i$ 行第 $j$ 列的元素都与第 $j$ 行第 $i$ 列的元素的复共轭。例如$mat(3, 2+i; 2-i, 1)$ 就是一个埃尔米特矩阵。
 
-显然，埃尔米特矩阵主对角线上的元素都是实数，其特征值也是实数。对于实矩阵，如果它是对称矩阵，则它也满足埃尔米特矩阵的定义，即，实对称矩阵是埃尔米特矩阵的特例。
+显然，埃尔米特矩阵主对角线上的元素都是实数，其特征值也是实数。对于实矩阵，如果它是对称矩阵，则它也满足埃尔米特矩阵的定义，即，实对称矩阵是埃尔米特矩阵的特例.
 
 # 性质
 
-- 若 $A$ 和 $B$ 是埃尔米特矩阵，那么它们的和 $A+B$ 也是埃尔米特矩阵；而只有在 $A$ 和 $B$ 满足交换性（即 $A B=B A$）时，它们的积才是埃尔米特矩阵。
+- 若 $A$质
+  $ 是埃尔米特矩阵，那么它们的和 $A+B$ 也是埃尔米特矩阵；而只有在 $A$ 和 $B$ 满足交换性（即 $A B=B A$）时，它们的积才是埃尔米特矩阵。
 - 可逆的埃尔米特矩阵 $A$ 的逆矩阵 $A^(-1)$ 仍然是埃尔米特矩阵。
 - 如果 $A$ 是埃尔米特矩阵，对于正整数 $n$，$A^(n)$ 是埃尔米特矩阵。
 - 方阵 $C$ 与其共轭转置的和 $C+C^(*)$ 是埃尔米特矩阵，方阵 $C$ 与其共轭转置的差 $C-C^(*)$ 是斜埃尔米特矩阵。
 - 任意方阵 $C$ 都可以用一个埃尔米特矩阵 $A$ 与一个斜埃尔米特矩阵 $B$ 的和表示：
   $ C=A+B  quad  "with"  quad  A=(1)/(2)(C+C^(*))  quad  "and"  quad  B=(1)/(2)(C-C^(*)) $
-
 - 埃尔米特矩阵是正规矩阵，因此埃尔米特矩阵可被酉对角化，而且得到的对角阵的元素都是实数。这意味着埃尔米特矩阵的特征值都是实的，而且不同的特征值所对应的特征向量相互正交，因此可以在这些特征向量中找出一组 $bb(C)^n$ 的正交基。
 - $n$ -阶埃尔米特矩阵的元素构成维数为 $n^(2)$ 的实向量空间，因为主对角线上的元素有一个自由度，而主对角线之上的元素有两个自由度。
 - 如果埃尔米特矩阵的特征值都是正数，那么这个矩阵是正定矩阵；若它们是非负的，则这个矩阵是半正定矩阵.
 
 # Hermitian Operators 自伴算子|厄米算符
-在量子力学里，自伴算子，又称为自伴算符，或厄米算符（Hermitian operator），是一种等于自己的厄米共轭的算符。给予算符 $hat(O)$  和其伴随算符$hat(O)^(dagger)$，假设$hat(O) = hat(O)^(dagger)$，则称 $hat(O)$为厄米算符。厄米算符的期望可以表示量子力学中的物理量。
+
+在量子力学里，自伴算子，又称为自伴算符，或厄米算符（Hermitian operator），是一种等于自己的厄米共轭的算符。给予算符 $hat(O)$  和其伴随算符$hat(O)^(dagger)$，假设$\hat{O} = \hat{O}^\dagger$，则称 $\hat{O}$为厄米算符。厄米算符的期望可以表示量子力学中的物理量。
 
 这是因为
+
 #+begin proof
-每一个物理量测出来都是实数, 因此我们有
-$   lr(angle.l O angle.r)  =  lr(angle.l O angle.r) ^* $
-对于任意量子态 $ lr(|psi angle.r)  $，有
-$      lr(angle.l psi | hat(O) | psi angle.r)  =  lr(angle.l psi | hat(O)^(dagger) | psi angle.r)  $
-根据厄米共轭的定义，我们有:
-$      lr(angle.l psi | hat(O) | psi angle.r)  =  lr(angle.l psi | hat(O) | psi angle.r)  ^(dagger) $
-Hence,   $hat(O) = hat(O)^{{dagger}} $.
+每一个物理量测出来都是实数, 因此我们有 $   lr(\angle.l O \angle.r)  =  lr(\angle.l O \angle.r) ^* $ 对于任意量子态 $ lr(|psi angle.r)  $，有 
+
+$$ lr(angle.l psi | \hat(O) | psi \angle.r)  =  lr(\angle.l psi | \hat(O)^(\dagger) | psi \angle.r) $$
+
+ 根据厄米共轭的定义，我们有:  $    lr(\angle.l psi | \hat(O) | psi \angle.r)  =  lr(\angle.l psi | \hat(O) | psi \angle.r)  ^(\dagger) $ Hence,   $hat(O) = hat(O)^{{dagger}} $.
 #+end proof
 
 这便是厄米算符的定义.
@@ -81,11 +85,7 @@ $ p_n = | lr(angle.l a_n | psi angle.r) |^2 $
 
 ## 期望值的算符形式
 
-将量子力学给出的概率 $p_n$ 代入统计平均的定义，
-并利用本征态的完备性关系
-$  sum _n  lr(|a_n angle.r)   lr(angle.l a_n|)  = I, $
-可以得到
-$  lr(angle.l A angle.r)  =  lr(angle.l psi | hat(A) | psi angle.r) . $
+将量子力学给出的概率 $p_n$ 代入统计平均的定义， 并利用本征态的完备性关系 $\sum_e^t {ss} $  $ 可以得到 $  lr(\\angle.l A \\angle.r)  =  lr(\\angle.l psi | \\hat(A) | psi \\angle.r) . $
 
 该公式并非新的物理假设，
 而是对“结果 × 概率”这一统计平均的紧凑线性代数表达。

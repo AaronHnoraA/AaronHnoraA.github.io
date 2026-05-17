@@ -4,16 +4,16 @@ import type { Schema } from "prosemirror-model";
 
 import type { FeatureSpec } from "./_types.ts";
 
-// Auto-pair: typing `[` or `(` inserts the matching close char and parks
+// Auto-pair: typing `[`, `(`, or `{` inserts the matching close char and parks
 // the cursor between them, but only when the cursor is at end-of-line or
 // directly before whitespace. Inside running text it stays single-char so
 // regular prose isn't mangled.
 //
-// Backspace inside an empty pair (`[|]` or `(|)`) deletes both chars in
+// Backspace inside an empty pair (`[|]`, `(|)`, or `{|}`) deletes both chars in
 // one go — undoing the auto-pair as a single user action.
 
-const PAIRS: Record<string, string> = { "[": "]", "(": ")" };
-const CLOSERS = new Set(["]", ")"]);
+const PAIRS: Record<string, string> = { "[": "]", "(": ")", "{": "}" };
+const CLOSERS = new Set(Object.values(PAIRS));
 
 function shouldAutoPair(after: string): boolean {
   return after.length === 0 || /^\s/.test(after);
@@ -64,8 +64,7 @@ const backspaceClearPair: Command = (state, dispatch) => {
   if (offset === 0 || offset === size) return false;
   const before = $from.parent.textBetween(offset - 1, offset);
   const after = $from.parent.textBetween(offset, offset + 1);
-  const matches =
-    (before === "[" && after === "]") || (before === "(" && after === ")");
+  const matches = PAIRS[before] === after;
   if (!matches) return false;
   if (dispatch) dispatch(state.tr.delete(sel.from - 1, sel.from + 1));
   return true;

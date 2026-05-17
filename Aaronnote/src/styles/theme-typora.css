@@ -65,7 +65,11 @@
 }
 
 /* ─── paragraphs ─────────────────────────────────────────────────── */
-.ProseMirror p { margin: 0 0 1.05em; }
+.ProseMirror p {
+  margin: 0 0 1.05em;
+  text-align: left;
+  white-space: pre-wrap;
+}
 .ProseMirror p:has(> .aaronnote-math-block) {
   margin: 0.22em 0;
   line-height: 1.2;

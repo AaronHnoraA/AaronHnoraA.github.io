@@ -38,16 +38,15 @@ function adjacentDollar(text: string, pos: number): boolean {
 function isDoubleDollarAt(text: string, pos: number): boolean {
   return (
     text.slice(pos, pos + 2) === "$$" &&
-    !escaped(text, pos) &&
-    text[pos - 1] !== "$" &&
-    text[pos + 2] !== "$"
+    !escaped(text, pos)
   );
 }
 
 function isDisplayOpen(text: string, openFrom: number): boolean {
   return (
     isDoubleDollarAt(text, openFrom) &&
-    onlySpace(text, lineStart(text, openFrom), openFrom)
+    onlySpace(text, lineStart(text, openFrom), openFrom) &&
+    onlySpace(text, openFrom + 2, lineEnd(text, openFrom + 2))
   );
 }
 
@@ -55,6 +54,7 @@ function isDisplayClose(text: string, closeFrom: number): boolean {
   const closeTo = closeFrom + 2;
   return (
     isDoubleDollarAt(text, closeFrom) &&
+    onlySpace(text, lineStart(text, closeFrom), closeFrom) &&
     onlySpace(text, closeTo, lineEnd(text, closeTo))
   );
 }
@@ -271,15 +271,8 @@ export const math: FeatureSpec = {
       const range = displayMathRangeAtOffset($from.parent.textContent, $from.parentOffset);
       if (!range) return false;
       if (dispatch) {
-        const body = $from.parent.textContent.slice(range.openTo, range.closeFrom);
         const tr = state.tr;
-        if (sel.empty && onlySpace(body, 0, body.length) && $from.parentOffset >= range.openTo && $from.parentOffset <= range.closeFrom) {
-          const bodyFrom = sel.from - $from.parentOffset + range.openTo;
-          const bodyTo = sel.from - $from.parentOffset + range.closeFrom;
-          tr.insertText("\n", bodyFrom, bodyTo);
-        } else {
-          tr.insertText("\n", sel.from, sel.to);
-        }
+        tr.insertText("\n", sel.from, sel.to);
         dispatch(tr.scrollIntoView());
       }
       return true;

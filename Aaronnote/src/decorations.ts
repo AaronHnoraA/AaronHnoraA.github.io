@@ -9,7 +9,7 @@
 // whether to show it gray (cursor inside the surrounding span) or hide it
 // (cursor outside).
 
-import { Plugin, PluginKey, type EditorState } from "prosemirror-state";
+import { Plugin, PluginKey, TextSelection, type EditorState } from "prosemirror-state";
 import { Decoration, DecorationSet, type EditorView } from "prosemirror-view";
 
 import { renderMathLazy } from "./math-render.ts";
@@ -144,10 +144,29 @@ function buildWidget(w: WidgetDecoration): HTMLElement {
 }
 
 function buildWidgetLazy(w: WidgetDecoration): (view: EditorView, getPos: () => number | undefined) => HTMLElement {
-  return (_view, getPos) => {
+  return (view, getPos) => {
     const el = buildWidget(w);
     const pos = getPos();
     if (typeof pos === "number") el.setAttribute("data-pos", String(pos));
+    if (w.kind === "math-render") {
+      el.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      });
+      el.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const openFrom = getPos() ?? w.spanFrom;
+        const bodyStart = w.attrs?.display === "1" ? openFrom + 3 : openFrom + 1;
+        const target = Math.max(w.spanFrom + 1, Math.min(bodyStart, w.spanTo - 1));
+        view.dispatch(
+          view.state.tr
+            .setSelection(TextSelection.near(view.state.doc.resolve(target), 1))
+            .scrollIntoView(),
+        );
+        view.focus();
+      });
+    }
     return el;
   };
 }
@@ -206,7 +225,10 @@ function buildDecorationSet(state: EditorState): DecorationSet {
         // the widget mount can land in handleTextInput and re-trigger
         // our own auto-pair / normalize work, which we observed looping
         // when an image span first appears mid-typing.
-        stopEvent: (e: Event) => e.type !== "click",
+        stopEvent: (e: Event) => {
+          if (w.kind === "math-render" && (e.type === "mousedown" || e.type === "click")) return true;
+          return e.type !== "click";
+        },
       }),
     );
   }
