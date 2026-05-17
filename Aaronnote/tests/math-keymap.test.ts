@@ -19,6 +19,21 @@ function setupMathAt(md: string, bodyOffset: number) {
   return state.apply(state.tr.setSelection(TextSelection.create(doc, 1 + bodyOffset)));
 }
 
+function setupInsideFirstMathBlock(md: string) {
+  const doc = parse(md);
+  let pos: number | null = null;
+  doc.descendants((node, nodePos) => {
+    if (pos == null && node.type.name === "math_block") {
+      pos = nodePos;
+      return false;
+    }
+    return true;
+  });
+  expect(pos).not.toBeNull();
+  const state = createState(doc);
+  return state.apply(state.tr.setSelection(TextSelection.create(doc, pos! + 1)));
+}
+
 describe("math keymap", () => {
   test("line-fenced display math parses as one math_block", () => {
     const doc = parse("$$\nasd\n$$");
@@ -157,6 +172,34 @@ describe("math keymap", () => {
       view.destroy();
       mount.remove();
     }
+  });
+
+  test("Mod-Enter inside nested display math creates an empty paragraph in the parent block first", () => {
+    const state = apply(
+      setupInsideFirstMathBlock("#+begin summary\ncan be proved\n\n$$\na+b\n$$\n#+end summary"),
+      ["<Mod-Enter>"],
+    );
+    expect(state.doc.childCount).toBe(1);
+    const block = state.doc.child(0);
+    expect(block.type.name).toBe("org_env_block");
+    expect(block.childCount).toBe(3);
+    expect(block.child(0).type.name).toBe("paragraph");
+    expect(block.child(1).type.name).toBe("math_block");
+    expect(block.child(2).type.name).toBe("paragraph");
+    expect(block.child(2).textContent).toBe("");
+    expect(state.selection.$from.parent.type.name).toBe("paragraph");
+  });
+
+  test("second Mod-Enter from the inserted parent paragraph exits the outer block", () => {
+    const state = apply(
+      setupInsideFirstMathBlock("#+begin summary\ncan be proved\n\n$$\na+b\n$$\n#+end summary"),
+      ["<Mod-Enter>", "<Mod-Enter>"],
+    );
+    expect(state.doc.childCount).toBe(2);
+    expect(state.doc.child(0).type.name).toBe("org_env_block");
+    expect(state.doc.child(1).type.name).toBe("paragraph");
+    expect(state.selection.$from.parent.type.name).toBe("paragraph");
+    expect(state.selection.from).toBe(state.doc.child(0).nodeSize + 1);
   });
 
   test("editing inline math does not remove the following soft line break", () => {

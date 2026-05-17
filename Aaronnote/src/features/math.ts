@@ -347,6 +347,22 @@ function deleteEmptyMathBlock(schema: Schema): Command {
   };
 }
 
+function exitMathBlockOneLevel(schema: Schema): Command {
+  return (state, dispatch) => {
+    const sel = state.selection;
+    if (!sel.empty) return false;
+    const $from = sel.$from;
+    if ($from.parent.type !== schema.nodes.math_block) return false;
+    if (dispatch) {
+      const insertAt = $from.after();
+      const tr = state.tr.insert(insertAt, schema.nodes.paragraph.create());
+      tr.setSelection(TextSelection.create(tr.doc, insertAt + 1));
+      dispatch(tr.scrollIntoView());
+    }
+    return true;
+  };
+}
+
 export const math: FeatureSpec = {
   name: "math",
 
@@ -471,5 +487,6 @@ export const math: FeatureSpec = {
       return true;
     },
     Backspace: deleteEmptyMathBlock(schema),
+    "Mod-Enter": exitMathBlockOneLevel(schema),
   }),
 };

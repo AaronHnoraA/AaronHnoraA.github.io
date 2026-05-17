@@ -65,7 +65,6 @@ $$
  can be proved by adapting the graph-side reduction  
 
 $$
-
   d\mathrm{GA} \le\_p \mathrm{GI}.
 $$
 #+end summary

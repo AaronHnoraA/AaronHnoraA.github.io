@@ -1391,10 +1391,12 @@ function mathAtCursor(ctx: ReturnType<typeof editor.cursorContext>): { tex: stri
   if (!editor.isSourceMode()) {
     const sel = editor.view.state.selection;
     if (sel.empty && sel.$from.parent.type.name === "math_block") {
+      const blockStart = sel.$from.before();
+      const rect = mathBlockAnchorRect(blockStart) ?? ctx.rect;
       return {
         tex: sel.$from.parent.textContent,
         display: true,
-        rect: ctx.rect,
+        rect,
       };
     }
   }
@@ -1432,6 +1434,23 @@ function mathAtCursor(ctx: ReturnType<typeof editor.cursorContext>): { tex: stri
     }
   }
   return null;
+}
+
+function mathBlockAnchorRect(blockStart: number): { left: number; top: number; bottom: number } | null {
+  const dom = editor.view.nodeDOM(blockStart);
+  if (dom instanceof HTMLElement) {
+    const anchor = dom.querySelector<HTMLElement>(".math-block-fence") ?? dom;
+    const rect = anchor.getBoundingClientRect();
+    if (rect.width > 0 || rect.height > 0) {
+      return { left: rect.left, top: rect.top, bottom: rect.bottom };
+    }
+  }
+  try {
+    const rect = editor.view.coordsAtPos(blockStart + 1, -1);
+    return { left: rect.left, top: rect.top, bottom: rect.bottom };
+  } catch {
+    return null;
+  }
 }
 
 function updateMathPreview(ctx: ReturnType<typeof editor.cursorContext>): void {

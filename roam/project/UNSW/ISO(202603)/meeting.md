@@ -4,6 +4,8 @@ title: 把 Tensor Isomorphism 归约到 Tensor Automorphism
 source: roam/project/UNSW/ISO(202603)/meeting.md
 #+end meta
 
+# Meeting
+
 # 把 Tensor Isomorphism 归约到 Tensor Automorphism
 
 # 执行摘要

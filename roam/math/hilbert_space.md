@@ -10,9 +10,8 @@ source: roam/math/hilbert\_space.md
 
 # Hilbert Space 希尔伯特空间
 
-#+begin attention
-Hilbert space is a big space.
------ Carlton Caves
+#+begin attention Hilbert
+Hilbert space is a big space. ----- Carlton Caves
 #+end attention
 
 ## 1. 数学理解 (Mathematical Understanding)
@@ -27,9 +26,9 @@ Hilbert space is a big space.
 - *常见例子*:
 
   - $bb(R)^n$ (有限维希尔伯特空间)。
-  - $L^2$ 空间 (平方可积函数空间，量子力学中最常用)。
+  - $L^2$ 空间 (平方可积函数空间，量子力学中最常用)。  
 
-## 2. 量子应用 (Quantum Applications)
+## 2. 量子应用 (Quant. 量子应p (Quaions)
 
 量子力学的公理化数学基础。
 
@@ -45,7 +44,7 @@ $$
 d(v_i, v_j)^2 = sum_(k=1)^N |z_(i k) - z_(j k)|^2 < epsilon.alt^2 
 $$
 
-#  ss
+# ss
 
 有限维必完备
 
@@ -75,7 +74,11 @@ $$
 由 Gram–Schmidt 正交化，存在正交基：
 ```
 
-$     {e_1,e_2, dots ,e_N} $
+$$
+
+     {e\_1,e\_2, dots ,e\_N} 
+
+$$
 
 ## Step 2：设 ${v_i}$ 为柯西列
 
@@ -84,7 +87,11 @@ $     {e_1,e_2, dots ,e_N} $
 使得当 $i,j>n$ 时：
 ```
 
-$     d(v_i,v_j)< epsilon.alt  $
+$$
+
+     d(v_i,v_j)< \epsilon.alt  
+
+$$
 
 ## Step 3：写成坐标形式
 
@@ -93,7 +100,9 @@ $     d(v_i,v_j)< epsilon.alt  $
 使得：
 ```
 
-$     v_i= sum _(k=1)^N z_(i k)e_k $
+$$
+     v_i= sum _(k=1)^N z_(i k)e_k 
+$$
 
 ## Step 4：距离的坐标表达
 
@@ -111,14 +120,18 @@ $$
 记：
 ```
 
-$     z_(i k)=x_(i k)+i y_(i k) $
+$$
+     z_(i k)=x_(i k)+i y_(i k) 
+$$
 
 ```
 则：
-$$  sum _(k=1)^N |x_(i k)-x_(j k)|^2
+$$
+  sum _(k=1)^N |x_(i k)-x_(j k)|^2
 
 + sum _(k=1)^N |y_(i k)-y_(j k)|^2
-<  epsilon.alt ^2 $$
+<  epsilon.alt ^2 
+$$
 ```
 
 ## Step 6：坐标收敛
@@ -132,7 +145,9 @@ ${x_(i k)}_i,{y_(i k)}_i$ 为实数柯西列。
 使得：
 ```
 
-$     x_(i k) ->  x_k, quad  y_(i k) ->  y_(k) $
+$$
+     x_{i k} \to  x_k, \quad  y_{i k} \to y_{k} 
+$$
 
 ## Step 7：构造极限向量
 
@@ -153,7 +168,7 @@ $     d(v_i,v) ->  0 $
 故：
 ```
 
-$     v_i ->  v $
+$     v_i  \to  v $
 
 # 结论
 
