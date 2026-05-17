@@ -330,11 +330,6 @@ function buildMenu() {
       {
         label: "Toggle Source",
         accelerator: "CmdOrCtrl+/",
-        click: () => runInWindow("document.querySelector('[data-action=source],[data-action=editor]')?.click()"),
-      },
-      {
-        label: "Toggle Source / Preview",
-        accelerator: "CmdOrCtrl+Shift+S",
         click: () => runInWindow(dispatchCommandScript("toggle-source")),
       },
       {

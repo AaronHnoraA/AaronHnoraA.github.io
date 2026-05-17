@@ -2511,14 +2511,10 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "/" && !event.shiftKey && !event.altKey) {
     const isMac = /Mac/.test(navigator.platform);
     if (isMac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey) {
-      const target = event.target as Node | null;
-      if (target && host.contains(target)) {
-        window.setTimeout(() => {
-          syncSourceUi();
-          setStatus(currentMode === "source" ? "Source mode" : "Ready");
-          scheduleAssistUpdate();
-        }, 0);
-      }
+      event.preventDefault();
+      event.stopPropagation();
+      toggleSourceMode();
+      return;
     }
   }
   if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.key.toLowerCase() === "t") {
@@ -2554,12 +2550,6 @@ document.addEventListener("keydown", (event) => {
   if (vim.handleKeyDown(event)) {
     updateVimCursorNow();
     event.stopPropagation();
-    return;
-  }
-  if (event.metaKey && event.shiftKey && !event.altKey && !event.ctrlKey && event.key.toLowerCase() === "s") {
-    event.preventDefault();
-    event.stopPropagation();
-    toggleSourceMode();
     return;
   }
   if (event.metaKey && !event.shiftKey && !event.altKey && !event.ctrlKey && event.key.toLowerCase() === "s") {
