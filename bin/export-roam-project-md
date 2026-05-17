@@ -1,0 +1,258 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import ast
+import os
+import re
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+PROJECT_DIR = ROOT / "roam" / "project"
+
+METADATA_RE = re.compile(r"#metadata\(\((.*?)\)\s*<note>", re.DOTALL)
+PAIR_RE = re.compile(r"([A-Za-z0-9_-]+)\s*:")
+STRING_RE = re.compile(r'"((?:[^"\\]|\\.)*)"')
+NOTE_RE = re.compile(r'#note\("([^"]+)"\)\[([^\]]+)\]')
+ZOTERO_RE = re.compile(r'#zoterolink\("([^"]+)"\)\[([^\]]+)\]')
+BLOCK_START_RE = re.compile(r"^#([A-Za-z0-9_-]+)(?:\((.*?)\))?\[\s*$")
+HEAD_RE = re.compile(r"^(=+)\s+(.+)$")
+
+ADMONITIONS = {
+    "summary": "Summary",
+    "definition": "Definition",
+    "theorem": "Theorem",
+    "proposition": "Proposition",
+    "lemma": "Lemma",
+    "proof": "Proof",
+    "remark": "Remark",
+    "warning": "Warning",
+}
+
+FENCED_TYPST = {
+    "table",
+    "grid",
+    "align",
+    "let",
+    "pagebreak",
+    "note-equation",
+    "note-pinit-point-from",
+}
+
+
+def unescape_typst(value: str) -> str:
+    return ast.literal_eval(f'"{value}"')
+
+
+def parse_metadata(text: str) -> dict[str, object]:
+    match = METADATA_RE.search(text)
+    if not match:
+        return {}
+    body = match.group(1)
+    fields: dict[str, object] = {}
+    pairs = list(PAIR_RE.finditer(body))
+    for index, pair in enumerate(pairs):
+        key = pair.group(1)
+        start = pair.end()
+        end = pairs[index + 1].start() if index + 1 < len(pairs) else len(body)
+        raw = body[start:end].strip().rstrip(",").strip()
+        if raw.startswith("("):
+            fields[key] = [unescape_typst(item.group(1)) for item in STRING_RE.finditer(raw)]
+            continue
+        string = STRING_RE.search(raw)
+        if string:
+            fields[key] = unescape_typst(string.group(1)).strip()
+        elif raw:
+            fields[key] = raw
+    return fields
+
+
+def strip_metadata_and_preamble(text: str) -> str:
+    text = METADATA_RE.sub("", text)
+    kept: list[str] = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith(("#import ", "#show:", "#set ")):
+            continue
+        kept.append(line.rstrip())
+    return "\n".join(kept).strip()
+
+
+def bracket_delta(line: str) -> int:
+    delta = 0
+    in_string = False
+    escaped = False
+    for char in line:
+        if escaped:
+            escaped = False
+            continue
+        if char == "\\":
+            escaped = True
+            continue
+        if char == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if char == "[":
+            delta += 1
+        elif char == "]":
+            delta -= 1
+    return delta
+
+
+def clean_inline(text: str) -> str:
+    text = NOTE_RE.sub(lambda m: m.group(2), text)
+    text = ZOTERO_RE.sub(lambda m: f"[{m.group(2)}]({m.group(1)})", text)
+    text = re.sub(r'#([A-Za-z0-9_-]+)\("([^"]+)"\)', r"\2", text)
+    text = text.replace(r"\#", "#")
+    text = text.replace("G tilde.equiv H", r"\simeq")
+    text = text.replace("tilde.equiv", r"\simeq")
+    text = text.replace("plus.o", r"\oplus")
+    text = text.replace("times.o", r"\times")
+    text = text.replace("mapsto", r"\mapsto")
+    text = text.replace("quad", r"\quad")
+    return text
+
+
+def title_from_arg(name: str, arg: str | None) -> str:
+    label = ADMONITIONS[name]
+    if not arg:
+        return label
+    arg = arg.strip()
+    if arg.startswith('"') and arg.endswith('"'):
+        try:
+            return f"{label}: {ast.literal_eval(arg)}"
+        except Exception:
+            return f"{label}: {arg.strip(chr(34))}"
+    return f"{label}: {arg}"
+
+
+def emit_blockquote(out: list[str], title: str, body: list[str]) -> None:
+    out.append(f"> **{title}.**")
+    out.append(">")
+    for line in body:
+        converted = convert_plain_line(line)
+        if converted:
+            out.append(f"> {converted}")
+        else:
+            out.append(">")
+    out.append("")
+
+
+def convert_plain_line(line: str) -> str:
+    stripped = line.strip()
+    heading = HEAD_RE.match(stripped)
+    if heading:
+        level = min(6, len(heading.group(1)))
+        return f"{'#' * level} {clean_inline(heading.group(2))}"
+    return clean_inline(line)
+
+
+def convert_body(text: str) -> str:
+    lines = text.splitlines()
+    out: list[str] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        stripped = line.strip()
+        if not stripped:
+            out.append("")
+            i += 1
+            continue
+
+        start = BLOCK_START_RE.match(stripped)
+        if start:
+            name = start.group(1)
+            arg = start.group(2)
+            depth = bracket_delta(stripped)
+            block: list[str] = []
+            i += 1
+            while i < len(lines) and depth > 0:
+                current = lines[i]
+                depth += bracket_delta(current)
+                if depth <= 0 and current.strip() == "]":
+                    i += 1
+                    break
+                block.append(current)
+                i += 1
+
+            if name in ADMONITIONS:
+                emit_blockquote(out, title_from_arg(name, arg), block)
+            elif name in FENCED_TYPST:
+                out.append("```typst")
+                out.append(stripped)
+                out.extend(block)
+                out.append("]")
+                out.append("```")
+                out.append("")
+            else:
+                out.extend(convert_body("\n".join(block)).splitlines())
+            continue
+
+        if stripped.startswith("#table("):
+            depth = stripped.count("(") - stripped.count(")")
+            block = [line]
+            i += 1
+            while i < len(lines) and depth > 0:
+                current = lines[i]
+                depth += current.count("(") - current.count(")")
+                block.append(current)
+                i += 1
+            out.append("```typst")
+            out.extend(block)
+            out.append("```")
+            out.append("")
+            continue
+
+        out.append(convert_plain_line(line))
+        i += 1
+
+    result = "\n".join(out)
+    result = re.sub(r"\n{3,}", "\n\n", result)
+    return result.strip()
+
+
+def meta_block(metadata: dict[str, object], source: Path) -> str:
+    title = str(metadata.get("title") or source.stem).strip()
+    lines = ["#+begin meta"]
+    if metadata.get("id"):
+        lines.append(f"id: {metadata['id']}")
+    lines.append(f"title: {title}")
+    for key in ("id", "date"):
+        if key == "id":
+            continue
+        value = metadata.get(key)
+        if value:
+            lines.append(f"{key}: {value}")
+    tags = metadata.get("tags")
+    if isinstance(tags, list) and tags:
+        lines.append(f"tags: {', '.join(str(tag) for tag in tags)}")
+    lines.append(f"source: {source.relative_to(ROOT).as_posix()}")
+    lines.append("#+end meta")
+    lines.append("")
+    lines.append(f"# {title}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def convert_file(path: Path) -> Path:
+    text = path.read_text(encoding="utf-8")
+    metadata = parse_metadata(text)
+    body = convert_body(strip_metadata_and_preamble(text))
+    output = meta_block(metadata, path) + body + "\n"
+    target = path.with_suffix(".md")
+    target.write_text(output, encoding="utf-8")
+    return target
+
+
+def main() -> int:
+    paths = sorted(PROJECT_DIR.rglob("*.typ"))
+    for path in paths:
+        target = convert_file(path)
+        print(os.path.relpath(target, ROOT))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -5,7 +5,7 @@ LOOKUP_PROMPT ?= agent/skill/lookup.md
 LOOKUP_QUERY ?= $(or $(QUERY),$(Q))
 RSYNC_EXCLUDES := --exclude .deps/ --exclude .publish-state.json --exclude .DS_Store
 
-.PHONY: all force sync git dryrun clean cv llm lookup maintain publish
+.PHONY: all force sync git dryrun clean cv llm lookup maintain publish start
 
 all: publish
 	rsync -avh --delete $(RSYNC_EXCLUDES) --progress -e ssh public/ Aaron-nas:/volume1/web/public/
@@ -41,6 +41,9 @@ lookup:
 
 maintain:
 	python3 agent/skill/maintain.py
+
+start:
+	$(MAKE) -C Aaronnote start
 
 
 clean:

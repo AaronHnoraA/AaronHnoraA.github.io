@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: Display math
+# key: eq
+# group: Aaronnote local
+# --
+$$
+${1:E = mc^2}
+$$
+$0

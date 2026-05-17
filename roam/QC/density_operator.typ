@@ -1,22 +1,23 @@
-#import "/_typst/note.typ": *
+\#import "/\_typst/note.typ": \*
 #show: note-entry
 #set heading(numbering: "1.")
 
-#metadata((
-  kind: "note",
-  id: "20260128T000000-density-operator",
-  title: "Density Operator",
-  date: "2026-01-28",
-  tags: ("quantum", "density", "state", "operator",),
-  aliases: (),
-)) <note>
+\#metadata((
+kind: "note",
+id: "20260128T000000-density-operator",
+title: "Density Operator",
+date: "2026-01-28",
+tags: ("quantum", "density", "state", "operator",),
+aliases: (),
+)) \<note\>
 
 = 1. 为什么要引入密度算符
 
-并不是所有状态(#note("20260128T000000-quantum-state")[Quantum State])都能用一个 |ψ⟩ 描述。
+并不是所有状态(#note("20260128T000000-quantum-state")\[Quantum State\])都能用一个 |ψ⟩ 描述。
 
 例如：
-- 我们只知道系统以概率 p_i 处于 |ψ_i⟩
+
+- 我们只知道系统以概率 p\_i 处于 |ψ\_i⟩
 - 但不知道“到底是哪一个”
 
 这时，用“态矢”已经不够了。
@@ -24,6 +25,7 @@
 = 2. 密度算符的定义
 
 一个量子态可以用算符 ρ 表示，满足：
+
 - ρ ≥ 0（非负）
 - ρ = ρ†（自共轭）
 - tr(ρ) = 1（归一化）
@@ -37,15 +39,16 @@
 若系统处于纯态 |ψ⟩，
 定义：
 
-ρ_ψ = |ψ⟩⟨ψ|
+ρ\_ψ = |ψ⟩⟨ψ|
 
 这是一个：
+
 - 一维正交投影
 - 秩为 1
 - ρ² = ρ
 
 此时：
-tr(A ρ_ψ) = ⟨ψ|A|ψ⟩
+tr(A ρ\_ψ) = ⟨ψ|A|ψ⟩
 
 与态矢公式完全一致。
 

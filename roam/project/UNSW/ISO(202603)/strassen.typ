@@ -17,7 +17,7 @@
 
 ]
 
-Reading Note
+= Reading Note
 
 == Degeneration of tensors
 
