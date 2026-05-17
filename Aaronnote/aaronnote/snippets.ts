@@ -36,6 +36,12 @@ type OrgEnvSnippet = {
   closeFrom: number;
 };
 
+type DisplayMathSnippet = {
+  contentStart: number;
+  contentEnd: number;
+  closeTo: number;
+};
+
 function escapeRegExp(src: string): string {
   return src.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
 }
@@ -64,6 +70,19 @@ function parseOrgEnvSnippetText(text: string): OrgEnvSnippet | null {
     contentEnd: close.index,
     closeFrom: close.index + 1,
   };
+}
+
+function parseDisplayMathSnippetText(text: string): DisplayMathSnippet | null {
+  const openEnd = text.indexOf("\n");
+  if (openEnd < 0) return null;
+  const closeStart = text.lastIndexOf("\n") + 1;
+  if (closeStart <= openEnd) return null;
+  if (!/^[ \t]*\$\$[ \t]*$/.test(text.slice(0, openEnd))) return null;
+  if (!/^[ \t]*\$\$[ \t]*$/.test(text.slice(closeStart))) return null;
+
+  const contentStart = openEnd + 1;
+  const contentEnd = closeStart === contentStart ? contentStart : closeStart - 1;
+  return { contentStart, contentEnd, closeTo: text.length };
 }
 
 function editorView(editor: Editor): EditorView | null {
@@ -350,6 +369,40 @@ export class SnippetSession {
     tabstops: SnippetTabstop[],
     insertedFrom: number,
   ): SnippetTabstop[] {
+    const math = parseDisplayMathSnippetText(text);
+    if (math) {
+      const view = editorView(this.editor);
+      const hit = view ? this.activeMathBlock(view, insertedFrom) : null;
+      if (hit) {
+        const blockStart = hit.blockPos + 1;
+        let exitPos: number | null = null;
+        const ensureExitPos = (): number => {
+          if (exitPos != null) return exitPos;
+          exitPos = this.ensureParagraphAfterBlock(view!, hit.blockPos);
+          return exitPos;
+        };
+
+        return tabstops.map((stop) => {
+          if (stop.from >= math.contentStart && stop.to <= math.contentEnd) {
+            return {
+              ...stop,
+              from: blockStart + (stop.from - math.contentStart),
+              to: blockStart + (stop.to - math.contentStart),
+            };
+          }
+          if (stop.index === 0 && stop.from >= math.closeTo) {
+            const pos = ensureExitPos();
+            return { ...stop, from: pos, to: pos };
+          }
+          return {
+            ...stop,
+            from: insertedFrom + stop.from,
+            to: insertedFrom + stop.to,
+          };
+        });
+      }
+    }
+
     const org = parseOrgEnvSnippetText(text);
     if (!org) {
       return tabstops.map((stop) => ({
@@ -446,6 +499,39 @@ export class SnippetSession {
       return true;
     });
     return found;
+  }
+
+  private activeMathBlock(
+    view: EditorView,
+    insertedFrom: number,
+  ): { blockPos: number } | null {
+    let bestBlockPos: number | null = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    view.state.doc.descendants((node, pos) => {
+      if (node.type.name !== "math_block") return true;
+      const distance =
+        insertedFrom >= pos && insertedFrom <= pos + node.nodeSize
+          ? 0
+          : Math.abs(pos - insertedFrom);
+      if (distance < bestDistance) {
+        bestBlockPos = pos;
+        bestDistance = distance;
+      }
+      return false;
+    });
+    return bestBlockPos == null ? null : { blockPos: bestBlockPos };
+  }
+
+  private ensureParagraphAfterBlock(view: EditorView, blockPos: number): number {
+    const { state } = view;
+    const node = state.doc.nodeAt(blockPos);
+    if (!node) return Math.min(blockPos + 1, state.doc.content.size);
+    const blockEnd = blockPos + node.nodeSize;
+    const next = blockEnd < state.doc.content.size ? state.doc.nodeAt(blockEnd) : null;
+    if (next?.type.name !== "paragraph") {
+      view.dispatch(state.tr.insert(blockEnd, state.schema.nodes.paragraph.create()));
+    }
+    return blockEnd + 1;
   }
 
   private ensureParagraphAfterOrgBlock(view: EditorView, blockPos: number): number {

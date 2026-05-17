@@ -89,38 +89,16 @@ describe("parseInline", () => {
     ]);
   });
 
-  test("display math with line fences spans newlines", () => {
-    expect(parseInline("$$\na^2+b^2\n$$")).toMatchObject([
-      {
-        type: "math",
-        from: 2,
-        to: 11,
-        openFrom: 0,
-        openTo: 2,
-        closeFrom: 11,
-        closeTo: 13,
-        attrs: { tex: "a^2+b^2", delimiter: "$$", display: true },
-      },
-    ]);
+  test("display math line fences are not inline math", () => {
+    expect(parseInline("$$\na^2+b^2\n$$").filter((span) => span.type === "math")).toEqual([]);
   });
 
   test("same-line double-dollar source is not stable display math", () => {
     expect(parseInline("$$ ssada sad $$").filter((span) => span.type === "math")).toEqual([]);
   });
 
-  test("empty display math fence stays a display math span", () => {
-    expect(parseInline("$$\n$$")).toMatchObject([
-      {
-        type: "math",
-        from: 2,
-        to: 3,
-        openFrom: 0,
-        openTo: 2,
-        closeFrom: 3,
-        closeTo: 5,
-        attrs: { tex: "", delimiter: "$$", display: true },
-      },
-    ]);
+  test("empty display math fence is not inline math", () => {
+    expect(parseInline("$$\n$$").filter((span) => span.type === "math")).toEqual([]);
   });
 
   test("display math close fence must be on its own line", () => {
@@ -132,15 +110,8 @@ d\mathrm{GA} \le_p \mathrm{GI} $$`).filter((span) => span.type === "math")).toEq
     expect(parseInline("$$ adad\n$$").filter((span) => span.type === "math")).toEqual([]);
   });
 
-  test("display math preserves internal blank lines", () => {
-    expect(parseInline("$$\nasdasda\n\nasdasd\n\nadasda s\n$$")).toMatchObject([
-      {
-        type: "math",
-        openFrom: 0,
-        openTo: 2,
-        attrs: { tex: "asdasda\n\nasdasd\n\nadasda s", delimiter: "$$", display: true },
-      },
-    ]);
+  test("display math internal blank lines belong to the block parser", () => {
+    expect(parseInline("$$\nasdasda\n\nasdasd\n\nadasda s\n$$").filter((span) => span.type === "math")).toEqual([]);
   });
 
   test("unclosed double-dollar source is not partially parsed as inline math", () => {

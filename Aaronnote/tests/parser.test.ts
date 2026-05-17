@@ -74,11 +74,11 @@ describe("parser: block nodes", () => {
     expect(doc.child(1).type).toBe(schema.nodes.horizontal_rule);
   });
 
-  test("display math source stays editable text", () => {
+  test("display math parses as a block node", () => {
     const doc = parse("$$\na^2 + b^2 = c^2\n$$");
-    const p = doc.child(0);
-    expect(p.type).toBe(schema.nodes.paragraph);
-    expect(p.textContent).toBe("$$\na^2 + b^2 = c^2\n$$");
+    const block = doc.child(0);
+    expect(block.type).toBe(schema.nodes.math_block);
+    expect(block.textContent).toBe("a^2 + b^2 = c^2");
   });
 
   test("display math preserves TeX command backslashes and row separators", () => {
@@ -90,9 +90,9 @@ d\mathrm{TA} & \overset{?}{\le_p} & \mathrm{TI} & \le_p & \mathrm{cTA}
 \end{array}
 $$`;
     const doc = parse(source);
-    const p = doc.child(0);
-    expect(p.type).toBe(schema.nodes.paragraph);
-    expect(p.textContent).toBe(source);
+    const block = doc.child(0);
+    expect(block.type).toBe(schema.nodes.math_block);
+    expect(block.textContent).toBe(source.split("\n").slice(1, -1).join("\n"));
   });
 
   test("same-line double-dollar math source stays editable text", () => {
@@ -140,9 +140,9 @@ $$`;
 $$`;
     const doc = parse(`#+begin summary\n${source}\n#+end summary`);
     const block = doc.child(0);
-    const paragraph = block.child(0);
-    expect(paragraph.type).toBe(schema.nodes.paragraph);
-    expect(paragraph.textContent).toBe(source);
+    const mathBlock = block.child(0);
+    expect(mathBlock.type).toBe(schema.nodes.math_block);
+    expect(mathBlock.textContent).toBe(source.split("\n").slice(1, -1).join("\n"));
   });
 });
 

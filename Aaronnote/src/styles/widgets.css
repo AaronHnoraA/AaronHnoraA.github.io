@@ -69,7 +69,40 @@
  * it; arrow keys may briefly land on a hidden delim and the char
  * becomes visible as soon as the cursor enters the span. */
 .ProseMirror .syntax-hidden { font-size: 0; }
-.ProseMirror .math-source-hidden {
+.ProseMirror .math-source-hidden { display: none; }
+
+/* Display math is a real block node. The fences are node chrome, so editing
+ * the TeX body cannot collapse or move the surrounding `$$` lines. */
+.ProseMirror math-block {
+  display: block;
+  box-sizing: border-box;
+  margin: 0.75em 0 1.05em;
+  font: 14px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+}
+.ProseMirror math-block .math-block-fence {
+  color: #b0b0b0;
+  user-select: none;
+}
+.ProseMirror math-block .math-block-source {
+  min-height: 1.55em;
+  outline: none;
+  white-space: pre-wrap;
+}
+.ProseMirror math-block .math-block-render {
+  display: none;
+}
+.ProseMirror math-block.math-block-rendered {
+  font: inherit;
+}
+.ProseMirror math-block.math-block-rendered .math-block-fence,
+.ProseMirror math-block.math-block-rendered .math-block-source {
+  display: none;
+}
+.ProseMirror math-block.math-block-rendered .math-block-render {
+  display: block;
+}
+.ProseMirror math-block.math-block-active .math-block-render {
   display: none;
 }
 

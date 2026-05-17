@@ -14,8 +14,9 @@ This is a note for [Köbler, 2020, "ISO(2026-03)"](zotero://select/items/1_54IJ8
 My current task is to skim Köbler's book and identify possible correspondences between the known graph-side reductions and the analogous tensor-side reductions:
 
 $$
-\begin{array}{ccccc} d\mathrm{GA} & \le_p & \mathrm{GI} & \le_p & \mathrm{GA} \\ \downarrow & & \downarrow & & \downarrow \\ d\mathrm{TA} & \overset{?}{\le_p} & \mathrm{TI} & \le_p & \mathrm{cTA} \end{array}
- $$
+\begin{array}{ccccc} d\mathrm{GA} & 
+\le_p & \mathrm{GI} & \le_p & \mathrm{GA} \\ \downarrow & & \downarrow & & \downarrow \\ d\mathrm{TA} & \overset{?}{\le_p} & \mathrm{TI} & \le_p & \mathrm{cTA} \end{array}
+$$
 
 where
 
@@ -46,7 +47,8 @@ $$
 is already known in our current setting. The unclear part is the remaining tensor analogue, especially whether the graph-side idea behind
 
 $$
-d\mathrm{GA} \le_p \mathrm{GI} $$  
+d\mathrm{GA} \le\_p \mathrm{GI} 
+$$
 
 has a valid tensor-side counterpart.  
 
@@ -54,11 +56,18 @@ has a valid tensor-side counterpart.
 
  The currently unclear part is whether the proposed tensor-side analogue  
 
-$$ d\mathrm{TA} \overset{?}{\le_p} \mathrm{TI}  $$ 
+$$
+
+d\mathrm{TA} \overset{?}{\le\_p} \mathrm{TI}  
+
+$$
 
  can be proved by adapting the graph-side reduction  
 
-$$  d\mathrm{GA} \le_p \mathrm{GI}.  $$
+$$
+
+  d\mathrm{GA} \le\_p \mathrm{GI}.
+$$
 #+end summary
 
 ## 

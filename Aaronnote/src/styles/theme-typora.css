@@ -70,14 +70,8 @@
   text-align: left;
   white-space: pre-wrap;
 }
-.ProseMirror p:has(> .aaronnote-math-block) {
-  margin: 0.22em 0;
-  line-height: 1.2;
-}
-.ProseMirror p:has(> .aaronnote-math-block) + p:has(> .aaronnote-math-block) {
-  margin-top: -0.08em;
-}
 .ProseMirror p:last-child { margin-bottom: 0; }
+.ProseMirror math-block + math-block { margin-top: -0.08em; }
 
 /* ─── links ──────────────────────────────────────────────────────── */
 .ProseMirror a {

@@ -41,7 +41,13 @@ Hilbert space is a big space.
   - 算符的*本征态*构成空间的基底。
 - *概率 (Born Rule)*: 概率幅由内积给出，概率为内积的模方 ($P = | lr(angle.l phi | psi angle.r) |^2$)。
 
-# 有限维必完备
+$$
+d(v_i, v_j)^2 = sum_(k=1)^N |z_(i k) - z_(j k)|^2 < epsilon.alt^2 
+$$
+
+#  ss
+
+有限维必完备
 
 #+begin theorem
 在有限维内积空间中，所有柯西序列均收敛于该空间内的某个向量。因此，有限维内积空间([Inner Product Space](inner_product_space.md))天然是完备的，即有限维内积空间即为希尔伯特空间。
@@ -95,7 +101,9 @@ $     v_i= sum _(k=1)^N z_(i k)e_k $
 由正交性：
 ```
 
-$    d(v_i,v_j)^2 = sum _(k=1)^N |z_(i k)-z_(j k)|^2 < epsilon.alt ^2 $
+$$
+sd(v_i, v_j)^2 = sum_(k=1)^N |z_(i k) - z_(j k)|^2 < epsilon.alt^2 
+$$
 
 ## Step 5：拆分为实部与虚部
 

@@ -172,10 +172,10 @@ describe("aaronnote snippets", () => {
   test("tex snippet confirmed inside display math keeps selection inside the formula", () => {
     const mount = document.createElement("div");
     document.body.appendChild(mount);
-    const editor = createEditor(mount);
+      const editor = createEditor(mount);
     try {
       editor.setMarkdown("$$\nfrac\n$$");
-      editor.setSelection(1 + "$$\nfrac".length);
+      editor.setSelection(1 + "frac".length);
       const session = new SnippetSession(editor);
       expect(session.insert({
         key: "frac",
@@ -187,7 +187,8 @@ describe("aaronnote snippets", () => {
       expect(editor.getMarkdown()).toBe("$$\n\\frac{a}{b}\n$$");
       const selection = editor.getSelection();
       expect(editor.textBetween(selection.from, selection.to)).toBe("a");
-      expect(editor.view.state.selection.$from.parent.textContent).toBe("$$\n\\frac{a}{b}\n$$");
+      expect(editor.view.state.selection.$from.parent.type.name).toBe("math_block");
+      expect(editor.view.state.selection.$from.parent.textContent).toBe("\\frac{a}{b}");
     } finally {
       editor.destroy();
       mount.remove();

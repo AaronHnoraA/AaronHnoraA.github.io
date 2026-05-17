@@ -12,136 +12,147 @@ function setupAt(md: string, offset: number) {
   return state.apply(state.tr.setSelection(TextSelection.create(doc, 1 + offset)));
 }
 
-function emptyDisplayState() {
-  return apply(setupAt("$$\n$$", "$$\n".length), ["<Enter>"]);
+function setupMathAt(md: string, bodyOffset: number) {
+  const doc = parse(md);
+  expect(doc.child(0).type.name).toBe("math_block");
+  const state = createState(doc);
+  return state.apply(state.tr.setSelection(TextSelection.create(doc, 1 + bodyOffset)));
 }
 
 describe("math keymap", () => {
-  test("Enter inside display math inserts a source newline without splitting the paragraph", () => {
-    const state = apply(setupAt("$$\nasd\n$$", "$$\nasd".length), ["<Enter>"]);
-    expect(state.doc.childCount).toBe(1);
-    expect(state.doc.child(0).type.name).toBe("paragraph");
-    expect(state.doc.child(0).textContent).toBe("$$\nasd\n\n$$");
+  test("line-fenced display math parses as one math_block", () => {
+    const doc = parse("$$\nasd\n$$");
+    expect(doc.childCount).toBe(1);
+    expect(doc.child(0).type.name).toBe("math_block");
+    expect(doc.child(0).textContent).toBe("asd");
   });
 
-  test("Enter inside empty display math keeps the blank source line", () => {
-    const state = apply(setupAt("$$\n$$", "$$\n".length), ["<Enter>"]);
+  test("Enter inside display math inserts a body newline without moving fences", () => {
+    const state = apply(setupMathAt("$$\nasd\n$$", "asd".length), ["<Enter>"]);
     expect(state.doc.childCount).toBe(1);
-    expect(state.doc.child(0).type.name).toBe("paragraph");
-    expect(state.doc.child(0).textContent).toBe("$$\n\n$$");
+    expect(state.doc.child(0).type.name).toBe("math_block");
+    expect(state.doc.child(0).textContent).toBe("asd\n");
+  });
+
+  test("Enter inside empty display math keeps an editable blank body line", () => {
+    const state = apply(setupMathAt("$$\n$$", 0), ["<Enter>"]);
+    expect(state.doc.childCount).toBe(1);
+    expect(state.doc.child(0).type.name).toBe("math_block");
+    expect(state.doc.child(0).textContent).toBe("\n");
+  });
+
+  test("typing inside empty display math edits only the math body", () => {
+    const state = apply(setupMathAt("$$\n$$", 0), ["a"]);
+    expect(state.doc.childCount).toBe(1);
+    expect(state.doc.child(0).type.name).toBe("math_block");
+    expect(state.doc.child(0).textContent).toBe("a");
+  });
+
+  test("typing after an existing display-math body line does not move fences", () => {
+    const state = apply(setupMathAt("$$\nasd\n$$", "asd".length), ["x"]);
+    expect(state.doc.childCount).toBe(1);
+    expect(state.doc.child(0).type.name).toBe("math_block");
+    expect(state.doc.child(0).textContent).toBe("asdx");
+  });
+
+  test("typing $$ then Enter creates a display math block", () => {
+    const state = apply(setupAt("$$", "$$".length), ["<Enter>"]);
+    expect(state.doc.childCount).toBe(1);
+    expect(state.doc.child(0).type.name).toBe("math_block");
+    expect(state.selection.from).toBe(1);
   });
 
   test("Enter inside same-line double-dollar source does not create display math", () => {
     const state = apply(setupAt("$$ $$", "$$ ".length), ["<Enter>"]);
+    expect(state.doc.child(0).type.name).toBe("paragraph");
     expect(state.doc.childCount).toBeGreaterThan(1);
   });
 
-  test("Enter inside compact $$$$ does not create display math", () => {
-    const state = apply(setupAt("$$$$", "$$".length), ["<Enter>"]);
-    expect(state.doc.textContent).not.toBe("$$\n\n$$");
-  });
-
-  test("typing inside line-fenced display math preserves the closing fence", () => {
-    const state = apply(setupAt("$$\n$$", "$$\n".length), ["a"]);
-    expect(state.doc.childCount).toBe(1);
-    expect(state.doc.child(0).type.name).toBe("paragraph");
-    expect(state.doc.child(0).textContent).toBe("$$\na\n$$");
-  });
-
-  test("typing on the blank source line in empty display math does not collapse fences", () => {
-    const base = emptyDisplayState();
-    const state = apply(base, ["a"]);
-    expect(state.doc.childCount).toBe(1);
-    expect(state.doc.child(0).type.name).toBe("paragraph");
-    expect(state.doc.child(0).textContent).toBe("$$\n\na\n$$");
-  });
-
-  test("typing before the closing fence in empty display math keeps a separate close line", () => {
-    const base = emptyDisplayState();
-    const doc = base.doc;
-    const beforeClose = base.apply(base.tr.setSelection(TextSelection.create(doc, 1 + "$$\n\n".length)));
-    const state = apply(beforeClose, ["a"]);
-    expect(state.doc.childCount).toBe(1);
-    expect(state.doc.child(0).type.name).toBe("paragraph");
-    expect(state.doc.child(0).textContent).toBe("$$\n\na\n$$");
-  });
-
-  test("parsed empty display math with a blank body stays one editable paragraph", () => {
-    const state = apply(setupAt("$$\n\n$$", "$$\n".length), ["a"]);
-    expect(state.doc.childCount).toBe(1);
-    expect(state.doc.child(0).type.name).toBe("paragraph");
-    expect(state.doc.child(0).textContent).toBe("$$\na\n$$");
-  });
-
-  test("typing inside same-line double-dollar source does not create display math", () => {
-    const state = apply(setupAt("$$ $$", "$$ ".length), ["a"]);
-    expect(state.doc.childCount).toBe(1);
-    expect(state.doc.child(0).type.name).toBe("paragraph");
-    expect(state.doc.child(0).textContent).toBe("$$ a$$");
-  });
-
-  test("typing inside compact $$$$ does not create display math", () => {
-    const state = apply(setupAt("$$$$", "$$".length), ["a"]);
-    expect(state.doc.childCount).toBe(1);
-    expect(state.doc.child(0).type.name).toBe("paragraph");
-    expect(state.doc.child(0).textContent).toBe("$$a$$");
-  });
-
-  test("continued typing inside same-line double-dollar source remains plain text", () => {
+  test("typing inside same-line double-dollar source stays plain text", () => {
     const state = apply(setupAt("$$ $$", "$$ ".length), ["a", "s", "d"]);
     expect(state.doc.childCount).toBe(1);
     expect(state.doc.child(0).type.name).toBe("paragraph");
     expect(state.doc.child(0).textContent).toBe("$$ asd$$");
   });
 
-  test("typing after an existing display-math newline does not move the closing fence", () => {
-    const state = apply(setupAt("$$\nasd\n$$", "$$\nasd".length), ["x"]);
+  test("compact $$$$ stays plain text", () => {
+    const state = apply(setupAt("$$$$", "$$".length), ["a"]);
     expect(state.doc.childCount).toBe(1);
     expect(state.doc.child(0).type.name).toBe("paragraph");
-    expect(state.doc.child(0).textContent).toBe("$$\nasdx\n$$");
+    expect(state.doc.child(0).textContent).toBe("$$a$$");
   });
 
-  test("active empty display math keeps source DOM without a render widget", () => {
-    const state = apply(setupAt("$$\n$$", "$$\n".length), ["<Enter>"]);
+  test("display math DOM shows fixed fence chrome while editing", () => {
+    const state = setupMathAt("$$\na+b\n$$", 1);
     const mount = document.createElement("div");
     document.body.appendChild(mount);
     const view = new EditorView(mount, { state });
     try {
-      expect(view.dom.querySelector(".aaronnote-math-block")).toBeNull();
-      expect(state.doc.child(0).textContent).toBe("$$\n\n$$");
+      const block = view.dom.querySelector("math-block");
+      expect(block).not.toBeNull();
+      expect(block!.classList.contains("math-block-active")).toBe(true);
+      expect(block!.classList.contains("math-block-rendered")).toBe(false);
+      expect(block!.querySelectorAll(".math-block-fence")).toHaveLength(2);
+      expect(block!.querySelector(".math-block-render")).not.toBeNull();
+      expect(state.doc.child(0).textContent).toBe("a+b");
     } finally {
       view.destroy();
       mount.remove();
     }
   });
 
-  test("active non-empty display math keeps source DOM without a render widget", () => {
-    const state = setupAt("$$\na+b\n$$", "$$\na".length);
+  test("display math DOM renders latex after the cursor leaves the block", () => {
+    const doc = parse("text\n\n$$\na+b\n$$");
+    const base = createState(doc);
+    const state = base.apply(base.tr.setSelection(TextSelection.create(doc, 1)));
     const mount = document.createElement("div");
     document.body.appendChild(mount);
     const view = new EditorView(mount, { state });
     try {
-      expect(view.dom.querySelector(".aaronnote-math-block")).toBeNull();
-      expect(state.doc.child(0).textContent).toBe("$$\na+b\n$$");
+      const block = view.dom.querySelector("math-block");
+      expect(block).not.toBeNull();
+      expect(block!.classList.contains("math-block-rendered")).toBe(true);
+      expect(block!.classList.contains("math-block-active")).toBe(false);
+      expect(block!.querySelector(".math-block-render")).not.toBeNull();
+      expect(block!.querySelector(".aaronnote-math-block")).not.toBeNull();
+      expect(doc.child(1).type.name).toBe("math_block");
+      expect(doc.child(1).textContent).toBe("a+b");
     } finally {
       view.destroy();
       mount.remove();
     }
   });
 
-  test("clicking rendered display math places the cursor inside the source", () => {
+  test("clicking rendered display math places the cursor inside the block body", () => {
+    const doc = parse("text\n\n$$\na+b\n$$");
+    const base = createState(doc);
+    const state = base.apply(base.tr.setSelection(TextSelection.create(doc, 1)));
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const view = new EditorView(mount, { state });
+    try {
+      const render = view.dom.querySelector<HTMLElement>(".math-block-render");
+      expect(render).not.toBeNull();
+      render!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+      expect(view.state.selection.$from.parent.type.name).toBe("math_block");
+      expect(view.state.selection.from).toBe(7);
+    } finally {
+      view.destroy();
+      mount.remove();
+    }
+  });
+
+  test("clicking a math fence places the cursor inside the block body", () => {
     const doc = parse("$$\na+b\n$$");
     const state = createState(doc);
     const mount = document.createElement("div");
     document.body.appendChild(mount);
     const view = new EditorView(mount, { state });
     try {
-      const widget = view.dom.querySelector<HTMLElement>(".aaronnote-math-block");
-      expect(widget).not.toBeNull();
-      widget!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
-      widget!.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-      expect(view.state.selection.from).toBe(1 + "$$\n".length);
-      expect(view.dom.querySelector(".aaronnote-math-block")).toBeNull();
+      const fence = view.dom.querySelector<HTMLElement>(".math-block-fence");
+      expect(fence).not.toBeNull();
+      fence!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+      expect(view.state.selection.from).toBe(1);
     } finally {
       view.destroy();
       mount.remove();

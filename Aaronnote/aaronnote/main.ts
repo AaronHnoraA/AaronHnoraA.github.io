@@ -1388,6 +1388,17 @@ function isDisplayClose(src: string, closeFrom: number): boolean {
 }
 
 function mathAtCursor(ctx: ReturnType<typeof editor.cursorContext>): { tex: string; display: boolean; rect: { left: number; top: number; bottom: number } | null } | null {
+  if (!editor.isSourceMode()) {
+    const sel = editor.view.state.selection;
+    if (sel.empty && sel.$from.parent.type.name === "math_block") {
+      return {
+        tex: sel.$from.parent.textContent,
+        display: true,
+        rect: ctx.rect,
+      };
+    }
+  }
+
   const src = ctx.before + ctx.after;
   const cursor = ctx.before.length;
   for (let i = 0; i < src.length; i++) {

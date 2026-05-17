@@ -60,45 +60,9 @@ md.block.ruler.at("paragraph", function paragraphPreserveTrailing(state, startLi
   return true;
 });
 
-md.block.ruler.before("paragraph", "aaronnote_display_math", function displayMathBlock(state, startLine, endLine, silent) {
-  const start = state.bMarks[startLine]! + state.tShift[startLine]!;
-  const end = state.eMarks[startLine]!;
-  const openLine = state.src.slice(start, end);
-  if (!/^\s*\$\$\s*$/.test(openLine)) return false;
-
-  let closeLine = -1;
-  for (let line = startLine + 1; line < endLine; line++) {
-    const lineStart = state.bMarks[line]! + state.tShift[line]!;
-    const lineEnd = state.eMarks[line]!;
-    if (/^\s*\$\$\s*$/.test(state.src.slice(lineStart, lineEnd))) {
-      closeLine = line;
-      break;
-    }
-  }
-  if (closeLine < 0) return false;
-  if (silent) return true;
-
-  const content = state.getLines(startLine, closeLine + 1, state.blkIndent, false);
-  state.line = closeLine + 1;
-  state.push("paragraph_open", "p", 1).map = [startLine, state.line];
-  const token = state.push("inline", "", 0);
-  token.content = content;
-  token.map = [startLine, state.line];
-  token.children = [];
-  state.push("paragraph_close", "p", -1);
-  return true;
-}, { alt: ["paragraph"] });
-
 const featureTokens = collectParserTokens();
 
 type Frame = { type: NodeType; attrs: Attrs | null; content: PMNode[] };
-
-function isRawMathParagraph(content: string): boolean {
-  const text = content.trim();
-  if (!text) return false;
-  if (/^\$\$[\s\S]*\$\$$/.test(text)) return true;
-  return /^\$[ \t]*\n[\s\S]*\n[ \t]*\$[ \t]*$/.test(text);
-}
 
 export class ParserState {
   private stack: Frame[] = [{ type: schema.nodes.doc, attrs: null, content: [] }];
@@ -226,10 +190,6 @@ function handleBlock(state: ParserState, token: Token): void {
       state.push(nodes.horizontal_rule.create());
       return;
     case "inline": {
-      if (isRawMathParagraph(token.content)) {
-        state.addText(token.content);
-        return;
-      }
       for (const child of token.children ?? []) handleInline(state, child);
       return;
     }
