@@ -8,36 +8,36 @@ refs: project/UNSW/ISO(202603)/meeting.md, 20260508T000000-strassen
 
 # Progress in Theoretical Computer Science
 
-#+begin summary title
+#+begin summary
 
 This is a note for [Köbler, 2020, "ISO(2026-03)"](zotero://select/items/1_54IJ8DAF).
 
-My current task is to skim Köbler's book and identify possible correspondences between the known graph-side reductions and the analogous tensor-side reductions:
+My current task is to skim Köbler's book and identify possible correspondences between the known graph-side reductions and the analogous tensor-side reductions:  
 
-$$d\mathrm{GA} \le_p \mathrm{GI} \le_p \mathrm{GA}$$
+$$dathrm{GA} e_p athrm{GI} e_p athrm{GA}$$
 
-$$\downarrow \qquad ? \qquad \downarrow \qquad \downarrow$$
+$$ownarrow quad ? quad ownarrow quad ownarrow$$
 
 $$
-d\mathrm{TA} \stackrel{?}{\le_p} \mathrm{TI} \le_p \mathrm{cTA}
+dathrm{TA} tackrel{?}{e_p} athrm{TI} e_p athrm{cTA}
 $$
 
 where
 
 $$
-d\mathrm{GA} \le_p \mathrm{GI} \le_p \mathrm{GA}
+dathrm{GA} e_p athrm{GI} e_p athrm{GA}
 $$
 
 and
 
 $$
-d\mathrm{TA} \stackrel{?}{\le_p} \mathrm{TI} \le_p \mathrm{cTA}.
+dathrm{TA} tackrel{?}{e_p} athrm{TI} e_p athrm{cTA}.
 $$
 
 In the graph-side chain, the reduction
 
 $$
-d\mathrm{GA} \le_p \mathrm{GI}
+dathrm{GA} e_p athrm{GI}
 $$
 
 can be understood through coloring or encoding operations on graphs. The full graph-side chain has already been established.
@@ -45,13 +45,13 @@ can be understood through coloring or encoding operations on graphs. The full gr
 The tensor-side reduction
 
 $$
-\mathrm{TI} \le_p \mathrm{cTA}
+athrm{TI} e_p athrm{cTA}
 $$
 
 is already known in our current setting. The unclear part is the remaining tensor analogue, especially whether the graph-side idea behind
 
 $$
-d\mathrm{GA} \le_p \mathrm{GI}
+dathrm{GA} e_p athrm{GI}
 $$
 
 has a valid tensor-side counterpart.
@@ -59,25 +59,13 @@ has a valid tensor-side counterpart.
 **Open point.**
 
 The currently unclear part is whether the graph-side reduction idea behind
-$$d\mathrm{GA} \le_p \mathrm{GI}$$
+$$dathrm{GA} e_p athrm{GI}$$
 has a valid tensor-side analogue
-$$d\mathrm{TA} \stackrel{?}{\le_p} \mathrm{TI}.$$
+$$dathrm{TA} tackrel{?}{e_p} athrm{TI}.$$
 #+end summary
 
-#+begin proof Proof.
-asd
-asd
-
-asd
-asd
-
-ad
-
-asd
-
-#+end proof
-
 ## 
+
 Basic Concepts
 
 ### Complexity Theory
@@ -102,15 +90,11 @@ My current task is to understand the graph-side relationship between $\mathrm{GI
 
 For graphs $G$ and $H$, graph isomorphism asks whether there exists a bijection between their vertex sets preserving adjacency. I write
 
-$$
-\mathrm{GI} = {(G,H) : G \cong H}.
-$$
+$$ \mathrm{GI} = {(G,H) : G \cong H}. $$
 
 The automorphism group of $G$ is
 
-$$
-\mathrm{Aut}(G) = {\varphi \in S_n : \varphi(G) = G}.
-$$
+$$ \mathrm{Aut}(G) = {\varphi \in S_n : \varphi(G) = G}. $$
 
 The graph automorphism problem asks whether $\mathrm{Aut}(G)$ contains a non-identity element. The counting versions are
 
@@ -124,9 +108,7 @@ $$ \mathrm{GA}(G) = |\mathrm{Aut}(G)|. $$
 
 For a vertex $i$ of $G$, let $G[i]$ denote $G$ with vertex $i$ labelled. Then $G$ has a nontrivial automorphism if and only if there exist $i \ne j$ such that
 
-$$
-G[i] \cong G[j].
-$$
+$$ G[i] \cong G[j]. $$
 
 Indeed, an automorphism moving $i$ to $j$ gives an isomorphism $G[i] \to G[j]$. Conversely, any isomorphism $G[i] \to G[j]$ induces a nontrivial automorphism of $G$.
 
@@ -136,15 +118,11 @@ Thus $\mathrm{GA}$ can be decided by polynomially many $\mathrm{GI}$ queries.
 
 For connected graphs $G$ and $H$,
 
-$$
-G \cong H
-$$
+$$ G \cong H $$
 
 if and only if
 
-$$
-G \sqcup H
-$$
+$$ G \sqcup H $$
 
 has an automorphism switching the two connected components.
 
@@ -165,15 +143,11 @@ If $G$ and $H$ are not isomorphic, there are no component-switching automorphism
 
 For tensors $A,B \in U \otimes V \otimes W$, tensor isomorphism asks whether there exists
 
-$$
-(P,Q,R) \in \mathrm{GL}(U) \times \mathrm{GL}(V) \times \mathrm{GL}(W)
-$$
+$$ (P,Q,R) \in \mathrm{GL}(U) \times \mathrm{GL}(V) \times \mathrm{GL}(W) $$
 
 such that
 
-$$
-B = (P,Q,R) \cdot A.
-$$
+$$ B = (P,Q,R) \cdot A. $$
 
 The automorphism group is
 
@@ -184,23 +158,15 @@ $${(P,Q,R) : (P,Q,R) \cdot A = A}. $$
 
 The natural graph-to-tensor analogy is
 
-$$
-G \sqcup H
-\quad \longmapsto \quad
-A \oplus B.
-$$
+$$ G \sqcup H \quad \longmapsto \quad A \oplus B. $$
 
 We would like to know whether
 
-$$
-A \cong B
-$$
+$$ A \cong B $$
 
 if and only if
 
-$$
-A \oplus B
-$$
+$$ A \oplus B $$
 
 has an automorphism switching the two direct summands.
 

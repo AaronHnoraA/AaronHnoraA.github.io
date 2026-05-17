@@ -78,7 +78,8 @@ class OrgEnvNodeView implements NodeView {
   dom: HTMLElement;
   contentDOM: HTMLElement;
   private label: HTMLElement;
-  private title: HTMLElement;
+  private title: HTMLInputElement;
+  private metaDOM: HTMLElement;
   private node: PMNode;
   private readonly view: EditorView;
   private readonly getPos: () => number | undefined;
@@ -90,15 +91,18 @@ class OrgEnvNodeView implements NodeView {
 
     this.dom = document.createElement("org-env-block");
     this.label = document.createElement("span");
-    this.title = document.createElement("span");
+    this.title = document.createElement("input");
     this.contentDOM = document.createElement("span");
+    this.metaDOM = document.createElement("div");
 
     this.label.className = "org-env-heading-label";
     this.label.contentEditable = "false";
     this.title.className = "org-env-heading-title";
-    this.title.contentEditable = "true";
+    this.title.type = "text";
     this.title.spellcheck = false;
     this.contentDOM.className = "org-env-content";
+    this.metaDOM.className = "org-env-meta";
+    this.metaDOM.contentEditable = "false";
 
     this.title.addEventListener("mousedown", (event) => {
       event.stopPropagation();
@@ -122,7 +126,7 @@ class OrgEnvNodeView implements NodeView {
     const heading = document.createElement("span");
     heading.className = "org-env-heading";
     heading.append(this.label, this.title);
-    this.dom.append(heading, this.contentDOM);
+    this.dom.append(heading, this.contentDOM, this.metaDOM);
     this.renderAttrs(node);
   }
 
@@ -134,11 +138,13 @@ class OrgEnvNodeView implements NodeView {
   }
 
   stopEvent(event: Event): boolean {
-    return event.target instanceof Node && this.title.contains(event.target);
+    return event.target instanceof Node
+      && (this.title.contains(event.target) || this.metaDOM.contains(event.target));
   }
 
   ignoreMutation(mutation: ViewMutationRecord): boolean {
-    return mutation.target instanceof Node && this.title.contains(mutation.target);
+    return mutation.target instanceof Node
+      && (this.title.contains(mutation.target) || this.metaDOM.contains(mutation.target));
   }
 
   private renderAttrs(node: PMNode): void {
@@ -148,16 +154,21 @@ class OrgEnvNodeView implements NodeView {
     this.dom.dataset.kind = kind;
     this.dom.dataset.title = title;
     this.dom.dataset.label = label;
-    this.label.textContent = title ? `${label} · ` : label;
-    if (this.title.textContent !== title) this.title.textContent = title;
+    this.label.textContent = label;
+    if (this.title.value !== title) this.title.value = title;
     this.title.dataset.empty = title ? "false" : "true";
+    this.title.hidden = kind === "meta";
+    this.label.hidden = kind === "meta";
+    this.contentDOM.hidden = kind === "meta";
+    this.metaDOM.hidden = kind !== "meta";
     this.title.setAttribute("aria-label", `${label} title`);
+    if (kind === "meta") this.renderMeta();
   }
 
   private writeTitle(): void {
     const pos = this.getPos();
     if (typeof pos !== "number") return;
-    const title = this.title.textContent?.trim() ?? "";
+    const title = this.title.value.trim();
     if (title === String(this.node.attrs.title || "")) return;
     this.view.dispatch(
       this.view.state.tr.setNodeMarkup(pos, undefined, {
@@ -165,6 +176,67 @@ class OrgEnvNodeView implements NodeView {
         title,
       }),
     );
+  }
+
+  private metaEntries(): Array<{ key: string; value: string }> {
+    return this.node.textContent
+      .split(/\r?\n/)
+      .map((line) => line.match(/^\s*([A-Za-z0-9_-]+)\s*:\s*(.*?)\s*$/))
+      .filter((match): match is RegExpMatchArray => Boolean(match))
+      .map((match) => ({ key: match[1], value: match[2] ?? "" }));
+  }
+
+  private renderMeta(): void {
+    const active = document.activeElement;
+    if (active && this.metaDOM.contains(active)) return;
+    this.metaDOM.innerHTML = "";
+    const entries = this.metaEntries();
+    if (entries.length === 0) {
+      const empty = document.createElement("span");
+      empty.className = "org-env-meta-empty";
+      empty.textContent = "No metadata";
+      this.metaDOM.append(empty);
+      return;
+    }
+    entries.forEach((entry) => {
+      const pill = document.createElement("span");
+      pill.className = "org-env-meta-pill";
+      const key = document.createElement("span");
+      key.className = "org-env-meta-key";
+      key.textContent = entry.key;
+      const value = document.createElement("span");
+      value.className = "org-env-meta-value";
+      value.textContent = entry.value;
+      value.contentEditable = "true";
+      value.spellcheck = false;
+      value.dataset.key = entry.key;
+      value.addEventListener("input", () => this.writeMeta());
+      value.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          this.writeMeta();
+          this.view.focus();
+        }
+      });
+      pill.append(key, value);
+      this.metaDOM.append(pill);
+    });
+  }
+
+  private writeMeta(): void {
+    const pos = this.getPos();
+    if (typeof pos !== "number") return;
+    const lines = Array.from(this.metaDOM.querySelectorAll<HTMLElement>(".org-env-meta-value"))
+      .map((value) => `${value.dataset.key}: ${value.textContent?.trim() ?? ""}`);
+    const next = lines.join("\n");
+    if (next === this.node.textContent) return;
+    const start = pos + 1;
+    const end = start + this.node.content.size;
+    this.view.dispatch(this.view.state.tr.replaceWith(
+      start,
+      end,
+      next ? this.view.state.schema.text(next) : [],
+    ));
   }
 }
 
@@ -213,6 +285,8 @@ const orgEnvRule: RuleBlock = (state, startLine, endLine, silent) => {
   const token = state.push("org_env_block", "div", 0);
   token.block = true;
   token.content = content;
+  token.children = [];
+  state.md.inline.parse(content, state.md, state.env, token.children);
   token.meta = {
     kind,
     title: open[2]?.trim() ?? "",
@@ -230,9 +304,7 @@ export const orgEnv: FeatureSpec = {
   nodes: {
     org_env_block: {
       group: "block",
-      content: "text*",
-      code: true,
-      marks: "",
+      content: "inline*",
       defining: true,
       attrs: {
         kind: { default: "note" },
@@ -270,11 +342,12 @@ export const orgEnv: FeatureSpec = {
 
   parserTokens: {
     org_env_block: (state, tok, schema) => {
-      const textNodes = tok.content ? [schema.text(tok.content)] : [];
-      state.push(schema.nodes.org_env_block.createChecked({
+      state.openNode(schema.nodes.org_env_block, {
         kind: tok.meta?.kind ?? "note",
         title: tok.meta?.title ?? "",
-      }, textNodes));
+      });
+      state.addInlineTokens(tok.children ?? []);
+      state.closeNode();
     },
   },
 
@@ -283,18 +356,7 @@ export const orgEnv: FeatureSpec = {
       const kind = String(node.attrs.kind || "note");
       const title = String(node.attrs.title || "");
       state.write(`#+begin ${kind}${title ? ` ${title}` : ""}\n`);
-      state.tick("inner");
-      for (const ch of node.textContent) {
-        state.tick("inner");
-        if (ch === "\n") {
-          state.out += "\n";
-          if (state.delim) state.out += state.delim;
-        } else {
-          state.out += ch;
-        }
-        state.advance(1);
-      }
-      state.tick("inner");
+      state.renderInline(node);
       state.write(`\n#+end ${kind}`);
       state.closeBlock(node);
     },

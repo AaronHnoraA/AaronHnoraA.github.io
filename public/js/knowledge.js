@@ -331,5 +331,6 @@
     };
   }
 
+  window.buildKnowledgeData = buildKnowledgeData;
   buildKnowledgeData();
 })();

@@ -14,11 +14,14 @@ source: "roam/project/UNSW/ISO(202603)/strassen.typ"
 ---
 
 # Strassen
+
 # Overview
+
 > **Summary.**
 >
->     This note is about [Strassen, 1969](zotero://select/items/1_C4ULFN2X).
->
+> ```
+This note is about [Strassen, 1969](zotero://select/items/1_C4ULFN2X).
+```
 
 # Reading Note
 

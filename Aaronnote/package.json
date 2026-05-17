@@ -61,6 +61,7 @@
     "prosemirror-schema-list": "^1.5.1",
     "prosemirror-state": "^1.4.4",
     "prosemirror-transform": "^1.12.0",
-    "prosemirror-view": "^1.41.8"
+    "prosemirror-view": "^1.41.8",
+    "temml": "^0.13.3"
   }
 }

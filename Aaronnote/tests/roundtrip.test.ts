@@ -51,6 +51,8 @@ describe("round-trip: blocks", () => {
     roundTripStable("$$ E = mc^2 $$"));
   test("org proof block", () =>
     roundTripStable("#+begin proof Proof. test\nline one\nline two\n#+end proof"));
+  test("org block with zotero link", () =>
+    roundTripStable("#+begin summary\nThis is a [Zotero](zotero://select/items/1_54IJ8DAF) link.\n#+end summary"));
   // Indented (4-space) code: md-it produces a `code_block` token with no
   // markup, same shape as a fenced block w/ no lang. Round-trip is at
   // doc level — md-text serialises to the fenced form (no `style` attr

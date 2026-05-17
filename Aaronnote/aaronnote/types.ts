@@ -1,7 +1,19 @@
 export type NoteSummary = {
+  key?: string;
   id?: string;
   title?: string;
   file?: string;
+  link?: string;
+  path?: string;
+  ext?: string;
+  kind?: string;
+  date?: string;
+  groupKey?: string;
+  groupLabel?: string;
+  section?: string;
+  source?: string;
+  aliases?: string[];
+  summary?: string;
   tags?: string[];
   refs?: string[];
   backlinks?: string[];

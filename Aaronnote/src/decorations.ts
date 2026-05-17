@@ -11,8 +11,8 @@
 
 import { Plugin, PluginKey, type EditorState } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
-import katex from "katex";
 
+import { renderMathLazy } from "./math-render.ts";
 import { getDelims, getExtras, getWidgets, type WidgetDecoration } from "./normalize.ts";
 
 // Widget builders — keyed by `kind`. A widget renders as a DOM element
@@ -26,18 +26,17 @@ const widgetBuilders: Record<string, (attrs: Record<string, string>) => HTMLElem
     el.className = display ? "aaronnote-math-block" : "aaronnote-math-inline";
     el.setAttribute("data-tex", tex);
     el.setAttribute("contenteditable", "false");
-    try {
-      katex.render(tex, el, {
-        displayMode: display,
-        throwOnError: false,
-        strict: false,
-        trust: false,
-        output: "html",
-      });
-    } catch {
+    el.textContent = tex;
+    renderMathLazy(tex, el, {
+      displayMode: display,
+      throwOnError: false,
+      strict: false,
+      trust: false,
+      output: "html",
+    }, () => {
       el.classList.add("aaronnote-math-error");
       el.textContent = display ? `$$ ${tex} $$` : `$${tex}$`;
-    }
+    });
     return el;
   },
   "image-icon": (attrs) => {

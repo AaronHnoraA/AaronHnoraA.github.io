@@ -1,5 +1,4 @@
 import "prosemirror-view/style/prosemirror.css";
-import "katex/dist/katex.min.css";
 import "../src/styles/widgets.css";
 import "../src/styles/theme-typora.css";
 import "./style.css";
@@ -10,6 +9,22 @@ import { SnippetSession, snippetDetail, snippetLabel, snippetScore } from "./sni
 import type { Inbound, NoteSummary, SnippetSummary } from "./types.ts";
 import { createVimLite, type VimLiteMode } from "./vim-lite.ts";
 import { createVimCursor, updateVimCursor } from "./vim-cursor.ts";
+
+declare global {
+  interface Window {
+    SITE_DATA?: { meta?: Record<string, unknown>; notes?: NoteSummary[] };
+    KNOWLEDGE_DATA?: {
+      notes: Array<NoteSummary & { key: string }>;
+      tags: Array<{ name: string; count: number; notes: string[] }>;
+      groups: Array<{ key: string; label: string; items: NoteSummary[] }>;
+    };
+    initKnowledgeGraph?: (options?: Record<string, unknown>) => { destroy?: () => void; setVisibleKeys?: (keys: string[]) => void } | null;
+    buildKnowledgeData?: () => void;
+    __GRAPH_NO_AUTO_INIT__?: boolean;
+  }
+}
+
+window.__GRAPH_NO_AUTO_INIT__ = true;
 
 const params = new URLSearchParams(window.location.search);
 const emacsPort = params.get("emacsPort") || "";
@@ -39,8 +54,39 @@ root.innerHTML = `
             <h1>Notes</h1>
             <button type="button" data-action="editor-inline">Back</button>
           </header>
-          <input data-note-filter type="search" placeholder="Filter notes" />
-          <div data-note-list class="aaronnote-note-list"></div>
+          <div class="aaronnote-notes-tabs" role="tablist" aria-label="Roam tools">
+            <button type="button" data-notes-tab="recent">Recent</button>
+            <button type="button" data-notes-tab="filesystem" class="is-active">Filesystem</button>
+            <button type="button" data-notes-tab="graph">Roam graph</button>
+            <button type="button" data-notes-tab="management">Roam management</button>
+          </div>
+          <div data-notes-panel="recent" hidden>
+            <div data-recent-list class="aaronnote-note-list"></div>
+          </div>
+          <div data-notes-panel="filesystem">
+            <input data-note-filter type="search" placeholder="Filter notes by path, title, tag, or id" />
+            <div data-note-list class="aaronnote-note-list"></div>
+          </div>
+          <div data-notes-panel="graph" data-graph-page hidden>
+            <div class="aaronnote-graph-toolbar">
+              <input data-graph-filter type="search" placeholder="Filter graph" />
+              <span data-graph-stats></span>
+            </div>
+            <div class="aaronnote-graph-grid">
+              <div class="aaronnote-graph-canvas" data-graph-canvas></div>
+              <aside class="aaronnote-graph-focus" data-graph-focus></aside>
+            </div>
+          </div>
+          <div data-notes-panel="management" hidden>
+            <div class="aaronnote-management-grid">
+              <button type="button" data-action="sync">Sync roamdb</button>
+              <button type="button" data-action="new-node">New node</button>
+            </div>
+            <div class="aaronnote-management-status">
+              <strong data-management-count>0</strong>
+              <span>nodes indexed from the current root</span>
+            </div>
+          </div>
         </div>
       </section>
     </section>
@@ -56,8 +102,19 @@ const statusEl = document.querySelector<HTMLElement>("[data-status]")!;
 const vimModeEl = document.querySelector<HTMLElement>("[data-vim-mode]")!;
 const fileLabel = document.querySelector<HTMLElement>("[data-file-label]")!;
 const noteList = document.querySelector<HTMLElement>("[data-note-list]")!;
+const recentList = document.querySelector<HTMLElement>("[data-recent-list]")!;
 const noteFilter = document.querySelector<HTMLInputElement>("[data-note-filter]")!;
 const notesPage = document.querySelector<HTMLElement>("[data-notes-page]")!;
+const graphPage = document.querySelector<HTMLElement>("[data-graph-page]")!;
+const syncButton = document.querySelector<HTMLButtonElement>("[data-action='sync']")!;
+const newNodeButton = document.querySelector<HTMLButtonElement>("[data-action='new-node']")!;
+const notesTabButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-notes-tab]"));
+const notesPanels = Array.from(document.querySelectorAll<HTMLElement>("[data-notes-panel]"));
+const managementCount = document.querySelector<HTMLElement>("[data-management-count]")!;
+const graphFilter = document.querySelector<HTMLInputElement>("[data-graph-filter]")!;
+const graphCanvas = document.querySelector<HTMLElement>("[data-graph-canvas]")!;
+const graphFocus = document.querySelector<HTMLElement>("[data-graph-focus]")!;
+const graphStats = document.querySelector<HTMLElement>("[data-graph-stats]")!;
 const notesButton = document.querySelector<HTMLButtonElement>("[data-action='notes']")!;
 const sourceButton = document.querySelector<HTMLButtonElement>("[data-action='source']")!;
 const editorButton = document.querySelector<HTMLButtonElement>("[data-action='editor']")!;
@@ -103,6 +160,13 @@ let snippetSession: SnippetSession;
 let mathPreviewKey = "";
 let tocRenderKey = "";
 let snippetScanRequested = false;
+let selectedGraphNote = "";
+let graphApi: { destroy?: () => void; setVisibleKeys?: (keys: string[]) => void } | null = null;
+let graphScriptsReady: Promise<void> | null = null;
+
+const recentStorageKey = "aaronnote.recent";
+type RecentNote = { file: string; openedAt: number };
+let recentNotes = loadRecentNotes();
 
 const demoSnippets: SnippetSummary[] = [
   {
@@ -203,6 +267,15 @@ function send(payload: Record<string, unknown>): void {
   if (ws?.readyState === WebSocket.OPEN) ws.send(msg);
 }
 
+function openExternalUrl(href: string): void {
+  if (emacsPort && token && ws?.readyState === WebSocket.OPEN) {
+    send({ type: "open-url", url: href });
+    setStatus("Opening link");
+    return;
+  }
+  window.location.href = href;
+}
+
 function save(): void {
   if (!currentFile) {
     setStatus(scratchStatus());
@@ -244,6 +317,7 @@ async function saveStandalone(): Promise<void> {
     if (Array.isArray(msg.notes)) {
       notes = msg.notes;
       renderNotes();
+      if (!graphPage.hidden) renderGraph();
       updateFloatingToc();
     }
   } catch (err) {
@@ -282,6 +356,42 @@ async function exportPdf(): Promise<void> {
   }
 }
 
+async function syncRoamDb(): Promise<void> {
+  setStatus("Syncing");
+  try {
+    const res = await fetch("/api/roamdb/sync");
+    const msg = await res.json() as { notes?: NoteSummary[]; message?: string };
+    if (!res.ok || !Array.isArray(msg.notes)) throw new Error(msg.message || "Sync failed");
+    notes = msg.notes;
+    renderNotes();
+    if (!graphPage.hidden) renderGraph();
+    updateFloatingToc();
+    setStatus(`Synced ${notes.length} nodes`);
+  } catch (err) {
+    setStatus(err instanceof Error ? err.message : "Sync failed");
+  }
+}
+
+async function createNode(): Promise<void> {
+  const title = window.prompt("Node title");
+  if (!title?.trim()) return;
+  setStatus("Creating node");
+  try {
+    const res = await fetch("/api/node", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: title.trim() }),
+    });
+    const msg = await res.json() as Extract<Inbound, { type: "open" }> & { message?: string };
+    if (!res.ok) throw new Error(msg.message || "Create node failed");
+    applyOpen(msg);
+    showEditorPage();
+    setStatus("Node created");
+  } catch (err) {
+    setStatus(err instanceof Error ? err.message : "Create node failed");
+  }
+}
+
 function toggleSourceMode(): void {
   editor.toggleSource();
   vim.setMode("insert");
@@ -290,17 +400,54 @@ function toggleSourceMode(): void {
   scheduleAssistUpdate();
 }
 
+function cleanupTransientUi(): void {
+  hideSnippetPopup();
+  mathPreview.hidden = true;
+  selectionTool.hidden = true;
+  window.clearTimeout(assistTimer);
+  window.cancelAnimationFrame(assistFrame);
+}
+
+function disposeGraph(): void {
+  graphApi?.destroy?.();
+  graphApi = null;
+  graphCanvas.innerHTML = "";
+  graphFocus.innerHTML = "";
+}
+
 function showNotesPage(): void {
+  cleanupTransientUi();
+  disposeGraph();
   host.hidden = true;
   notesPage.hidden = false;
   toc.hidden = true;
   notesButton.hidden = true;
   sourceButton.hidden = true;
   editorButton.hidden = false;
+  showNotesTool("filesystem");
   noteFilter.focus();
 }
 
+function showNotesTool(tab: string): void {
+  if (tab !== "graph") disposeGraph();
+  notesTabButtons.forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.notesTab === tab);
+  });
+  notesPanels.forEach((panel) => {
+    panel.hidden = panel.dataset.notesPanel !== tab;
+  });
+  if (tab === "graph") {
+    renderGraph();
+    graphFilter.focus();
+  } else if (tab === "recent") {
+    renderRecentNotes();
+  } else if (tab === "filesystem") {
+    noteFilter.focus();
+  }
+}
+
 function showEditorPage(): void {
+  disposeGraph();
   notesPage.hidden = true;
   host.hidden = false;
   toc.hidden = false;
@@ -357,8 +504,9 @@ function updateFloatingToc(): void {
 
 function openNote(note: NoteSummary): void {
   if (!note.file) return;
+  touchRecentNote(note.file);
   if (emacsPort && token) send({ type: "open-file", file: note.file });
-  else void openStandaloneFile(note.file);
+  void openStandaloneFile(note.file);
   showEditorPage();
 }
 
@@ -704,7 +852,83 @@ function renderSnippets(): void {
   scheduleAssistUpdate({ snippets: true });
 }
 
+function loadRecentNotes(): RecentNote[] {
+  try {
+    const raw = window.localStorage.getItem(recentStorageKey);
+    const parsed = raw ? JSON.parse(raw) as unknown : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((item): item is RecentNote => {
+        if (!item || typeof item !== "object") return false;
+        const entry = item as Partial<RecentNote>;
+        return typeof entry.file === "string" && typeof entry.openedAt === "number";
+      })
+      .sort((a, b) => b.openedAt - a.openedAt)
+      .slice(0, 24);
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentNotes(): void {
+  try {
+    window.localStorage.setItem(recentStorageKey, JSON.stringify(recentNotes.slice(0, 24)));
+  } catch {
+    // Recent notes are a local convenience; ignore storage failures.
+  }
+}
+
+function touchRecentNote(file: string): void {
+  if (!file) return;
+  recentNotes = [
+    { file, openedAt: Date.now() },
+    ...recentNotes.filter((item) => item.file !== file),
+  ].slice(0, 24);
+  saveRecentNotes();
+  renderRecentNotes();
+}
+
+function formatRecentTime(openedAt: number): string {
+  if (!Number.isFinite(openedAt)) return "";
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(openedAt));
+}
+
+function renderNoteButton(note: NoteSummary, detail: string, extra?: string): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "aaronnote-note";
+  button.innerHTML = `<strong>${escapeHtml(note.title || note.id || note.file || "Untitled")}</strong><span>${escapeHtml(detail)}</span>${extra ? `<span class="aaronnote-note-extra">${escapeHtml(extra)}</span>` : ""}`;
+  button.title = note.file || "";
+  button.addEventListener("click", () => {
+    openNote(note);
+  });
+  return button;
+}
+
+function renderRecentNotes(): void {
+  const byFile = new Map(notes.map((note) => [note.file, note]));
+  const entries = recentNotes
+    .map((entry) => ({ entry, note: byFile.get(entry.file) }))
+    .filter((item): item is { entry: RecentNote; note: NoteSummary } => Boolean(item.note?.file));
+
+  recentList.innerHTML = "";
+  if (entries.length === 0) {
+    recentList.innerHTML = `<div class="aaronnote-empty">No recent notes</div>`;
+    return;
+  }
+  for (const { entry, note } of entries) {
+    recentList.appendChild(renderNoteButton(note, note.path || note.id || "", formatRecentTime(entry.openedAt)));
+  }
+}
+
 function renderNotes(): void {
+  managementCount.textContent = String(notes.length);
+  renderRecentNotes();
   const query = noteFilter.value.trim().toLowerCase();
   const shown = notes
     .filter((note) => {
@@ -718,17 +942,125 @@ function renderNotes(): void {
     noteList.innerHTML = `<div class="aaronnote-empty">No notes</div>`;
     return;
   }
+  const groups = new Map<string, NoteSummary[]>();
   for (const note of shown) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "aaronnote-note";
-    button.textContent = note.title || note.id || note.file || "Untitled";
-    button.title = note.file || "";
-    button.addEventListener("click", () => {
-      openNote(note);
-    });
-    noteList.appendChild(button);
+    const group = note.groupKey || (note.path || "").split(/[\\/]/).slice(0, -1).join("/") || "Root";
+    if (!groups.has(group)) groups.set(group, []);
+    groups.get(group)!.push(note);
   }
+  for (const [group, items] of [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+    const heading = document.createElement("div");
+    heading.className = "aaronnote-note-group";
+    heading.textContent = group.replace(/^\.\/?/, "") || "Root";
+    noteList.appendChild(heading);
+    for (const note of items.sort((a, b) => String(a.title).localeCompare(String(b.title)))) {
+      noteList.appendChild(renderNoteButton(note, note.path || note.id || ""));
+    }
+  }
+}
+
+function noteKey(note: NoteSummary): string {
+  return note.key || note.id || note.path || note.file || "";
+}
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function publishGraphVisibleNotes(): NoteSummary[] {
+  const query = graphFilter.value.trim().toLowerCase();
+  return notes.filter((note) => {
+    const haystack = [
+      note.title,
+      note.id,
+      note.path,
+      note.groupLabel,
+      note.summary,
+      ...(note.tags ?? []),
+      ...(note.aliases ?? []),
+    ].join(" ").toLowerCase();
+    return !query || haystack.includes(query);
+  });
+}
+
+function loadScriptOnce(src: string): Promise<void> {
+  const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
+  if (existing?.dataset.loaded === "true") return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const script = existing || document.createElement("script");
+    script.src = src;
+    script.async = false;
+    script.addEventListener("load", () => {
+      script.dataset.loaded = "true";
+      resolve();
+    }, { once: true });
+    script.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)), { once: true });
+    if (!existing) document.head.appendChild(script);
+  });
+}
+
+async function ensurePublishGraphScripts(): Promise<void> {
+  if (graphScriptsReady) return graphScriptsReady;
+  graphScriptsReady = (async () => {
+    await loadScriptOnce("https://d3js.org/d3.v7.min.js");
+    await loadScriptOnce("/roam-tools/knowledge.js");
+    await loadScriptOnce("/roam-tools/graph.js");
+  })();
+  return graphScriptsReady;
+}
+
+function updatePublishGraphData(): void {
+  window.SITE_DATA = {
+    meta: {
+      generatedAt: new Date().toISOString(),
+      noteCount: notes.length,
+      tagCount: new Set(notes.flatMap((note) => note.tags ?? [])).size,
+    },
+    notes: notes.map((note) => ({
+      ...note,
+      key: noteKey(note),
+      link: note.link || note.path || "#",
+      refs: note.refs ?? [],
+      backlinks: note.backlinks ?? [],
+      tags: note.tags ?? [],
+      aliases: note.aliases ?? [],
+    })),
+  };
+}
+
+function renderGraph(): void {
+  updatePublishGraphData();
+  const shown = publishGraphVisibleNotes();
+  graphStats.textContent = `${shown.length} nodes`;
+  void ensurePublishGraphScripts()
+    .then(() => {
+      if (graphPage.hidden) return;
+      if (!window.initKnowledgeGraph) throw new Error("Publish graph is unavailable");
+      window.buildKnowledgeData?.();
+      graphApi?.destroy?.();
+      graphApi = window.initKnowledgeGraph({
+        knowledge: window.KNOWLEDGE_DATA,
+        container: graphCanvas,
+        focusPanel: graphFocus,
+        toolbar: true,
+        emptyMessage: "Select a node.",
+        listenForGlobalFilters: false,
+        dispatchTagEvents: false,
+        onNoteOpen(note: NoteSummary) {
+          const target = notes.find((item) => noteKey(item) === noteKey(note) || item.id === note.id);
+          if (target) openNote(target);
+        },
+        initialVisibleKeys: shown.map(noteKey),
+      });
+    })
+    .catch((err) => {
+      graphCanvas.innerHTML = `<div class="aaronnote-empty">${escapeHtml(err instanceof Error ? err.message : "Graph failed")}</div>`;
+    });
 }
 
 async function openStandaloneFile(file: string): Promise<void> {
@@ -751,10 +1083,12 @@ function applyOpen(msg: Extract<Inbound, { type: "open" }>): void {
   currentFile = msg.file || "";
   currentMode = msg.mode === "source" ? "source" : "markdown";
   fileLabel.textContent = currentFile || "Scratch";
+  touchRecentNote(currentFile);
 
   if (Array.isArray(msg.notes)) {
     notes = msg.notes;
     renderNotes();
+    if (!graphPage.hidden) renderGraph();
   }
   if (Array.isArray(msg.snippets)) {
     snippets = msg.snippets.length > 0 ? msg.snippets : demoSnippets;
@@ -799,12 +1133,14 @@ function handleInbound(raw: string): void {
     if (Array.isArray(msg.notes)) {
       notes = msg.notes;
       renderNotes();
+      if (!graphPage.hidden) renderGraph();
       updateFloatingToc();
     }
   }
   if (msg.type === "notes" && Array.isArray(msg.notes)) {
     notes = msg.notes;
     renderNotes();
+    if (!graphPage.hidden) renderGraph();
   }
   if (msg.type === "snippets" && Array.isArray(msg.snippets)) {
     snippets = msg.snippets.length > 0 ? msg.snippets : demoSnippets;
@@ -917,16 +1253,30 @@ document.addEventListener("keydown", (event) => {
   }
 }, true);
 
+document.addEventListener("aaronnote:open-url", (event) => {
+  const custom = event as CustomEvent<{ href?: string }>;
+  const href = custom.detail?.href;
+  if (!href) return;
+  event.preventDefault();
+  openExternalUrl(href);
+});
+
 notesButton.addEventListener("click", showNotesPage);
+syncButton.addEventListener("click", () => void syncRoamDb());
+newNodeButton.addEventListener("click", () => void createNode());
 sourceButton.addEventListener("click", toggleSourceMode);
 editorButton.addEventListener("click", showEditorPage);
 editorInlineButton.addEventListener("click", showEditorPage);
+notesTabButtons.forEach((button) => {
+  button.addEventListener("click", () => showNotesTool(button.dataset.notesTab || "filesystem"));
+});
 tocToggle.addEventListener("click", () => {
   toc.classList.toggle("is-collapsed");
 });
 selectionTool.addEventListener("mousedown", (event) => event.preventDefault());
 selectionTool.addEventListener("click", () => void copyActiveSelection());
 noteFilter.addEventListener("input", renderNotes);
+graphFilter.addEventListener("input", renderGraph);
 document.addEventListener("keyup", (event) => {
   if (event.key !== "Escape") snippetSuppressedPrefix = "";
   scheduleAssistUpdate();
@@ -934,6 +1284,9 @@ document.addEventListener("keyup", (event) => {
 document.addEventListener("selectionchange", scheduleAssistUpdate);
 document.addEventListener("mouseup", scheduleAssistUpdate);
 window.addEventListener("resize", scheduleAssistUpdate);
+window.addEventListener("resize", () => {
+  if (!graphPage.hidden) renderGraph();
+});
 window.addEventListener("scroll", scheduleAssistUpdate, true);
 
 if (emacsPort && token) {

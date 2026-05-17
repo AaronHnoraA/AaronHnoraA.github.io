@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 import { createServer as createHttpServer } from "node:http";
-import { mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { homedir, tmpdir } from "node:os";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { fileURLToPath } from "node:url";
-
-import { createServer as createViteServer } from "vite";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const appDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+let workspaceRoot = resolve(process.env.AARONNOTE_WORKSPACE_ROOT || resolve(appDir, ".."));
+let publishJsDir = resolve(process.env.AARONNOTE_PUBLISH_JS_DIR || join(workspaceRoot, "js"));
 const execFileAsync = promisify(execFile);
 
 function parseArgs(argv) {
@@ -30,12 +30,26 @@ function parseArgs(argv) {
 }
 
 const args = parseArgs(process.argv.slice(2));
-const host = String(args.host || process.env.AARONNOTE_HOST || "127.0.0.1");
-const port = Number(args.port || process.env.AARONNOTE_PORT || 5179);
-const noteRoot = resolve(String(args.root || process.env.AARONNOTE_ROOT || join(appDir, "..", "roam")));
-const noteScanRoot = noteRoot;
+let host = String(args.host || process.env.AARONNOTE_HOST || "127.0.0.1");
+let port = Number(args.port || process.env.AARONNOTE_PORT || 5179);
+let noteRoot = resolve(String(args.root || process.env.AARONNOTE_ROOT || join(appDir, "..", "roam")));
+let noteScanRoot = noteRoot;
 const excludedDirs = new Set(["_typst", "public", "var", ".git", ".direnv", ".venv", "node_modules"]);
-const noteExts = new Set([".md"]);
+const noteExts = new Set([".typ", ".md", ".markdown"]);
+const contentTypes = new Map([
+  [".html", "text/html; charset=utf-8"],
+  [".js", "application/javascript; charset=utf-8"],
+  [".css", "text/css; charset=utf-8"],
+  [".json", "application/json; charset=utf-8"],
+  [".svg", "image/svg+xml"],
+  [".png", "image/png"],
+  [".jpg", "image/jpeg"],
+  [".jpeg", "image/jpeg"],
+  [".gif", "image/gif"],
+  [".woff", "font/woff"],
+  [".woff2", "font/woff2"],
+  [".ttf", "font/ttf"],
+]);
 
 function sendJson(res, statusCode, value) {
   const data = JSON.stringify(value);
@@ -44,6 +58,39 @@ function sendJson(res, statusCode, value) {
     "content-length": Buffer.byteLength(data),
   });
   res.end(data);
+}
+
+async function sendTextFile(res, file, contentType) {
+  const data = await readFile(file);
+  res.writeHead(200, {
+    "content-type": contentType,
+    "content-length": data.length,
+  });
+  res.end(data);
+}
+
+async function serveStaticFile(req, res, staticDir) {
+  if (!staticDir || req.method !== "GET") return false;
+  const url = new URL(req.url || "/", `http://${host}:${port}`);
+  const pathname = decodeURIComponent(url.pathname);
+  const requested = pathname === "/" ? "index.html" : pathname.replace(/^\/+/, "");
+  const file = resolve(staticDir, requested);
+  if (!inside(file, staticDir)) {
+    res.statusCode = 403;
+    res.end("Forbidden");
+    return true;
+  }
+  try {
+    const info = await stat(file);
+    if (!info.isFile()) return false;
+    const dot = file.lastIndexOf(".");
+    const ext = dot >= 0 ? file.slice(dot).toLowerCase() : "";
+    await sendTextFile(res, file, contentTypes.get(ext) || "application/octet-stream");
+    return true;
+  } catch {
+    if (pathname !== "/") return serveStaticFile({ ...req, url: "/" }, res, staticDir);
+    return false;
+  }
 }
 
 function inside(child, parent) {
@@ -66,8 +113,19 @@ function modeForFile(file) {
   return lower.endsWith(".md") || lower.endsWith(".markdown") ? "markdown" : "source";
 }
 
+function parseListValue(value) {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) return [];
+  if (trimmed.startsWith("(")) {
+    return [...trimmed.matchAll(/"((?:[^"\\]|\\.)*)"/g)]
+      .map((match) => match[1].replace(/\\"/g, '"').replace(/\\\\/g, "\\"))
+      .filter(Boolean);
+  }
+  return trimmed.split(/[, ]+/).map((item) => item.trim()).filter(Boolean);
+}
+
 function parseMetaBlock(content) {
-  const match = content.match(/^\s*#\+begin\s+meta\s*\n([\s\S]*?)\n#\+end\s+meta\s*$/im);
+  const match = content.match(/^\s*#\+begin\s+meta\s*\r?\n([\s\S]*?)\r?\n\s*#\+end\s+meta\s*$/im);
   if (!match) return {};
   const meta = {};
   for (const rawLine of match[1].split(/\r?\n/)) {
@@ -81,7 +139,7 @@ function parseMetaBlock(content) {
       value = value.slice(1, -1);
     }
     if (key === "tags" || key === "refs" || key === "aliases") {
-      meta[key] = value.split(/[, ]+/).map((item) => item.trim()).filter(Boolean);
+      meta[key] = parseListValue(value);
     } else {
       meta[key] = value;
     }
@@ -94,6 +152,45 @@ function yamlishValue(content, key) {
     || content.match(new RegExp(`^\\s*${key}:\\s*([^\\n]+)`, "m"))?.[1]?.trim();
 }
 
+function typstUnescape(value) {
+  return String(value || "")
+    .replace(/\\n/g, "\n")
+    .replace(/\\t/g, "\t")
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, "\\");
+}
+
+function parseTypstMetadata(content) {
+  const match = content.match(/#metadata\s*\(\(([\s\S]*?)\)\)\s*<note>/m);
+  if (!match) return {};
+  const body = match[1];
+  const fields = {};
+  const pairs = [...body.matchAll(/([A-Za-z0-9_-]+)\s*:\s*/g)];
+  for (let i = 0; i < pairs.length; i++) {
+    const key = pairs[i][1].toLowerCase();
+    const start = pairs[i].index + pairs[i][0].length;
+    const end = i + 1 < pairs.length ? pairs[i + 1].index : body.length;
+    const raw = body.slice(start, end).trim().replace(/,\s*$/, "").trim();
+    if (!raw) continue;
+    if (raw.startsWith("(")) {
+      fields[key] = [...raw.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((item) => typstUnescape(item[1]));
+    } else if (raw === "true" || raw === "false") {
+      fields[key] = raw === "true";
+    } else {
+      const string = raw.match(/"((?:[^"\\]|\\.)*)"/);
+      fields[key] = string ? typstUnescape(string[1]) : raw;
+    }
+  }
+  return fields;
+}
+
+function noteMetadata(content) {
+  return {
+    ...parseTypstMetadata(content),
+    ...parseMetaBlock(content),
+  };
+}
+
 function desktopExportPath(file) {
   const raw = file ? file.split(sep).pop() || "Aaronnote.md" : "Aaronnote.md";
   const safe = raw.replace(/[/:]/g, "-") || "Aaronnote.md";
@@ -104,6 +201,31 @@ function pdfExportName(file) {
   const raw = file ? file.split(sep).pop() || "Aaronnote.pdf" : "Aaronnote.pdf";
   const stem = raw.replace(/\.[^.]+$/, "") || "Aaronnote";
   return `${stem}.pdf`.replace(/[/:]/g, "-");
+}
+
+function slugifyTitle(title) {
+  const slug = String(title || "untitled")
+    .normalize("NFKD")
+    .replace(/[^\w\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .toLowerCase();
+  return slug || "untitled";
+}
+
+function timestampId() {
+  const now = new Date();
+  const pad = (value) => String(value).padStart(2, "0");
+  return [
+    now.getFullYear(),
+    pad(now.getMonth() + 1),
+    pad(now.getDate()),
+    "T",
+    pad(now.getHours()),
+    pad(now.getMinutes()),
+    pad(now.getSeconds()),
+  ].join("");
 }
 
 function markdownForPdf(content) {
@@ -151,7 +273,7 @@ async function exportPdf(file, content) {
 }
 
 function titleFromContent(file, content) {
-  const meta = parseMetaBlock(content);
+  const meta = noteMetadata(content);
   if (meta.title) return String(meta.title);
   const typTitle = yamlishValue(content, "title");
   if (typTitle) return typTitle;
@@ -163,12 +285,12 @@ function titleFromContent(file, content) {
 }
 
 function idFromContent(file, root, content) {
-  const meta = parseMetaBlock(content);
+  const meta = noteMetadata(content);
   return meta.id || yamlishValue(content, "id") || relative(root, file);
 }
 
 function tagsFromContent(content) {
-  const meta = parseMetaBlock(content);
+  const meta = noteMetadata(content);
   if (Array.isArray(meta.tags)) return meta.tags;
   const tags = [];
   const lines = content.split(/\r?\n/);
@@ -184,7 +306,7 @@ function tagsFromContent(content) {
 }
 
 function refsFromContent(content) {
-  const meta = parseMetaBlock(content);
+  const meta = noteMetadata(content);
   const refs = new Set(Array.isArray(meta.refs) ? meta.refs : []);
   for (const match of content.matchAll(/#note\("([^"]+)"\)/g)) refs.add(match[1]);
   for (const match of content.matchAll(/\[\[([^\]\n]+)\]\]/g)) refs.add(match[1].trim());
@@ -192,6 +314,58 @@ function refsFromContent(content) {
     refs.add(decodeURIComponent(match[1]));
   }
   return [...refs].filter(Boolean);
+}
+
+function aliasesFromContent(content) {
+  const meta = noteMetadata(content);
+  return Array.isArray(meta.aliases) ? meta.aliases : [];
+}
+
+function dateFromContent(content) {
+  const meta = noteMetadata(content);
+  return String(meta.date || yamlishValue(content, "date") || "");
+}
+
+function sourceFromContent(content) {
+  const meta = noteMetadata(content);
+  return String(meta.source || "");
+}
+
+function kindFromContent(content) {
+  const meta = noteMetadata(content);
+  return String(meta.kind || "note");
+}
+
+function summaryFromContent(content) {
+  const meta = noteMetadata(content);
+  if (meta.summary) return String(meta.summary);
+  const withoutMeta = content
+    .replace(/^\s*#\+begin\s+meta\s*\r?\n[\s\S]*?\r?\n\s*#\+end\s+meta\s*\r?\n*/im, "")
+    .replace(/#metadata\s*\(\([\s\S]*?\)\)\s*<note>/m, "")
+    .replace(/^#(?:import|show|set)[^\n]*$/gm, "")
+    .replace(/#note\("([^"]+)"\)\[([^\]]+)\]/g, "$2")
+    .replace(/^=+\s+/gm, "")
+    .replace(/^#+\s+/gm, "")
+    .replace(/[#*_`$()[\]{}]/g, " ");
+  return withoutMeta.split(/\s+/).filter(Boolean).join(" ").slice(0, 220);
+}
+
+function groupKeyFor(file) {
+  const parent = dirname(relative(noteScanRoot, file));
+  return parent === "." ? "Root" : parent;
+}
+
+function groupLabelFor(groupKey) {
+  if (!groupKey || groupKey === "Root") return "Root";
+  const leaf = groupKey.split(sep).filter(Boolean).at(-1) || groupKey;
+  return leaf.toUpperCase() === leaf ? leaf : leaf.replace(/[-_]/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function preferNote(candidate, current) {
+  if (!current) return candidate;
+  if (candidate.ext === "md" && current.ext !== "md") return candidate;
+  if (candidate.path && candidate.path === current.source) return candidate;
+  return current;
 }
 
 async function walkFiles(root, accept) {
@@ -226,31 +400,51 @@ async function scanNotes() {
   for (const file of files) {
     try {
       const content = await readFile(file, "utf8");
+      const relPath = relative(noteScanRoot, file);
+      const groupKey = groupKeyFor(file);
+      const id = idFromContent(file, noteScanRoot, content);
       notes.push({
-        id: idFromContent(file, noteScanRoot, content),
+        key: id,
+        id,
         title: titleFromContent(file, content),
         file,
+        link: relPath,
+        path: relPath,
+        ext: file.slice(file.lastIndexOf(".") + 1).toLowerCase(),
+        kind: kindFromContent(content),
+        date: dateFromContent(content),
+        groupKey,
+        groupLabel: groupLabelFor(groupKey),
+        section: groupKey.includes(sep) ? groupKey.split(sep)[0] : groupKey,
+        source: sourceFromContent(content),
+        aliases: aliasesFromContent(content),
+        summary: summaryFromContent(content),
         tags: tagsFromContent(content),
         refs: refsFromContent(content),
         backlinks: [],
       });
     } catch {}
   }
-  const byId = new Map(notes.map((note) => [note.id, note]));
-  const byRel = new Map(notes.map((note) => [relative(noteScanRoot, note.file), note]));
-  const byBase = new Map(notes.map((note) => [note.file.split(sep).pop(), note]));
-  for (const note of notes) {
+  const uniqueNotes = [...notes.reduce((map, note) => {
+    map.set(note.id, preferNote(note, map.get(note.id)));
+    return map;
+  }, new Map()).values()];
+  const byId = new Map(uniqueNotes.map((note) => [note.id, note]));
+  const byRel = new Map(uniqueNotes.map((note) => [relative(noteScanRoot, note.file), note]));
+  const byBase = new Map(uniqueNotes.map((note) => [note.file.split(sep).pop(), note]));
+  const bySource = new Map(uniqueNotes.filter((note) => note.source).map((note) => [note.source, note]));
+  for (const note of uniqueNotes) {
     const resolved = [];
     for (const ref of note.refs || []) {
-      const target = byId.get(ref) || byRel.get(ref) || byBase.get(ref) || byRel.get(ref.replace(/^\.\//, ""));
+      const target = byId.get(ref) || byRel.get(ref) || byBase.get(ref) || bySource.get(ref) || byRel.get(ref.replace(/^\.\//, ""));
       if (!target || target.id === note.id) continue;
       resolved.push(target.id);
       target.backlinks.push(note.id);
     }
     note.refs = [...new Set(resolved)].sort();
   }
-  for (const note of notes) note.backlinks = [...new Set(note.backlinks)].sort();
-  return notes.sort((a, b) => a.title.localeCompare(b.title));
+  for (const note of uniqueNotes) note.backlinks = [...new Set(note.backlinks)].sort();
+  return uniqueNotes.sort((a, b) => a.title.localeCompare(b.title));
 }
 
 function snippetDirs() {
@@ -330,6 +524,40 @@ async function readNote(file) {
   };
 }
 
+async function createNode(body) {
+  const title = String(body.title || "Untitled").trim() || "Untitled";
+  const id = String(body.id || `${timestampId()}-${slugifyTitle(title)}`).trim();
+  const tags = Array.isArray(body.tags) ? body.tags.map(String).filter(Boolean) : [];
+  const dir = resolve(noteRoot, String(body.directory || "."));
+  if (!inside(dir, noteRoot)) {
+    const err = new Error(`Directory is outside note root: ${dir}`);
+    err.statusCode = 403;
+    throw err;
+  }
+  await mkdir(dir, { recursive: true });
+  await writeFile(join(dir, ".aaronnote-keep"), "", { flag: "a" }).catch(() => {});
+  const file = join(dir, `${slugifyTitle(id)}.md`);
+  if (existsSync(file)) {
+    const err = new Error(`Node already exists: ${file}`);
+    err.statusCode = 409;
+    throw err;
+  }
+  const content = [
+    "#+begin meta",
+    `id: ${id}`,
+    `title: ${title}`,
+    `date: ${new Date().toISOString().slice(0, 10)}`,
+    `tags: ${tags.join(", ")}`,
+    "refs:",
+    "#+end meta",
+    "",
+    `# ${title}`,
+    "",
+  ].join("\n");
+  await writeFile(file, content, "utf8");
+  return readNote(file);
+}
+
 async function readRequestJson(req) {
   const chunks = [];
   for await (const chunk of req) chunks.push(chunk);
@@ -363,6 +591,16 @@ async function routeApi(req, res) {
 
     if (req.method === "GET" && url.pathname === "/api/file") {
       sendJson(res, 200, await readNote(url.searchParams.get("file")));
+      return true;
+    }
+
+    if (req.method === "GET" && (url.pathname === "/api/notes" || url.pathname === "/api/roamdb/sync")) {
+      sendJson(res, 200, { type: "notes", notes: await scanNotes(), root: noteRoot });
+      return true;
+    }
+
+    if (req.method === "POST" && (url.pathname === "/api/node" || url.pathname === "/api/create-node")) {
+      sendJson(res, 200, await createNode(await readRequestJson(req)));
       return true;
     }
 
@@ -404,9 +642,43 @@ async function routeApi(req, res) {
   return false;
 }
 
+async function routeRoamTools(req, res) {
+  const url = new URL(req.url || "/", `http://${host}:${port}`);
+  if (req.method !== "GET") return false;
+  if (url.pathname === "/roam-tools/data.js") {
+    const notes = await scanNotes();
+    const tags = [...new Set(notes.flatMap((note) => note.tags || []))].sort();
+    const data = {
+      meta: {
+        generatedAt: new Date().toISOString(),
+        noteCount: notes.length,
+        tagCount: tags.length,
+      },
+      notes,
+    };
+    const body = `window.SITE_DATA = ${JSON.stringify(data)};\n`;
+    res.writeHead(200, {
+      "content-type": "application/javascript; charset=utf-8",
+      "content-length": Buffer.byteLength(body),
+    });
+    res.end(body);
+    return true;
+  }
+  if (url.pathname === "/roam-tools/knowledge.js") {
+    await sendTextFile(res, join(publishJsDir, "knowledge.js"), "application/javascript; charset=utf-8");
+    return true;
+  }
+  if (url.pathname === "/roam-tools/graph.js") {
+    await sendTextFile(res, join(publishJsDir, "graph.js"), "application/javascript; charset=utf-8");
+    return true;
+  }
+  return false;
+}
+
 let vite;
 const server = createHttpServer(async (req, res) => {
   if ((req.url || "").startsWith("/api/") && await routeApi(req, res)) return;
+  if ((req.url || "").startsWith("/roam-tools/") && await routeRoamTools(req, res)) return;
   vite.middlewares(req, res, () => {
     res.statusCode = 404;
     res.end("Not found");
