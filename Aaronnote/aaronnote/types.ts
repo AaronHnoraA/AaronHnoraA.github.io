@@ -18,6 +18,7 @@ export type NoteSummary = {
   refs?: string[];
   backlinks?: string[];
   roam?: boolean;
+  standalone?: boolean;
 };
 
 export type SnippetSummary = {
@@ -30,7 +31,7 @@ export type SnippetSummary = {
 };
 
 export type Inbound =
-  | { type: "open"; file?: string; title?: string; content?: string; mode?: "markdown" | "source"; notes?: NoteSummary[]; snippets?: SnippetSummary[] }
-  | { type: "saved"; ok?: boolean; message?: string; file?: string; notes?: NoteSummary[] }
+  | { type: "open"; file?: string; title?: string; content?: string; mode?: "markdown" | "source"; standalone?: boolean; notes?: NoteSummary[]; snippets?: SnippetSummary[] }
+  | { type: "saved"; ok?: boolean; message?: string; file?: string; standalone?: boolean; notes?: NoteSummary[] }
   | { type: "notes"; notes?: NoteSummary[] }
   | { type: "snippets"; snippets?: SnippetSummary[] };

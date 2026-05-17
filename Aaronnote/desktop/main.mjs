@@ -19,6 +19,7 @@ const noteRoot = process.env.AARONNOTE_ROOT || join(homedir(), "HC", "Org", "roa
 let serverHandle = null;
 let mainWindow = null;
 let pendingOpenFile = process.argv.slice(1).find((arg) => /\.(?:md|markdown)$/i.test(arg)) || "";
+let allowQuit = false;
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) app.exit(0);
@@ -26,7 +27,61 @@ if (!hasSingleInstanceLock) app.exit(0);
 function shouldOwnShortcut(input) {
   if (input.alt || input.control) return false;
   if (!input.meta) return false;
-  return ["l", "r", "w"].includes(input.key.toLowerCase());
+  return ["l", "w"].includes(input.key.toLowerCase());
+}
+
+function inside(child, parent) {
+  const rel = relative(parent, child);
+  return rel === "" || (!rel.startsWith("..") && !rel.startsWith("/"));
+}
+
+async function flushRendererState(win) {
+  if (!win || win.isDestroyed()) return;
+  await win.webContents.executeJavaScript(
+    "window.dispatchEvent(new CustomEvent('aaronnote:command', { detail: { command: 'flush-state' } })); true",
+    true,
+  ).catch(() => {});
+}
+
+function confirmWindowClose(win) {
+  const openWindows = BrowserWindow.getAllWindows().filter((window) => !window.isDestroyed());
+  if (openWindows.length <= 1) {
+    dialog.showMessageBoxSync(win, {
+      type: "info",
+      buttons: ["Keep Open"],
+      defaultId: 0,
+      title: "Keep Last Window Open",
+      message: "AaronNote keeps the last window open.",
+      detail: "Use Cmd+Q to quit the app.",
+      noLink: true,
+    });
+    return false;
+  }
+  const choice = dialog.showMessageBoxSync(win, {
+    type: "question",
+    buttons: ["Cancel", "Close"],
+    defaultId: 0,
+    cancelId: 0,
+    title: "Close AaronNote?",
+    message: "Close this AaronNote window?",
+    detail: "Current cursor position and pending edits will be flushed before closing.",
+    noLink: true,
+  });
+  return choice === 1;
+}
+
+function confirmQuit() {
+  const choice = dialog.showMessageBoxSync(mainWindow ?? undefined, {
+    type: "question",
+    buttons: ["Cancel", "Quit"],
+    defaultId: 0,
+    cancelId: 0,
+    title: "Quit AaronNote?",
+    message: "Quit AaronNote?",
+    detail: "Current cursor position and pending edits will be flushed before quitting.",
+    noLink: true,
+  });
+  return choice === 1;
 }
 
 function createWindow(url, options = {}) {
@@ -64,6 +119,14 @@ function createWindow(url, options = {}) {
   win.webContents.on("before-input-event", (event, input) => {
     if (shouldOwnShortcut(input)) event.preventDefault();
   });
+  win.on("close", async (event) => {
+    if (allowQuit || win.aaronnoteAllowClose) return;
+    event.preventDefault();
+    if (!confirmWindowClose(win)) return;
+    win.aaronnoteAllowClose = true;
+    await flushRendererState(win);
+    win.close();
+  });
 
   void win.loadURL(options.exactUrl ? url : urlForFile(url, pendingOpenFile));
   if (options.primary !== false) pendingOpenFile = "";
@@ -78,8 +141,14 @@ function urlForFile(baseUrl, file = "") {
 }
 
 function runInWindow(script) {
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-  void mainWindow.webContents.executeJavaScript(script, true);
+  const win = BrowserWindow.getFocusedWindow() || mainWindow;
+  if (!win || win.isDestroyed()) return;
+  void win.webContents.executeJavaScript(script, true);
+}
+
+function createNewWindow() {
+  if (!serverHandle) return;
+  createWindow(serverHandle.url, { primary: false });
 }
 
 function dispatchKeyScript(key) {
@@ -124,6 +193,15 @@ ipcMain.handle("aaronnote:choose-note-path", async (_event, options = {}) => {
   const rel = relative(noteRoot, resolve(result.filePath));
   if (!rel.startsWith("..") && !rel.startsWith("/") && rel !== "") return rel.replace(/\\/g, "/");
   return result.filePath;
+});
+
+ipcMain.handle("aaronnote:trash-note", async (_event, file = "") => {
+  const resolved = resolve(String(file || ""));
+  if (!inside(resolved, noteRoot)) {
+    throw new Error(`File is outside note root: ${resolved}`);
+  }
+  await shell.trashItem(resolved);
+  return { ok: true, file: resolved };
 });
 
 function openFileInWindow(file) {
@@ -171,14 +249,26 @@ function buildMenu() {
         click: () => void chooseAndOpenMarkdown(),
       },
       {
-        label: "New Note...",
+        label: "New Window",
         accelerator: "CmdOrCtrl+N",
+        click: () => createNewWindow(),
+      },
+      {
+        label: "New Note...",
         click: () => runInWindow(dispatchCommandScript("new-node")),
       },
       {
         label: "Delete Current Note",
         accelerator: "CmdOrCtrl+Backspace",
         click: () => runInWindow(dispatchCommandScript("delete-node")),
+      },
+      {
+        label: "Close Window",
+        accelerator: "CmdOrCtrl+W",
+        click: () => {
+          const win = BrowserWindow.getFocusedWindow() || mainWindow;
+          win?.close();
+        },
       },
       { type: "separator" },
       {
@@ -213,8 +303,12 @@ function buildMenu() {
       },
       {
         label: "Add Tag",
-        accelerator: "CmdOrCtrl+Shift+T",
         click: () => runInWindow(dispatchCommandScript("add-tag")),
+      },
+      {
+        label: "Tag Manager",
+        accelerator: "CmdOrCtrl+T",
+        click: () => runInWindow(dispatchCommandScript("tag-manager")),
       },
     ],
   },
@@ -237,6 +331,11 @@ function buildMenu() {
         label: "Toggle Source",
         accelerator: "CmdOrCtrl+/",
         click: () => runInWindow("document.querySelector('[data-action=source],[data-action=editor]')?.click()"),
+      },
+      {
+        label: "Toggle Source / Preview",
+        accelerator: "CmdOrCtrl+Shift+S",
+        click: () => runInWindow(dispatchCommandScript("toggle-source")),
       },
       {
         label: "Toggle TOC",
@@ -311,6 +410,15 @@ app.on("activate", () => {
   if (BrowserWindow.getAllWindows().length === 0 && serverHandle) createWindow(serverHandle.url);
 });
 
-app.on("before-quit", () => {
+app.on("before-quit", async (event) => {
+  if (allowQuit) return;
+  event.preventDefault();
+  if (!confirmQuit()) return;
+  allowQuit = true;
+  await Promise.all(BrowserWindow.getAllWindows().map(flushRendererState));
+  app.quit();
+});
+
+app.on("will-quit", () => {
   void serverHandle?.close?.();
 });

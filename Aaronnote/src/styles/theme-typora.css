@@ -11,8 +11,8 @@
 
 .ProseMirror {
   font-family: var(--aaron-font-english), var(--aaron-font-chinese);
-  font-size: 17.5px;
-  line-height: 1.68;
+  font-size: 16px;
+  line-height: 1.54;
   color: var(--aaron-ink, #24201a);
   word-wrap: break-word;
   font-kerning: normal;
@@ -26,7 +26,7 @@
 .ProseMirror h4,
 .ProseMirror h5,
 .ProseMirror h6 {
-  margin: 1.85em 0 0.72em;
+  margin: 1.15em 0 0.58em;
   font-family: var(--aaron-font-heading);
   font-weight: 700;
   line-height: 1.22;
@@ -34,8 +34,8 @@
 }
 .ProseMirror > :first-child { margin-top: 0; }
 .ProseMirror h1 {
-  margin-bottom: 1.1em;
-  font-size: 2.05em;
+  margin-bottom: 0.82em;
+  font-size: 1.78em;
   letter-spacing: 0;
   text-align: center;
 }
@@ -44,12 +44,12 @@
   display: block;
   width: 96px;
   height: 1px;
-  margin: 0.62em auto 0;
+  margin: 0.46em auto 0;
   background: var(--aaron-red, #b31b1b);
 }
 .ProseMirror h2 {
-  font-size: 1.34em;
-  padding-bottom: 0.26em;
+  font-size: 1.22em;
+  padding-bottom: 0.18em;
   border-bottom: 1px solid var(--aaron-paper-line, #d9d2c4);
 }
 .ProseMirror h3 {
@@ -66,7 +66,7 @@
 
 /* ─── paragraphs ─────────────────────────────────────────────────── */
 .ProseMirror p {
-  margin: 0 0 1.05em;
+  margin: 0 0 0.72em;
   text-align: left;
   white-space: pre-wrap;
 }
@@ -179,7 +179,7 @@
   --block-c: var(--c-note);
   --block-l: attr(data-label);
   display: block;
-  margin: 1.2rem 0;
+  margin: 0.9rem 0;
   overflow: visible;
   border: 0;
   border-left: 3px solid color-mix(in srgb, var(--block-c), black 18%);
@@ -274,7 +274,8 @@
   font-size: 0.86em;
   line-height: 1.45;
   border-left: 0;
-  padding: 0.35rem 0;
+  margin: 0.28rem 0 1.25rem;
+  padding: 0.22rem 0;
 }
 
 .ProseMirror org-env-block[data-kind="meta"] .org-env-heading,

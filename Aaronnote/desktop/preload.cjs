@@ -7,4 +7,7 @@ contextBridge.exposeInMainWorld("AaronnoteDesktop", {
       title: String(options.title || ""),
     });
   },
+  trashNote(file = "") {
+    return ipcRenderer.invoke("aaronnote:trash-note", String(file || ""));
+  },
 });

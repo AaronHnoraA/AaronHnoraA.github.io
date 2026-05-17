@@ -55,6 +55,8 @@ export interface Editor {
   setSelection(from: number, to?: number): void;
   /** Current active-surface selection. */
   getSelection(): { from: number; to: number };
+  /** Reveal the active cursor in the viewport and briefly flash it. */
+  revealCursor(): void;
   /** Plain active-surface text between offsets. */
   textBetween(from: number, to: number): string;
   /** Replace active-surface text between offsets. */
@@ -95,10 +97,15 @@ export function createEditor(
   sourceTextarea.hidden = true;
   wrap.append(editorHost, sourceTextarea);
   host.append(wrap);
+  const caretFlash = document.createElement("div");
+  caretFlash.className = "typora-web-caret-flash";
+  caretFlash.hidden = true;
+  document.body.appendChild(caretFlash);
 
   let view: EditorView;
   let inSource = false;
   let sourceValueOnEnter = "";
+  let caretFlashTimer = 0;
 
   function emitChange(md: string | (() => string)): void {
     if (!options.onChange) return;
@@ -131,6 +138,15 @@ export function createEditor(
       handleDOMEvents: {
         focus: () => { options.onFocus?.(); return false; },
         blur: () => { options.onBlur?.(); return false; },
+        keydown: (view, event) => {
+          if (event.key !== "Tab" || event.metaKey || event.ctrlKey || event.altKey) return false;
+          event.preventDefault();
+          const indent = event.shiftKey ? "" : "  ";
+          if (!indent) return true;
+          const { from, to } = view.state.selection;
+          view.dispatch(view.state.tr.insertText(indent, from, to).scrollIntoView());
+          return true;
+        },
         paste: (view, event) => {
           const data = event.clipboardData;
           if (!data || data.files.length > 0) return false;
@@ -210,11 +226,98 @@ export function createEditor(
     if (offset == null) return;
     const rect = caretRectInTextarea(offset);
     if (rect == null) return;
-    const pageY = rect.top + window.scrollY;
-    // Aim for the cursor to land roughly 1/3 down the viewport — same
-    // visual band PM's tr.scrollIntoView uses for the rendered editor.
-    const target = pageY - window.innerHeight / 3;
-    window.scrollTo({ top: target, behavior: "instant" as ScrollBehavior });
+    revealRect(rect, sourceTextarea, true);
+  }
+
+  function nearestScrollParent(el: HTMLElement): HTMLElement | null {
+    for (let parent = el.parentElement; parent; parent = parent.parentElement) {
+      const style = window.getComputedStyle(parent);
+      const scrollsY = /(auto|scroll|overlay)/.test(style.overflowY);
+      const scrollsX = /(auto|scroll|overlay)/.test(style.overflowX);
+      if ((scrollsY && parent.scrollHeight > parent.clientHeight) || (scrollsX && parent.scrollWidth > parent.clientWidth)) {
+        return parent;
+      }
+    }
+    return null;
+  }
+
+  function revealRect(
+    rect: { left: number; top: number; bottom: number },
+    anchor: HTMLElement,
+    center = false,
+  ): void {
+    const margin = center ? 0 : 72;
+    const container = nearestScrollParent(anchor);
+    if (container) {
+      const bounds = container.getBoundingClientRect();
+      const targetTop = center
+        ? container.scrollTop + rect.top - bounds.top - container.clientHeight * 0.34
+        : rect.top < bounds.top + margin
+          ? container.scrollTop - (bounds.top + margin - rect.top)
+          : rect.bottom > bounds.bottom - margin
+            ? container.scrollTop + (rect.bottom - (bounds.bottom - margin))
+            : container.scrollTop;
+      container.scrollTop = Math.max(0, targetTop);
+
+      if (rect.left < bounds.left + margin) {
+        container.scrollLeft = Math.max(0, container.scrollLeft - (bounds.left + margin - rect.left));
+      } else if (rect.left > bounds.right - margin) {
+        container.scrollLeft += rect.left - (bounds.right - margin);
+      }
+      return;
+    }
+
+    const targetY = center
+      ? window.scrollY + rect.top - window.innerHeight * 0.34
+      : rect.top < margin
+        ? window.scrollY + rect.top - margin
+        : rect.bottom > window.innerHeight - margin
+          ? window.scrollY + rect.bottom - window.innerHeight + margin
+          : window.scrollY;
+    window.scrollTo({ top: Math.max(0, targetY), behavior: "instant" as ScrollBehavior });
+  }
+
+  function renderedCursorRect(): { left: number; top: number; bottom: number } | null {
+    try {
+      const rect = view.coordsAtPos(view.state.selection.from);
+      return { left: rect.left, top: rect.top, bottom: rect.bottom };
+    } catch {
+      return null;
+    }
+  }
+
+  function revealRenderedCursor(center = false): void {
+    const rect = renderedCursorRect();
+    if (!rect) return;
+    revealRect(rect, view.dom, center);
+  }
+
+  function flashCursor(): void {
+    const rect = inSource
+      ? caretRectInTextarea(sourceTextarea.selectionStart ?? sourceTextarea.value.length)
+      : renderedCursorRect();
+    if (!rect) return;
+    window.clearTimeout(caretFlashTimer);
+    const height = Math.max(16, rect.bottom - rect.top);
+    caretFlash.style.left = `${Math.round(rect.left)}px`;
+    caretFlash.style.top = `${Math.round(rect.top)}px`;
+    caretFlash.style.height = `${Math.ceil(height)}px`;
+    caretFlash.hidden = false;
+    caretFlash.classList.remove("is-active");
+    void caretFlash.offsetWidth;
+    caretFlash.classList.add("is-active");
+    caretFlashTimer = window.setTimeout(() => {
+      caretFlash.hidden = true;
+      caretFlash.classList.remove("is-active");
+    }, 900);
+  }
+
+  function revealAndFlashActiveCursor(): void {
+    window.requestAnimationFrame(() => {
+      if (inSource) scrollTextareaCursorIntoView();
+      else revealRenderedCursor(true);
+      window.requestAnimationFrame(flashCursor);
+    });
   }
 
   // Best-effort cursor mapping between rendered and source. Both
@@ -256,8 +359,8 @@ export function createEditor(
     sourceTextarea.focus();
     const clamped = Math.min(mdCursor, md.length);
     sourceTextarea.setSelectionRange(clamped, clamped);
-    scrollTextareaCursorIntoView();
     inSource = true;
+    revealAndFlashActiveCursor();
   }
 
   function exitSource(): void {
@@ -277,6 +380,7 @@ export function createEditor(
     editorHost.hidden = false;
     view.focus();
     inSource = false;
+    revealAndFlashActiveCursor();
     if (md !== sourceValueOnEnter) emitChange(() => serialize(view.state.doc));
   }
 
@@ -308,6 +412,30 @@ export function createEditor(
   // Auto-grow the textarea as the user types so the page itself
   // owns the scroll, never the textarea.
   sourceTextarea.addEventListener("input", () => {
+    autoSizeSource();
+    emitChange(sourceTextarea.value);
+  });
+  sourceTextarea.addEventListener("keydown", (event) => {
+    if (event.key !== "Tab" || event.metaKey || event.ctrlKey || event.altKey) return;
+    event.preventDefault();
+    const start = sourceTextarea.selectionStart ?? sourceTextarea.value.length;
+    const end = sourceTextarea.selectionEnd ?? start;
+    if (event.shiftKey) {
+      const lineStart = sourceTextarea.value.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
+      const remove = sourceTextarea.value.slice(lineStart, lineStart + 2) === "  "
+        ? 2
+        : sourceTextarea.value[lineStart] === "\t"
+          ? 1
+          : 0;
+      if (remove > 0) {
+        sourceTextarea.setRangeText("", lineStart, lineStart + remove, "start");
+        const nextStart = Math.max(lineStart, start - remove);
+        const nextEnd = Math.max(nextStart, end - remove);
+        sourceTextarea.setSelectionRange(nextStart, nextEnd);
+      }
+    } else {
+      sourceTextarea.setRangeText("  ", start, end, "end");
+    }
     autoSizeSource();
     emitChange(sourceTextarea.value);
   });
@@ -388,6 +516,9 @@ export function createEditor(
         };
       }
       return { from: view.state.selection.from, to: view.state.selection.to };
+    },
+    revealCursor(): void {
+      revealAndFlashActiveCursor();
     },
     textBetween(from: number, to: number): string {
       if (inSource) {
@@ -510,7 +641,9 @@ export function createEditor(
     },
     destroy(): void {
       window.removeEventListener("keydown", onKey);
+      window.clearTimeout(caretFlashTimer);
       view.destroy();
+      caretFlash.remove();
       wrap.remove();
     },
     get view() {

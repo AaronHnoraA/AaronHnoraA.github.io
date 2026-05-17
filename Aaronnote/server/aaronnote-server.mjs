@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { createServer as createHttpServer } from "node:http";
-import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { homedir, tmpdir } from "node:os";
@@ -36,6 +36,11 @@ let noteRoot = resolve(String(args.root || process.env.AARONNOTE_ROOT || join(ap
 let noteScanRoot = noteRoot;
 const excludedDirs = new Set(["_typst", "public", "var", ".git", ".direnv", ".venv", "node_modules"]);
 const noteExts = new Set([".typ", ".md", ".markdown"]);
+let noteCacheRoot = "";
+let noteCache = new Map();
+let snippetCache = { key: "", scannedAt: 0, snippets: [] };
+let roamSyncTimer = null;
+let queuedRoamSyncNotes = null;
 const contentTypes = new Map([
   [".html", "text/html; charset=utf-8"],
   [".js", "application/javascript; charset=utf-8"],
@@ -118,6 +123,23 @@ function safeFile(input) {
   return file;
 }
 
+function standaloneMarkdownFile(file) {
+  return /\.(?:md|markdown)$/i.test(file);
+}
+
+function safeOpenFile(input) {
+  const file = resolve(String(input || ""));
+  if (inside(file, noteRoot)) return file;
+  if (standaloneMarkdownFile(file)) return file;
+  const err = new Error(`File is outside note root: ${file}`);
+  err.statusCode = 403;
+  throw err;
+}
+
+function standaloneFile(file) {
+  return !inside(file, noteRoot);
+}
+
 function fileContentType(file) {
   return contentTypes.get(extname(file).toLowerCase()) || "application/octet-stream";
 }
@@ -149,7 +171,7 @@ async function uniqueAssetPath(dir, name) {
 }
 
 function markdownRelativePath(fromFile, targetFile) {
-  const fromDir = fromFile ? dirname(safeFile(fromFile)) : noteRoot;
+  const fromDir = fromFile ? dirname(safeOpenFile(fromFile)) : noteRoot;
   let rel = relative(fromDir, targetFile).split(sep).join("/");
   if (!rel.startsWith(".") && !rel.startsWith("/")) rel = `./${rel}`;
   return rel;
@@ -168,10 +190,12 @@ function resolveMediaFile(file, base = "") {
     err.statusCode = 400;
     throw err;
   }
-  const baseDir = base ? dirname(safeFile(base)) : noteRoot;
+  const baseFile = base ? safeOpenFile(base) : "";
+  const baseDir = baseFile ? dirname(baseFile) : noteRoot;
+  const allowedRoot = baseFile && standaloneFile(baseFile) ? baseDir : noteRoot;
   const resolved = isAbsolute(raw) ? resolve(raw) : resolve(baseDir, raw);
-  if (!inside(resolved, noteRoot)) {
-    const err = new Error(`Media file is outside note root: ${resolved}`);
+  if (!inside(resolved, noteRoot) && !inside(resolved, allowedRoot)) {
+    const err = new Error(`Media file is outside the current document folder: ${resolved}`);
     err.statusCode = 403;
     throw err;
   }
@@ -179,13 +203,14 @@ function resolveMediaFile(file, base = "") {
 }
 
 async function storeAsset(body) {
-  const current = body.file ? safeFile(body.file) : "";
+  const current = body.file ? safeOpenFile(body.file) : "";
   const originalName = sanitizeAssetName(body.name, imageAssetP("", body.type) ? "image.png" : "attachment");
   const isImage = imageAssetP(originalName, body.type);
   const baseDir = current ? dirname(current) : noteRoot;
+  const allowedRoot = current && standaloneFile(current) ? baseDir : noteRoot;
   const targetDir = join(baseDir, isImage ? "images" : "attachments", assetFolderName(current));
-  if (!inside(targetDir, noteRoot)) {
-    const err = new Error(`Asset directory is outside note root: ${targetDir}`);
+  if (!inside(targetDir, noteRoot) && !inside(targetDir, allowedRoot)) {
+    const err = new Error(`Asset directory is outside the current document folder: ${targetDir}`);
     err.statusCode = 403;
     throw err;
   }
@@ -209,7 +234,8 @@ async function storeAsset(body) {
 }
 
 async function pathSuggestionsForFile(file) {
-  const current = file ? safeFile(file) : "";
+  const current = file ? safeOpenFile(file) : "";
+  const scanRoot = current && standaloneFile(current) ? dirname(current) : noteRoot;
   const out = new Set();
   async function walk(dir) {
     let entries = [];
@@ -221,7 +247,7 @@ async function pathSuggestionsForFile(file) {
     for (const entry of entries) {
       if (entry.name.startsWith(".")) continue;
       const full = join(dir, entry.name);
-      if (!inside(full, noteRoot)) continue;
+      if (!inside(full, scanRoot)) continue;
       if (entry.isDirectory()) {
         if (excludedDirs.has(entry.name)) continue;
         out.add(`${markdownRelativePath(current, full)}/`);
@@ -234,7 +260,7 @@ async function pathSuggestionsForFile(file) {
       out.add(markdownRelativePath(current, full));
     }
   }
-  await walk(noteRoot);
+  await walk(scanRoot);
   return [...out].sort((a, b) => a.localeCompare(b)).slice(0, 2000);
 }
 
@@ -251,7 +277,7 @@ function normalizeRecentNotes(entries) {
     if (!file || !Number.isFinite(openedAt)) continue;
     let safe;
     try {
-      safe = safeFile(file);
+      safe = safeOpenFile(file);
     } catch {
       continue;
     }
@@ -277,10 +303,62 @@ async function writeRecentNotes(entries) {
 }
 
 async function touchRecentNote(file, openedAt = Date.now()) {
-  const safe = safeFile(file);
+  const safe = safeOpenFile(file);
   const recent = await readRecentNotes();
   const next = normalizeRecentNotes([{ file: safe, openedAt }, ...recent]);
   await writeRecentNotes(next);
+  return next;
+}
+
+function positionStoreFile() {
+  return join(workspaceRoot, "var", "Aaronnote", "positions.json");
+}
+
+function normalizeCursorPositions(entries) {
+  if (!Array.isArray(entries)) return [];
+  const byFile = new Map();
+  for (const item of entries) {
+    const file = item && typeof item.file === "string" ? item.file : "";
+    if (!file) continue;
+    let safe;
+    try {
+      safe = safeOpenFile(file);
+    } catch {
+      continue;
+    }
+    const from = item && typeof item.from === "number" && Number.isFinite(item.from) ? Math.max(0, item.from) : 0;
+    const to = item && typeof item.to === "number" && Number.isFinite(item.to) ? Math.max(0, item.to) : from;
+    const scrollY = item && typeof item.scrollY === "number" && Number.isFinite(item.scrollY) ? Math.max(0, item.scrollY) : 0;
+    const updatedAt = item && typeof item.updatedAt === "number" && Number.isFinite(item.updatedAt) ? item.updatedAt : 0;
+    const mode = item && item.mode === "source" ? "source" : "markdown";
+    const current = byFile.get(safe);
+    if (!current || updatedAt > current.updatedAt) {
+      byFile.set(safe, { file: safe, mode, from, to, scrollY, updatedAt });
+    }
+  }
+  return [...byFile.values()].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 240);
+}
+
+async function readCursorPositions() {
+  try {
+    const raw = await readFile(positionStoreFile(), "utf8");
+    return normalizeCursorPositions(JSON.parse(raw));
+  } catch {
+    return [];
+  }
+}
+
+async function writeCursorPositions(entries) {
+  const file = positionStoreFile();
+  await mkdir(dirname(file), { recursive: true });
+  await writeFile(file, `${JSON.stringify(normalizeCursorPositions(entries), null, 2)}\n`, "utf8");
+}
+
+async function touchCursorPosition(body) {
+  const safe = safeOpenFile(body.file);
+  const current = await readCursorPositions();
+  const next = normalizeCursorPositions([{ ...body, file: safe, updatedAt: Number(body.updatedAt) || Date.now() }, ...current]);
+  await writeCursorPositions(next);
   return next;
 }
 
@@ -662,19 +740,30 @@ async function walkFiles(root, accept) {
 }
 
 async function scanNotes() {
+  if (noteCacheRoot !== noteScanRoot) {
+    noteCacheRoot = noteScanRoot;
+    noteCache = new Map();
+  }
   const files = await walkFiles(noteScanRoot, (file) => {
     const dot = file.lastIndexOf(".");
     return dot >= 0 && noteExts.has(file.slice(dot).toLowerCase());
   });
   const notes = [];
+  const seen = new Set(files);
   for (const file of files) {
     try {
+      const info = await stat(file);
+      const cached = noteCache.get(file);
+      if (cached && cached.mtimeMs === info.mtimeMs && cached.size === info.size) {
+        notes.push({ ...cached.note, backlinks: [] });
+        continue;
+      }
       const content = await readFile(file, "utf8");
       const relPath = relative(noteScanRoot, file);
       const groupKey = groupKeyFor(file);
       const id = idFromContent(file, noteScanRoot, content);
       const roam = hasRoamMeta(content);
-      notes.push({
+      const note = {
         key: id,
         id,
         title: titleFromContent(file, content),
@@ -694,8 +783,13 @@ async function scanNotes() {
         refs: refsFromContent(content),
         backlinks: [],
         roam,
-      });
+      };
+      noteCache.set(file, { mtimeMs: info.mtimeMs, size: info.size, note });
+      notes.push({ ...note });
     } catch {}
+  }
+  for (const file of noteCache.keys()) {
+    if (!seen.has(file)) noteCache.delete(file);
   }
   const uniqueNotes = [...notes.reduce((map, note) => {
     map.set(note.id, preferNote(note, map.get(note.id)));
@@ -750,8 +844,14 @@ function parseSnippetBody(content) {
 }
 
 async function scanSnippets() {
+  const dirs = snippetDirs();
+  const key = dirs.join(":");
+  const now = Date.now();
+  if (snippetCache.key === key && now - snippetCache.scannedAt < 10_000) {
+    return snippetCache.snippets;
+  }
   const snippets = [];
-  for (const root of snippetDirs()) {
+  for (const root of dirs) {
     const files = await walkFiles(root, (_file, name) => !name.startsWith(".") && !name.endsWith(".el"));
     for (const file of files) {
       try {
@@ -773,11 +873,16 @@ async function scanSnippets() {
       } catch {}
     }
   }
-  return snippets.sort((a, b) => `${a.mode}/${a.key}`.localeCompare(`${b.mode}/${b.key}`));
+  snippetCache = {
+    key,
+    scannedAt: now,
+    snippets: snippets.sort((a, b) => `${a.mode}/${a.key}`.localeCompare(`${b.mode}/${b.key}`)),
+  };
+  return snippetCache.snippets;
 }
 
 async function readNote(file) {
-  const safe = safeFile(file);
+  const safe = safeOpenFile(file);
   const info = await stat(safe);
   if (!info.isFile()) {
     const err = new Error(`Not a regular file: ${safe}`);
@@ -785,12 +890,14 @@ async function readNote(file) {
     throw err;
   }
   const content = await readFile(safe, "utf8");
+  const standalone = standaloneFile(safe);
   return {
     type: "open",
     file: safe,
     title: titleFromContent(safe, content),
     mode: modeForFile(safe),
     content,
+    standalone,
     notes: await scanNotes(),
     snippets: await scanSnippets(),
   };
@@ -958,12 +1065,59 @@ async function createNode(body) {
   return opened;
 }
 
+async function uniqueTrashPath(file) {
+  const trashDir = join(homedir(), ".Trash");
+  await mkdir(trashDir, { recursive: true });
+  const ext = extname(file);
+  const stem = basename(file, ext) || "note";
+  let target = join(trashDir, basename(file));
+  for (let i = 2; existsSync(target); i++) {
+    target = join(trashDir, `${stem}-${i}${ext}`);
+  }
+  return target;
+}
+
+async function moveToTrash(file) {
+  try {
+    const electron = await import("electron");
+    if (electron.shell?.trashItem) {
+      await electron.shell.trashItem(file);
+      return "system-trash";
+    }
+  } catch {}
+  if (process.platform === "darwin") {
+    try {
+      await execFileAsync("osascript", [
+        "-e",
+        `tell application "Finder" to delete POSIX file ${JSON.stringify(file)}`,
+      ]);
+      return "system-trash";
+    } catch {}
+  }
+  const target = await uniqueTrashPath(file);
+  await rename(file, target);
+  return target;
+}
+
+function scheduleRoamDbSync(notes) {
+  queuedRoamSyncNotes = notes;
+  if (roamSyncTimer) clearTimeout(roamSyncTimer);
+  roamSyncTimer = setTimeout(() => {
+    const next = queuedRoamSyncNotes;
+    queuedRoamSyncNotes = null;
+    roamSyncTimer = null;
+    void syncRoamDb(next).catch((err) => {
+      console.error("Aaronnote roam db sync failed:", err?.message || err);
+    });
+  }, 1800);
+}
+
 async function deleteNote(body) {
   const file = safeFile(body.file);
-  await rm(file, { force: true });
+  const trashedTo = await moveToTrash(file);
   const notes = await scanNotes();
   await syncRoamDb(notes);
-  return { type: "deleted", ok: true, file, notes };
+  return { type: "deleted", ok: true, file, trashedTo, notes };
 }
 
 async function updateCurrentNoteMeta(body, action) {
@@ -1041,6 +1195,11 @@ async function routeApi(req, res) {
       return true;
     }
 
+    if (req.method === "GET" && url.pathname === "/api/positions") {
+      sendJson(res, 200, { type: "positions", positions: await readCursorPositions() });
+      return true;
+    }
+
     if (req.method === "GET" && url.pathname === "/api/path-suggestions") {
       sendJson(res, 200, {
         type: "path-suggestions",
@@ -1054,6 +1213,15 @@ async function routeApi(req, res) {
       sendJson(res, 200, {
         type: "recent",
         recent: await touchRecentNote(String(body.file || ""), Number(body.openedAt) || Date.now()),
+      });
+      return true;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/position") {
+      const body = await readRequestJson(req);
+      sendJson(res, 200, {
+        type: "positions",
+        positions: await touchCursorPosition(body),
       });
       return true;
     }
@@ -1085,11 +1253,15 @@ async function routeApi(req, res) {
 
     if (req.method === "POST" && url.pathname === "/api/save") {
       const body = await readRequestJson(req);
-      const file = safeFile(body.file);
+      const file = safeOpenFile(body.file);
       await writeFile(file, String(body.content ?? ""));
-      const notes = await scanNotes();
-      await syncRoamDb(notes);
-      sendJson(res, 200, { type: "saved", ok: true, file, message: "Saved", notes });
+      if (standaloneFile(file)) {
+        sendJson(res, 200, { type: "saved", ok: true, file, message: "Saved", standalone: true });
+      } else {
+        const notes = await scanNotes();
+        scheduleRoamDbSync(notes);
+        sendJson(res, 200, { type: "saved", ok: true, file, message: "Saved", notes, standalone: false });
+      }
       return true;
     }
 
@@ -1229,6 +1401,13 @@ export async function startAaronnoteServer(options = {}) {
     port: actualPort,
     url,
     close: async () => {
+      if (roamSyncTimer) {
+        clearTimeout(roamSyncTimer);
+        roamSyncTimer = null;
+        const next = queuedRoamSyncNotes;
+        queuedRoamSyncNotes = null;
+        if (next) await syncRoamDb(next).catch(() => {});
+      }
       await vite?.close?.();
       await new Promise((resolveClose) => server.close(resolveClose));
     },

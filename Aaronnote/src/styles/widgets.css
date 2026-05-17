@@ -43,6 +43,24 @@
   padding: 0;
 }
 .typora-web-source[hidden] { display: none; }
+.typora-web-caret-flash {
+  position: fixed;
+  z-index: 10000;
+  width: 2px;
+  min-height: 16px;
+  border-radius: 1px;
+  background: var(--aaron-red, #b31b1b);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--aaron-red, #b31b1b), transparent 78%);
+  pointer-events: none;
+}
+.typora-web-caret-flash[hidden] { display: none; }
+.typora-web-caret-flash.is-active {
+  animation: typora-web-caret-flash 0.9s linear;
+}
+@keyframes typora-web-caret-flash {
+  0%, 18%, 38%, 58%, 78%, 100% { opacity: 1; }
+  8%, 28%, 48%, 68%, 88% { opacity: 0; }
+}
 
 /* ─── PM root reset ──────────────────────────────────────────────── */
 .ProseMirror {
@@ -303,8 +321,11 @@
 .ProseMirror .file-input:hover { opacity: 1; }
 .ProseMirror img.image-render {
   display: block;
-  max-width: 100%;
-  margin: 4px 0;
+  width: auto;
+  max-width: min(100%, 520px);
+  max-height: 420px;
+  object-fit: contain;
+  margin: 6px auto 10px;
 }
 
 /* ─── Task-list checkbox NodeView ────────────────────────────────── */

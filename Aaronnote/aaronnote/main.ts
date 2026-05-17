@@ -24,6 +24,7 @@ declare global {
     AaronnoteResolveAssetUrl?: (src: string) => string;
     AaronnoteDesktop?: {
       chooseNotePath?: (options?: { suggestedPath?: string; title?: string }) => Promise<string>;
+      trashNote?: (file: string) => Promise<{ ok?: boolean; file?: string; message?: string }>;
     };
   }
 }
@@ -150,6 +151,7 @@ const vimCursor = createVimCursor();
 
 let currentFile = "";
 let currentMode: "markdown" | "source" = "markdown";
+let currentStandalone = false;
 let saveTimer = 0;
 let ws: WebSocket | null = null;
 let notes: NoteSummary[] = [];
@@ -175,11 +177,25 @@ let notesRenderFrame = 0;
 let saveRequestSeq = 0;
 let graphDataKey = "";
 let pathSuggestions: string[] = [];
+let pendingEquationTag = params.get("eqTag") || "";
 
 const recentStorageKey = "aaronnote.recent";
 type RecentNote = { file: string; openedAt: number };
-type OpenNoteOptions = { newWindow?: boolean };
+type OpenNoteOptions = { newWindow?: boolean; equationTag?: string };
 let recentNotes = loadRecentNotes();
+
+const cursorStorageKey = "aaronnote.cursorPositions";
+type CursorPosition = {
+  file: string;
+  mode: "markdown" | "source";
+  from: number;
+  to: number;
+  scrollY: number;
+  updatedAt: number;
+};
+let cursorPositions = loadCursorPositions();
+let cursorSaveTimer = 0;
+let lastCursorSaveKey = "";
 
 type UploadedAsset = {
   ok?: boolean;
@@ -343,6 +359,24 @@ function hrefPath(href: string): string {
   return decodeNoteRef(raw.split(/[?#]/, 1)[0] ?? "");
 }
 
+function hrefHash(href: string): string {
+  const raw = String(href || "").trim();
+  const index = raw.indexOf("#");
+  if (index < 0) return "";
+  return decodeNoteRef((raw.slice(index + 1).split(/[?&]/, 1)[0] ?? "").trim());
+}
+
+function equationTagFromHref(href: string): string | null {
+  const hash = hrefHash(href);
+  if (!hash) return null;
+  if (/^eq-/i.test(hash)) return decodeNoteRef(hash.slice(3)).trim() || null;
+  return null;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function noteRefFromRoamHref(href: string): string | null {
   const match = String(href || "").trim().match(/^roam:\/\/(.+)$/i);
   if (!match) return null;
@@ -438,23 +472,42 @@ function resolveInternalNoteHref(href: string): NoteSummary | undefined {
   return undefined;
 }
 
-function noteWindowUrl(note: NoteSummary): string {
+function standaloneNoteFromMarkdownHref(href: string): NoteSummary | undefined {
+  if (!markdownNoteHref(href)) return undefined;
+  const file = internalNoteCandidates(href).find((candidate) => candidate.startsWith("/"));
+  if (!file) return undefined;
+  return {
+    file,
+    path: file,
+    title: fileNameFromPath(file),
+    standalone: true,
+  };
+}
+
+function noteWindowUrl(note: NoteSummary, equationTag = ""): string {
   const url = new URL(window.location.href);
   url.searchParams.set("file", note.file || "");
+  if (equationTag) url.searchParams.set("eqTag", equationTag);
+  else url.searchParams.delete("eqTag");
   return url.toString();
 }
 
 function openExternalUrl(href: string, options: OpenNoteOptions = {}): void {
+  const equationTag = options.equationTag || equationTagFromHref(href) || "";
+  if (equationTag && String(href || "").trim().startsWith("#")) {
+    if (!jumpToEquationTag(equationTag)) setStatus(`Equation tag not found: ${equationTag}`);
+    return;
+  }
   const roamRef = noteRefFromRoamHref(href);
   if (roamRef != null) {
     const note = resolveNoteRef(roamRef);
-    if (note) openNote(note, options);
+    if (note) openNote(note, { ...options, equationTag });
     else setStatus(`Roam note not found: ${roamRef}`);
     return;
   }
   if (markdownNoteHref(href)) {
-    const note = resolveInternalNoteHref(href);
-    if (note) openNote(note, options);
+    const note = resolveInternalNoteHref(href) || standaloneNoteFromMarkdownHref(href);
+    if (note) openNote(note, { ...options, equationTag });
     else setStatus(`Note not found: ${hrefPath(href)}`);
     return;
   }
@@ -579,7 +632,9 @@ function save(): void {
 function syncSourceUi(): void {
   currentMode = editor.isSourceMode() ? "source" : "markdown";
   host.classList.toggle("is-source-mode", currentMode === "source");
+  root.dataset.viewMode = currentMode;
   sourceButton.textContent = currentMode === "source" ? "Preview" : "Source";
+  sourceButton.setAttribute("aria-pressed", currentMode === "source" ? "true" : "false");
 }
 
 async function saveStandalone(): Promise<void> {
@@ -878,35 +933,55 @@ async function deleteCurrentNote(): Promise<void> {
     setStatus("No current note");
     return;
   }
+  if (currentStandalone) {
+    setStatus("Standalone Markdown files are not managed as roam notes");
+    return;
+  }
   const confirmed = await openFormModal("Delete note", [
-    { id: "confirm", label: `Type DELETE to remove ${currentFile}`, value: "" },
-  ], "Delete");
-  if (confirmed?.confirm !== "DELETE") return;
-  setStatus("Deleting note");
+    { id: "confirm", label: `Type TRASH to move ${currentFile} to the system Trash`, value: "" },
+  ], "Move to Trash");
+  if (confirmed?.confirm !== "TRASH") return;
+  setStatus("Moving note to Trash");
   try {
-    const res = await fetch("/api/delete", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ file: currentFile }),
-    });
-    const msg = await res.json() as { ok?: boolean; notes?: NoteSummary[]; message?: string };
-    if (!res.ok || !msg.ok) throw new Error(msg.message || "Delete failed");
-    notes = Array.isArray(msg.notes) ? msg.notes : [];
+    const fileToDelete = currentFile;
+    if (window.AaronnoteDesktop?.trashNote) {
+      const desktopResult = await window.AaronnoteDesktop.trashNote(fileToDelete);
+      if (!desktopResult?.ok) throw new Error(desktopResult?.message || "Move to Trash failed");
+      const res = await fetch("/api/roamdb/sync");
+      const msg = await res.json() as { notes?: NoteSummary[]; message?: string };
+      if (!res.ok || !Array.isArray(msg.notes)) throw new Error(msg.message || "Refresh failed");
+      notes = msg.notes;
+    } else {
+      const res = await fetch("/api/delete", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ file: fileToDelete }),
+      });
+      const msg = await res.json() as { ok?: boolean; notes?: NoteSummary[]; message?: string };
+      if (!res.ok || !msg.ok) throw new Error(msg.message || "Move to Trash failed");
+      notes = Array.isArray(msg.notes) ? msg.notes : [];
+    }
+    cursorPositions.delete(fileToDelete);
+    saveCursorPositionsLocal();
     currentFile = "";
     fileLabel.textContent = "Scratch";
     editor.setMarkdown("");
     renderNotes();
     if (!graphPage.hidden) renderGraph();
     updateFloatingToc();
-    setStatus("Note deleted");
+    setStatus("Moved note to Trash");
   } catch (err) {
-    setStatus(err instanceof Error ? err.message : "Delete failed");
+    setStatus(err instanceof Error ? err.message : "Move to Trash failed");
   }
 }
 
 async function updateNoteMeta(endpoint: string, body: Record<string, unknown>, success: string): Promise<void> {
   if (!currentFile) {
     setStatus("No current note");
+    return;
+  }
+  if (currentStandalone) {
+    setStatus("Roam metadata is unavailable for standalone Markdown files");
     return;
   }
   setStatus("Updating note");
@@ -956,12 +1031,267 @@ async function addTag(): Promise<void> {
   await updateNoteMeta("/api/tags/add", { tags }, "Tag added");
 }
 
+type MathTagTarget = {
+  tex: string;
+  replace: (nextTex: string, tag: string) => void;
+};
+
+function findDisplayMathRangeInMarkdown(markdown: string, pos: number): { bodyFrom: number; bodyTo: number; tex: string } | null {
+  const fence = /^[ \t]*\$\$[ \t]*$/gm;
+  let open: RegExpExecArray | null;
+  while ((open = fence.exec(markdown))) {
+    const openStart = open.index;
+    const openEnd = openStart + open[0].length;
+    const bodyFrom = markdown[openEnd] === "\n" ? openEnd + 1 : openEnd;
+    fence.lastIndex = bodyFrom;
+    const close = fence.exec(markdown);
+    if (!close) return null;
+    const closeStart = close.index;
+    const closeEnd = closeStart + close[0].length;
+    const bodyTo = markdown[closeStart - 1] === "\n" ? closeStart - 1 : closeStart;
+    if (pos >= openStart && pos <= closeEnd) {
+      return { bodyFrom, bodyTo, tex: markdown.slice(bodyFrom, bodyTo) };
+    }
+    fence.lastIndex = closeEnd;
+  }
+  return null;
+}
+
+function activeDisplayMathTarget(): MathTagTarget | null {
+  if (editor.isSourceMode()) {
+    const selection = editor.getSelection();
+    const markdown = editor.getMarkdown();
+    const range = findDisplayMathRangeInMarkdown(markdown, selection.from);
+    if (!range) return null;
+    return {
+      tex: range.tex,
+      replace(nextTex, tag) {
+        editor.replaceRange(range.bodyFrom, range.bodyTo, nextTex, "end");
+        selectLatexTag(range.bodyFrom, nextTex, tag);
+      },
+    };
+  }
+
+  const selection = editor.view.state.selection;
+  const $from = selection.$from;
+  for (let depth = $from.depth; depth > 0; depth--) {
+    const node = $from.node(depth);
+    if (node.type.name !== "math_block") continue;
+    const blockStart = $from.before(depth);
+    const contentFrom = blockStart + 1;
+    const contentTo = contentFrom + node.content.size;
+    return {
+      tex: node.textContent,
+      replace(nextTex, tag) {
+        editor.replaceRange(contentFrom, contentTo, nextTex, "end");
+        selectLatexTag(contentFrom, nextTex, tag);
+      },
+    };
+  }
+  return null;
+}
+
+function selectLatexTag(base: number, tex: string, tag: string): void {
+  const range = findLatexTagRange(tex, tag);
+  if (!range) return;
+  editor.setSelection(base + range.from, base + range.to);
+  editor.revealCursor();
+}
+
+function currentNote(): NoteSummary | undefined {
+  const note = notes.find((item) => item.file === currentFile);
+  if (note) return note;
+  if (!currentFile) return undefined;
+  return {
+    file: currentFile,
+    path: currentFile,
+    title: fileNameFromPath(currentFile),
+    standalone: currentStandalone,
+  };
+}
+
+function findLatexTagRange(tex: string, tag: string): { from: number; to: number } | null {
+  if (!tag) return null;
+  const exact = `\\tag{${tag}}`;
+  const exactIndex = tex.indexOf(exact);
+  if (exactIndex >= 0) {
+    const from = exactIndex + "\\tag{".length;
+    return { from, to: from + tag.length };
+  }
+  const pattern = new RegExp(`\\\\tag\\s*\\{\\s*${escapeRegExp(tag)}\\s*\\}`, "g");
+  const match = pattern.exec(tex);
+  if (!match) return null;
+  const matched = match[0] ?? "";
+  const tagIndex = matched.indexOf(tag);
+  if (tagIndex < 0) return null;
+  const from = match.index + tagIndex;
+  return { from, to: from + tag.length };
+}
+
+function jumpToEquationTag(rawTag: string): boolean {
+  const tag = normalizeEquationTag(rawTag);
+  if (!tag) return false;
+
+  if (editor.isSourceMode()) {
+    const range = findLatexTagRange(editor.getMarkdown(), tag);
+    if (!range) return false;
+    editor.setSelection(range.from, range.to);
+    editor.revealCursor();
+    setStatus(`Equation tag ${tag}`);
+    scheduleAssistUpdate();
+    return true;
+  }
+
+  let hit: { from: number; to: number } | null = null;
+  editor.view.state.doc.descendants((node, pos) => {
+    if (hit) return false;
+    if (node.type.name !== "math_block") return true;
+    const range = findLatexTagRange(node.textContent, tag);
+    if (!range) return true;
+    hit = {
+      from: pos + 1 + range.from,
+      to: pos + 1 + range.to,
+    };
+    return false;
+  });
+  if (!hit) return false;
+  editor.setSelection(hit.from, hit.to);
+  editor.revealCursor();
+  setStatus(`Equation tag ${tag}`);
+  scheduleAssistUpdate();
+  return true;
+}
+
+function equationTagSuggestionsFromContent(content = editor.getMarkdown()): string[] {
+  return [...new Set([...content.matchAll(/\\tag\s*\{([^{}\n]+)\}/g)].map((match) => match[1]!.trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b));
+}
+
+function existingLatexTag(tex: string): string {
+  return tex.match(/\\tag\s*\{([^{}\n]+)\}/)?.[1]?.trim() || "";
+}
+
+function normalizeEquationTag(value: string): string {
+  return String(value || "")
+    .replace(/[\r\n{}]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function upsertLatexTag(tex: string, tag: string): string {
+  const clean = tex
+    .replace(/\s*\\tag\s*\{[^{}\n]*\}/g, "")
+    .replace(/\s+$/g, "");
+  const separator = clean.includes("\n") ? "\n" : " ";
+  return `${clean}${separator}\\tag{${tag}}`;
+}
+
+function equationHash(tag: string): string {
+  return `eq-${encodeURIComponent(tag)}`;
+}
+
+function encodeMarkdownHrefPath(path: string): string {
+  return path
+    .replace(/\\/g, "/")
+    .split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/");
+}
+
+function equationReferenceMarkdown(tag: string): string {
+  const note = currentNote();
+  const targetPath = note?.source || note?.path || note?.link || currentFile || fileNameFromPath(currentFile || "note.md");
+  return `[${tag}](${encodeMarkdownHrefPath(targetPath)}#${equationHash(tag)})`;
+}
+
+async function copyText(text: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const fallback = document.createElement("textarea");
+    fallback.value = text;
+    fallback.style.position = "fixed";
+    fallback.style.left = "-9999px";
+    document.body.appendChild(fallback);
+    fallback.select();
+    document.execCommand("copy");
+    fallback.remove();
+  }
+}
+
+function nextEquationTagSuggestion(): string {
+  const used = new Set(equationTagSuggestionsFromContent());
+  for (let i = 1; i < 1000; i++) {
+    const tag = `eq:${i}`;
+    if (!used.has(tag)) return tag;
+  }
+  return `eq:${Date.now()}`;
+}
+
+async function tagActiveEquation(): Promise<boolean> {
+  const target = activeDisplayMathTarget();
+  if (!target) return false;
+  const current = existingLatexTag(target.tex);
+  const result = await openFormModal("Equation tag", [
+    {
+      id: "tag",
+      label: "LaTeX tag",
+      value: current || nextEquationTagSuggestion(),
+      suggestions: equationTagSuggestionsFromContent(),
+    },
+  ], "Tag & Copy Ref");
+  if (!result) return true;
+  const tag = normalizeEquationTag(result.tag);
+  if (!tag) return true;
+  const nextTex = upsertLatexTag(target.tex, tag);
+  target.replace(nextTex, tag);
+  const ref = equationReferenceMarkdown(tag);
+  await copyText(ref);
+  setStatus(`Equation tag ${tag}; ref copied`);
+  scheduleAssistUpdate();
+  return true;
+}
+
+async function openTagManager(): Promise<void> {
+  if (!currentFile) {
+    setStatus("Open a note before managing tags");
+    return;
+  }
+  if (currentStandalone) {
+    setStatus("Roam tag manager is unavailable for standalone Markdown files");
+    return;
+  }
+  const note = currentNote();
+  const result = await openFormModal("Tag manager", [
+    {
+      id: "tags",
+      label: "Note tags",
+      type: "tags",
+      value: (note?.tags ?? []).join(", "),
+      suggestions: tagSuggestions(),
+    },
+  ], "Update Tags");
+  if (!result) return;
+  await updateNoteMeta("/api/meta/add", {
+    title: note?.title || fileLabel.textContent || "Untitled",
+    tags: parseTagPrompt(result.tags),
+    kind: note?.kind || "note",
+  }, "Tags updated");
+}
+
+async function handleTagCommand(): Promise<void> {
+  if (await tagActiveEquation()) return;
+  await openTagManager();
+}
+
 function toggleSourceMode(): void {
+  saveCursorPositionNow({ force: true });
   editor.toggleSource();
   vim.setMode("insert");
   syncSourceUi();
   setStatus(currentMode === "source" ? "Source mode" : "Ready");
   scheduleAssistUpdate();
+  scheduleCursorPositionSave(80);
 }
 
 function cleanupTransientUi(): void {
@@ -982,6 +1312,11 @@ function disposeGraph(): void {
 }
 
 function showNotesPage(): void {
+  if (currentStandalone) {
+    setStatus("Standalone Markdown file");
+    return;
+  }
+  saveCursorPositionNow({ force: true });
   cleanupTransientUi();
   disposeGraph();
   host.hidden = true;
@@ -1017,7 +1352,7 @@ function showEditorPage(): void {
   notesPage.hidden = true;
   host.hidden = false;
   toc.hidden = false;
-  notesButton.hidden = false;
+  notesButton.hidden = currentStandalone;
   sourceButton.hidden = false;
   editorButton.hidden = true;
   editor.focus();
@@ -1070,12 +1405,20 @@ function updateFloatingToc(): void {
 
 function openNote(note: NoteSummary, options: OpenNoteOptions = {}): void {
   if (!note.file) return;
+  const equationTag = normalizeEquationTag(options.equationTag || "");
+  saveCursorPositionNow({ force: true });
   touchRecentNote(note.file);
   if (options.newWindow) {
-    window.open(noteWindowUrl(note), "_blank", "noopener,noreferrer");
+    window.open(noteWindowUrl(note, equationTag), "_blank", "noopener,noreferrer");
     setStatus("Opening note window");
     return;
   }
+  if (equationTag && note.file === currentFile) {
+    showEditorPage();
+    if (!jumpToEquationTag(equationTag)) setStatus(`Equation tag not found: ${equationTag}`);
+    return;
+  }
+  pendingEquationTag = equationTag;
   if (emacsPort && token) send({ type: "open-file", file: note.file });
   void openStandaloneFile(note.file);
   showEditorPage();
@@ -1208,6 +1551,9 @@ function renderSnippetPopup(prefix: string, rect: { left: number; top: number; b
   snippetPopupItems.forEach((snippet, index) => {
     const button = document.createElement("button");
     button.type = "button";
+    button.id = `aaronnote-snippet-option-${index}`;
+    button.setAttribute("role", "option");
+    button.setAttribute("aria-selected", index === snippetPopupIndex ? "true" : "false");
     button.className = index === snippetPopupIndex
       ? "aaronnote-snippet-option is-active"
       : "aaronnote-snippet-option";
@@ -1229,6 +1575,8 @@ function renderSnippetPopup(prefix: string, rect: { left: number; top: number; b
     snippetPopup.appendChild(button);
   });
   snippetPopup.dataset.prefix = prefix;
+  snippetPopup.setAttribute("role", "listbox");
+  snippetPopup.setAttribute("aria-activedescendant", `aaronnote-snippet-option-${snippetPopupIndex}`);
   snippetPopup.hidden = false;
   placeFloating(snippetPopup, rect);
   snippetPopup.querySelector(".aaronnote-snippet-option.is-active")?.scrollIntoView({ block: "nearest" });
@@ -1637,6 +1985,152 @@ function touchRecentNote(file: string): void {
   void persistRecentNote(file, openedAt);
 }
 
+function normalizeCursorPositions(entries: unknown): Map<string, CursorPosition> {
+  const byFile = new Map<string, CursorPosition>();
+  if (!Array.isArray(entries)) return byFile;
+  for (const item of entries) {
+    if (!item || typeof item !== "object") continue;
+    const entry = item as Partial<CursorPosition>;
+    if (typeof entry.file !== "string" || !entry.file) continue;
+    const mode = entry.mode === "source" ? "source" : "markdown";
+    const from = typeof entry.from === "number" && Number.isFinite(entry.from) ? Math.max(0, entry.from) : 0;
+    const to = typeof entry.to === "number" && Number.isFinite(entry.to) ? Math.max(0, entry.to) : from;
+    const scrollY = typeof entry.scrollY === "number" && Number.isFinite(entry.scrollY) ? Math.max(0, entry.scrollY) : 0;
+    const updatedAt = typeof entry.updatedAt === "number" && Number.isFinite(entry.updatedAt) ? entry.updatedAt : 0;
+    const current = byFile.get(entry.file);
+    if (!current || updatedAt > current.updatedAt) {
+      byFile.set(entry.file, { file: entry.file, mode, from, to, scrollY, updatedAt });
+    }
+  }
+  return new Map([...byFile.entries()].sort((a, b) => b[1].updatedAt - a[1].updatedAt).slice(0, 240));
+}
+
+function loadCursorPositions(): Map<string, CursorPosition> {
+  try {
+    const raw = window.localStorage.getItem(cursorStorageKey);
+    const parsed = raw ? JSON.parse(raw) as unknown : [];
+    return normalizeCursorPositions(parsed);
+  } catch {
+    return new Map();
+  }
+}
+
+function saveCursorPositionsLocal(): void {
+  try {
+    window.localStorage.setItem(cursorStorageKey, JSON.stringify([...cursorPositions.values()].slice(0, 240)));
+  } catch {
+    // Cursor restore is a local convenience; ignore storage failures.
+  }
+}
+
+function mergeCursorPositions(entries: unknown): void {
+  const incoming = normalizeCursorPositions(entries);
+  if (incoming.size === 0) return;
+  cursorPositions = normalizeCursorPositions([...incoming.values(), ...cursorPositions.values()]);
+  saveCursorPositionsLocal();
+}
+
+async function loadServerCursorPositions(): Promise<void> {
+  try {
+    const res = await fetch("/api/positions");
+    const msg = await res.json() as { positions?: CursorPosition[] };
+    if (res.ok) mergeCursorPositions(msg.positions ?? []);
+  } catch {
+    // localStorage remains as fallback.
+  }
+}
+
+function currentCursorPosition(): CursorPosition | null {
+  if (!currentFile) return null;
+  const selection = editor.getSelection();
+  return {
+    file: currentFile,
+    mode: editor.isSourceMode() ? "source" : "markdown",
+    from: Math.max(0, selection.from),
+    to: Math.max(0, selection.to),
+    scrollY: Math.max(0, host.scrollTop || window.scrollY),
+    updatedAt: Date.now(),
+  };
+}
+
+function sendBeaconJson(url: string, value: unknown): boolean {
+  if (!navigator.sendBeacon) return false;
+  try {
+    const blob = new Blob([JSON.stringify(value)], { type: "application/json" });
+    return navigator.sendBeacon(url, blob);
+  } catch {
+    return false;
+  }
+}
+
+function persistCursorPosition(position: CursorPosition, keepalive = false): void {
+  if (keepalive && sendBeaconJson("/api/position", position)) return;
+  void fetch("/api/position", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(position),
+    keepalive,
+  }).catch(() => {});
+}
+
+function saveCursorPositionNow(options: { keepalive?: boolean; force?: boolean } = {}): void {
+  window.clearTimeout(cursorSaveTimer);
+  const position = currentCursorPosition();
+  if (!position) return;
+  const key = `${position.file}:${position.mode}:${position.from}:${position.to}:${Math.round(position.scrollY)}`;
+  if (!options.force && key === lastCursorSaveKey) return;
+  lastCursorSaveKey = key;
+  cursorPositions.set(position.file, position);
+  cursorPositions = normalizeCursorPositions([...cursorPositions.values()]);
+  saveCursorPositionsLocal();
+  persistCursorPosition(position, options.keepalive === true);
+}
+
+function scheduleCursorPositionSave(delay = 500): void {
+  if (!currentFile) return;
+  window.clearTimeout(cursorSaveTimer);
+  cursorSaveTimer = window.setTimeout(() => saveCursorPositionNow(), delay);
+}
+
+function restoreCursorPosition(file: string): boolean {
+  const position = cursorPositions.get(file);
+  if (!position) return false;
+  const max = editor.isSourceMode()
+    ? editor.getMarkdown().length
+    : editor.view.state.doc.content.size;
+  const from = Math.max(0, Math.min(position.from, max));
+  const to = Math.max(0, Math.min(position.to, max));
+  window.requestAnimationFrame(() => {
+    editor.setSelection(from, to);
+    host.scrollTop = position.scrollY;
+    window.scrollTo({ top: position.scrollY, behavior: "instant" as ScrollBehavior });
+    scheduleAssistUpdate();
+  });
+  return true;
+}
+
+function flushSaveKeepalive(): void {
+  if (!currentFile) return;
+  const payload = {
+    file: currentFile,
+    content: editor.getMarkdown(),
+    mode: editor.isSourceMode() ? "source" : "markdown",
+  };
+  if (sendBeaconJson("/api/save", payload)) return;
+  void fetch("/api/save", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+    keepalive: true,
+  }).catch(() => {});
+}
+
+function flushState(options: { keepalive?: boolean } = {}): void {
+  saveCursorPositionNow({ keepalive: options.keepalive === true, force: true });
+  window.clearTimeout(saveTimer);
+  flushSaveKeepalive();
+}
+
 function formatRecentTime(openedAt: number): string {
   if (!Number.isFinite(openedAt)) return "";
   return new Intl.DateTimeFormat(undefined, {
@@ -1662,7 +2156,15 @@ function renderNoteButton(note: NoteSummary, detail: string, extra?: string): HT
 function renderRecentNotes(): void {
   const byFile = new Map(notes.map((note) => [note.file, note]));
   const entries = recentNotes
-    .map((entry) => ({ entry, note: byFile.get(entry.file) }))
+    .map((entry) => ({
+      entry,
+      note: byFile.get(entry.file) || {
+        file: entry.file,
+        path: entry.file,
+        title: fileNameFromPath(entry.file),
+        standalone: true,
+      },
+    }))
     .filter((item): item is { entry: RecentNote; note: NoteSummary } => Boolean(item.note?.file));
 
   recentList.innerHTML = "";
@@ -1671,7 +2173,7 @@ function renderRecentNotes(): void {
     return;
   }
   for (const { entry, note } of entries) {
-    recentList.appendChild(renderNoteButton(note, note.path || note.id || "", formatRecentTime(entry.openedAt)));
+    recentList.appendChild(renderNoteButton(note, note.standalone ? "Standalone Markdown" : note.path || note.id || "", formatRecentTime(entry.openedAt)));
   }
 }
 
@@ -1865,10 +2367,16 @@ async function openStandaloneFile(file: string): Promise<void> {
 }
 
 function applyOpen(msg: Extract<Inbound, { type: "open" }>): void {
+  saveCursorPositionNow({ force: true });
   receivedOpen = true;
   currentFile = msg.file || "";
-  currentMode = msg.mode === "source" ? "source" : "markdown";
+  currentStandalone = msg.standalone === true;
+  root.dataset.standalone = currentStandalone ? "true" : "false";
+  const storedPosition = currentFile ? cursorPositions.get(currentFile) : undefined;
+  currentMode = storedPosition?.mode ?? (msg.mode === "source" ? "source" : "markdown");
   fileLabel.textContent = currentFile || "Scratch";
+  notesButton.hidden = currentStandalone;
+  if (currentStandalone && !notesPage.hidden) showEditorPage();
   touchRecentNote(currentFile);
 
   if (Array.isArray(msg.notes)) {
@@ -1885,9 +2393,17 @@ function applyOpen(msg: Extract<Inbound, { type: "open" }>): void {
   if (currentMode === "markdown" && editor.isSourceMode()) editor.toggleSource();
   syncSourceUi();
   editor.setMarkdown(msg.content ?? "");
-  editor.focus();
+  const equationTag = normalizeEquationTag(pendingEquationTag);
+  pendingEquationTag = "";
+  const jumped = equationTag ? jumpToEquationTag(equationTag) : false;
+  const restored = !jumped && currentFile ? restoreCursorPosition(currentFile) : false;
+  if (!jumped && !restored) editor.focus();
   vim.setMode("insert");
-  setStatus(currentMode === "source" ? "Source mode" : "Ready");
+  if (equationTag) {
+    setStatus(jumped ? `Equation tag ${equationTag}` : `Equation tag not found: ${equationTag}`);
+  } else {
+    setStatus(currentMode === "source" ? "Source mode" : "Ready");
+  }
   updateFloatingToc();
   scheduleAssistUpdate();
   void loadPathSuggestions();
@@ -1944,12 +2460,15 @@ function applyDemoOpen(): void {
   if (receivedOpen) return;
   currentFile = "";
   currentMode = "markdown";
+  currentStandalone = false;
+  root.dataset.standalone = "false";
   fileLabel.textContent = emacsPort && token ? "Scratch" : "Demo (no Emacs)";
   notes = [];
   snippets = demoSnippets;
   renderNotes();
   renderSnippets();
   if (editor.isSourceMode()) editor.toggleSource();
+  syncSourceUi();
   editor.setMarkdown([
     "# Aaronnote Demo",
     "",
@@ -2012,6 +2531,12 @@ document.addEventListener("keydown", (event) => {
     event.stopPropagation();
     return;
   }
+  if (event.metaKey && !event.shiftKey && !event.altKey && !event.ctrlKey && event.key.toLowerCase() === "t") {
+    event.preventDefault();
+    event.stopPropagation();
+    void handleTagCommand();
+    return;
+  }
   if (event.key === "]" && event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
     if (jumpSnippetTabstop()) {
       event.preventDefault();
@@ -2031,7 +2556,13 @@ document.addEventListener("keydown", (event) => {
     event.stopPropagation();
     return;
   }
-  if (event.metaKey && !event.altKey && !event.ctrlKey && event.key.toLowerCase() === "s") {
+  if (event.metaKey && event.shiftKey && !event.altKey && !event.ctrlKey && event.key.toLowerCase() === "s") {
+    event.preventDefault();
+    event.stopPropagation();
+    toggleSourceMode();
+    return;
+  }
+  if (event.metaKey && !event.shiftKey && !event.altKey && !event.ctrlKey && event.key.toLowerCase() === "s") {
     event.preventDefault();
     event.stopPropagation();
     save();
@@ -2060,7 +2591,11 @@ window.addEventListener("aaronnote:command", (event) => {
   if (command === "add-meta") void quickAddMeta();
   if (command === "remove-meta") void unregisterMeta();
   if (command === "add-tag") void addTag();
+  if (command === "tag-manager") void handleTagCommand();
   if (command === "sync-roamdb") void syncRoamDb();
+  if (command === "toggle-source") toggleSourceMode();
+  if (command === "save-now") save();
+  if (command === "flush-state") flushState({ keepalive: true });
 });
 
 notesButton.addEventListener("click", showNotesPage);
@@ -2080,13 +2615,18 @@ noteFilter.addEventListener("input", scheduleRenderNotes);
 graphFilter.addEventListener("input", () => scheduleRenderGraph());
 document.addEventListener("keyup", (event) => {
   if (event.key !== "Escape") snippetSuppressedPrefix = "";
+  scheduleCursorPositionSave();
   scheduleAssistUpdate();
 });
 document.addEventListener("selectionchange", () => {
   updateVimCursorNow();
+  scheduleCursorPositionSave();
   scheduleAssistUpdate();
 });
-document.addEventListener("mouseup", scheduleAssistUpdate);
+document.addEventListener("mouseup", () => {
+  scheduleCursorPositionSave();
+  scheduleAssistUpdate();
+});
 window.addEventListener("resize", () => {
   updateVimCursorNow();
   scheduleAssistUpdate();
@@ -2096,14 +2636,18 @@ window.addEventListener("resize", () => {
 });
 window.addEventListener("scroll", () => {
   updateVimCursorNow();
+  scheduleCursorPositionSave(700);
   scheduleAssistUpdate();
 }, true);
+window.addEventListener("beforeunload", () => {
+  flushState({ keepalive: true });
+});
 
-void loadServerRecentNotes();
-
-if (emacsPort && token) {
-  connect();
-  window.setTimeout(applyDemoOpen, 1200);
-} else {
-  void bootstrapStandalone();
-}
+void Promise.allSettled([loadServerRecentNotes(), loadServerCursorPositions()]).finally(() => {
+  if (emacsPort && token) {
+    connect();
+    window.setTimeout(applyDemoOpen, 1200);
+  } else {
+    void bootstrapStandalone();
+  }
+});

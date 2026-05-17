@@ -16,6 +16,7 @@ My current task is to skim Köbler's book and identify possible correspondences 
 $$
 \begin{array}{ccccc} d\mathrm{GA} & 
 \le_p & \mathrm{GI} & \le_p & \mathrm{GA} \\ \downarrow & & \downarrow & & \downarrow \\ d\mathrm{TA} & \overset{?}{\le_p} & \mathrm{TI} & \le_p & \mathrm{cTA} \end{array}
+
 $$
 
 where
@@ -77,11 +78,13 @@ Complexity Theory
 
 ## Basic Reductions
 
-## Reductions in our Paper
+## 
+
+Reductions in our Paper
 
 # Today
 
-Title: From Graph Isomorphism/Automorphism to Tensor Isomorphism/Automorphism
+Title: From Graph Isomorphism/Automorphism to Tensor Isomorphism/Automorphism 
 
 Goal.
 My current task is to understand the graph-side relationship between GI, GA,

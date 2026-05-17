@@ -4,7 +4,7 @@ title: Hermitian Matrix
 date: 2026-01-27
 kind: note
 tags: concept, math, QC
-refs: 
+refs:
 source: roam/math/hermitian\_matrix.md
 #+end meta
 
@@ -38,7 +38,7 @@ source: roam/math/hermitian\_matrix.md
 #+begin proof
 每一个物理量测出来都是实数, 因此我们有 $   lr(\angle.l O \angle.r)  =  lr(\angle.l O \angle.r) ^* $ 对于任意量子态 $ lr(|psi angle.r)  $，有 
 
-$$ lr(angle.l psi | \hat(O) | psi \angle.r)  =  lr(\angle.l psi | \hat(O)^(\dagger) | psi \angle.r) $$
+$$ lr(angle.l psi | \\hat(O) | psi \\angle.r)  =  lr(\\angle.l psi | \\hat(O)^(\\dagger) | psi \\angle.r) $$
 
  根据厄米共轭的定义，我们有:  $    lr(\angle.l psi | \hat(O) | psi \angle.r)  =  lr(\angle.l psi | \hat(O) | psi \angle.r)  ^(\dagger) $ Hence,   $hat(O) = hat(O)^{{dagger}} $.
 #+end proof

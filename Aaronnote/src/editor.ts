@@ -35,15 +35,20 @@ function internalNoteHref(href: string): boolean {
   return /\.(?:md|markdown)$/i.test(path);
 }
 
+function localEquationHref(href: string): boolean {
+  return /^#eq-/i.test(href.trim());
+}
+
 function followsOnPlainClick(href: string): boolean {
   const protocol = hrefProtocol(href);
   if (/^roam:\/\//i.test(href)) return true;
+  if (localEquationHref(href)) return true;
   if (protocol && !["http", "https", "mailto"].includes(protocol)) return true;
   return internalNoteHref(href);
 }
 
 function openExternalHref(href: string, options: { newWindow?: boolean } = {}): void {
-  const appHref = /^roam:\/\//i.test(href) || internalNoteHref(href) || externalProtocolHref(href);
+  const appHref = /^roam:\/\//i.test(href) || localEquationHref(href) || internalNoteHref(href) || externalProtocolHref(href);
   const resolvedHref = appHref ? href : window.AaronnoteResolveAssetUrl?.(href) ?? href;
   const event = new CustomEvent("aaronnote:open-url", {
     bubbles: true,

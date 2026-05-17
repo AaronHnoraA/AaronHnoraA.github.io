@@ -74,7 +74,7 @@ input {
 }
 
 .aaronnote-toolbar {
-  min-height: 48px;
+  min-height: 44px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto auto;
   align-items: center;
@@ -230,23 +230,30 @@ input {
 .aaronnote-editor {
   min-width: 0;
   min-height: calc(100vh - 46px);
-  padding: 24px 22px 56px;
+  padding: 10px clamp(24px, 3vw, 56px) 48px;
   overflow: auto;
   background: var(--aaron-paper);
 }
 
 .aaronnote-editor.is-source-mode {
-  padding: 0;
+  padding: 18px 24px 52px;
 }
 
 .aaronnote-editor .typora-web-wrap {
-  max-width: 1160px;
+  width: min(1720px, calc(100vw - 64px));
+  max-width: none !important;
   margin: 0 auto;
 }
 
 .aaronnote-editor.is-source-mode .typora-web-wrap {
-  max-width: none;
-  margin: 0;
+  width: min(1780px, calc(100vw - 48px));
+  max-width: none !important;
+  margin: 0 auto;
+}
+
+.aaronnote-editor .typora-web-editor-host {
+  width: 100%;
+  max-width: none !important;
 }
 
 .aaronnote-editor .ProseMirror,
@@ -256,16 +263,26 @@ input {
 }
 
 .aaronnote-editor .ProseMirror {
-  padding: 36px 18px 64px;
+  width: 100%;
+  max-width: none !important;
+  padding: 18px 0 52px;
   background: transparent;
   border: 0;
   box-shadow: none;
 }
 
 .aaronnote-editor.is-source-mode .typora-web-source {
-  min-height: calc(100vh - 46px);
-  padding: 28px 34px 76px;
-  background: var(--aaron-paper);
+  min-height: calc(100vh - 138px);
+  padding: 28px 30px 72px;
+  background: color-mix(in srgb, var(--aaron-paper), white 8%);
+  border-left: 3px solid var(--aaron-red);
+  box-shadow: 0 0 0 1px var(--aaron-paper-line) inset;
+}
+
+.aaronnote-editor.is-source-mode .typora-web-editor-host[hidden],
+.aaronnote-editor.is-source-mode .ProseMirror[hidden],
+.aaronnote-editor .typora-web-source[hidden] {
+  display: none !important;
 }
 
 .aaronnote-notes,
@@ -709,8 +726,13 @@ input {
   width: fit-content;
   max-width: 100%;
   margin: 0.22em auto;
-  overflow: visible;
+  overflow: hidden;
   text-align: center;
+}
+
+.aaronnote-math-block.is-math-scaled,
+.aaronnote-math-preview.is-math-scaled {
+  overflow: hidden;
 }
 
 .aaronnote-math-error {
@@ -743,21 +765,36 @@ input {
   width: 100%;
   min-height: 32px;
   border: 0;
+  border-left: 3px solid transparent;
   border-radius: 3px;
   display: grid;
-  grid-template-columns: 22px minmax(64px, auto) minmax(0, 1fr);
+  grid-template-columns: 22px minmax(64px, auto) minmax(0, 1fr) 16px;
   align-items: center;
   gap: 8px;
-  padding: 5px 8px;
+  padding: 5px 8px 5px 5px;
   background: transparent;
   color: var(--aaron-ink);
   cursor: pointer;
   text-align: left;
 }
 
-.aaronnote-snippet-option:hover,
-.aaronnote-snippet-option.is-active {
+.aaronnote-snippet-option:hover {
   background: var(--aaron-paper-soft);
+}
+
+.aaronnote-snippet-option.is-active {
+  border-left-color: var(--aaron-red);
+  background: color-mix(in srgb, var(--aaron-paper-soft), var(--aaron-red) 7%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--aaron-red), transparent 62%),
+    0 1px 0 rgb(255 255 255 / 48%) inset;
+}
+
+.aaronnote-snippet-option.is-active::after {
+  content: "↵";
+  color: var(--aaron-red-dark);
+  font: 800 12px/1 var(--aaron-font-sans);
+  text-align: center;
 }
 
 .aaronnote-snippet-option-number {
@@ -773,6 +810,11 @@ input {
   font: 600 12px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
+.aaronnote-snippet-option.is-active .aaronnote-snippet-option-number,
+.aaronnote-snippet-option.is-active .aaronnote-snippet-option-key {
+  color: var(--aaron-red-dark);
+}
+
 .aaronnote-snippet-option-detail {
   min-width: 0;
   overflow: hidden;
@@ -783,9 +825,9 @@ input {
 }
 
 .aaronnote-math-preview {
-  max-width: min(420px, calc(100vw - 16px));
-  max-height: 240px;
-  overflow: auto;
+  max-width: min(560px, calc(100vw - 16px));
+  max-height: none;
+  overflow: hidden;
   padding: 10px 12px;
   color: var(--aaron-ink);
 }
