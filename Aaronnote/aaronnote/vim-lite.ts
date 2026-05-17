@@ -273,32 +273,67 @@ function pmMoveChar(editor: Editor, dir: -1 | 1): void {
   pmSetPos(editor, pos, dir);
 }
 
+function pmLineHeight(view: Editor["view"]): number {
+  const raw = Number.parseFloat(window.getComputedStyle(view.dom).lineHeight);
+  return Number.isFinite(raw) && raw > 0 ? raw : 20;
+}
+
+function rectCenterY(rect: { top: number; bottom: number }): number {
+  return rect.top + (rect.bottom - rect.top) / 2;
+}
+
+function pmCoordsAt(view: Editor["view"], pos: number): { left: number; top: number; bottom: number } | null {
+  try {
+    return view.coordsAtPos(pos);
+  } catch {
+    return null;
+  }
+}
+
+function pmVisualLineMoveTarget(
+  editor: Editor,
+  pos: number,
+  dir: -1 | 1,
+  goalX: number | null,
+): { pos: number; goalX: number | null } {
+  const view = editor.view;
+  const docMax = view.state.doc.content.size;
+  const clampedPos = clamp(pos, 0, docMax);
+  const rect = pmCoordsAt(view, clampedPos);
+  if (!rect) return { pos: clampedPos, goalX };
+
+  const lineHeight = pmLineHeight(view);
+  const x = goalX ?? rect.left;
+  const startY = rectCenterY(rect);
+  const xSamples = [x, x + 2, x - 2];
+
+  for (let step = 0; step < 8; step++) {
+    const y = startY + dir * lineHeight * (0.9 + step * 0.28);
+    for (const sampleX of xSamples) {
+      const found = view.posAtCoords({ left: sampleX, top: y });
+      if (!found) continue;
+      const next = clamp(found.pos, 0, docMax);
+      if (next === clampedPos && step < 3) continue;
+      const nextRect = pmCoordsAt(view, next);
+      if (nextRect) {
+        const delta = rectCenterY(nextRect) - startY;
+        if (dir * delta <= 1 && next !== (dir > 0 ? docMax : 0)) continue;
+      }
+      return { pos: next, goalX: x };
+    }
+  }
+
+  return { pos: clampedPos, goalX: x };
+}
+
 function pmMoveLine(editor: Editor, dir: -1 | 1, goalX: number | null): number | null {
   const view = editor.view;
-  const sourceLines = pmSourceLines(editor);
-  const cursor = view.state.selection.from;
-  const index = sourceLines.findIndex((line) => cursor >= line.start && cursor <= line.end);
-  if (index >= 0) {
-    const current = sourceLines[index]!;
-    const target = sourceLines[index + dir];
-    const column = clamp(cursor - current.start, 0, Math.max(0, current.end - current.start));
-    const desired = goalX ?? column;
-    if (!target) return desired;
-    pmSetPos(editor, target.start + Math.min(desired, Math.max(0, target.end - target.start)), dir);
-    return desired;
-  }
-  try {
-    const rect = view.coordsAtPos(view.state.selection.from);
-    const lineHeightRaw = Number.parseFloat(window.getComputedStyle(view.dom).lineHeight);
-    const lineHeight = Number.isFinite(lineHeightRaw) ? lineHeightRaw : 20;
-    const x = goalX ?? rect.left;
-    const y = dir > 0 ? rect.bottom + lineHeight * 0.75 : rect.top - lineHeight * 0.75;
-    const found = view.posAtCoords({ left: x, top: y });
-    if (found) pmSetPos(editor, found.pos, dir);
-    return x;
-  } catch {
-    return goalX;
-  }
+  const cursor = view.state.selection.empty
+    ? view.state.selection.from
+    : (dir < 0 ? view.state.selection.from : view.state.selection.to);
+  const target = pmVisualLineMoveTarget(editor, cursor, dir, goalX);
+  if (target.pos !== cursor) pmSetPos(editor, target.pos, dir);
+  return target.goalX;
 }
 
 function pmLineBoundary(editor: Editor, which: "start" | "end"): void {
@@ -500,17 +535,9 @@ export function createVimLite(
         }
       },
       () => {
-        try {
-          const view = editor.view;
-          const rect = view.coordsAtPos(surfaceHead());
-          const lineHeightRaw = Number.parseFloat(window.getComputedStyle(view.dom).lineHeight);
-          const lineHeight = Number.isFinite(lineHeightRaw) ? lineHeightRaw : 20;
-          const x = pmGoalX ?? rect.left;
-          pmGoalX = x;
-          const y = dir > 0 ? rect.bottom + lineHeight * 0.75 : rect.top - lineHeight * 0.75;
-          const found = view.posAtCoords({ left: x, top: y });
-          if (found) setVisualHead(found.pos);
-        } catch {}
+        const target = pmVisualLineMoveTarget(editor, surfaceHead(), dir, pmGoalX);
+        pmGoalX = target.goalX;
+        setVisualHead(target.pos);
       },
     );
   }
@@ -529,15 +556,20 @@ export function createVimLite(
         textarea.focus();
       },
       () => {
-        try {
-          const view = editor.view;
-          const rect = view.coordsAtPos(surfaceHead());
-          const lineHeightRaw = Number.parseFloat(window.getComputedStyle(view.dom).lineHeight);
-          const lineHeight = Number.isFinite(lineHeightRaw) ? lineHeightRaw : 20;
-          const y = dir > 0 ? rect.bottom + lineHeight * 0.75 : rect.top - lineHeight * 0.75;
-          const found = view.posAtCoords({ left: rect.left, top: y });
-          if (found) visualHead = pmBlockRangeAt(editor, found.pos).cursor;
-        } catch {}
+        const currentHead = surfaceHead();
+        const lines = pmSourceLines(editor);
+        const index = lines.findIndex((line) =>
+          (currentHead >= line.start && currentHead <= line.end) ||
+          (currentHead >= line.blockFrom && currentHead <= line.blockTo)
+        );
+        const target = index >= 0 ? lines[index + dir] : undefined;
+        if (target) {
+          visualHead = target.start;
+        } else {
+          const moved = pmVisualLineMoveTarget(editor, currentHead, dir, pmGoalX);
+          pmGoalX = moved.goalX;
+          visualHead = pmBlockRangeAt(editor, moved.pos).cursor;
+        }
         const head = visualHead ?? surfaceHead();
         const range = pmBlockSelectionRange(editor, visualAnchor ?? head, head);
         pmSetSelection(editor, range.from, range.to);

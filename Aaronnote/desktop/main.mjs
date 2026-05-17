@@ -1,7 +1,8 @@
 import { app, BrowserWindow, Menu, dialog, ipcMain, shell } from "electron";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 
 import { startAaronnoteServer } from "../server/aaronnote-server.mjs";
 
@@ -151,12 +152,42 @@ function createNewWindow() {
   createWindow(serverHandle.url, { primary: false });
 }
 
+async function openRoamDb() {
+  if (serverHandle?.url) {
+    await fetch(new URL("/api/roamdb/sync", serverHandle.url)).catch(() => {});
+  }
+  await shell.openPath(join(noteRoot, "roam.db"));
+}
+
 function dispatchKeyScript(key) {
   return `document.dispatchEvent(new KeyboardEvent('keydown', { key: ${JSON.stringify(key)}, metaKey: true, bubbles: true }))`;
 }
 
 function dispatchCommandScript(command) {
   return `window.dispatchEvent(new CustomEvent('aaronnote:command', { detail: { command: ${JSON.stringify(command)} } }))`;
+}
+
+function pdfNameForFile(file, fallback = "Aaronnote.pdf") {
+  const raw = String(file || fallback).split(/[\\/]/).pop() || fallback;
+  const stem = raw.replace(/\.[^.]+$/, "") || "Aaronnote";
+  return `${stem}.pdf`.replace(/[/:]/g, "-");
+}
+
+async function waitForPrintableAssets(win) {
+  await win.webContents.executeJavaScript(`
+    Promise.race([
+      (async () => {
+        if (document.fonts?.ready) await document.fonts.ready.catch(() => {});
+        const images = Array.from(document.images || []);
+        await Promise.all(images.map((img) => img.complete ? true : new Promise((resolve) => {
+          img.addEventListener("load", resolve, { once: true });
+          img.addEventListener("error", resolve, { once: true });
+        })));
+        return true;
+      })(),
+      new Promise((resolve) => setTimeout(() => resolve(true), 2500)),
+    ])
+  `, true).catch(() => {});
 }
 
 async function chooseAndOpenMarkdown() {
@@ -204,6 +235,59 @@ ipcMain.handle("aaronnote:trash-note", async (_event, file = "") => {
   return { ok: true, file: resolved };
 });
 
+ipcMain.handle("aaronnote:export-pdf", async (event, options = {}) => {
+  const owner = BrowserWindow.fromWebContents(event.sender) || mainWindow || undefined;
+  const suggestedName = pdfNameForFile(options.name || options.file);
+  const dialogOptions = {
+    title: "Export PDF",
+    defaultPath: join(homedir(), "Desktop", suggestedName),
+    properties: ["createDirectory", "showOverwriteConfirmation"],
+    filters: [
+      { name: "PDF", extensions: ["pdf"] },
+      { name: "All Files", extensions: ["*"] },
+    ],
+  };
+  const result = owner
+    ? await dialog.showSaveDialog(owner, dialogOptions)
+    : await dialog.showSaveDialog(dialogOptions);
+  if (result.canceled || !result.filePath) {
+    return { ok: false, canceled: true, message: "Export canceled" };
+  }
+
+  const printWindow = new BrowserWindow({
+    show: false,
+    width: 960,
+    height: 1280,
+    backgroundColor: "#f7f4ed",
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+
+  let tempDir = "";
+  try {
+    const html = String(options.document || "");
+    if (!html.trim()) throw new Error("Missing printable document");
+    tempDir = await mkdtemp(join(tmpdir(), "aaronnote-print-"));
+    const htmlFile = join(tempDir, "index.html");
+    await writeFile(htmlFile, html, "utf8");
+    await printWindow.loadFile(htmlFile);
+    await waitForPrintableAssets(printWindow);
+    const pdf = await printWindow.webContents.printToPDF({
+      pageSize: "A4",
+      printBackground: true,
+      preferCSSPageSize: true,
+    });
+    await writeFile(result.filePath, pdf);
+    return { ok: true, file: result.filePath, message: `Exported ${result.filePath}` };
+  } finally {
+    printWindow.destroy();
+    if (tempDir) await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
 function openFileInWindow(file) {
   const resolved = resolve(file);
   pendingOpenFile = resolved;
@@ -230,7 +314,7 @@ function buildMenu() {
       },
       {
         label: "Open Database Link",
-        click: () => void shell.openPath(join(noteRoot, "roam.db")),
+        click: () => void openRoamDb(),
       },
       { type: "separator" },
       { role: "hide" },

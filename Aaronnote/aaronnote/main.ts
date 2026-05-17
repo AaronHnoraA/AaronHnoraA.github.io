@@ -25,6 +25,7 @@ declare global {
     AaronnoteDesktop?: {
       chooseNotePath?: (options?: { suggestedPath?: string; title?: string }) => Promise<string>;
       trashNote?: (file: string) => Promise<{ ok?: boolean; file?: string; message?: string }>;
+      exportPdf?: (options?: { file?: string; name?: string; document?: string }) => Promise<{ ok?: boolean; canceled?: boolean; file?: string; message?: string }>;
     };
   }
 }
@@ -664,8 +665,93 @@ async function saveStandalone(): Promise<void> {
   }
 }
 
+function collectPrintableCss(): string {
+  const chunks: string[] = [];
+  for (const sheet of Array.from(document.styleSheets)) {
+    try {
+      const css = Array.from(sheet.cssRules)
+        .map((rule) => rule.cssText)
+        .join("\n");
+      if (css.trim()) chunks.push(css);
+    } catch {}
+  }
+  return chunks.join("\n\n");
+}
+
+function pdfExportName(): string {
+  const rawName = (currentFile || "Aaronnote.md").split(/[\\/]/).pop() || "Aaronnote.md";
+  return `${rawName.replace(/\.[^.]+$/, "") || "Aaronnote"}.pdf`;
+}
+
+function printableDocument(): string {
+  const css = collectPrintableCss().replace(/<\/style/gi, "<\\/style");
+  const title = fileLabel.textContent?.trim() || pdfExportName().replace(/\.pdf$/i, "");
+  const previewHtml = editor.getHTML();
+  const baseHref = window.location.href;
+  return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${escapeHtml(title)}</title>
+  <base href="${escapeHtml(baseHref)}">
+  <style>${css}</style>
+  <style>
+    @page { size: A4; margin: 18mm 17mm 20mm; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    html, body {
+      min-height: 0;
+      margin: 0;
+      background: var(--aaron-paper, #f7f4ed);
+      color: var(--aaron-ink, #1e1a16);
+    }
+    body {
+      box-sizing: border-box;
+      font-family: var(--aaron-font-english), var(--aaron-font-chinese);
+    }
+    .aaronnote-pdf-document.ProseMirror {
+      width: auto;
+      max-width: none !important;
+      min-height: 0;
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+    }
+    .aaronnote-pdf-document .ProseMirror-trailingBreak,
+    .aaronnote-pdf-document .ProseMirror-separator {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <article class="ProseMirror aaronnote-pdf-document">${previewHtml}</article>
+</body>
+</html>`;
+}
+
 async function exportPdf(): Promise<void> {
   setStatus("Exporting PDF");
+  const desktopExport = window.AaronnoteDesktop?.exportPdf;
+  if (desktopExport) {
+    try {
+      const msg = await desktopExport({
+        file: currentFile || "Aaronnote.md",
+        name: pdfExportName(),
+        document: printableDocument(),
+      });
+      if (msg?.canceled) {
+        setStatus("Export canceled");
+        return;
+      }
+      if (!msg?.ok) throw new Error(msg?.message || "PDF export failed");
+      setStatus(msg.message || `Exported ${msg.file || pdfExportName()}`);
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : "PDF export failed");
+    }
+    return;
+  }
+
   try {
     const res = await fetch("/api/export-pdf", {
       method: "POST",
@@ -682,9 +768,8 @@ async function exportPdf(): Promise<void> {
     const blob = await res.blob();
     const href = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    const rawName = (currentFile || "Aaronnote.md").split(/[\\/]/).pop() || "Aaronnote.md";
     link.href = href;
-    link.download = `${rawName.replace(/\.[^.]+$/, "") || "Aaronnote"}.pdf`;
+    link.download = pdfExportName();
     document.body.appendChild(link);
     link.click();
     link.remove();

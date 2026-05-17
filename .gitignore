@@ -72,6 +72,7 @@ Thumbs.db
 build/
 dist/
 tmp/
+roam/roam.db
 public/Aaronnote/release/
 
 # Local assistant/editor state

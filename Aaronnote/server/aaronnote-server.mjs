@@ -925,6 +925,7 @@ async function syncRoamDb(notes = null) {
   const scanned = notes ?? await scanNotes();
   const roamNotes = scanned.filter((note) => note.roam && note.file);
   const roamIds = new Set(roamNotes.map((note) => note.id));
+  const dbFile = roamDbFile();
   const statements = [
     "PRAGMA foreign_keys = OFF;",
     "BEGIN;",
@@ -1002,7 +1003,8 @@ async function syncRoamDb(notes = null) {
     }
   }
   statements.push("COMMIT;");
-  await execFileAsync("sqlite3", [roamDbFile(), statements.join("\n")], {
+  await mkdir(dirname(dbFile), { recursive: true });
+  await execFileAsync("sqlite3", [dbFile, statements.join("\n")], {
     cwd: noteRoot,
     maxBuffer: 1024 * 1024 * 8,
   });
