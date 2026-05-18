@@ -3,16 +3,18 @@ id: 20260128T000000-density-operator
 title: Density Operator
 date: 2026-01-28
 tags: quantum, density, state, operator
-source: roam/QC/density_operator.md
+source: roam/QC/density\_operator.md
 #+end meta
+
 # Density Operator
+
 # 1. 为什么要引入密度算符
 
 并不是所有状态([Quantum State](quantum_state.md))都能用一个 |ψ⟩ 描述。
 
 例如：
 
-- 我们只知道系统以概率 p_i 处于 |ψ_i⟩
+- 我们只知道系统以概率 p\_i 处于 |ψ\_i⟩
 - 但不知道“到底是哪一个”
 
 这时，用“态矢”已经不够了。
@@ -34,7 +36,7 @@ source: roam/QC/density_operator.md
 若系统处于纯态 |ψ⟩，
 定义：
 
-ρ_ψ = |ψ⟩⟨ψ|
+ρ\_ψ = |ψ⟩⟨ψ|
 
 这是一个：
 
@@ -43,7 +45,7 @@ source: roam/QC/density_operator.md
 - ρ² = ρ
 
 此时：
-tr(A ρ_ψ) = ⟨ψ|A|ψ⟩
+tr(A ρ\_ψ) = ⟨ψ|A|ψ⟩
 
 与态矢公式完全一致。
 

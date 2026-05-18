@@ -75,6 +75,10 @@ tmp/
 roam/roam.db
 public/Aaronnote/release/
 
+# Python runtime/cache; dependencies stay outside the repo.
+__pycache__/
+*.py[cod]
+
 # Local assistant/editor state
 .claude/
 
