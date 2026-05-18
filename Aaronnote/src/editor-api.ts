@@ -366,6 +366,8 @@ export interface Editor {
   setSelection(from: number, to?: number): void;
   /** Select a markdown-source range regardless of current surface. */
   setMarkdownSelection(from: number, to?: number): void;
+  /** Current selection as markdown-source offsets regardless of current surface. */
+  getMarkdownSelection(): { from: number; to: number };
   /** Replace a markdown-source range regardless of current surface. */
   replaceMarkdownRange(from: number, to: number, text: string, select?: "start" | "end" | "all"): { from: number; to: number };
   /** Current active-surface selection. */
@@ -762,7 +764,16 @@ export function createEditor(
   // line boundaries are spot-on.
   function renderedPosToMdOffset(pos: number): number {
     try {
-      return serialize(view.state.doc.cut(0, pos)).length;
+      const md = markdownFromDoc(view.state.doc);
+      const target = Math.max(0, Math.min(pos, view.state.doc.content.size));
+      let lo = 0;
+      let hi = md.length;
+      while (lo < hi) {
+        const mid = Math.floor((lo + hi) / 2);
+        if (mdOffsetToRenderedPos(md, mid) < target) lo = mid + 1;
+        else hi = mid;
+      }
+      return lo;
     } catch {
       return markdownFromDoc(view.state.doc).length;
     }
@@ -1453,6 +1464,10 @@ export function createEditor(
         view.dispatch(view.state.tr.setSelection(TextSelection.near(doc.resolve(start))).scrollIntoView());
       }
       view.focus();
+    },
+    getMarkdownSelection(): { from: number; to: number } {
+      const selection = activeMarkdownSelection();
+      return { from: selection.from, to: selection.to };
     },
     getSelection(): { from: number; to: number } {
       if (inSource) {

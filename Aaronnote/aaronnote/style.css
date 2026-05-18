@@ -961,6 +961,58 @@ input {
   font-size: 12px;
 }
 
+.aaronnote-plugin-controls {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.aaronnote-plugin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.aaronnote-plugin-actions button {
+  height: 30px;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 3px;
+  background: var(--aaron-paper);
+  color: var(--aaron-ink);
+  cursor: pointer;
+}
+
+.aaronnote-plugin-settings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.aaronnote-plugin-setting {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(72px, 96px) auto;
+  align-items: center;
+  gap: 6px;
+  color: var(--aaron-muted);
+  font-size: 12px;
+}
+
+.aaronnote-plugin-setting input {
+  min-width: 0;
+  height: 28px;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 3px;
+  background: var(--aaron-paper);
+  color: var(--aaron-ink);
+}
+
+.aaronnote-plugin-setting input[type="checkbox"] {
+  justify-self: start;
+  width: 16px;
+  height: 16px;
+}
+
 .aaronnote-plugin-toggle {
   display: inline-flex;
   align-items: center;

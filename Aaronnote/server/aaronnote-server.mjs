@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readdir, readFile, rename, rm, stat, writeFile } from "
 import { createReadStream, existsSync } from "node:fs";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { homedir, tmpdir } from "node:os";
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -44,11 +44,17 @@ let noteCacheRoot = "";
 let noteCache = new Map();
 let snippetCache = { key: "", scannedAt: 0, snippets: [] };
 let pluginCache = { key: "", scannedAt: 0, plugins: [] };
+let copilotClient = null;
+let copilotLog = [];
+let copilotLogRecording = false;
+let roamLookupSession = null;
 let roamSyncTimer = null;
 let queuedRoamSyncNotes = null;
 let atomicWriteCounter = 0;
 const scanConcurrency = Math.max(1, Math.min(64, Number(process.env.AARONNOTE_SCAN_CONCURRENCY) || 16));
 const maxJsonBodyBytes = Math.max(1024 * 1024, Number(process.env.AARONNOTE_MAX_JSON_BYTES) || 64 * 1024 * 1024);
+const roamLookupIdleMs = Math.max(10_000, Number(process.env.AARONNOTE_ROAMLOOKUP_IDLE_MS) || 60_000);
+const roamLookupQueryTimeoutMs = Math.max(30_000, Number(process.env.AARONNOTE_ROAMLOOKUP_QUERY_TIMEOUT_MS) || 180_000);
 const saveRequestVersions = new Map();
 const saveWriteQueues = new Map();
 const contentTypes = new Map([
@@ -447,6 +453,35 @@ async function touchRecentNote(file, openedAt = Date.now()) {
 
 function positionStoreFile() {
   return join(workspaceRoot, "var", "Aaronnote", "positions.json");
+}
+
+function pluginOverridesStoreFile() {
+  return join(workspaceRoot, "var", "Aaronnote", "plugin-overrides.json");
+}
+
+function normalizePluginOverrides(value) {
+  const overrides = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const out = {};
+  for (const [id, state] of Object.entries(overrides)) {
+    if (!id || (state !== "on" && state !== "off")) continue;
+    out[String(id)] = state;
+  }
+  return out;
+}
+
+async function readPluginOverrides() {
+  try {
+    const raw = await readFile(pluginOverridesStoreFile(), "utf8");
+    return normalizePluginOverrides(JSON.parse(raw));
+  } catch {
+    return {};
+  }
+}
+
+async function writePluginOverrides(overrides) {
+  const next = normalizePluginOverrides(overrides);
+  await atomicWriteFile(pluginOverridesStoreFile(), `${JSON.stringify(next, null, 2)}\n`, "utf8");
+  return next;
 }
 
 function normalizeCursorPositions(entries) {
@@ -1403,9 +1438,12 @@ export async function scanPlugins(options = {}) {
           name: String(manifest.name || id),
           version: String(manifest.version || ""),
           entry: String(manifest.entry || ""),
+          autoload: manifest.autoload === true,
           path: relative(workspaceRoot, dir).replace(/\\/g, "/"),
           commands: Array.isArray(manifest.commands) ? manifest.commands.map(String) : [],
           blocks: Array.isArray(manifest.blocks) ? manifest.blocks.map(String) : [],
+          actions: Array.isArray(manifest.actions) ? manifest.actions : [],
+          settings: Array.isArray(manifest.settings) ? manifest.settings : [],
         });
       } catch {}
     }
@@ -1416,6 +1454,857 @@ export async function scanPlugins(options = {}) {
     plugins: plugins.sort((a, b) => a.id.localeCompare(b.id)),
   };
   return pluginCache.plugins;
+}
+
+export function offsetToPosition(text, offset) {
+  const source = String(text || "");
+  const target = Math.max(0, Math.min(Number(offset) || 0, source.length));
+  let line = 0;
+  let lineStart = 0;
+  for (let i = 0; i < target; i++) {
+    if (source.charCodeAt(i) !== 10) continue;
+    line++;
+    lineStart = i + 1;
+  }
+  return { line, character: target - lineStart };
+}
+
+export function positionToOffset(text, position) {
+  const source = String(text || "");
+  const targetLine = Math.max(0, Number(position?.line) || 0);
+  const targetChar = Math.max(0, Number(position?.character) || 0);
+  let line = 0;
+  let lineStart = 0;
+  for (let i = 0; i < source.length && line < targetLine; i++) {
+    if (source.charCodeAt(i) !== 10) continue;
+    line++;
+    lineStart = i + 1;
+  }
+  let lineEnd = source.indexOf("\n", lineStart);
+  if (lineEnd < 0) lineEnd = source.length;
+  return Math.max(lineStart, Math.min(lineStart + targetChar, lineEnd));
+}
+
+function languageIdForFile(file) {
+  const ext = extname(String(file || "")).toLowerCase();
+  if (ext === ".md" || ext === ".markdown") return "markdown";
+  if (ext === ".typ") return "typst";
+  if (ext === ".ts") return "typescript";
+  if (ext === ".js" || ext === ".mjs" || ext === ".cjs") return "javascript";
+  if (ext === ".json") return "json";
+  if (ext === ".tex") return "latex";
+  return "plaintext";
+}
+
+function copilotUriForFile(file) {
+  if (typeof file === "string" && file.trim()) {
+    try {
+      return pathToFileURL(safeOpenFile(file)).href;
+    } catch {}
+  }
+  return pathToFileURL(join(noteRoot, ".aaronnote-copilot.md")).href;
+}
+
+function uniqueExistingCommands(commands) {
+  const seen = new Set();
+  const out = [];
+  for (const cmd of commands) {
+    const key = `${cmd.command}\0${cmd.args.join("\0")}`;
+    if (seen.has(key)) continue;
+    if (cmd.mustExist && !existsSync(cmd.mustExist)) continue;
+    seen.add(key);
+    out.push(cmd);
+  }
+  return out;
+}
+
+function unpackedAsarPath(file) {
+  return String(file || "").replace(/\.asar(?=$|[\\/])/, ".asar.unpacked");
+}
+
+function nodeCommand() {
+  if (process.env.AARONNOTE_NODE) return process.env.AARONNOTE_NODE;
+  if (process.versions?.electron) return "node";
+  return process.execPath;
+}
+
+function appendCopilotLog(event, detail = {}) {
+  copilotLog.push({
+    at: new Date().toISOString(),
+    event,
+    ...detail,
+  });
+  if (copilotLog.length > 200) copilotLog = copilotLog.slice(-200);
+}
+
+function pushCopilotLog(event, detail = {}) {
+  if (!copilotLogRecording) return;
+  appendCopilotLog(event, detail);
+}
+
+function setCopilotLogRecording(enabled, options = {}) {
+  if (options.clear) copilotLog = [];
+  copilotLogRecording = enabled;
+  appendCopilotLog(enabled ? "recording-started" : "recording-stopped", {});
+}
+
+function rawCopilotServerCommands() {
+  const configured = process.env.AARONNOTE_COPILOT_LANGUAGE_SERVER;
+  if (configured) return [{ command: configured, args: ["--stdio"] }];
+  const binFile = join(appDir, "node_modules", ".bin", "copilot-language-server");
+  const serverFile = join(appDir, "node_modules", "@github", "copilot-language-server", "dist", "language-server.js");
+  const unpackedBin = unpackedAsarPath(binFile);
+  const unpackedServer = unpackedAsarPath(serverFile);
+  const resourceServer = process.resourcesPath
+    ? join(process.resourcesPath, "app.asar.unpacked", "node_modules", "@github", "copilot-language-server", "dist", "language-server.js")
+    : "";
+  const commands = [];
+  if (!appDir.includes(".asar")) {
+    commands.push(
+      { command: binFile, args: ["--stdio"], mustExist: binFile },
+      { command: nodeCommand(), args: [serverFile, "--stdio"], mustExist: serverFile },
+    );
+  }
+  for (const file of [unpackedBin, unpackedServer, resourceServer]) {
+    if (!file) continue;
+    if (process.versions?.electron) {
+      commands.push({
+        command: process.execPath,
+        args: [file, "--stdio"],
+        env: { ELECTRON_RUN_AS_NODE: "1" },
+        mustExist: file,
+      });
+    } else {
+      commands.push({ command: file, args: ["--stdio"], mustExist: file });
+      commands.push({ command: nodeCommand(), args: [file, "--stdio"], mustExist: file });
+    }
+  }
+  return commands;
+}
+
+function copilotServerCommands() {
+  return uniqueExistingCommands(rawCopilotServerCommands());
+}
+
+function copilotDiagnostics() {
+  return {
+    type: "copilot-log",
+    now: new Date().toISOString(),
+    platform: process.platform,
+    arch: process.arch,
+    pid: process.pid,
+    execPath: process.execPath,
+    nodeCommand: nodeCommand(),
+    electron: process.versions?.electron || "",
+    appDir,
+    childProcessCwd: copilotProcessCwd(),
+    workspaceRoot,
+    noteRoot,
+    resourcesPath: process.resourcesPath || "",
+    logRecording: copilotLogRecording,
+    env: {
+      AARONNOTE_COPILOT_LANGUAGE_SERVER: process.env.AARONNOTE_COPILOT_LANGUAGE_SERVER || "",
+      AARONNOTE_NODE: process.env.AARONNOTE_NODE || "",
+      ELECTRON_RUN_AS_NODE: process.env.ELECTRON_RUN_AS_NODE || "",
+      PATH: process.env.PATH || "",
+    },
+    rawCommands: rawCopilotServerCommands().map((cmd) => ({
+      command: cmd.command,
+      args: cmd.args,
+      env: cmd.env || {},
+      mustExist: cmd.mustExist || "",
+      exists: cmd.mustExist ? existsSync(cmd.mustExist) : existsSync(cmd.command),
+    })),
+    runnableCommands: copilotServerCommands().map((cmd) => ({
+      command: cmd.command,
+      args: cmd.args,
+      env: cmd.env || {},
+      mustExist: cmd.mustExist || "",
+    })),
+    client: copilotClient
+      ? {
+          hasProcess: !!copilotClient.proc,
+          pid: copilotClient.proc?.pid || 0,
+          status: copilotClient.status,
+          pending: copilotClient.pending?.size || 0,
+          documents: copilotClient.documents?.size || 0,
+        }
+      : null,
+    log: copilotLog,
+  };
+}
+
+function openExternalUri(uri) {
+  if (!/^https?:\/\//i.test(String(uri || ""))) return;
+  pushCopilotLog("open-uri", { uri });
+  if (process.platform === "darwin") {
+    execFile("open", [uri], () => {});
+  }
+  return uri;
+}
+
+function findFirstExternalUri(value, depth = 0) {
+  if (depth > 5 || value == null) return "";
+  if (typeof value === "string") return /^https?:\/\//i.test(value) ? value : "";
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const uri = findFirstExternalUri(item, depth + 1);
+      if (uri) return uri;
+    }
+    return "";
+  }
+  if (typeof value === "object") {
+    for (const item of Object.values(value)) {
+      const uri = findFirstExternalUri(item, depth + 1);
+      if (uri) return uri;
+    }
+  }
+  return "";
+}
+
+function findStringByKey(value, pattern, depth = 0) {
+  if (depth > 5 || value == null || typeof value !== "object") return "";
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findStringByKey(item, pattern, depth + 1);
+      if (found) return found;
+    }
+    return "";
+  }
+  for (const [key, item] of Object.entries(value)) {
+    if (pattern.test(key) && typeof item === "string" && item) return item;
+    const found = findStringByKey(item, pattern, depth + 1);
+    if (found) return found;
+  }
+  return "";
+}
+
+function deviceCodeFromText(text) {
+  const value = String(text || "");
+  const match = value.match(/\b([A-Z0-9]{4}-[A-Z0-9]{4})\b/i) || value.match(/\b([A-Z0-9]{8})\b/i);
+  return match ? match[1].toUpperCase().replace(/^([A-Z0-9]{4})([A-Z0-9]{4})$/, "$1-$2") : "";
+}
+
+function copilotProcessCwd() {
+  if (appDir.includes(".asar")) return dirname(appDir);
+  return appDir;
+}
+
+class CopilotLspClient {
+  constructor() {
+    this.proc = null;
+    this.buffer = Buffer.alloc(0);
+    this.nextId = 1;
+    this.pending = new Map();
+    this.documents = new Map();
+    this.status = { message: "Not started", kind: "Inactive", busy: false };
+    this.ready = null;
+    this.lastAuthCode = "";
+    this.lastAuthMessage = "";
+  }
+
+  async ensureReady() {
+    if (this.ready) return this.ready;
+    this.ready = this.start();
+    return this.ready;
+  }
+
+  async start() {
+    const commands = copilotServerCommands();
+    pushCopilotLog("start", { commands: commands.map((cmd) => ({ command: cmd.command, args: cmd.args, env: cmd.env || {} })) });
+    if (commands.length === 0) {
+      pushCopilotLog("missing-server", { rawCommands: copilotDiagnostics().rawCommands });
+      throw new Error("Copilot language server is not installed. Run npm install @github/copilot-language-server.");
+    }
+    let lastError = null;
+    for (const cmd of commands) {
+      try {
+        await this.startCommand(cmd);
+        pushCopilotLog("started", { command: cmd.command, args: cmd.args, pid: this.proc?.pid || 0 });
+        return;
+      } catch (err) {
+        lastError = err;
+        pushCopilotLog("start-failed", {
+          command: cmd.command,
+          args: cmd.args,
+          message: err instanceof Error ? err.message : String(err),
+          code: err?.code || "",
+        });
+        this.stop();
+      }
+    }
+    throw lastError ?? new Error("Copilot language server failed to start");
+  }
+
+  failPending(err) {
+    for (const pending of this.pending.values()) pending.reject(err);
+    this.pending.clear();
+  }
+
+  async startCommand(cmd) {
+    const proc = spawn(cmd.command, cmd.args, {
+      cwd: copilotProcessCwd(),
+      env: cmd.env ? { ...process.env, ...cmd.env } : process.env,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    pushCopilotLog("spawn", { command: cmd.command, args: cmd.args, cwd: copilotProcessCwd(), env: cmd.env || {}, pid: proc.pid || 0 });
+    this.proc = proc;
+    proc.stdout.on("data", (chunk) => this.receive(chunk));
+    proc.stderr.on("data", (chunk) => {
+      const msg = String(chunk || "").trim();
+      if (msg) {
+        pushCopilotLog("stderr", { message: msg });
+        console.warn(`Copilot LSP: ${msg}`);
+      }
+    });
+    proc.once("error", (err) => {
+      if (this.proc !== proc) return;
+      pushCopilotLog("error", { message: err.message, code: err.code || "" });
+      this.failPending(err);
+      this.proc = null;
+      this.ready = null;
+      this.status = { message: err.message, kind: "Error", busy: false };
+    });
+    proc.once("exit", (code, signal) => {
+      if (this.proc !== proc) return;
+      const err = new Error(`Copilot language server exited (${signal || (code ?? "unknown")})`);
+      pushCopilotLog("exit", { code, signal });
+      this.failPending(err);
+      this.proc = null;
+      this.ready = null;
+      this.documents.clear();
+      this.status = { message: err.message, kind: "Error", busy: false };
+    });
+
+    await this.request("initialize", {
+      processId: process.pid,
+      rootUri: pathToFileURL(workspaceRoot).href,
+      workspaceFolders: [{ uri: pathToFileURL(workspaceRoot).href, name: basename(workspaceRoot) || "workspace" }],
+      capabilities: {
+        workspace: { workspaceFolders: true, configuration: true },
+        window: { showDocument: { support: true } },
+        textDocument: {},
+      },
+      initializationOptions: {
+        editorInfo: { name: "Aaronnote", version: "0.3.1" },
+        editorPluginInfo: { name: "Aaronnote Copilot", version: "0.1.0" },
+      },
+    });
+    this.notify("initialized", {});
+    this.notify("workspace/didChangeConfiguration", {
+      settings: {
+        telemetry: { telemetryLevel: "all" },
+      },
+    });
+    this.status = { message: "Ready", kind: "Normal", busy: false };
+  }
+
+  send(value) {
+    if (!this.proc?.stdin?.writable) throw new Error("Copilot language server is not running");
+    const body = Buffer.from(JSON.stringify(value), "utf8");
+    const header = Buffer.from(`Content-Length: ${body.length}\r\n\r\n`, "utf8");
+    this.proc.stdin.write(Buffer.concat([header, body]));
+  }
+
+  request(method, params) {
+    const id = this.nextId++;
+    this.send({ jsonrpc: "2.0", id, method, params });
+    return new Promise((resolveRequest, reject) => {
+      this.pending.set(id, { resolve: resolveRequest, reject });
+      windowSetTimeout(() => {
+        const pending = this.pending.get(id);
+        if (!pending) return;
+        this.pending.delete(id);
+        pending.reject(new Error(`Copilot request timed out: ${method}`));
+      }, 30_000);
+    });
+  }
+
+  notify(method, params) {
+    this.send({ jsonrpc: "2.0", method, params });
+  }
+
+  respond(id, result, error = null) {
+    if (error) this.send({ jsonrpc: "2.0", id, error });
+    else this.send({ jsonrpc: "2.0", id, result });
+  }
+
+  receive(chunk) {
+    this.buffer = Buffer.concat([this.buffer, Buffer.from(chunk)]);
+    while (true) {
+      const headerEnd = this.buffer.indexOf("\r\n\r\n");
+      if (headerEnd < 0) return;
+      const header = this.buffer.slice(0, headerEnd).toString("utf8");
+      const match = header.match(/content-length:\s*(\d+)/i);
+      if (!match) {
+        this.buffer = this.buffer.slice(headerEnd + 4);
+        continue;
+      }
+      const length = Number(match[1]);
+      const start = headerEnd + 4;
+      const end = start + length;
+      if (this.buffer.length < end) return;
+      const raw = this.buffer.slice(start, end).toString("utf8");
+      this.buffer = this.buffer.slice(end);
+      try {
+        this.handle(JSON.parse(raw));
+      } catch (err) {
+        console.warn("Copilot LSP parse failed", err);
+      }
+    }
+  }
+
+  handle(message) {
+    if (Object.prototype.hasOwnProperty.call(message, "id") && (Object.prototype.hasOwnProperty.call(message, "result") || message.error)) {
+      const pending = this.pending.get(message.id);
+      if (!pending) return;
+      this.pending.delete(message.id);
+      if (message.error) pending.reject(new Error(message.error.message || "Copilot request failed"));
+      else pending.resolve(message.result);
+      return;
+    }
+    if (message.method === "didChangeStatus") {
+      this.status = message.params || this.status;
+      return;
+    }
+    if (message.method === "window/logMessage") {
+      const msg = message.params?.message;
+      if (msg) console.warn(`Copilot LSP: ${msg}`);
+      return;
+    }
+    if (message.method === "window/showDocument") {
+      openExternalUri(message.params?.uri);
+      this.respond(message.id, { success: true });
+      return;
+    }
+    if (message.method === "workspace/configuration") {
+      const items = Array.isArray(message.params?.items) ? message.params.items : [];
+      this.respond(message.id, items.map(() => ({})));
+      return;
+    }
+    if (message.method === "window/showMessageRequest") {
+      const text = String(message.params?.message || "");
+      const code = deviceCodeFromText(text);
+      if (code) {
+        this.lastAuthCode = code;
+        this.lastAuthMessage = text;
+      }
+      pushCopilotLog("show-message-request", {
+        message: text,
+        code,
+        actions: Array.isArray(message.params?.actions) ? message.params.actions : [],
+      });
+      const actions = Array.isArray(message.params?.actions) ? message.params.actions : [];
+      this.respond(message.id, actions[0] ?? null);
+      return;
+    }
+    if (Object.prototype.hasOwnProperty.call(message, "id")) {
+      this.respond(message.id, null);
+    }
+  }
+
+  syncDocument(uri, file, content) {
+    const languageId = languageIdForFile(file);
+    const current = this.documents.get(uri);
+    if (!current) {
+      const version = 1;
+      this.documents.set(uri, { version, content, languageId });
+      this.notify("textDocument/didOpen", {
+        textDocument: { uri, languageId, version, text: content },
+      });
+      return { version, languageId };
+    }
+    if (current.content !== content) {
+      const version = current.version + 1;
+      this.notify("textDocument/didChange", {
+        textDocument: { uri, version },
+        contentChanges: [{
+          range: { start: { line: 0, character: 0 }, end: offsetToPosition(current.content, current.content.length) },
+          rangeLength: current.content.length,
+          text: content,
+        }],
+      });
+      this.documents.set(uri, { version, content, languageId });
+      return { version, languageId };
+    }
+    return { version: current.version, languageId: current.languageId };
+  }
+
+  async inline(body) {
+    await this.ensureReady();
+    const content = String(body.content || "");
+    const file = String(body.file || "");
+    const offset = Math.max(0, Math.min(Number(body.offset) || 0, content.length));
+    const uri = copilotUriForFile(file);
+    const { version } = this.syncDocument(uri, file, content);
+    this.notify("textDocument/didFocus", { textDocument: { uri } });
+    const result = await this.request("textDocument/inlineCompletion", {
+      textDocument: { uri, version },
+      position: offsetToPosition(content, offset),
+      context: { triggerKind: 2 },
+      formattingOptions: { tabSize: 2, insertSpaces: true },
+    });
+    const item = Array.isArray(result?.items) ? result.items.find((candidate) => typeof candidate?.insertText === "string") : null;
+    if (!item) return { type: "copilot-inline", items: [], status: this.status };
+    const range = item.range
+      ? {
+          from: positionToOffset(content, item.range.start),
+          to: positionToOffset(content, item.range.end),
+        }
+      : { from: offset, to: offset };
+    return {
+      type: "copilot-inline",
+      items: [{
+        insertText: item.insertText,
+        range,
+        item,
+      }],
+      status: this.status,
+    };
+  }
+
+  async shown(body) {
+    await this.ensureReady();
+    if (body?.item) this.notify("textDocument/didShowCompletion", { item: body.item });
+    return { ok: true };
+  }
+
+  async accept(body) {
+    await this.ensureReady();
+    const item = body?.item;
+    if (!item) return { ok: false };
+    const acceptedLength = Number(body.acceptedLength);
+    if (Number.isFinite(acceptedLength) && acceptedLength >= 0 && acceptedLength < String(item.insertText || "").length) {
+      this.notify("textDocument/didPartiallyAcceptCompletion", { item, acceptedLength });
+      return { ok: true, partial: true };
+    }
+    if (item.command?.command) {
+      await this.request("workspace/executeCommand", {
+        command: item.command.command,
+        arguments: Array.isArray(item.command.arguments) ? item.command.arguments : [],
+      });
+    }
+    return { ok: true };
+  }
+
+  async signIn() {
+    await this.ensureReady();
+    this.lastAuthCode = "";
+    this.lastAuthMessage = "";
+    const result = await this.request("signIn", {});
+    pushCopilotLog("sign-in-result", { result });
+    const resultUri = findStringByKey(result, /^(verificationUri|verification_uri|verificationUriComplete|verification_uri_complete|uri|url)$/i)
+      || findFirstExternalUri(result);
+    const userCode = findStringByKey(result, /^(userCode|user_code|code)$/i) || this.lastAuthCode || deviceCodeFromText(this.lastAuthMessage);
+    const openedUri = result?.status === "AlreadySignedIn"
+      ? openExternalUri("https://github.com/settings/copilot")
+      : openExternalUri(resultUri);
+    if (result?.command?.command) {
+      void this.request("workspace/executeCommand", {
+        command: result.command.command,
+        arguments: Array.isArray(result.command.arguments) ? result.command.arguments : [],
+      }).catch((err) => {
+        console.warn("Copilot sign-in command failed", err);
+      });
+    }
+    const message = result?.status === "AlreadySignedIn"
+      ? `Already signed in${result?.user ? ` as ${result.user}` : ""}; opened GitHub Copilot settings`
+      : openedUri
+        ? userCode
+          ? `Opened GitHub login; code ${userCode}`
+          : "Opened GitHub login"
+        : userCode
+          ? `Copilot login code ${userCode}`
+          : "Copilot login did not return a device code";
+    return { type: "copilot-sign-in", ...result, openedUri, userCode, message, status: this.status };
+  }
+
+  async signOut() {
+    await this.ensureReady();
+    await this.request("signOut", {});
+    return { ok: true, status: this.status };
+  }
+
+  async quota() {
+    await this.ensureReady();
+    const result = await this.request("checkQuota", {}).catch((err) => ({ error: err.message }));
+    return { type: "copilot-quota", result };
+  }
+
+  stop() {
+    this.proc?.kill();
+    this.proc = null;
+    this.ready = null;
+  }
+}
+
+function windowSetTimeout(fn, ms) {
+  return setTimeout(fn, ms);
+}
+
+function getCopilotClient() {
+  if (!copilotClient) copilotClient = new CopilotLspClient();
+  return copilotClient;
+}
+
+async function handleCopilotRequest(action, body = {}) {
+  if (action === "log") {
+    if (body?.record === true) {
+      setCopilotLogRecording(true, { clear: body?.clear !== false });
+      return { ...copilotDiagnostics(), message: "Copilot log recording started" };
+    }
+    if (body?.record === false) {
+      setCopilotLogRecording(false);
+      return { ...copilotDiagnostics(), message: "Copilot logs recorded" };
+    }
+    return copilotDiagnostics();
+  }
+  const overrides = await readPluginOverrides();
+  if (overrides.copilot === "off" && !["sign-in", "sign-out"].includes(action)) {
+    copilotClient?.stop();
+    return { ok: false, disabled: true, message: "Copilot plugin is disabled", status: { message: "Disabled", kind: "Inactive", busy: false } };
+  }
+  const client = getCopilotClient();
+  if (action === "inline") return client.inline(body);
+  if (action === "shown") return client.shown(body);
+  if (action === "accept") return client.accept(body);
+  if (action === "sign-in") return client.signIn();
+  if (action === "sign-out") return client.signOut();
+  if (action === "quota") return client.quota();
+  if (action === "status") {
+    await client.ensureReady();
+    return { type: "copilot-status", status: client.status };
+  }
+  return { ok: false, message: "Unknown Copilot action" };
+}
+
+function codexCommand() {
+  return String(process.env.AARONNOTE_CODEX || process.env.CODEX || "codex");
+}
+
+function roamLookupPromptFile() {
+  return resolve(String(process.env.AARONNOTE_LOOKUP_PROMPT || join(workspaceRoot, "agent", "skill", "lookup.md")));
+}
+
+function shortSessionId() {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function stripAnsi(text) {
+  return String(text || "")
+    .replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, "")
+    .trim();
+}
+
+class RoamLookupSession {
+  constructor() {
+    this.id = shortSessionId();
+    this.createdAt = Date.now();
+    this.lastInteraction = this.createdAt;
+    this.history = [];
+    this.proc = null;
+    this.idleTimer = null;
+    this.busy = false;
+    this.closed = false;
+    this.status = "Ready";
+    this.scheduleIdle();
+  }
+
+  summary() {
+    return {
+      type: "roamlookup-session",
+      ok: !this.closed,
+      sessionId: this.id,
+      busy: this.busy,
+      status: this.status,
+      idleMs: roamLookupIdleMs,
+      createdAt: this.createdAt,
+      lastInteraction: this.lastInteraction,
+      turns: this.history.length,
+    };
+  }
+
+  touch() {
+    this.lastInteraction = Date.now();
+    this.scheduleIdle();
+  }
+
+  scheduleIdle() {
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    if (this.closed) return;
+    const wait = Math.max(1_000, roamLookupIdleMs - (Date.now() - this.lastInteraction));
+    this.idleTimer = setTimeout(() => {
+      if (this.closed) return;
+      if (this.busy) {
+        this.scheduleIdle();
+        return;
+      }
+      this.close("idle");
+      if (roamLookupSession === this) roamLookupSession = null;
+    }, wait);
+  }
+
+  close(reason = "closed") {
+    this.closed = true;
+    this.status = reason === "idle" ? "Idle timeout" : "Closed";
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.idleTimer = null;
+    if (this.proc) {
+      this.proc.kill("SIGTERM");
+      this.proc = null;
+    }
+    return { ...this.summary(), ok: true, closed: true, reason };
+  }
+
+  async buildPrompt(query) {
+    const lookupPrompt = await readFile(roamLookupPromptFile(), "utf8");
+    const transcript = this.history.slice(-8).map((turn, index) => [
+      `### Turn ${index + 1} User`,
+      turn.query,
+      "",
+      `### Turn ${index + 1} Assistant`,
+      turn.answer,
+    ].join("\n")).join("\n\n");
+    return [
+      lookupPrompt,
+      "## Aaronnote RoamLookup Runtime",
+      "You are answering inside Aaronnote. Keep the task read-only. Use local shell search only when needed, and verify precise claims against original Markdown files under roam/.",
+      "Answer only the current user query. If the previous turns are relevant, use them as conversation context.",
+      transcript ? `## Previous Turns\n\n${transcript}` : "",
+      `## Current User Query\n\n${query}`,
+    ].filter(Boolean).join("\n\n");
+  }
+
+  async ask(query) {
+    if (this.closed) {
+      const err = new Error("RoamLookup session is closed");
+      err.statusCode = 410;
+      throw err;
+    }
+    const cleanQuery = String(query || "").trim();
+    if (!cleanQuery) {
+      const err = new Error("Missing lookup query");
+      err.statusCode = 400;
+      throw err;
+    }
+    if (this.busy) {
+      const err = new Error("RoamLookup is already answering");
+      err.statusCode = 409;
+      throw err;
+    }
+
+    this.touch();
+    this.busy = true;
+    this.status = "Running";
+    try {
+      const answer = await this.runCodex(await this.buildPrompt(cleanQuery));
+      this.history.push({ query: cleanQuery, answer, at: Date.now() });
+      if (this.history.length > 12) this.history = this.history.slice(-12);
+      this.status = "Ready";
+      return { ...this.summary(), answer };
+    } catch (err) {
+      this.status = err instanceof Error ? err.message : "RoamLookup failed";
+      throw err;
+    } finally {
+      this.busy = false;
+      this.proc = null;
+      this.touch();
+    }
+  }
+
+  async runCodex(prompt) {
+    const tmp = await mkdtemp(join(tmpdir(), "aaronnote-roamlookup-"));
+    const outputFile = join(tmp, "last-message.md");
+    const args = [
+      "exec",
+      "--cd", workspaceRoot,
+      "--sandbox", "read-only",
+      "--ephemeral",
+      "--color", "never",
+      "--output-last-message", outputFile,
+      "-",
+    ];
+    let stdout = "";
+    let stderr = "";
+    try {
+      const result = await new Promise((resolveRun, rejectRun) => {
+        const proc = spawn(codexCommand(), args, {
+          cwd: workspaceRoot,
+          env: process.env,
+          stdio: ["pipe", "pipe", "pipe"],
+        });
+        this.proc = proc;
+        const timer = setTimeout(() => {
+          proc.kill("SIGTERM");
+          rejectRun(new Error("RoamLookup query timed out"));
+        }, roamLookupQueryTimeoutMs);
+        proc.stdout.on("data", (chunk) => {
+          stdout += String(chunk || "");
+        });
+        proc.stderr.on("data", (chunk) => {
+          stderr += String(chunk || "");
+        });
+        proc.once("error", (err) => {
+          clearTimeout(timer);
+          rejectRun(err);
+        });
+        proc.once("exit", (code, signal) => {
+          clearTimeout(timer);
+          if (code === 0) resolveRun({ code, signal });
+          else rejectRun(new Error(stripAnsi(stderr || stdout) || `Codex exited (${signal || (code ?? "unknown")})`));
+        });
+        proc.stdin.end(prompt);
+      });
+      void result;
+      const answer = await readFile(outputFile, "utf8").catch(() => "");
+      return stripAnsi(answer || stdout) || "RoamLookup returned no answer.";
+    } finally {
+      await rm(tmp, { recursive: true, force: true }).catch(() => {});
+    }
+  }
+}
+
+function getRoamLookupSession(sessionId = "") {
+  if (roamLookupSession && !roamLookupSession.closed) {
+    if (!sessionId || sessionId === roamLookupSession.id) return roamLookupSession;
+    roamLookupSession.close("replaced");
+  }
+  roamLookupSession = new RoamLookupSession();
+  return roamLookupSession;
+}
+
+async function handleRoamLookupRequest(action, body = {}) {
+  const overrides = await readPluginOverrides();
+  if (overrides.roamlookup === "off") {
+    roamLookupSession?.close("disabled");
+    roamLookupSession = null;
+    return { ok: false, disabled: true, message: "RoamLookup plugin is disabled" };
+  }
+  if (action === "start") {
+    const session = getRoamLookupSession(String(body.sessionId || ""));
+    session.touch();
+    return session.summary();
+  }
+  if (action === "query") {
+    const session = getRoamLookupSession(String(body.sessionId || ""));
+    return session.ask(body.query);
+  }
+  if (action === "close") {
+    const sessionId = String(body.sessionId || "");
+    if (roamLookupSession && (!sessionId || sessionId === roamLookupSession.id)) {
+      const result = roamLookupSession.close("closed");
+      roamLookupSession = null;
+      return result;
+    }
+    return { type: "roamlookup-session", ok: true, closed: true, reason: "missing" };
+  }
+  if (action === "status") {
+    if (!roamLookupSession || roamLookupSession.closed) {
+      return { type: "roamlookup-session", ok: false, sessionId: "", busy: false, status: "Not started", idleMs: roamLookupIdleMs };
+    }
+    return roamLookupSession.summary();
+  }
+  return { ok: false, message: "Unknown RoamLookup action" };
 }
 
 async function readNote(file) {
@@ -1801,6 +2690,27 @@ async function routeApi(req, res) {
       return true;
     }
 
+    if (req.method === "GET" && url.pathname === "/api/plugin-overrides") {
+      sendJson(res, 200, { type: "plugin-overrides", overrides: await readPluginOverrides() });
+      return true;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/plugin-overrides") {
+      const body = await readRequestJson(req);
+      sendJson(res, 200, { type: "plugin-overrides", overrides: await writePluginOverrides(body?.overrides) });
+      return true;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/copilot/status") {
+      sendJson(res, 200, await handleCopilotRequest("status"));
+      return true;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/roamlookup/status") {
+      sendJson(res, 200, await handleRoamLookupRequest("status"));
+      return true;
+    }
+
     if (req.method === "GET" && url.pathname === "/api/todos") {
       sendJson(res, 200, { type: "todos", todos: await scanTodos(), root: noteRoot });
       return true;
@@ -1874,6 +2784,18 @@ async function routeApi(req, res) {
 
     if (req.method === "POST" && url.pathname === "/api/assets/orphans/trash") {
       sendJson(res, 200, await trashUnusedAssets(await readRequestJson(req)));
+      return true;
+    }
+
+    if (req.method === "POST" && url.pathname.startsWith("/api/copilot/")) {
+      const action = url.pathname.slice("/api/copilot/".length);
+      sendJson(res, 200, await handleCopilotRequest(action, await readRequestJson(req)));
+      return true;
+    }
+
+    if (req.method === "POST" && url.pathname.startsWith("/api/roamlookup/")) {
+      const action = url.pathname.slice("/api/roamlookup/".length);
+      sendJson(res, 200, await handleRoamLookupRequest(action, await readRequestJson(req)));
       return true;
     }
 
@@ -2060,6 +2982,10 @@ export async function startAaronnoteServer(options = {}) {
         queuedRoamSyncNotes = null;
         if (next) await syncRoamDb(next).catch(() => {});
       }
+      copilotClient?.stop?.();
+      copilotClient = null;
+      roamLookupSession?.close?.("server-close");
+      roamLookupSession = null;
       await vite?.close?.();
       await new Promise((resolveClose) => server.close(resolveClose));
     },

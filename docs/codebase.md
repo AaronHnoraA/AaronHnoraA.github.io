@@ -22,6 +22,7 @@
 - `Aaronnote/aaronnote/`: 应用壳和附加 UI
 - `Aaronnote/server/`: 本地服务入口
 - `Aaronnote/desktop/`: Electron 入口
+- `plugin/`: Aaronnote 本地插件入口，Vite 会按 `plugin/*/plugin.json` 和 `index.ts` 加载
 
 ### 核心模块
 
@@ -63,6 +64,17 @@
 
 - 新 inline 语法必须兼容 `parseInline` / `normalize`
 - 插件如果自己偷偷改 inline mark，通常会被 normalize 覆盖
+
+### 本地插件
+
+当前插件 runtime 由 `Aaronnote/aaronnote/main.ts` 扫描 `/api/plugins` 后启动。插件应把 UI 和行为收在 `plugin/<id>/index.ts`，并用 `plugin.json` 声明 autoload、actions 和 settings。
+
+已有插件：
+
+- `plugin/copilot`: GitHub Copilot inline completion
+- `plugin/roamlookup`: Notes 页面里的 Roam lookup tab，调用 server 侧 Codex lookup session 查询 `roam/` 知识库
+
+插件做普通文本输入时优先走 `editor.insertText()`；只有确实要按 Markdown source offset 重写时才用 `replaceMarkdownRange()`。
 
 ## 发布链路
 

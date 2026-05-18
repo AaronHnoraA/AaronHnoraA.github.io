@@ -1,10 +1,14 @@
 import { defineConfig } from "vite-plus";
+import { resolve } from "node:path";
 
 export default defineConfig({
   root: "aaronnote",
   base: "/",
   server: {
     host: "127.0.0.1",
+    fs: {
+      allow: [resolve("."), resolve("..")],
+    },
   },
   build: {
     outDir: "../dist/aaronnote",

@@ -3,7 +3,7 @@ import "../src/styles/widgets.css";
 import "../src/styles/theme-typora.css";
 import "./style.css";
 
-import { createEditor, type EditorCommand, type QuickInsertItem } from "../src/lib.ts";
+import { createEditor, type Editor, type EditorCommand, type QuickInsertItem } from "../src/lib.ts";
 import { renderMathLazy } from "../src/math-render.ts";
 import { safeHref } from "../src/url-safety.ts";
 import { createAgendaManager } from "./agenda.ts";
@@ -11,6 +11,7 @@ import { createUnusedAssetsManager } from "./asset-cleanup.ts";
 import { createFilesystemBrowser } from "./filesystem.ts";
 import { createFloatingTocPanel } from "./floating-toc.ts";
 import { createGraphPanel } from "./graph-panel.ts";
+import { normalizePluginOverrideMap, pluginShouldRun, type PluginOverrideMap } from "./plugin-runtime.ts";
 import { SnippetSession, snippetDetail, snippetLabel, snippetScore } from "./snippets.ts";
 import type { Inbound, NoteSummary, SnippetSummary } from "./types.ts";
 import { createVimLite, type VimLiteMode } from "./vim-lite.ts";
@@ -40,6 +41,7 @@ declare global {
 window.__GRAPH_NO_AUTO_INIT__ = true;
 
 const params = new URLSearchParams(window.location.search);
+const pluginModuleLoaders = import.meta.glob("../../plugin/*/*.ts");
 
 const root = document.querySelector<HTMLDivElement>("#app")!;
 root.innerHTML = `
@@ -324,20 +326,79 @@ const recentStorageKey = "aaronnote.recent";
 const writingModeStorageKey = "aaronnote.writingMode";
 const snippetSuggestionsStorageKey = "aaronnote.snippetSuggestions.enabled";
 const pluginEnabledStorageKey = "aaronnote.plugins.enabled";
+const pluginDisabledStorageKey = "aaronnote.plugins.disabled";
+const pluginOverrideStorageKey = "aaronnote.plugins.overrides";
+const pluginSettingsStoragePrefix = "aaronnote.plugins.settings.";
+let pluginOverrides: PluginOverrideMap = {};
+let pluginOverridesLoaded = false;
 type RecentNote = { file: string; openedAt: number };
 type OpenNoteOptions = { newWindow?: boolean; equationTag?: string };
+type PluginAction = {
+  id: string;
+  label?: string;
+  title?: string;
+};
+type PluginSetting = {
+  id: string;
+  label?: string;
+  type?: "text" | "number" | "boolean";
+  default?: string | number | boolean;
+  min?: number;
+  max?: number;
+  step?: number;
+  unit?: string;
+};
+type PluginSettings = Record<string, string | number | boolean>;
 type PluginSummary = {
   id: string;
   name: string;
   version?: string;
   entry?: string;
+  autoload?: boolean;
   path?: string;
   commands?: string[];
   blocks?: string[];
+  actions?: PluginAction[];
+  settings?: PluginSetting[];
+};
+type PluginKeyHandler = (event: KeyboardEvent) => boolean;
+type AaronnotePluginContext = {
+  id: string;
+  editor: Editor;
+  host: HTMLElement;
+  root: HTMLElement;
+  currentFile: () => string;
+  vimMode: () => VimLiteMode;
+  setStatus: (message: string) => void;
+  onChange: (handler: () => void) => () => void;
+  onKeyDown: (handler: PluginKeyHandler) => () => void;
+  onAction: (handler: (action: string) => void) => () => void;
+  onSettingsChange: (handler: (settings: PluginSettings) => void) => () => void;
+  getSettings: () => PluginSettings;
+  setSettings: (settings: PluginSettings) => void;
+  onDocumentEvent: <K extends keyof DocumentEventMap>(
+    type: K,
+    handler: (event: DocumentEventMap[K]) => void,
+    options?: AddEventListenerOptions,
+  ) => () => void;
+  jumpSnippetNext: () => boolean;
+  jumpSnippetPrevious: () => boolean;
+  forwardDelimiter: () => boolean;
+  backwardDelimiter: () => boolean;
+};
+type AaronnotePluginModule = {
+  default?: (context: AaronnotePluginContext) => void | (() => void);
+  setup?: (context: AaronnotePluginContext) => void | (() => void);
+  teardown?: (context: AaronnotePluginContext) => void;
 };
 let recentNotes = loadRecentNotes();
 let writingMode = loadWritingMode();
 snippetSuggestionsEnabled = loadSnippetSuggestionsEnabled();
+const pluginKeyHandlers = new Map<string, PluginKeyHandler>();
+const pluginChangeHandlers = new Map<string, Set<() => void>>();
+const pluginActionHandlers = new Map<string, Set<(action: string) => void>>();
+const pluginSettingsHandlers = new Map<string, Set<(settings: PluginSettings) => void>>();
+const pluginCleanups = new Map<string, () => void>();
 
 const cursorStorageKey = "aaronnote.cursorPositions";
 type CursorPosition = {
@@ -437,6 +498,15 @@ function scratchStatus(): string {
 const editor = createEditor(host, {
   initialContent: "",
   onChange: () => {
+    for (const handlers of pluginChangeHandlers.values()) {
+      for (const handler of handlers) {
+        try {
+          handler();
+        } catch (err) {
+          console.warn("Aaronnote plugin change handler failed", err);
+        }
+      }
+    }
     snippetMouseSuppressed = false;
     scheduleAssistUpdate({ snippets: true, mathPreview: true });
     if (!currentFile) {
@@ -1961,16 +2031,129 @@ function showNotesPage(tab = "filesystem"): void {
 }
 
 function pluginEnabledSet(): Set<string> {
-  try {
-    const raw = JSON.parse(window.localStorage.getItem(pluginEnabledStorageKey) || "[]");
-    return new Set(Array.isArray(raw) ? raw.map(String) : []);
-  } catch {
-    return new Set();
-  }
+  return readStringSet(pluginEnabledStorageKey);
 }
 
 function savePluginEnabledSet(enabled: Set<string>): void {
-  window.localStorage.setItem(pluginEnabledStorageKey, JSON.stringify([...enabled].sort()));
+  saveStringSet(pluginEnabledStorageKey, enabled);
+}
+
+function pluginDisabledSet(): Set<string> {
+  return readStringSet(pluginDisabledStorageKey);
+}
+
+function savePluginDisabledSet(disabled: Set<string>): void {
+  saveStringSet(pluginDisabledStorageKey, disabled);
+}
+
+function pluginOverrideMap(): PluginOverrideMap {
+  if (pluginOverridesLoaded) return { ...pluginOverrides };
+  const out: PluginOverrideMap = {};
+  try {
+    const raw = JSON.parse(window.localStorage.getItem(pluginOverrideStorageKey) || "{}");
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return out;
+    for (const [key, value] of Object.entries(raw)) {
+      if (value === "on" || value === "off") out[key] = value;
+    }
+  } catch {}
+  for (const id of pluginEnabledSet()) if (!out[id]) out[id] = "on";
+  for (const id of pluginDisabledSet()) out[id] = "off";
+  return out;
+}
+
+async function loadPluginOverrideMap(): Promise<void> {
+  const res = await fetch("/api/plugin-overrides");
+  const msg = await res.json() as { overrides?: Record<string, unknown> };
+  if (!res.ok || !msg.overrides || typeof msg.overrides !== "object") throw new Error("Plugin override load failed");
+  const saved = normalizePluginOverrideMap(msg.overrides);
+  const local = pluginOverrideMap();
+  pluginOverrides = Object.keys(saved).length > 0 ? saved : local;
+  pluginOverridesLoaded = true;
+  if (Object.keys(saved).length === 0 && Object.keys(local).length > 0) {
+    void savePluginOverrideMap(pluginOverrides);
+  }
+}
+
+async function savePluginOverrideMap(overrides: PluginOverrideMap): Promise<void> {
+  pluginOverrides = normalizePluginOverrideMap(overrides);
+  pluginOverridesLoaded = true;
+  window.localStorage.setItem(pluginOverrideStorageKey, JSON.stringify(overrides));
+  const enabled = new Set<string>();
+  const disabled = new Set<string>();
+  for (const [id, state] of Object.entries(overrides)) {
+    if (state === "on") enabled.add(id);
+    else disabled.add(id);
+  }
+  savePluginEnabledSet(enabled);
+  savePluginDisabledSet(disabled);
+  const res = await fetch("/api/plugin-overrides", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ overrides: pluginOverrides }),
+  });
+  if (!res.ok) throw new Error("Plugin override save failed");
+}
+
+function pluginSettingsKey(id: string): string {
+  return `${pluginSettingsStoragePrefix}${id}`;
+}
+
+function settingDefault(setting: PluginSetting): string | number | boolean {
+  if (setting.default != null) return setting.default;
+  if (setting.type === "boolean") return false;
+  if (setting.type === "number") return 0;
+  return "";
+}
+
+function pluginSettings(plugin: PluginSummary): PluginSettings {
+  let stored: Record<string, unknown> = {};
+  try {
+    const raw = JSON.parse(window.localStorage.getItem(pluginSettingsKey(plugin.id)) || "{}");
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) stored = raw as Record<string, unknown>;
+  } catch {}
+  const settings: PluginSettings = {};
+  for (const setting of plugin.settings ?? []) {
+    const value = stored[setting.id] ?? settingDefault(setting);
+    if (setting.type === "boolean") settings[setting.id] = value === true;
+    else if (setting.type === "number") settings[setting.id] = Number.isFinite(Number(value)) ? Number(value) : Number(settingDefault(setting));
+    else settings[setting.id] = String(value ?? "");
+  }
+  for (const [key, value] of Object.entries(stored)) {
+    if (key in settings) continue;
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") settings[key] = value;
+  }
+  return settings;
+}
+
+function savePluginSettings(plugin: PluginSummary, settings: PluginSettings): void {
+  window.localStorage.setItem(pluginSettingsKey(plugin.id), JSON.stringify(settings));
+}
+
+function dispatchPluginSettingsChange(plugin: PluginSummary): void {
+  const settings = pluginSettings(plugin);
+  for (const handler of pluginSettingsHandlers.get(plugin.id) ?? []) {
+    try {
+      handler(settings);
+    } catch (err) {
+      console.warn(`Aaronnote plugin settings handler failed: ${plugin.id}`, err);
+    }
+  }
+}
+
+function runPluginAction(plugin: PluginSummary, action: string): void {
+  const handlers = pluginActionHandlers.get(plugin.id);
+  if (!handlers?.size) {
+    setStatus(`${plugin.name || plugin.id}: ${action}`);
+    return;
+  }
+  for (const handler of handlers) {
+    try {
+      handler(action);
+    } catch (err) {
+      console.warn(`Aaronnote plugin action failed: ${plugin.id}:${action}`, err);
+      setStatus(`${plugin.name || plugin.id} action failed`);
+    }
+  }
 }
 
 async function loadPlugins(force = false): Promise<void> {
@@ -1984,7 +2167,9 @@ async function loadPlugins(force = false): Promise<void> {
     const msg = await res.json() as { plugins?: PluginSummary[]; message?: string };
     if (!res.ok || !Array.isArray(msg.plugins)) throw new Error(msg.message || "Plugin scan failed");
     plugins = msg.plugins;
+    await loadPluginOverrideMap();
     renderPlugins();
+    void syncPluginRuntime();
   } catch (err) {
     const empty = document.createElement("div");
     empty.className = "aaronnote-empty";
@@ -1995,8 +2180,9 @@ async function loadPlugins(force = false): Promise<void> {
 }
 
 function renderPlugins(): void {
-  const enabled = pluginEnabledSet();
-  pluginCount.textContent = `${plugins.length} plugin${plugins.length === 1 ? "" : "s"} · ${enabled.size} enabled`;
+  const overrides = pluginOverrideMap();
+  const activeCount = plugins.filter((plugin) => pluginShouldRun(plugin, overrides)).length;
+  pluginCount.textContent = `${plugins.length} plugin${plugins.length === 1 ? "" : "s"} · ${activeCount} enabled`;
   if (plugins.length === 0) {
     const empty = document.createElement("div");
     empty.className = "aaronnote-empty";
@@ -2016,6 +2202,7 @@ function renderPlugins(): void {
     const parts = [
       plugin.id,
       plugin.version ? `v${plugin.version}` : "",
+      plugin.autoload ? "autoload" : "",
       plugin.commands?.length ? `commands: ${plugin.commands.join(", ")}` : "",
       plugin.blocks?.length ? `blocks: ${plugin.blocks.join(", ")}` : "",
     ].filter(Boolean);
@@ -2025,20 +2212,97 @@ function renderPlugins(): void {
     toggle.className = "aaronnote-plugin-toggle";
     const input = document.createElement("input");
     input.type = "checkbox";
-    input.checked = enabled.has(plugin.id);
+    input.checked = pluginShouldRun(plugin, overrides);
     input.addEventListener("change", () => {
-      const next = pluginEnabledSet();
-      if (input.checked) next.add(plugin.id);
-      else next.delete(plugin.id);
-      savePluginEnabledSet(next);
-      renderPlugins();
-      setStatus(`${plugin.name || plugin.id} ${input.checked ? "enabled" : "disabled"}`);
+      const next = pluginOverrideMap();
+      next[plugin.id] = input.checked ? "on" : "off";
+      void savePluginOverrideMap(next)
+        .then(() => {
+          renderPlugins();
+          void syncPluginRuntime();
+          setStatus(`${plugin.name || plugin.id} ${input.checked ? "enabled" : "disabled"}`);
+        })
+        .catch((err) => {
+          input.checked = !input.checked;
+          setStatus(err instanceof Error ? err.message : "Plugin override save failed");
+        });
     });
     toggle.append(input, document.createTextNode("Enabled"));
     item.append(main, toggle);
+    if ((plugin.actions?.length ?? 0) > 0 || (plugin.settings?.length ?? 0) > 0) {
+      item.append(renderPluginControls(plugin));
+    }
     frag.append(item);
   }
   pluginList.replaceChildren(frag);
+}
+
+function renderPluginControls(plugin: PluginSummary): HTMLElement {
+  const controls = document.createElement("div");
+  controls.className = "aaronnote-plugin-controls";
+  const actions = (plugin.actions ?? []).filter((action) => action.id);
+  if (actions.length > 0) {
+    const actionRow = document.createElement("div");
+    actionRow.className = "aaronnote-plugin-actions";
+    for (const action of actions) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = action.label || action.id;
+      if (action.title) button.title = action.title;
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        const keepRunning = pluginShouldRun(plugin);
+        void startPlugin(plugin).then(() => {
+          runPluginAction(plugin, action.id);
+          if (!keepRunning) window.setTimeout(() => stopPlugin(plugin), 1000);
+        });
+      });
+      actionRow.append(button);
+    }
+    controls.append(actionRow);
+  }
+  const settings = plugin.settings ?? [];
+  if (settings.length > 0) {
+    const form = document.createElement("div");
+    form.className = "aaronnote-plugin-settings";
+    const values = pluginSettings(plugin);
+    for (const setting of settings) form.append(renderPluginSetting(plugin, setting, values));
+    controls.append(form);
+  }
+  return controls;
+}
+
+function renderPluginSetting(plugin: PluginSummary, setting: PluginSetting, values: PluginSettings): HTMLElement {
+  const label = document.createElement("label");
+  label.className = "aaronnote-plugin-setting";
+  const name = document.createElement("span");
+  name.textContent = setting.label || setting.id;
+  const input = document.createElement("input");
+  const type = setting.type || "text";
+  if (type === "boolean") {
+    input.type = "checkbox";
+    input.checked = values[setting.id] === true;
+  } else {
+    input.type = type === "number" ? "number" : "text";
+    input.value = String(values[setting.id] ?? "");
+    if (setting.min != null) input.min = String(setting.min);
+    if (setting.max != null) input.max = String(setting.max);
+    if (setting.step != null) input.step = String(setting.step);
+  }
+  input.addEventListener("change", () => {
+    const next = { ...pluginSettings(plugin) };
+    next[setting.id] = type === "boolean" ? input.checked : type === "number" ? Number(input.value) : input.value;
+    savePluginSettings(plugin, next);
+    dispatchPluginSettingsChange(plugin);
+    setStatus(`${plugin.name || plugin.id} settings saved`);
+  });
+  label.append(name, input);
+  if (setting.unit) {
+    const unit = document.createElement("span");
+    unit.textContent = setting.unit;
+    label.append(unit);
+  }
+  return label;
 }
 
 function showPluginPage(): void {
@@ -2135,6 +2399,178 @@ function jumpSnippetTabstopBack(): boolean {
   const moved = snippetSession.previous();
   if (moved) setStatus("Snippet field");
   return moved;
+}
+
+const forwardDelimiterChars = ")]}>】］」〕｝〗』";
+const backwardDelimiterChars = "([{<【［「〔｛〖『";
+
+function moveMarkdownDelimiter(dir: 1 | -1): boolean {
+  const markdown = editor.getMarkdown();
+  const selection = editor.getMarkdownSelection();
+  if (dir > 0) {
+    const start = Math.max(selection.to, 0);
+    for (let i = start; i < markdown.length; i++) {
+      if (!forwardDelimiterChars.includes(markdown[i] ?? "")) continue;
+      editor.setMarkdownSelection(i + 1);
+      editor.revealCursor();
+      return true;
+    }
+    return false;
+  }
+  const start = Math.min(selection.from - 1, markdown.length - 1);
+  for (let i = start; i >= 0; i--) {
+    if (!backwardDelimiterChars.includes(markdown[i] ?? "")) continue;
+    editor.setMarkdownSelection(i);
+    editor.revealCursor();
+    return true;
+  }
+  return false;
+}
+
+function readStringSet(storageKey: string): Set<string> {
+  try {
+    const raw = JSON.parse(window.localStorage.getItem(storageKey) || "[]");
+    return new Set(Array.isArray(raw) ? raw.map(String) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveStringSet(storageKey: string, values: Set<string>): void {
+  window.localStorage.setItem(storageKey, JSON.stringify([...values].sort()));
+}
+
+function modulePathForPlugin(plugin: PluginSummary): string {
+  const entry = plugin.entry || "index.ts";
+  const path = plugin.path || `plugin/${plugin.id}`;
+  return `../../${path}/${entry}`;
+}
+
+function createPluginContext(plugin: PluginSummary): AaronnotePluginContext {
+  return {
+    id: plugin.id,
+    editor,
+    host,
+    root,
+    currentFile: () => currentFile,
+    vimMode: () => vimMode,
+    setStatus,
+    onChange(handler) {
+      let handlers = pluginChangeHandlers.get(plugin.id);
+      if (!handlers) {
+        handlers = new Set();
+        pluginChangeHandlers.set(plugin.id, handlers);
+      }
+      handlers.add(handler);
+      return () => {
+        handlers?.delete(handler);
+        if (handlers?.size === 0) pluginChangeHandlers.delete(plugin.id);
+      };
+    },
+    onKeyDown(handler) {
+      pluginKeyHandlers.set(plugin.id, handler);
+      return () => {
+        if (pluginKeyHandlers.get(plugin.id) === handler) pluginKeyHandlers.delete(plugin.id);
+      };
+    },
+    onAction(handler) {
+      let handlers = pluginActionHandlers.get(plugin.id);
+      if (!handlers) {
+        handlers = new Set();
+        pluginActionHandlers.set(plugin.id, handlers);
+      }
+      handlers.add(handler);
+      return () => {
+        handlers?.delete(handler);
+        if (handlers?.size === 0) pluginActionHandlers.delete(plugin.id);
+      };
+    },
+    onSettingsChange(handler) {
+      let handlers = pluginSettingsHandlers.get(plugin.id);
+      if (!handlers) {
+        handlers = new Set();
+        pluginSettingsHandlers.set(plugin.id, handlers);
+      }
+      handlers.add(handler);
+      return () => {
+        handlers?.delete(handler);
+        if (handlers?.size === 0) pluginSettingsHandlers.delete(plugin.id);
+      };
+    },
+    getSettings: () => pluginSettings(plugin),
+    setSettings(settings) {
+      savePluginSettings(plugin, settings);
+      dispatchPluginSettingsChange(plugin);
+    },
+    onDocumentEvent(type, handler, options) {
+      document.addEventListener(type, handler as EventListener, options);
+      return () => document.removeEventListener(type, handler as EventListener, options);
+    },
+    jumpSnippetNext: jumpSnippetTabstop,
+    jumpSnippetPrevious: jumpSnippetTabstopBack,
+    forwardDelimiter: () => moveMarkdownDelimiter(1),
+    backwardDelimiter: () => moveMarkdownDelimiter(-1),
+  };
+}
+
+async function startPlugin(plugin: PluginSummary): Promise<void> {
+  if (pluginCleanups.has(plugin.id)) return;
+  const modulePath = modulePathForPlugin(plugin);
+  const load = pluginModuleLoaders[modulePath];
+  if (!load) {
+    console.warn(`Aaronnote plugin entry not bundled: ${modulePath}`);
+    return;
+  }
+  const mod = await load() as AaronnotePluginModule;
+  const context = createPluginContext(plugin);
+  const setup = typeof mod.default === "function" ? mod.default : typeof mod.setup === "function" ? mod.setup : null;
+  const cleanup = setup?.(context);
+  pluginCleanups.set(plugin.id, () => {
+    pluginKeyHandlers.delete(plugin.id);
+    pluginChangeHandlers.delete(plugin.id);
+    pluginActionHandlers.delete(plugin.id);
+    pluginSettingsHandlers.delete(plugin.id);
+    try {
+      if (typeof cleanup === "function") cleanup();
+      else if (typeof mod.teardown === "function") mod.teardown(context);
+    } catch (err) {
+      console.warn(`Aaronnote plugin cleanup failed: ${plugin.id}`, err);
+    }
+  });
+}
+
+function stopPlugin(plugin: PluginSummary): void {
+  const cleanup = pluginCleanups.get(plugin.id);
+  if (!cleanup) return;
+  pluginCleanups.delete(plugin.id);
+  cleanup();
+}
+
+async function syncPluginRuntime(): Promise<void> {
+  const overrides = pluginOverrideMap();
+  for (const plugin of plugins) {
+    if (pluginShouldRun(plugin, overrides)) {
+      try {
+        await startPlugin(plugin);
+      } catch (err) {
+        console.warn(`Aaronnote plugin startup failed: ${plugin.id}`, err);
+        setStatus(`${plugin.name || plugin.id} failed`);
+      }
+    } else {
+      stopPlugin(plugin);
+    }
+  }
+}
+
+function runPluginKeyHandlers(event: KeyboardEvent): boolean {
+  for (const handler of pluginKeyHandlers.values()) {
+    try {
+      if (handler(event)) return true;
+    } catch (err) {
+      console.warn("Aaronnote plugin key handler failed", err);
+    }
+  }
+  return false;
 }
 
 function currentSnippetKind(): string {
@@ -3309,6 +3745,10 @@ document.addEventListener("keydown", (event) => {
       return;
     }
   }
+  if (runPluginKeyHandlers(event)) {
+    event.stopPropagation();
+    return;
+  }
   if (
     vimMode !== "insert"
     && event.key === "/"
@@ -3546,4 +3986,5 @@ window.addEventListener("beforeunload", () => {
 
 void Promise.allSettled([loadServerRecentNotes(), loadServerCursorPositions()]).finally(() => {
   void bootstrapStandalone();
+  void loadPlugins();
 });

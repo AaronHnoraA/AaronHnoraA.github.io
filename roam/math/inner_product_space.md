@@ -2,8 +2,8 @@
 id: 20260127T000000-inner-product-space
 title: Inner Product Space
 date: 2026-01-27
-tags: math, QC, concept, algebra, linear_algebra
-source: roam/math/inner_product_space.md
+tags: math, QC, concept, algebra, linear\_algebra
+source: roam/math/inner\_product\_space.md
 #+end meta
 
 # Inner Product Space 内积空间
@@ -49,7 +49,6 @@ That is, $V$ is equipped with:
   $$
   + : V \times V \to V,
   $$
-
 - scalar multiplication
 
   $$
@@ -90,7 +89,6 @@ satisfying the following axioms.
    $$
 
    for all $v,w \in V$.
-
 2. Additivity in the first variable 第一变量加法线性:
 
    $$
@@ -102,7 +100,6 @@ satisfying the following axioms.
    $$
 
    for all $v_1,v_2,w \in V$.
-
 3. Homogeneity in the first variable 第一变量齐次线性:
 
    $$
@@ -112,7 +109,6 @@ satisfying the following axioms.
    $$
 
    for all $\lambda \in F$ and all $v,w \in V$.
-
 4. Positive-definiteness 正定性:
 
    $$
@@ -299,7 +295,6 @@ The induced norm satisfies:
    $$
    \|v\| \ge 0.
    $$
-
 2. Definiteness:
 
    $$
@@ -307,7 +302,6 @@ The induced norm satisfies:
    \Longleftrightarrow
    v = 0.
    $$
-
 3. Homogeneity:
 
    $$
@@ -315,7 +309,6 @@ The induced norm satisfies:
    =
    |\lambda|\|v\|.
    $$
-
 4. Triangle inequality:
 
    $$
@@ -355,7 +348,6 @@ This metric satisfies:
    $$
    d(v,w) \ge 0.
    $$
-
 2. Definiteness:
 
    $$
@@ -363,7 +355,6 @@ This metric satisfies:
    \Longleftrightarrow
    v=w.
    $$
-
 3. Symmetry:
 
    $$
@@ -371,7 +362,6 @@ This metric satisfies:
    =
    d(w,v).
    $$
-
 4. Triangle inequality:
 
    $$
@@ -545,13 +535,11 @@ The whole structure can be summarised as follows.
    $$
    V.
    $$
-
 2. Add an inner product:
 
    $$
    \langle v,w \rangle.
    $$
-
 3. The inner product gives squared length:
 
    $$
@@ -559,7 +547,6 @@ The whole structure can be summarised as follows.
    =
    \langle v,v \rangle.
    $$
-
 4. Squared length gives a norm:
 
    $$
@@ -567,7 +554,6 @@ The whole structure can be summarised as follows.
    =
    \sqrt{\langle v,v \rangle}.
    $$
-
 5. The norm gives a distance:
 
    $$
@@ -575,7 +561,6 @@ The whole structure can be summarised as follows.
    =
    \|v-w\|.
    $$
-
 6. The distance gives a notion of convergence:
 
    $$
@@ -583,7 +568,6 @@ The whole structure can be summarised as follows.
    \Longleftrightarrow
    d(v_n,v) \to 0.
    $$
-
 7. The distance also gives a notion of Cauchy sequence:
 
    $$
@@ -591,7 +575,6 @@ The whole structure can be summarised as follows.
    \Longleftrightarrow
    \forall \varepsilon > 0,\ \exists N,\ \forall m,n \ge N,\ d(v_m,v_n)<\varepsilon.
    $$
-
 8. Completeness means every Cauchy sequence converges inside the space:
 
    $$
@@ -599,7 +582,6 @@ The whole structure can be summarised as follows.
    \Longrightarrow
    \exists v \in V,\ v_n \to v.
    $$
-
 9. A complete inner product space is a Hilbert space:
 
    $$

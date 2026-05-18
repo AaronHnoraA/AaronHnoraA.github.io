@@ -53,6 +53,7 @@
     "vitest": "npm:@voidzero-dev/vite-plus-test@latest"
   },
   "dependencies": {
+    "@github/copilot-language-server": "^1.489.0",
     "dompurify": "^3.4.4",
     "katex": "^0.16.47",
     "markdown-it": "^14.1.1",
@@ -75,6 +76,10 @@
   "build": {
     "appId": "com.aaronnote.desktop",
     "productName": "AaronNote",
+    "asarUnpack": [
+      "node_modules/@github/copilot-language-server/**/*",
+      "node_modules/@github/copilot-language-server-*/*"
+    ],
     "directories": {
       "output": "release"
     },

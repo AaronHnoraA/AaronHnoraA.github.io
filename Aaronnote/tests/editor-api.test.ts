@@ -151,6 +151,24 @@ $$`;
 });
 
 describe("editor api source preservation", () => {
+  test("reports markdown selection offsets in preview and source mode", () => {
+    const source = "Alpha beta move";
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const editor = createEditor(mount, { initialContent: source });
+    try {
+      const start = source.indexOf("beta");
+      editor.setMarkdownSelection(start, start + "beta".length);
+      expect(editor.getMarkdownSelection()).toEqual({ from: start, to: start + "beta".length });
+      editor.toggleSource();
+      editor.setMarkdownSelection(start, start + "beta".length);
+      expect(editor.getMarkdownSelection()).toEqual({ from: start, to: start + "beta".length });
+    } finally {
+      editor.destroy();
+      mount.remove();
+    }
+  });
+
   test("preview/source toggles do not rewrite TeX or markdown escapes", () => {
     const source = String.raw`My current task mentions $\mathrm{GI}$, $\#\mathrm{GA}$, and $a_b$.
 
