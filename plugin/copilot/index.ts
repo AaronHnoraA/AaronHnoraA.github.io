@@ -2,6 +2,7 @@ type Rect = { left: number; top: number; bottom: number };
 type EditorLike = {
   getMarkdown(): string;
   getMarkdownSelection(): { from: number; to: number };
+  getSelection?: () => { from: number; to: number };
   insertText(text: string, deleteBefore?: number): { from: number; to: number };
   cursorContext(maxChars?: number): { before?: string; after?: string; rect: Rect | null };
   revealCursor(): void;
@@ -167,6 +168,34 @@ function completionOffset(editor: EditorLike): number {
   return selection.to;
 }
 
+function activeSelection(editor: EditorLike): { from: number; to: number } {
+  return editor.getSelection?.() ?? editor.getMarkdownSelection();
+}
+
+function completionRequestDocument(
+  markdown: string,
+  offset: number,
+  maxChars: number,
+): { content: string; offset: number; from: number; to: number; clipped: boolean } {
+  const cursor = clampedOffset(markdown, offset);
+  if (maxChars <= 0 || markdown.length <= maxChars) {
+    return { content: markdown, offset: cursor, from: 0, to: markdown.length, clipped: false };
+  }
+
+  const beforeBudget = Math.max(0, Math.floor(maxChars * 0.72));
+  let from = Math.max(0, cursor - beforeBudget);
+  let to = Math.min(markdown.length, from + maxChars);
+  from = Math.max(0, to - maxChars);
+
+  return {
+    content: markdown.slice(from, to),
+    offset: cursor - from,
+    from,
+    to,
+    clipped: from > 0 || to < markdown.length,
+  };
+}
+
 function trimmedCompletionInsertText(
   choice: InlineChoice,
   markdown: string,
@@ -260,16 +289,21 @@ export function setup(context: Context): () => void {
   }
 
   function requestKey(): string {
-    const selection = context.editor.getMarkdownSelection();
-    return `${context.currentFile()}\0${selection.from}\0${completionOffset(context.editor)}\0${context.editor.getMarkdown().length}`;
+    const selection = activeSelection(context.editor);
+    const cursor = context.editor.cursorContext(160);
+    return [
+      context.currentFile(),
+      selection.from,
+      selection.to,
+      cursor.before?.slice(-80) ?? "",
+      cursor.after?.slice(0, 80) ?? "",
+    ].join("\0");
   }
 
   function eligible(): boolean {
     if (context.vimMode() !== "insert") return false;
     if (!targetInHost(context.host, document.activeElement)) return false;
-    const markdown = context.editor.getMarkdown();
-    if (settings.largeBufferThreshold > 0 && markdown.length > settings.largeBufferThreshold) return false;
-    const selection = context.editor.getMarkdownSelection();
+    const selection = activeSelection(context.editor);
     if (selection.from !== selection.to) return false;
     return !hasRealTextAfterCursorOnLine(context.editor.cursorContext(512).after);
   }
@@ -286,14 +320,17 @@ export function setup(context: Context): () => void {
   async function requestCompletion(): Promise<void> {
     if (!eligible()) return;
     const markdown = context.editor.getMarkdown();
-    const offset = completionOffset(context.editor);
+    if (!eligible()) return;
+    const fullOffset = completionOffset(context.editor);
+    const requestDoc = completionRequestDocument(markdown, fullOffset, settings.largeBufferThreshold);
     const key = requestKey();
     const currentSeq = ++seq;
     try {
       const response = await postJson<InlineResponse>("/api/copilot/inline", {
         file: context.currentFile(),
-        content: markdown,
-        offset,
+        content: requestDoc.content,
+        offset: requestDoc.offset,
+        window: requestDoc.clipped ? { from: requestDoc.from, to: requestDoc.to } : undefined,
       });
       if (currentSeq !== seq || key !== requestKey()) return;
       const choice = response.items?.[0];
@@ -308,7 +345,7 @@ export function setup(context: Context): () => void {
         clearCompletion();
         return;
       }
-      const trimmed = trimmedCompletionInsertText(choice, markdown, offset);
+      const trimmed = trimmedCompletionInsertText(choice, requestDoc.content, requestDoc.offset);
       if (!trimmed.insertText) {
         clearCompletion();
         return;
@@ -328,7 +365,7 @@ export function setup(context: Context): () => void {
     const count = Math.max(0, Math.min(length, remaining.length));
     if (count <= 0) return false;
     const text = remaining.slice(0, count);
-    const selection = context.editor.getMarkdownSelection();
+    const selection = activeSelection(context.editor);
     if (selection.from !== selection.to) {
       clearCompletion();
       return false;

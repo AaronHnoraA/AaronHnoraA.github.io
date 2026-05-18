@@ -12,10 +12,23 @@
 
 - 2026-05-02：AI 维护层改成“索引可常规刷新，工具改动需过门禁”
 - 2026-05-18：事实来源切回 `roam/**/*.md`，分发层改读 Markdown meta 与相对链接
+- 2026-05-19：新增大文件性能维护账本，把 P0 输入/打开路径上的全量 serialize、Copilot 全文上下文、inline normalize 全文扫描、large-doc decoration/code/image 扫描和 todo 全文件重读收口到按需/局部边界
+- 2026-05-19：继续 P1/P2 性能收敛：autosave 序列化让到 idle，重块启用 CSS containment，recent/positions 本地状态延迟落盘
+- 2026-05-19：引入 Web Worker 处理 12k+ fenced code 高亮，长代码块高亮不再占用 renderer 主线程
+- 2026-05-19：继续向 block/window 模型推进，TOC heading index、task marker propagation、ref-def draft decorations、org-env commit 不再在大文档输入路径上默认全树扫描；Mermaid 强制 `vendor-diagrams` 合包已移除
+- 2026-05-19：新增 viewport range plugin，decorations、fenced code、ref-def、image probe 在大文档下优先按可见区域扫描
+- 2026-05-19：snippet 目标块定位改为插入点/viewport window，equation tag 建立 PM 增量索引，跳转和建议不再临时读取整篇 Markdown
 
 ## 测试状态
 
-我在 2026-05-18 本地执行过：
+最近一次本地测试记录：
+
+- 2026-05-19：`cd Aaronnote && npm test`
+  - `46` 个测试文件通过
+  - `573` 个测试通过
+  - 无失败
+
+此前 2026-05-18 本地执行过：
 
 ```sh
 cd Aaronnote
@@ -50,6 +63,7 @@ npm test
 - 更完整的 CommonMark / Typora 边界兼容
 - 数学、HTML、图表类能力的最终边界
 - 编辑器样式与应用壳之间的进一步解耦
+- 大文件性能优化；具体账本见 [performance-optimization.md](/Users/hc/HC/Org/docs/performance-optimization.md)
 
 ## 已知问题
 
@@ -112,3 +126,6 @@ npm test
 
 4. 明确数学与图表支持的产品边界  
    现在代码、依赖、README 三者之间还有轻微错位。
+
+5. 按性能账本持续收敛大文件体验
+   优先处理输入关键路径、decoration block cache、Roam 后台索引和可见区渲染。每次改动同步更新 `docs/performance-optimization.md` 的状态和重构经验。

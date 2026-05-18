@@ -6,11 +6,13 @@ import { history, undo, redo } from "prosemirror-history";
 
 import { cursorRenderPlugin } from "./cursor-render.ts";
 import { syntaxHintsPlugin } from "./decorations.ts";
+import { equationTagsPlugin } from "./equation-tags.ts";
 import { collectKeymaps, collectPlugins } from "./features/index.ts";
 import { markdownInputRules, spaceBreaksStoredMarks } from "./input-rules.ts";
 import { normalizeInlinePlugin } from "./normalize.ts";
 import { schema } from "./schema.ts";
 import { safeHref } from "./url-safety.ts";
+import { viewportRangePlugin } from "./viewport.ts";
 
 declare global {
   interface Window {
@@ -117,6 +119,8 @@ export function defaultPlugins(options: { cursorWidget?: boolean } = {}): Plugin
     keymap({ "Mod-z": undo, "Mod-y": redo, "Mod-Shift-z": redo }),
     markdownInputRules(),
     spaceBreaksStoredMarks(),
+    viewportRangePlugin(),
+    equationTagsPlugin(),
     normalizeInlinePlugin(),
     // Feature-contributed plugins sit after normalize (so block-draft
     // watchers see the post-normalize doc) and before syntaxHints (so any

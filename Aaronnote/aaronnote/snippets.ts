@@ -1,4 +1,6 @@
 import type { Editor } from "../src/lib.ts";
+import { getViewportRange } from "../src/viewport.ts";
+import type { Node as PMNode } from "prosemirror-model";
 import type { EditorView } from "prosemirror-view";
 import type { SnippetSummary } from "./types.ts";
 
@@ -41,6 +43,9 @@ type DisplayMathSnippet = {
   contentEnd: number;
   closeTo: number;
 };
+
+const LARGE_SNIPPET_LOOKUP_DOC_SIZE = 260_000;
+const SNIPPET_LOOKUP_WINDOW = 90_000;
 
 function escapeRegExp(src: string): string {
   return src.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
@@ -413,7 +418,7 @@ export class SnippetSession {
     }
 
     const view = editorView(this.editor);
-    const hit = view ? this.activeOrgEnvBlock(view, org.kind) : null;
+    const hit = view ? this.activeOrgEnvBlock(view, org.kind, insertedFrom) : null;
     if (!hit) {
       return tabstops.map((stop) => ({
         ...stop,
@@ -476,23 +481,24 @@ export class SnippetSession {
     return found;
   }
 
-  private activeOrgEnvBlock(
+  private scanNearInsertedBlock(
     view: EditorView,
-    kind: string,
+    insertedFrom: number,
+    predicate: (node: PMNode) => boolean,
   ): { blockPos: number } | null {
-    const { selection, doc } = view.state;
-    const $from = selection.$from;
-    for (let depth = $from.depth; depth > 0; depth--) {
-      const node = $from.node(depth);
-      if (node.type.name === "org_env_block" && String(node.attrs.kind || "").toLowerCase() === kind) {
-        return { blockPos: $from.before(depth) };
-      }
-    }
-
+    const { doc } = view.state;
+    const largeMode = doc.content.size > LARGE_SNIPPET_LOOKUP_DOC_SIZE;
+    const viewport = largeMode ? getViewportRange(view.state) : null;
+    const from = largeMode
+      ? Math.max(0, Math.min(viewport?.from ?? insertedFrom, insertedFrom) - SNIPPET_LOOKUP_WINDOW)
+      : 0;
+    const to = largeMode
+      ? Math.min(doc.content.size, Math.max(viewport?.to ?? insertedFrom, insertedFrom) + SNIPPET_LOOKUP_WINDOW)
+      : doc.content.size;
     let found: { blockPos: number } | null = null;
-    doc.descendants((node, pos) => {
+    doc.nodesBetween(from, to, (node, pos) => {
       if (found) return false;
-      if (node.type.name === "org_env_block" && String(node.attrs.kind || "").toLowerCase() === kind) {
+      if (predicate(node)) {
         found = { blockPos: pos };
         return false;
       }
@@ -501,13 +507,43 @@ export class SnippetSession {
     return found;
   }
 
+  private activeOrgEnvBlock(
+    view: EditorView,
+    kind: string,
+    insertedFrom: number,
+  ): { blockPos: number } | null {
+    const { selection } = view.state;
+    const $from = selection.$from;
+    for (let depth = $from.depth; depth > 0; depth--) {
+      const node = $from.node(depth);
+      if (node.type.name === "org_env_block" && String(node.attrs.kind || "").toLowerCase() === kind) {
+        return { blockPos: $from.before(depth) };
+      }
+    }
+
+    return this.scanNearInsertedBlock(
+      view,
+      insertedFrom,
+      (node) => node.type.name === "org_env_block" && String(node.attrs.kind || "").toLowerCase() === kind,
+    );
+  }
+
   private activeMathBlock(
     view: EditorView,
     insertedFrom: number,
   ): { blockPos: number } | null {
     let bestBlockPos: number | null = null;
     let bestDistance = Number.POSITIVE_INFINITY;
-    view.state.doc.descendants((node, pos) => {
+    const { doc } = view.state;
+    const largeMode = doc.content.size > LARGE_SNIPPET_LOOKUP_DOC_SIZE;
+    const viewport = largeMode ? getViewportRange(view.state) : null;
+    const from = largeMode
+      ? Math.max(0, Math.min(viewport?.from ?? insertedFrom, insertedFrom) - SNIPPET_LOOKUP_WINDOW)
+      : 0;
+    const to = largeMode
+      ? Math.min(doc.content.size, Math.max(viewport?.to ?? insertedFrom, insertedFrom) + SNIPPET_LOOKUP_WINDOW)
+      : doc.content.size;
+    doc.nodesBetween(from, to, (node, pos) => {
       if (node.type.name !== "math_block") return true;
       const distance =
         insertedFrom >= pos && insertedFrom <= pos + node.nodeSize

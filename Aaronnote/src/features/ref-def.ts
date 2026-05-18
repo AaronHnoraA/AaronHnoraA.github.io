@@ -1,7 +1,8 @@
 import type { Node as PMNode, Schema } from "prosemirror-model";
-import { Plugin, TextSelection } from "prosemirror-state";
+import { Plugin, PluginKey, TextSelection, type EditorState } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 
+import { getViewportRange, VIEWPORT_RANGE_META } from "../viewport.ts";
 import type { FeatureSpec } from "./_types.ts";
 
 // Reference link definition `[label]: url ["title"]` — live UX.
@@ -34,76 +35,95 @@ import type { FeatureSpec } from "./_types.ts";
 
 const REF_DRAFT_RE = /^\[([^\]]+)\]:/;
 const REF_COMMIT_RE = /^\[([^\]]+)\]:\s+(\S+)(?:\s+"([^"]*)")?\s*$/;
+const LARGE_REF_DEF_DOC_SIZE = 220_000;
+const LARGE_REF_DEF_WINDOW = 48_000;
+const refDraftKey = new PluginKey<DecorationSet>("ref-def-draft");
 
-function refDraftPlugin(): Plugin {
-  return new Plugin({
+function buildRefDraftDecorations(state: EditorState): DecorationSet {
+  const decos: Decoration[] = [];
+  const cursor = state.selection.empty ? state.selection.from : -1;
+  const largeMode = state.doc.content.size > LARGE_REF_DEF_DOC_SIZE;
+  const viewport = largeMode ? getViewportRange(state) : null;
+  const from = largeMode ? Math.max(0, (viewport?.from ?? state.selection.from) - LARGE_REF_DEF_WINDOW) : 0;
+  const to = largeMode ? Math.min(state.doc.content.size, (viewport?.to ?? state.selection.to) + LARGE_REF_DEF_WINDOW) : state.doc.content.size;
+
+  state.doc.nodesBetween(from, to, (node, pos) => {
+    // Draft decorations on paragraphs that look like a starting
+    // ref-def (text starts with `[<something>]:`).
+    if (node.type.name === "paragraph") {
+      const text = node.textContent;
+      const m = REF_DRAFT_RE.exec(text);
+      if (!m) return false;
+      const start = pos + 1;
+      const labelLen = m[1]!.length;
+      const openBracket = start;
+      const closeBracket = start + 1 + labelLen;
+      const colonEnd = closeBracket + 2; // `]:`
+      decos.push(
+        Decoration.inline(openBracket, openBracket + 1, {
+          class: "syntax-hint-italic",
+        }),
+      );
+      decos.push(
+        Decoration.inline(closeBracket, colonEnd, {
+          class: "syntax-hint-italic",
+        }),
+      );
+      return false;
+    }
+
+    if (node.type.name !== "link_def") return true;
+
+    // Inside a link_def: emit placeholder attrs on empty url /
+    // title parts. URL placeholder is always visible (it prompts
+    // the user to fill the required field). TITLE placeholder is
+    // gated on cursor-inside-this-link_def — title is optional,
+    // so we don't pollute idle defs with the prompt.
+    const linkDefStart = pos;
+    const linkDefEnd = pos + node.nodeSize;
+    const cursorInside = cursor > linkDefStart && cursor < linkDefEnd;
+
+    let childOffset = pos + 1; // skip link_def open
+    node.forEach((child) => {
+      const childStart = childOffset;
+      const childEnd = childStart + child.nodeSize;
+      const empty = child.content.size === 0;
+      if (empty && child.type.name === "ref_url") {
+        decos.push(
+          Decoration.node(childStart, childEnd, {
+            "data-placeholder": "input link url here",
+          }),
+        );
+      }
+      if (empty && child.type.name === "ref_title" && cursorInside) {
+        decos.push(
+          Decoration.node(childStart, childEnd, {
+            "data-placeholder": "title (optional)",
+          }),
+        );
+      }
+      childOffset = childEnd;
+    });
+    return false;
+  });
+  return decos.length > 0
+    ? DecorationSet.create(state.doc, decos)
+    : DecorationSet.empty;
+}
+
+function refDraftPlugin(): Plugin<DecorationSet> {
+  return new Plugin<DecorationSet>({
+    key: refDraftKey,
+    state: {
+      init: (_, state) => buildRefDraftDecorations(state),
+      apply: (tr, old, oldState, newState) =>
+        tr.docChanged || tr.selectionSet || tr.getMeta(VIEWPORT_RANGE_META) || !oldState.selection.eq(newState.selection)
+          ? buildRefDraftDecorations(newState)
+          : old,
+    },
     props: {
       decorations(state) {
-        const decos: Decoration[] = [];
-        const cursor = state.selection.empty ? state.selection.from : -1;
-
-        state.doc.descendants((node, pos) => {
-          // Draft decorations on paragraphs that look like a starting
-          // ref-def (text starts with `[<something>]:`).
-          if (node.type.name === "paragraph") {
-            const text = node.textContent;
-            const m = REF_DRAFT_RE.exec(text);
-            if (!m) return false;
-            const start = pos + 1;
-            const labelLen = m[1]!.length;
-            const openBracket = start;
-            const closeBracket = start + 1 + labelLen;
-            const colonEnd = closeBracket + 2; // `]:`
-            decos.push(
-              Decoration.inline(openBracket, openBracket + 1, {
-                class: "syntax-hint-italic",
-              }),
-            );
-            decos.push(
-              Decoration.inline(closeBracket, colonEnd, {
-                class: "syntax-hint-italic",
-              }),
-            );
-            return false;
-          }
-
-          if (node.type.name !== "link_def") return true;
-
-          // Inside a link_def: emit placeholder attrs on empty url /
-          // title parts. URL placeholder is always visible (it prompts
-          // the user to fill the required field). TITLE placeholder is
-          // gated on cursor-inside-this-link_def — title is optional,
-          // so we don't pollute idle defs with the prompt.
-          const linkDefStart = pos;
-          const linkDefEnd = pos + node.nodeSize;
-          const cursorInside = cursor > linkDefStart && cursor < linkDefEnd;
-
-          let childOffset = pos + 1; // skip link_def open
-          node.forEach((child) => {
-            const childStart = childOffset;
-            const childEnd = childStart + child.nodeSize;
-            const empty = child.content.size === 0;
-            if (empty && child.type.name === "ref_url") {
-              decos.push(
-                Decoration.node(childStart, childEnd, {
-                  "data-placeholder": "input link url here",
-                }),
-              );
-            }
-            if (empty && child.type.name === "ref_title" && cursorInside) {
-              decos.push(
-                Decoration.node(childStart, childEnd, {
-                  "data-placeholder": "title (optional)",
-                }),
-              );
-            }
-            childOffset = childEnd;
-          });
-          return false;
-        });
-        return decos.length > 0
-          ? DecorationSet.create(state.doc, decos)
-          : DecorationSet.empty;
+        return refDraftKey.getState(state);
       },
     },
   });

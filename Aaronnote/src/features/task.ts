@@ -2,9 +2,10 @@ import type { Node as PMNode } from "prosemirror-model";
 import type { NodeSpec } from "prosemirror-model";
 import { liftListItem, splitListItem } from "prosemirror-schema-list";
 import { InputRule } from "prosemirror-inputrules";
-import { Plugin, TextSelection, type Command, type Transaction } from "prosemirror-state";
+import { Plugin, TextSelection, type Command, type EditorState, type Transaction } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 
+import { changedRangesFromTransactions } from "../transaction-ranges.ts";
 import type { FeatureSpec } from "./_types.ts";
 import { liftNestedEmptyItemToBulletless } from "./list.ts";
 
@@ -321,6 +322,8 @@ function doDeleteAndFollow(
 }
 
 const NO_PROPAGATE_META = "task-no-propagate";
+const LARGE_TASK_PROPAGATE_DOC_SIZE = 260_000;
+const TASK_PROPAGATE_SCAN_MARGIN = 2_000;
 
 // Enter handling — operates only on cursor sitting at the start of a task
 // list_item's first (task) paragraph. Otherwise returns false and the
@@ -403,6 +406,75 @@ const taskEnter: Command = (state, dispatch, view) => {
 // general (consecutive tasks stay tasks even when the user mixes in
 // list-only operations).
 function propagateMarkerPlugin(): Plugin {
+  const propagateList = (
+    state: EditorState,
+    tr: Transaction,
+    listNode: PMNode,
+    listPos: number,
+  ): boolean => {
+    let changed = false;
+    let off = listPos + 1;
+    let prevIsTask = false;
+    for (let i = 0; i < listNode.childCount; i++) {
+      const li = listNode.child(i);
+      const liEnd = off + li.nodeSize;
+      const firstChild = li.firstChild;
+      const isEmpty =
+        li.childCount === 1 &&
+        firstChild?.type.name === "paragraph" &&
+        firstChild.content.size === 0;
+      const isTask = isTaskListItem(li);
+      if (prevIsTask && isEmpty && !isTask) {
+        const insertPos = off + 2; // li open + p open
+        const mapped = tr.mapping.map(insertPos);
+        tr.replaceWith(
+          mapped,
+          mapped,
+          state.schema.nodes.task_marker.create({ checked: false }),
+        );
+        changed = true;
+      }
+      prevIsTask = isTask;
+      off = liEnd;
+    }
+    return changed;
+  };
+
+  const listAncestorPositions = (state: EditorState, pos: number): number[] => {
+    const positions: number[] = [];
+    const clamped = Math.max(0, Math.min(pos, state.doc.content.size));
+    const $pos = state.doc.resolve(clamped);
+    for (let depth = $pos.depth; depth > 0; depth--) {
+      const node = $pos.node(depth);
+      if (node.type.name !== "bullet_list" && node.type.name !== "ordered_list") continue;
+      positions.push($pos.before(depth));
+    }
+    return positions;
+  };
+
+  const changedListPositions = (
+    transactions: readonly Transaction[],
+    state: EditorState,
+  ): number[] => {
+    const ranges = changedRangesFromTransactions(transactions);
+    const positions = new Set<number>();
+    for (const range of ranges) {
+      for (const pos of listAncestorPositions(state, range.from)) positions.add(pos);
+      for (const pos of listAncestorPositions(state, range.to)) positions.add(pos);
+      const from = Math.max(0, Math.min(range.from - TASK_PROPAGATE_SCAN_MARGIN, state.doc.content.size));
+      const to = Math.max(from, Math.min(range.to + TASK_PROPAGATE_SCAN_MARGIN, state.doc.content.size));
+      state.doc.nodesBetween(from, to, (node, pos) => {
+        if (node.type.name === "bullet_list" || node.type.name === "ordered_list") {
+          positions.add(pos);
+          return false;
+        }
+        return true;
+      });
+    }
+    for (const pos of listAncestorPositions(state, state.selection.from)) positions.add(pos);
+    return [...positions].sort((a, b) => a - b);
+  };
+
   return new Plugin({
     appendTransaction(transactions, _oldState, newState) {
       if (!transactions.some((t) => t.docChanged)) return null;
@@ -411,41 +483,26 @@ function propagateMarkerPlugin(): Plugin {
       if (transactions.some((t) => t.getMeta(NO_PROPAGATE_META))) return null;
       const tr = newState.tr;
       let changed = false;
-      newState.doc.descendants((node, pos) => {
-        if (
-          node.type.name !== "bullet_list" &&
-          node.type.name !== "ordered_list"
-        ) {
-          return true;
-        }
-        let off = pos + 1;
-        let prevIsTask = false;
-        for (let i = 0; i < node.childCount; i++) {
-          const li = node.child(i);
-          const liEnd = off + li.nodeSize;
-          const firstChild = li.firstChild;
-          const isEmpty =
-            li.childCount === 1 &&
-            firstChild?.type.name === "paragraph" &&
-            firstChild.content.size === 0;
-          const isTask = isTaskListItem(li);
-          if (prevIsTask && isEmpty && !isTask) {
-            const insertPos = off + 2; // li open + p open
-            const mapped = tr.mapping.map(insertPos);
-            tr.replaceWith(
-              mapped,
-              mapped,
-              newState.schema.nodes.task_marker.create({ checked: false }),
-            );
-            changed = true;
+      if (newState.doc.content.size <= LARGE_TASK_PROPAGATE_DOC_SIZE) {
+        newState.doc.descendants((node, pos) => {
+          if (
+            node.type.name !== "bullet_list" &&
+            node.type.name !== "ordered_list"
+          ) {
+            return true;
           }
-          prevIsTask = isTask;
-          off = liEnd;
+          changed = propagateList(newState, tr, node, pos) || changed;
+          // Continue descending so nested ul/ol inside list_items also get
+          // their own task_marker propagation pass.
+          return true;
+        });
+      } else {
+        for (const pos of changedListPositions(transactions, newState)) {
+          const node = newState.doc.nodeAt(pos);
+          if (!node || (node.type.name !== "bullet_list" && node.type.name !== "ordered_list")) continue;
+          changed = propagateList(newState, tr, node, pos) || changed;
         }
-        // Continue descending so nested ul/ol inside list_items also get
-        // their own task_marker propagation pass.
-        return true;
-      });
+      }
       return changed ? tr : null;
     },
   });

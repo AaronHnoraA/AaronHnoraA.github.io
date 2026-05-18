@@ -42,6 +42,8 @@ const defaultNoteKindAliases = new Set(["", "default", "note"]);
 const noteKindPattern = /^[a-z0-9_-]+$/;
 let noteCacheRoot = "";
 let noteCache = new Map();
+let todoCacheRoot = "";
+let todoCache = new Map();
 let snippetCache = { key: "", scannedAt: 0, snippets: [] };
 let pluginCache = { key: "", scannedAt: 0, plugins: [] };
 let copilotClient = null;
@@ -1306,15 +1308,30 @@ export function extractTodos(content, note, updatedAt) {
 }
 
 async function scanTodos() {
+  if (todoCacheRoot !== noteScanRoot) {
+    todoCacheRoot = noteScanRoot;
+    todoCache = new Map();
+  }
   const scanned = await scanNotes();
+  const seen = new Set(scanned.map((note) => note.file).filter(Boolean));
   const todoGroups = await mapLimit(scanned, scanConcurrency, async (note) => {
     try {
       const info = await stat(note.file);
+      const cached = todoCache.get(note.file);
+      if (cached && cached.mtimeMs === info.mtimeMs && cached.size === info.size) {
+        return cached.todos.map((todo) => ({ ...todo }));
+      }
       const content = await readFile(note.file, "utf8");
-      return extractTodos(content, note, info.mtimeMs);
+      const todos = extractTodos(content, note, info.mtimeMs);
+      todoCache.set(note.file, { mtimeMs: info.mtimeMs, size: info.size, todos });
+      return todos.map((todo) => ({ ...todo }));
     } catch {}
+    todoCache.delete(note.file);
     return [];
   });
+  for (const file of todoCache.keys()) {
+    if (!seen.has(file)) todoCache.delete(file);
+  }
   const todos = todoGroups.flat();
   return todos.sort((a, b) => {
     const statusRank = { blocked: 0, doing: 1, todo: 2, done: 3 };

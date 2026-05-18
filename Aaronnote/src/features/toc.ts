@@ -1,7 +1,8 @@
 import type { Node as PMNode } from "prosemirror-model";
-import { Plugin, TextSelection } from "prosemirror-state";
+import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import type { EditorView, NodeView } from "prosemirror-view";
 
+import { changedRanges, changedTextblocks, overlapsAny } from "../transaction-ranges.ts";
 import type { FeatureSpec } from "./_types.ts";
 
 // TOC `[toc]` (or `[TOC]`) — Typora extension.
@@ -20,6 +21,62 @@ import type { FeatureSpec } from "./_types.ts";
 // doesn't change when surrounding headings do, so we can't rely on PM's
 // usual NodeView.update path alone).
 const liveViews = new Set<TocNodeView>();
+type TocHeading = { level: number; text: string; pos: number };
+
+const tocHeadingKey = new PluginKey<TocHeading[]>("toc-heading-index");
+
+function collectHeadings(doc: PMNode): TocHeading[] {
+  const items: TocHeading[] = [];
+  doc.descendants((node, pos) => {
+    if (node.type.name === "heading") {
+      items.push({
+        level: node.attrs.level as number,
+        text: node.textContent,
+        pos,
+      });
+      return false;
+    }
+    return true;
+  });
+  return items;
+}
+
+function headingIndexPlugin(): Plugin<TocHeading[]> {
+  return new Plugin<TocHeading[]>({
+    key: tocHeadingKey,
+    state: {
+      init: (_, state) => collectHeadings(state.doc),
+      apply: (tr, prev, _oldState, newState) => {
+        if (!tr.docChanged) return prev;
+        const ranges = changedRanges(tr);
+        if (ranges.length === 0) return prev;
+        const changed = changedTextblocks(newState.doc, ranges);
+        if (changed.length === 0) {
+          return prev
+            .map((heading) => ({ ...heading, pos: tr.mapping.map(heading.pos, 1) }))
+            .filter((heading) => newState.doc.nodeAt(heading.pos)?.type.name === "heading");
+        }
+        const changedBlockRanges = changed.map(({ node, pos }) => ({ from: pos, to: pos + node.nodeSize }));
+        const kept = prev
+          .map((heading) => ({ ...heading, pos: tr.mapping.map(heading.pos, 1) }))
+          .filter((heading) => {
+            if (overlapsAny(heading.pos, heading.pos + 1, changedBlockRanges)) return false;
+            return newState.doc.nodeAt(heading.pos)?.type.name === "heading";
+          });
+        for (const { node, pos } of changed) {
+          if (node.type.name !== "heading") continue;
+          kept.push({
+            level: node.attrs.level as number,
+            text: node.textContent,
+            pos,
+          });
+        }
+        kept.sort((a, b) => a.pos - b.pos);
+        return kept;
+      },
+    },
+  });
+}
 
 class TocNodeView implements NodeView {
   dom: HTMLElement;
@@ -43,16 +100,7 @@ class TocNodeView implements NodeView {
   render(): void {
     const doc = this.view.state.doc;
     if (doc === this.lastDoc) return; // selection-only tx → identical
-    const items: { level: number; text: string; pos: number }[] = [];
-    doc.descendants((node, pos) => {
-      if (node.type.name === "heading") {
-        items.push({
-          level: node.attrs.level as number,
-          text: node.textContent,
-          pos,
-        });
-      }
-    });
+    const items = tocHeadingKey.getState(this.view.state) ?? collectHeadings(doc);
 
     // Cheap signature so doc-changed-but-no-headings-changed (e.g. typing
     // in a paragraph after the last heading) skips the DOM rebuild. Pos
@@ -174,6 +222,7 @@ export const toc: FeatureSpec = {
   },
 
   plugins: () => [
+    headingIndexPlugin(),
     tocRefreshPlugin(),
     // NodeView registration goes here so `view.someProp("nodeViews")`
     // picks it up alongside other features.

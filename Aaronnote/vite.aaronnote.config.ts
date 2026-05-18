@@ -18,7 +18,6 @@ export default defineConfig({
         manualChunks(id) {
           if (!id.includes("/node_modules/")) return undefined;
           if (id.includes("/node_modules/prosemirror-")) return "vendor-prosemirror";
-          if (id.includes("/node_modules/mermaid") || id.includes("/node_modules/d3-") || id.includes("/node_modules/cytoscape")) return "vendor-diagrams";
           if (id.includes("/node_modules/dompurify") || id.includes("/node_modules/turndown")) return "vendor-sanitize";
           if (
             id.includes("/node_modules/markdown-it") ||

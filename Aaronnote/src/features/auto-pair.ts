@@ -43,8 +43,7 @@ function autoPairInputPlugin(): Plugin {
         }
         const close = PAIRS[text];
         if (!close) return false;
-        const after = $from.parent.textBetween(offset, size);
-        if (!shouldAutoPair(after)) return false;
+        if (!shouldAutoPair(nextChar)) return false;
         const tr = view.state.tr.insertText(text + close, from, to);
         tr.setSelection(TextSelection.create(tr.doc, from + 1));
         view.dispatch(tr);

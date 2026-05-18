@@ -198,4 +198,74 @@ describe("copilot plugin insertion", () => {
     }
   });
 
+  test("large documents send only a cursor-local completion window", async () => {
+    const host = document.createElement("div");
+    const target = document.createElement("button");
+    host.appendChild(target);
+    document.body.appendChild(host);
+
+    const markdown = `${"a".repeat(2000)}\nneedle`;
+    const editor = new FakeEditor(markdown);
+    const oldFetch = globalThis.fetch;
+    const handlers: {
+      action?: (action: string) => void;
+    } = {};
+    let inlineBody: { content: string; offset: number; window?: { from: number; to: number } } | null = null;
+
+    globalThis.fetch = (async (url: RequestInfo | URL, init?: RequestInit) => {
+      if (String(url).endsWith("/api/copilot/inline")) {
+        inlineBody = JSON.parse(String(init?.body || "{}"));
+        return jsonResponse({
+          items: [{
+            insertText: "needleSuffix",
+            range: { from: inlineBody!.offset - "needle".length, to: inlineBody!.offset },
+            item: { insertText: "needleSuffix" },
+          }],
+        });
+      }
+      return jsonResponse({ ok: true });
+    }) as typeof fetch;
+
+    const cleanup = setup({
+      editor,
+      host,
+      currentFile: () => "/tmp/large.md",
+      vimMode: () => "insert",
+      setStatus: () => {},
+      onChange: () => () => {},
+      onKeyDown: () => () => {},
+      onAction: (handler: (action: string) => void) => {
+        handlers.action = handler;
+        return () => {
+          delete handlers.action;
+        };
+      },
+      onSettingsChange: () => () => {},
+      getSettings: () => ({ idleDelayMs: 999_999, largeBufferThresholdKb: 1 }),
+      onDocumentEvent: () => () => {},
+      jumpSnippetNext: () => false,
+      jumpSnippetPrevious: () => false,
+      forwardDelimiter: () => false,
+      backwardDelimiter: () => false,
+    });
+
+    try {
+      target.focus();
+      handlers.action?.("trigger");
+      await waitForMicrotasks();
+      await waitForMicrotasks();
+
+      expect(inlineBody).not.toBeNull();
+      expect(inlineBody!.content.length).toBeLessThanOrEqual(1024);
+      expect(inlineBody!.content).toContain("needle");
+      expect(inlineBody!.offset).toBe(inlineBody!.content.indexOf("needle") + "needle".length);
+      expect(inlineBody!.window?.from).toBeGreaterThan(0);
+      expect(document.querySelector(".aaronnote-copilot-ghost")?.textContent).toBe("Suffix");
+    } finally {
+      cleanup();
+      globalThis.fetch = oldFetch;
+      host.remove();
+    }
+  });
+
 });

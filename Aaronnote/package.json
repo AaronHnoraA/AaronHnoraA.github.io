@@ -100,20 +100,49 @@
         ]
       }
     ],
-    "fileAssociations": [
-      {
-        "ext": [
-          "md",
-          "markdown"
-        ],
-        "name": "Markdown Document",
-        "role": "Editor"
-      }
-    ],
     "mac": {
       "identity": null,
       "icon": "build/Aaronnote.icns",
       "category": "public.app-category.productivity",
+      "extendInfo": {
+        "CFBundleDocumentTypes": [
+          {
+            "CFBundleTypeName": "Markdown Document",
+            "CFBundleTypeRole": "Editor",
+            "CFBundleTypeIconFile": "icon.icns",
+            "LSHandlerRank": "Owner",
+            "CFBundleTypeExtensions": [
+              "md",
+              "markdown"
+            ],
+            "LSItemContentTypes": [
+              "net.daringfireball.markdown",
+              "public.plain-text"
+            ]
+          }
+        ],
+        "UTExportedTypeDeclarations": [
+          {
+            "UTTypeIdentifier": "com.aaronnote.markdown",
+            "UTTypeDescription": "AaronNote Markdown Document",
+            "UTTypeConformsTo": [
+              "net.daringfireball.markdown",
+              "public.plain-text",
+              "public.text"
+            ],
+            "UTTypeTagSpecification": {
+              "public.filename-extension": [
+                "md",
+                "markdown"
+              ],
+              "public.mime-type": [
+                "text/markdown",
+                "text/x-markdown"
+              ]
+            }
+          }
+        ]
+      },
       "target": [
         "dir"
       ]

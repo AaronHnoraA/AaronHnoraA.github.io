@@ -6,11 +6,12 @@
 // syntax-hint / syntax-hidden.
 
 import type { Node as PMNode } from "prosemirror-model";
-import { Plugin, PluginKey, type EditorState } from "prosemirror-state";
+import { Plugin, PluginKey, type EditorState, type Transaction } from "prosemirror-state";
 
 import { collectInlineFeatures } from "./features/index.ts";
 import { parseInline, type InlineSpan } from "./inline-parse.ts";
 import { schema } from "./schema.ts";
+import { changedRanges, changedTextblocks, mappedRange, overlapsAny } from "./transaction-ranges.ts";
 
 export type DelimRange = {
   from: number;
@@ -61,6 +62,13 @@ export type NormalizeState = {
 };
 
 type BlockPlan = { blockStart: number; spans: InlineSpan[] };
+type PlannedBlock = { blockPos: number; plan: BlockPlan };
+type PlanResult = {
+  blocks: PlannedBlock[];
+  delims: DelimRange[];
+  extras: ExtraDecoration[];
+  widgets: WidgetDecoration[];
+};
 type ManagedMarkType = NonNullable<typeof schema.marks[string]>;
 const blockSpanCache = new WeakMap<PMNode, Map<string, InlineSpan[]>>();
 
@@ -86,68 +94,124 @@ function parseInlineCached(node: PMNode, parent: PMNode | null | undefined, bypa
 }
 
 // Walk the doc, return per-textblock parse plan + absolute-pos delim list.
-function computePlan(doc: PMNode, options: { bypassCache?: boolean } = {}): {
-  blocks: Array<{ blockPos: number; plan: BlockPlan }>;
-  delims: DelimRange[];
-  extras: ExtraDecoration[];
-  widgets: WidgetDecoration[];
-} {
-  const blocks: Array<{ blockPos: number; plan: BlockPlan }> = [];
-  const delims: DelimRange[] = [];
-  const extras: ExtraDecoration[] = [];
-  const widgets: WidgetDecoration[] = [];
-  doc.descendants((node, pos, parent) => {
-    if (!node.isTextblock) return true;
-    const spans = parseInlineCached(node, parent, options.bypassCache === true);
-    const blockStart = pos + 1;
-    blocks.push({ blockPos: pos, plan: { blockStart, spans } });
-    for (const s of spans) {
-      const spanFrom = blockStart + s.openFrom;
-      const spanTo = blockStart + s.closeTo;
-      if (s.delimRanges) {
-        for (const dr of s.delimRanges) {
-          delims.push({
-            from: blockStart + dr.from,
-            to: blockStart + dr.to,
-            spanFrom,
-            spanTo,
-            forceVisible: dr.forceVisible,
-            softInside: dr.softInside,
-            forceHidden: dr.forceHidden,
-            className: dr.className,
-          });
-        }
-      } else {
-        delims.push({ from: blockStart + s.openFrom, to: blockStart + s.openTo, spanFrom, spanTo });
-        delims.push({ from: blockStart + s.closeFrom, to: blockStart + s.closeTo, spanFrom, spanTo });
+function appendBlockPlan(
+  out: PlanResult,
+  node: PMNode,
+  pos: number,
+  parent: PMNode | null | undefined,
+  options: { bypassCache?: boolean } = {},
+): void {
+  const spans = parseInlineCached(node, parent, options.bypassCache === true);
+  const blockStart = pos + 1;
+  out.blocks.push({ blockPos: pos, plan: { blockStart, spans } });
+  for (const s of spans) {
+    const spanFrom = blockStart + s.openFrom;
+    const spanTo = blockStart + s.closeTo;
+    if (s.delimRanges) {
+      for (const dr of s.delimRanges) {
+        out.delims.push({
+          from: blockStart + dr.from,
+          to: blockStart + dr.to,
+          spanFrom,
+          spanTo,
+          forceVisible: dr.forceVisible,
+          softInside: dr.softInside,
+          forceHidden: dr.forceHidden,
+          className: dr.className,
+        });
       }
-      if (s.extraDecorations) {
-        for (const ex of s.extraDecorations) {
-          extras.push({
-            from: blockStart + ex.from,
-            to: blockStart + ex.to,
-            nodeName: ex.nodeName,
-            attrs: ex.attrs,
-          });
-        }
-      }
-      if (s.widgetDecorations) {
-        for (const w of s.widgetDecorations) {
-          widgets.push({
-            pos: blockStart + w.pos,
-            spanFrom,
-            spanTo,
-            when: w.when,
-            kind: w.kind,
-            attrs: w.attrs,
-            side: w.side,
-          });
-        }
+    } else {
+      out.delims.push({ from: blockStart + s.openFrom, to: blockStart + s.openTo, spanFrom, spanTo });
+      out.delims.push({ from: blockStart + s.closeFrom, to: blockStart + s.closeTo, spanFrom, spanTo });
+    }
+    if (s.extraDecorations) {
+      for (const ex of s.extraDecorations) {
+        out.extras.push({
+          from: blockStart + ex.from,
+          to: blockStart + ex.to,
+          nodeName: ex.nodeName,
+          attrs: ex.attrs,
+        });
       }
     }
+    if (s.widgetDecorations) {
+      for (const w of s.widgetDecorations) {
+        out.widgets.push({
+          pos: blockStart + w.pos,
+          spanFrom,
+          spanTo,
+          when: w.when,
+          kind: w.kind,
+          attrs: w.attrs,
+          side: w.side,
+        });
+      }
+    }
+  }
+}
+
+function computePlan(doc: PMNode, options: { bypassCache?: boolean } = {}): PlanResult {
+  const out: PlanResult = {
+    blocks: [],
+    delims: [],
+    extras: [],
+    widgets: [],
+  };
+  doc.descendants((node, pos, parent) => {
+    if (!node.isTextblock) return true;
+    appendBlockPlan(out, node, pos, parent, options);
     return false; // don't descend into inline children
   });
-  return { blocks, delims, extras, widgets };
+  return sortPlanResult(out);
+}
+
+function sortPlanResult(out: PlanResult): PlanResult {
+  out.blocks.sort((a, b) => a.blockPos - b.blockPos);
+  out.delims.sort((a, b) => a.from - b.from || a.to - b.to);
+  out.extras.sort((a, b) => a.from - b.from || a.to - b.to);
+  out.widgets.sort((a, b) => a.pos - b.pos);
+  return out;
+}
+
+function incrementalPlan(prev: NormalizeState, tr: Transaction, newDoc: PMNode): PlanResult {
+  const ranges = changedRanges(tr);
+  if (ranges.length === 0) return prev;
+  const changed = changedTextblocks(newDoc, ranges);
+  if (changed.length === 0) return computePlan(newDoc);
+
+  const changedBlockRanges = changed.map(({ node, pos }) => ({ from: pos, to: pos + node.nodeSize }));
+  const mappedBlocks = prev.blocks
+    .map(({ blockPos, plan }) => ({
+      blockPos: tr.mapping.map(blockPos, 1),
+      plan: { blockStart: tr.mapping.map(plan.blockStart, 1), spans: plan.spans },
+    }))
+    .filter(({ blockPos }) => {
+      const node = newDoc.nodeAt(blockPos);
+      return Boolean(node?.isTextblock) && !overlapsAny(blockPos, blockPos + (node?.nodeSize ?? 0), changedBlockRanges);
+    });
+
+  const out: PlanResult = {
+    blocks: mappedBlocks,
+    delims: prev.delims
+      .map((d) => {
+        const range = mappedRange(tr.mapping, d.from, d.to);
+        const span = mappedRange(tr.mapping, d.spanFrom, d.spanTo);
+        return { ...d, from: range.from, to: range.to, spanFrom: span.from, spanTo: span.to };
+      })
+      .filter((d) => !overlapsAny(d.from, d.to, changedBlockRanges)),
+    extras: prev.extras
+      .map((ex) => ({ ...ex, ...mappedRange(tr.mapping, ex.from, ex.to) }))
+      .filter((ex) => !overlapsAny(ex.from, ex.to, changedBlockRanges)),
+    widgets: prev.widgets
+      .map((w) => {
+        const span = mappedRange(tr.mapping, w.spanFrom, w.spanTo);
+        return { ...w, pos: tr.mapping.map(w.pos, w.side ?? -1), spanFrom: span.from, spanTo: span.to };
+      })
+      .filter((w) => !overlapsAny(w.pos, w.pos, changedBlockRanges)),
+  };
+
+  for (const block of changed) appendBlockPlan(out, block.node, block.pos, block.parent, { bypassCache: true });
+  return sortPlanResult(out);
 }
 
 const normalizeKey = new PluginKey<NormalizeState>("normalize-inline");
@@ -168,10 +232,10 @@ export function normalizeInlinePlugin(): Plugin<NormalizeState> {
         // Skip the doc walk when nothing in the doc changed — selection-
         // only transactions are very common (every keystroke that moves
         // the cursor) and the cached plan stays valid for them.
-        tr.docChanged
-          ? computePlan(newState.doc)
-          : tr.getMeta("image-load-status-changed") || tr.getMeta("normalize-inline-recompute")
-            ? computePlan(newState.doc, { bypassCache: true })
+        tr.getMeta("image-load-status-changed") || tr.getMeta("normalize-inline-recompute")
+          ? computePlan(newState.doc, { bypassCache: true })
+          : tr.docChanged
+            ? incrementalPlan(prev, tr, newState.doc)
             : prev,
     },
 

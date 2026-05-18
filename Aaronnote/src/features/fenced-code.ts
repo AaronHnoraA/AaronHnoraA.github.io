@@ -13,8 +13,9 @@ import {
 } from "prosemirror-view";
 
 import { leaveLineDraft } from "../block-draft.ts";
-import { highlightCode } from "../code-highlight.ts";
+import { highlightCodeForEditor, onCodeHighlightReady } from "../code-highlight-async.ts";
 import { renderMermaidLazy, supportedDiagramLang } from "../diagram-render.ts";
+import { getViewportRange, VIEWPORT_RANGE_META } from "../viewport.ts";
 import type { FeatureSpec } from "./_types.ts";
 
 // Fenced code block feature.
@@ -72,6 +73,7 @@ type FencedCodePluginState = {
 };
 
 const langFocusKey = new PluginKey<FencedCodePluginState>("fencedCodeLangFocus");
+const CODE_HIGHLIGHT_READY_META = "code-highlight-ready";
 const LARGE_CODE_HIGHLIGHT_DOC_SIZE = 260_000;
 const LARGE_CODE_HIGHLIGHT_WINDOW = 90_000;
 
@@ -104,27 +106,28 @@ function mappedLangFocus(focus: LangFocus, tr: import("prosemirror-state").Trans
 function buildFencedCodeDecorations(state: EditorState, langFocus: LangFocus): DecorationSet {
   const decos: Decoration[] = [];
   const largeMode = state.doc.content.size > LARGE_CODE_HIGHLIGHT_DOC_SIZE;
-  const windowFrom = largeMode ? Math.max(0, state.selection.from - LARGE_CODE_HIGHLIGHT_WINDOW) : 0;
+  const viewport = largeMode ? getViewportRange(state) : null;
+  const windowFrom = largeMode ? Math.max(0, (viewport?.from ?? state.selection.from) - LARGE_CODE_HIGHLIGHT_WINDOW) : 0;
   const windowTo = largeMode
-    ? Math.min(state.doc.content.size, state.selection.to + LARGE_CODE_HIGHLIGHT_WINDOW)
+    ? Math.min(state.doc.content.size, (viewport?.to ?? state.selection.to) + LARGE_CODE_HIGHLIGHT_WINDOW)
     : state.doc.content.size;
-  const overlapsWindow = (from: number, to: number): boolean =>
-    !largeMode || (to >= windowFrom && from <= windowTo);
 
-  state.doc.descendants((node, pos) => {
-    if (node.type.name !== "code_block") return true;
-    if (overlapsWindow(pos, pos + node.nodeSize)) {
+  const scanCodeBlocks = (from: number, to: number): void => {
+    state.doc.nodesBetween(from, to, (node, pos) => {
+      if (node.type.name !== "code_block") return true;
       const lang = String(node.attrs.lang ?? "");
-      for (const token of highlightCode(lang, node.textContent)) {
+      for (const token of highlightCodeForEditor(lang, node.textContent)) {
         decos.push(
           Decoration.inline(pos + 1 + token.from, pos + 1 + token.to, {
             class: token.className,
           }),
         );
       }
-    }
-    return false;
-  });
+      return false;
+    });
+  };
+
+  scanCodeBlocks(windowFrom, windowTo);
 
   const sel = state.selection;
   if (sel.empty) {
@@ -452,12 +455,29 @@ function fencedCodeChromePlugin(): Plugin<FencedCodePluginState> {
           : m !== undefined
             ? m as LangFocus
             : mappedLangFocus(old.langFocus, tr);
-        const changed = tr.docChanged || tr.selectionSet || !sameLangFocus(old.langFocus, nextLangFocus);
+        const changed = tr.docChanged || tr.selectionSet || tr.getMeta(VIEWPORT_RANGE_META) || tr.getMeta(CODE_HIGHLIGHT_READY_META) || !sameLangFocus(old.langFocus, nextLangFocus);
         return {
           langFocus: nextLangFocus,
           decorations: changed ? buildFencedCodeDecorations(newState, nextLangFocus) : old.decorations,
         };
       },
+    },
+    view(editorView) {
+      let frame = 0;
+      const requestUpdate = (): void => {
+        if (frame) return;
+        frame = window.requestAnimationFrame(() => {
+          frame = 0;
+          editorView.dispatch(editorView.state.tr.setMeta(CODE_HIGHLIGHT_READY_META, true));
+        });
+      };
+      const unsubscribe = onCodeHighlightReady(requestUpdate);
+      return {
+        destroy() {
+          if (frame) window.cancelAnimationFrame(frame);
+          unsubscribe();
+        },
+      };
     },
     props: {
       nodeViews: {

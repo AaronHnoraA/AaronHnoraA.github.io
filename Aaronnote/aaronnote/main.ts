@@ -4,6 +4,7 @@ import "../src/styles/theme-typora.css";
 import "./style.css";
 
 import { createEditor, type Editor, type EditorCommand, type QuickInsertItem } from "../src/lib.ts";
+import { equationTagsFromText, getEquationTagHits } from "../src/equation-tags.ts";
 import { renderMathLazy } from "../src/math-render.ts";
 import { safeHref } from "../src/url-safety.ts";
 import { createAgendaManager } from "./agenda.ts";
@@ -278,6 +279,7 @@ const vimCursor = createVimCursor();
 let currentFile = "";
 window.AaronnoteCurrentFile = () => currentFile;
 let currentMode: "markdown" | "source" = "markdown";
+const LARGE_RENDERED_OPEN_BYTES = 1_000_000;
 let currentStandalone = false;
 let saveTimer = 0;
 let notes: NoteSummary[] = [];
@@ -321,6 +323,7 @@ let pendingEquationTag = params.get("eqTag") || "";
 let activeNoteKind = "";
 let noteKindCleanup: (() => void) | null = null;
 let noteKindLoadSeq = 0;
+let recentLocalSaveTimer = 0;
 
 const recentStorageKey = "aaronnote.recent";
 const writingModeStorageKey = "aaronnote.writingMode";
@@ -411,6 +414,7 @@ type CursorPosition = {
 };
 let cursorPositions = loadCursorPositions();
 let cursorSaveTimer = 0;
+let cursorLocalSaveTimer = 0;
 let lastCursorSaveKey = "";
 
 type UploadedAsset = {
@@ -1062,7 +1066,8 @@ async function saveStandalone(): Promise<boolean> {
     setStatus(scratchStatus());
     return false;
   }
-  const content = editor.getMarkdown();
+  const content = await editor.getMarkdownAsync();
+  if (seq !== saveRequestSeq || file !== currentFile) return false;
   const mode = editor.isSourceMode() ? "source" : "markdown";
   saveAbortController?.abort();
   const controller = new AbortController();
@@ -1425,7 +1430,7 @@ async function deleteCurrentNote(): Promise<void> {
       notes = Array.isArray(msg.notes) ? msg.notes : [];
     }
     cursorPositions.delete(fileToDelete);
-    saveCursorPositionsLocal();
+    saveCursorPositionsLocalNow();
     currentFile = "";
     fileLabel.textContent = "Scratch";
     editor.setMarkdown("");
@@ -1469,7 +1474,7 @@ async function deleteNoteFromBrowser(note: NoteSummary): Promise<void> {
       notes = Array.isArray(msg.notes) ? msg.notes : [];
     }
     cursorPositions.delete(fileToDelete);
-    saveCursorPositionsLocal();
+    saveCursorPositionsLocalNow();
     if (fileToDelete === currentFile) {
       currentFile = "";
       fileLabel.textContent = "Scratch";
@@ -1805,18 +1810,7 @@ function jumpToEquationTag(rawTag: string): boolean {
     return true;
   }
 
-  let hit: { from: number; to: number } | null = null;
-  editor.view.state.doc.descendants((node, pos) => {
-    if (hit) return false;
-    if (node.type.name !== "math_block") return true;
-    const range = findLatexTagRange(node.textContent, tag);
-    if (!range) return true;
-    hit = {
-      from: pos + 1 + range.from,
-      to: pos + 1 + range.to,
-    };
-    return false;
-  });
+  const hit = getEquationTagHits(editor.view.state).find((item) => item.tag === tag) ?? null;
   if (!hit) return false;
   editor.setSelection(hit.from, hit.to);
   editor.revealCursor();
@@ -1861,8 +1855,11 @@ function jumpToTodoSource(source: string, preferredIndex?: number): boolean {
   return true;
 }
 
-function equationTagSuggestionsFromContent(content = editor.getMarkdown()): string[] {
-  return [...new Set([...content.matchAll(/\\tag\s*\{([^{}\n]+)\}/g)].map((match) => match[1]!.trim()).filter(Boolean))]
+function equationTagSuggestionsFromContent(content?: string): string[] {
+  const tags = content == null && !editor.isSourceMode()
+    ? getEquationTagHits(editor.view.state).map((hit) => hit.tag)
+    : equationTagsFromText(content ?? editor.getMarkdown());
+  return [...new Set(tags.filter(Boolean))]
     .sort((a, b) => a.localeCompare(b));
 }
 
@@ -3285,12 +3282,21 @@ function loadRecentNotes(): RecentNote[] {
   }
 }
 
-function saveRecentNotes(): void {
+function saveRecentNotesLocalNow(): void {
+  if (recentLocalSaveTimer) {
+    window.clearTimeout(recentLocalSaveTimer);
+    recentLocalSaveTimer = 0;
+  }
   try {
     window.localStorage.setItem(recentStorageKey, JSON.stringify(recentNotes.slice(0, 24)));
   } catch {
     // Recent notes are a local convenience; ignore storage failures.
   }
+}
+
+function scheduleRecentNotesLocalSave(delay = 650): void {
+  if (recentLocalSaveTimer) window.clearTimeout(recentLocalSaveTimer);
+  recentLocalSaveTimer = window.setTimeout(saveRecentNotesLocalNow, delay);
 }
 
 function loadWritingMode(): { focusMode: boolean; typewriterMode: boolean } {
@@ -3376,7 +3382,7 @@ function mergeRecentNotes(entries: unknown): void {
   const incoming = normalizeRecentNotes(entries);
   if (incoming.length === 0) return;
   recentNotes = normalizeRecentNotes([...incoming, ...recentNotes]);
-  saveRecentNotes();
+  scheduleRecentNotesLocalSave();
   renderRecentNotes();
 }
 
@@ -3409,7 +3415,7 @@ function touchRecentNote(file: string): void {
     { file, openedAt },
     ...recentNotes.filter((item) => item.file !== file),
   ].slice(0, 24);
-  saveRecentNotes();
+  scheduleRecentNotesLocalSave();
   renderRecentNotes();
   void persistRecentNote(file, openedAt);
 }
@@ -3444,7 +3450,9 @@ function loadCursorPositions(): Map<string, CursorPosition> {
   }
 }
 
-function saveCursorPositionsLocal(): void {
+function saveCursorPositionsLocalNow(): void {
+  window.clearTimeout(cursorLocalSaveTimer);
+  cursorLocalSaveTimer = 0;
   try {
     window.localStorage.setItem(cursorStorageKey, JSON.stringify([...cursorPositions.values()].slice(0, 240)));
   } catch {
@@ -3452,11 +3460,16 @@ function saveCursorPositionsLocal(): void {
   }
 }
 
+function scheduleCursorPositionsLocalSave(delay = 700): void {
+  window.clearTimeout(cursorLocalSaveTimer);
+  cursorLocalSaveTimer = window.setTimeout(saveCursorPositionsLocalNow, delay);
+}
+
 function mergeCursorPositions(entries: unknown): void {
   const incoming = normalizeCursorPositions(entries);
   if (incoming.size === 0) return;
   cursorPositions = normalizeCursorPositions([...incoming.values(), ...cursorPositions.values()]);
-  saveCursorPositionsLocal();
+  saveCursorPositionsLocalNow();
 }
 
 async function loadServerCursorPositions(): Promise<void> {
@@ -3511,7 +3524,8 @@ function saveCursorPositionNow(options: { keepalive?: boolean; force?: boolean }
   lastCursorSaveKey = key;
   cursorPositions.set(position.file, position);
   cursorPositions = normalizeCursorPositions([...cursorPositions.values()]);
-  saveCursorPositionsLocal();
+  if (options.force || options.keepalive) saveCursorPositionsLocalNow();
+  else scheduleCursorPositionsLocalSave();
   persistCursorPosition(position, options.keepalive === true);
 }
 
@@ -3561,6 +3575,8 @@ function flushSaveKeepalive(): void {
 
 function flushState(options: { keepalive?: boolean } = {}): void {
   saveCursorPositionNow({ keepalive: options.keepalive === true, force: true });
+  saveCursorPositionsLocalNow();
+  saveRecentNotesLocalNow();
   window.clearTimeout(saveTimer);
   flushSaveKeepalive();
 }
@@ -3630,7 +3646,8 @@ function applyOpen(msg: Extract<Inbound, { type: "open" }>): void {
   currentStandalone = msg.standalone === true;
   root.dataset.standalone = currentStandalone ? "true" : "false";
   const storedPosition = currentFile ? cursorPositions.get(currentFile) : undefined;
-  currentMode = storedPosition?.mode ?? (msg.mode === "source" ? "source" : "markdown");
+  const largeOpen = (msg.content?.length ?? 0) >= LARGE_RENDERED_OPEN_BYTES;
+  currentMode = storedPosition?.mode ?? (msg.mode === "source" || largeOpen ? "source" : "markdown");
   fileLabel.textContent = currentFile || "Scratch";
   syncCurrentFileUrl();
   notesButton.hidden = currentStandalone;

@@ -467,6 +467,15 @@ input {
   box-shadow: none;
 }
 
+.aaronnote-editor .ProseMirror > pre,
+.aaronnote-editor .ProseMirror > table,
+.aaronnote-editor .ProseMirror > math-block,
+.aaronnote-editor .ProseMirror > org-env-block {
+  content-visibility: auto;
+  contain: layout paint style;
+  contain-intrinsic-size: auto 240px;
+}
+
 #app[data-view-mode="markdown"][data-note-kind]:not([data-note-kind="default"]) .aaronnote-editor .ProseMirror > org-env-block[data-kind="meta"] {
   display: none !important;
 }

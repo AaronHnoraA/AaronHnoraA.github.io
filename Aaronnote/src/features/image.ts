@@ -2,6 +2,7 @@ import type { Mark } from "prosemirror-model";
 import { Plugin } from "prosemirror-state";
 
 import { markConsumed, type InlineSpan } from "../inline-parse.ts";
+import { getViewportRange } from "../viewport.ts";
 import type { FeatureSpec, InlineFeatureSpec } from "./_types.ts";
 
 declare global {
@@ -32,6 +33,8 @@ function resolveImageSrc(src: string): string {
 // chars on and off, and on widgetDecorations to swap the img/icon UI.
 
 const IMAGE_RE = /!\[([^\]]*?)\]\(([^\s)]*)(?:\s+"([^"]*)")?\)/g;
+const LARGE_IMAGE_PROBE_DOC_SIZE = 220_000;
+const LARGE_IMAGE_PROBE_WINDOW = 64_000;
 
 // Per-src load result. We only need to remember confirmed errors —
 // "loading" and "ok" both render as a loaded image (optimistic), so we
@@ -167,8 +170,8 @@ function imageLoadProbePlugin(): Plugin {
         probeImg.onerror = (): void => finish("error");
         probeImg.src = resolveImageSrc(src);
       };
-      const scanDoc = (): void => {
-        editorView.state.doc.descendants((node) => {
+      const scanRange = (from: number, to: number): void => {
+        editorView.state.doc.nodesBetween(from, to, (node) => {
           if (!node.isTextblock) return true;
           const text = node.textContent;
           IMAGE_RE.lastIndex = 0;
@@ -180,10 +183,28 @@ function imageLoadProbePlugin(): Plugin {
           return false;
         });
       };
+      const scanDoc = (): void => {
+        const doc = editorView.state.doc;
+        if (doc.content.size <= LARGE_IMAGE_PROBE_DOC_SIZE) {
+          scanRange(0, doc.content.size);
+          return;
+        }
+        const viewport = getViewportRange(editorView.state);
+        const from = Math.max(0, (viewport?.from ?? editorView.state.selection.from) - LARGE_IMAGE_PROBE_WINDOW);
+        const to = Math.min(doc.content.size, (viewport?.to ?? editorView.state.selection.to) + LARGE_IMAGE_PROBE_WINDOW);
+        scanRange(from, to);
+      };
       scanDoc();
       return {
         update: (_view, prevState) => {
-          if (prevState.doc !== editorView.state.doc) scanDoc();
+          const prevViewport = getViewportRange(prevState);
+          const nextViewport = getViewportRange(editorView.state);
+          if (
+            prevState.doc !== editorView.state.doc ||
+            !prevState.selection.eq(editorView.state.selection) ||
+            prevViewport?.from !== nextViewport?.from ||
+            prevViewport?.to !== nextViewport?.to
+          ) scanDoc();
         },
         destroy: () => {},
       };

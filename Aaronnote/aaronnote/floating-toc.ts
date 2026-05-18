@@ -19,10 +19,20 @@ export function createFloatingTocPanel(options: {
   openNote: (note: NoteSummary, options?: OpenNoteOptions) => void;
 }): FloatingTocPanel {
   let renderKey = "";
+  let headingDoc: unknown = null;
+  let headingCache: {
+    items: Array<{ level: number; text: string; pos: number }>;
+    signature: string;
+  } = { items: [], signature: "" };
 
-  function editorHeadings(): Array<{ level: number; text: string; pos: number }> {
+  function editorHeadings(): {
+    items: Array<{ level: number; text: string; pos: number }>;
+    signature: string;
+  } {
+    const doc = options.editor.view.state.doc;
+    if (doc === headingDoc) return headingCache;
     const headings: Array<{ level: number; text: string; pos: number }> = [];
-    options.editor.view.state.doc.descendants((node, pos) => {
+    doc.descendants((node, pos) => {
       if (node.type.name !== "heading") return true;
       const level = Number(node.attrs.level || 1);
       headings.push({
@@ -32,7 +42,12 @@ export function createFloatingTocPanel(options: {
       });
       return false;
     });
-    return headings;
+    headingDoc = doc;
+    headingCache = {
+      items: headings,
+      signature: headings.map((h) => `${h.level}:${h.pos}:${h.text}`).join("\n"),
+    };
+    return headingCache;
   }
 
   function renderRelatedNotes(parent: DocumentFragment | HTMLElement, currentNote: NoteSummary | undefined): void {
@@ -72,12 +87,13 @@ export function createFloatingTocPanel(options: {
 
   function update(): void {
     const notes = options.getNotes();
-    const headings = editorHeadings();
+    const headingState = editorHeadings();
+    const headings = headingState.items;
     const selectionPos = options.editor.view.state.selection.from;
     const activeIndex = headings.reduce((active, heading, index) => heading.pos <= selectionPos ? index : active, -1);
     const currentNote = notes.find((note) => note.file === options.getCurrentFile());
     const relatedIds = [...(currentNote?.refs ?? []), ...(currentNote?.backlinks ?? [])];
-    const key = `${activeIndex}\n${currentNote?.id ?? ""}\n${relatedIds.join(",")}\n${headings.map((h) => `${h.level}:${h.pos}:${h.text}`).join("\n")}`;
+    const key = `${activeIndex}\n${currentNote?.id ?? ""}\n${relatedIds.join(",")}\n${headingState.signature}`;
     if (key === renderKey) return;
     renderKey = key;
     const frag = document.createDocumentFragment();

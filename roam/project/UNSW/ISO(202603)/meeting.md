@@ -126,12 +126,12 @@ $$
 
 下表给出小组成员的核心职责、会议前交付物与主要接口。
 
-| 成员 | 核心职责 | 会议前交付物 | 主要接口 |
-|---|---|---|---|
-| Aaron | 把 Strassen 的 bilinear-map / tensor 语言翻成项目统一记号；写清楚 isomorphism、automorphism、direct sum、cross terms vanish、switching automorphism；补 minimal support spaces 的内在性证明；指出 “any generating set contains a switching automorphism” 措辞错误，并改成 “the generated group contains a switching automorphism”。 | 一页证明草稿：1. minimal support spaces 内在性；2. $A\cong B \Longleftrightarrow A\oplus B$ contains a switch；3. 一段 caveat：generator set need not literally contain a switch。 | 先与 Euan 对表，再把 oracle 模型问题抛给 Youming；与 Murray 对接 idempotent 记号。 |
-| Euan | Krull--Schmidt 主线；核对现有 Lemma 3.1 是否真等于 Strassen Proposition 1.2；核对 Lemma 4.1 是否需要 “group contains switch” 而不是 “generating set contains switch”；整理一般、对称、交替三类 tensor category，不要混写。 | 一页 note：1. Krull--Schmidt statement 的精确对象；2. Lemma 3.1 与 Strassen 命题的逐项对比；3. 当前 proof gap 的位置清单。 | 直接与 Aaron 共用记号；把 category-level 假设发给 Youming 定稿。 |
-| Murray | 有限维代数路线：structure constants、Jacobson radical、semisimple quotient、primitive idempotents、$A/\operatorname{Rad}(A)$ 的 Wedderburn 型分解；把 “idempotent $\leftrightarrow$ direct sum block” 写成算法语言；判断 Rónyai--Ivanyos 路线是否足以在有限域上求 primitive idempotents。 | 一页 note：1. 从 structure constants 到 idempotent 的算法骨架；2. 哪些步骤在有限域是 randomized polynomial time；3. 哪些步骤在特征 $0$ / 任意有效域只剩结构结论。 | 与 Aaron 对接 block projection 记号；与 Youming 对接复杂度口径。 |
-| Youming | 冻结问题模型：$TA$ oracle 究竟返回整群、生成元还是只做判定；决定最后论文主命题写成 many-one reduction 还是 Turing reduction；统一 $TI$-complete 语境中的复杂度表述。 | 半页到一页模型说明：1. oracle 输入输出；2. 允许的后处理；3. 最终希望的 theorem statement。 | 与 Euan 决定 theorem wording；与 Aaron 决定 switch detection 走 group route 还是 idempotent route。 |
+| 成员      | 核心职责                                                                                                                                                                                                                                                                                        | 会议前交付物                                                                                                                                                             | 主要接口                                                                                     |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| Aaron   | 把 Strassen 的 bilinear-map / tensor 语言翻成项目统一记号；写清楚 isomorphism、automorphism、direct sum、cross terms vanish、switching automorphism；补 minimal support spaces 的内在性证明；指出 “any generating set contains a switching automorphism” 措辞错误，并改成 “the generated group contains a switching automorphism”。 | 一页证明草稿：1. minimal support spaces 内在性；2. $A\cong B \Longleftrightarrow A\oplus B$ contains a switch；3. 一段 caveat：generator set need not literally contain a switch。 | 先与 Euan 对表，再把 oracle 模型问题抛给 Youming；与 Murray 对接 idempotent 记号。                           |
+| Euan    | Krull--Schmidt 主线；核对现有 Lemma 3.1 是否真等于 Strassen Proposition 1.2；核对 Lemma 4.1 是否需要 “group contains switch” 而不是 “generating set contains switch”；整理一般、对称、交替三类 tensor category，不要混写。                                                                                                           | 一页 note：1. Krull--Schmidt statement 的精确对象；2. Lemma 3.1 与 Strassen 命题的逐项对比；3. 当前 proof gap 的位置清单。                                                                   | 直接与 Aaron 共用记号；把 category-level 假设发给 Youming 定稿。                                         |
+| Murray  | 有限维代数路线：structure constants、Jacobson radical、semisimple quotient、primitive idempotents、$A/\operatorname{Rad}(A)$ 的 Wedderburn 型分解；把 “idempotent $\leftrightarrow$ direct sum block” 写成算法语言；判断 Rónyai--Ivanyos 路线是否足以在有限域上求 primitive idempotents。                                           | 一页 note：1. 从 structure constants 到 idempotent 的算法骨架；2. 哪些步骤在有限域是 randomized polynomial time；3. 哪些步骤在特征 $0$ / 任意有效域只剩结构结论。                                          | 与 Aaron 对接 block projection 记号；与 Youming 对接复杂度口径。                                        |
+| Youming | 冻结问题模型：$TA$ oracle 究竟返回整群、生成元还是只做判定；决定最后论文主命题写成 many-one reduction 还是 Turing reduction；统一 $TI$-complete 语境中的复杂度表述。                                                                                                                                                                          | 半页到一页模型说明：1. oracle 输入输出；2. 允许的后处理；3. 最终希望的 theorem statement。                                                                                                     | 与 Euan 决定 theorem wording；与 Aaron 决定 switch detection 走 group route 还是 idempotent route。 |
 
 #+begin summary Aaron 的任务定位
 Aaron 的定位不是把整篇论文从头到尾写完，而是先钉死现在最容易导致全篇崩掉的三件事。
@@ -174,14 +174,14 @@ $$
 并且要尽早确认 $TA$ oracle 的输出模型，否则算法节会写错方向。
 #+end summary
 
-| Aaron 的步骤 | 具体动作 | 成果形式 |
-|---|---|---|
-| 读取 Euan note | 先不陷入 hard proof，先把对象、同构、分解、假设全部摘出来。 | 半页对象字典 |
-| 对照 Strassen | 核对 bilinear map 与 tensor 的对应、三条腿的角色、direct sum 的语言、field 假设。 | Strassen--Euan--Project 对照表 |
-| 修 Lemma 3.1 | 判断它与 Strassen 命题是否完全一致；把漏掉的 concise / nonzero / non-degenerate 假设补齐。 | 一页 proof sketch |
-| 修 Lemma 4.1 | 把 “generating set contains switch” 改成 “generated group contains switch”；加一句说明为什么生成集字面不必含 switch。 | 措辞修订稿 |
-| 分离 tensor categories | 把一般、对称、交替三类 tensor action 分开写；在 characteristic $2$ 下标红 caveat。 | 两段 warning |
-| 准备会议摘要 | 做一个三分钟版本，只讲对象、主 iff、oracle caveat、需要谁拍板。 | 口头 summary + 一页 handout |
+| Aaron 的步骤            | 具体动作                                                                                             | 成果形式                        |
+| -------------------- | ------------------------------------------------------------------------------------------------ | --------------------------- |
+| 读取 Euan note         | 先不陷入 hard proof，先把对象、同构、分解、假设全部摘出来。                                                              | 半页对象字典                      |
+| 对照 Strassen          | 核对 bilinear map 与 tensor 的对应、三条腿的角色、direct sum 的语言、field 假设。                                     | Strassen--Euan--Project 对照表 |
+| 修 Lemma 3.1          | 判断它与 Strassen 命题是否完全一致；把漏掉的 concise / nonzero / non-degenerate 假设补齐。                             | 一页 proof sketch             |
+| 修 Lemma 4.1          | 把 “generating set contains switch” 改成 “generated group contains switch”；加一句说明为什么生成集字面不必含 switch。 | 措辞修订稿                       |
+| 分离 tensor categories | 把一般、对称、交替三类 tensor action 分开写；在 characteristic $2$ 下标红 caveat。                                   | 两段 warning                  |
+| 准备会议摘要               | 做一个三分钟版本，只讲对象、主 iff、oracle caveat、需要谁拍板。                                                         | 口头 summary + 一页 handout     |
 
 # 引言与优先文献
 
@@ -202,15 +202,15 @@ Strassen 在 1987 年把 bilinear complexity、tensor、restriction、degenerati
 
 前者给出“中心代数交换、正交幂等元对应 direct sum、indecomposable 分解唯一”的清晰原型；后者则把这件事真正推到一般 Segre 格式张量。
 
-| 优先级 | 文献 | 本文使用位置 | 备注 |
-|---|---|---|---|
-| A | Strassen 1987 | 引言、bilinear map / tensor 语言、direct sum 直觉、复杂度背景 | 起始语言 |
-| A | Grochow--Qiao 2023；Grochow--Qiao 等后续 | $TI$-complete 语境、oracle 和复杂度定位 | 复杂度主线 |
-| A | Kayal--Saxena；Agrawal--Saxena | automorphism / isomorphism / cubic form 相关工作 | 与 $TA$ 主题接近 |
-| A | Wilson 2012 | Remak / Krull--Schmidt 算法视角；bilinear map 相关背景 | 算法性分解背景 |
-| A | Rónyai 1990；Ivanyos 系列 | finite-dimensional algebra、idempotent、有限域算法 | Murray 路线核心 |
-| A | Huang--Lu--Ye--Zhang 2023 | 中心代数与 direct sum 唯一性原型 | proof template |
-| A | Canino 等 2025 | Segre 格式 centroid 与 refined decomposition | 直接支撑本文张量情形 |
+| 优先级 | 文献                                   | 本文使用位置                                          | 备注             |
+| --- | ------------------------------------ | ----------------------------------------------- | -------------- |
+| A   | Strassen 1987                        | 引言、bilinear map / tensor 语言、direct sum 直觉、复杂度背景 | 起始语言           |
+| A   | Grochow--Qiao 2023；Grochow--Qiao 等后续 | $TI$-complete 语境、oracle 和复杂度定位                  | 复杂度主线          |
+| A   | Kayal--Saxena；Agrawal--Saxena        | automorphism / isomorphism / cubic form 相关工作    | 与 $TA$ 主题接近    |
+| A   | Wilson 2012                          | Remak / Krull--Schmidt 算法视角；bilinear map 相关背景   | 算法性分解背景        |
+| A   | Rónyai 1990；Ivanyos 系列               | finite-dimensional algebra、idempotent、有限域算法     | Murray 路线核心    |
+| A   | Huang--Lu--Ye--Zhang 2023            | 中心代数与 direct sum 唯一性原型                          | proof template |
+| A   | Canino 等 2025                        | Segre 格式 centroid 与 refined decomposition       | 直接支撑本文张量情形     |
 
 # 形式化定义与精确模型
 
@@ -460,19 +460,19 @@ A nonzero tensor $T$ is called indecomposable if, after restricting to its minim
 
 # Tensor categories and caveats
 
-| 对象类别 | 主作用群 | 本文状态 | 主要 caveat |
-|---|---|---|---|
-| Segre 三张量 $U\otimes V\otimes W$ | Independent action $\operatorname{GL}(U)\times\operatorname{GL}(V)\times\operatorname{GL}(W)$ | 本文主线完整处理 | 无额外特征限制 |
-| 对称张量 $\operatorname{Sym}^3(V)$ / cubic forms | Diagonal action $\operatorname{GL}(V)$ | 只作比较与 caveat，不在本文主定理里完全展开 | 若用 polarization 或 Jacobian-ideal 语言，常需要 $\operatorname{char}(k)=0$ 或 $\operatorname{char}(k)>3$ |
-| 交替张量 $\wedge^3(V)$ | Diagonal action $\operatorname{GL}(V)$ | 仅作提醒 | $\operatorname{char}(k)=2$ 时 alternating / skew-symmetric 现象退化，不能与一般特征混写 |
+| 对象类别                                         | 主作用群                                                                                          | 本文状态                      | 主要 caveat                                                                                       |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------- | ----------------------------------------------------------------------------------------------- |
+| Segre 三张量 $U\otimes V\otimes W$              | Independent action $\operatorname{GL}(U)\times\operatorname{GL}(V)\times\operatorname{GL}(W)$ | 本文主线完整处理                  | 无额外特征限制                                                                                         |
+| 对称张量 $\operatorname{Sym}^3(V)$ / cubic forms | Diagonal action $\operatorname{GL}(V)$                                                        | 只作比较与 caveat，不在本文主定理里完全展开 | 若用 polarization 或 Jacobian-ideal 语言，常需要 $\operatorname{char}(k)=0$ 或 $\operatorname{char}(k)>3$ |
+| 交替张量 $\wedge^3(V)$                           | Diagonal action $\operatorname{GL}(V)$                                                        | 仅作提醒                      | $\operatorname{char}(k)=2$ 时 alternating / skew-symmetric 现象退化，不能与一般特征混写                        |
 
 # TA oracle 模型
 
-| $TA$ oracle 模型 | 输入输出 | 对 $TI$ 到 $TA$ 归约的影响 |
-|---|---|---|
-| $TA_{\mathrm{all}}$ | 输入 $T$，返回 $\operatorname{Aut}(T)$ 的全部元素。有限域时这个模型才比较现实。 | 最直接：逐个检测是否存在 switch。 |
-| $TA_{\mathrm{gen}}$ | 输入 $T$，返回 $\operatorname{Aut}(T)$ 的一组生成元。 | 可行，但必须补矩阵群或置换群后处理；生成集本身未必含 switch。 |
-| $TA_{\mathrm{dec}}$ | 输入 $T$，只回答 $\operatorname{Aut}(T)$ 是否非平凡。 | 一般不足；会被 $\operatorname{Aut}(A)$、$\operatorname{Aut}(B)$ 的内部对称性误伤；只在 rigid promise 下可用。 |
+| $TA$ oracle 模型      | 输入输出                                                   | 对 $TI$ 到 $TA$ 归约的影响                                                                    |
+| ------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| $TA_{\mathrm{all}}$ | 输入 $T$，返回 $\operatorname{Aut}(T)$ 的全部元素。有限域时这个模型才比较现实。 | 最直接：逐个检测是否存在 switch。                                                                   |
+| $TA_{\mathrm{gen}}$ | 输入 $T$，返回 $\operatorname{Aut}(T)$ 的一组生成元。              | 可行，但必须补矩阵群或置换群后处理；生成集本身未必含 switch。                                                     |
+| $TA_{\mathrm{dec}}$ | 输入 $T$，只回答 $\operatorname{Aut}(T)$ 是否非平凡。              | 一般不足；会被 $\operatorname{Aut}(A)$、$\operatorname{Aut}(B)$ 的内部对称性误伤；只在 rigid promise 下可用。 |
 
 # 主要定理与证明结构
 
@@ -495,7 +495,6 @@ Then:
    \otimes
    W_{\min}(T).
    $$
-
 2. If
 
    $$
@@ -521,7 +520,6 @@ Then:
    \qquad
    W_{\min}(T)\subseteq W'.
    $$
-
 3. If
 
    $$
@@ -569,7 +567,6 @@ $$
 Then the following are equivalent:
 
 1. $A\cong B$.
-
 2. $S$ has a switching automorphism relative to the displayed decomposition
 
    $$
@@ -1060,7 +1057,6 @@ We distinguish three oracle models.
    $$
    \operatorname{Aut}(T).
    $$
-
 2. $TA_{\mathrm{gen}}$:
 
    Input $T$ and return a generating set for
@@ -1068,7 +1064,6 @@ We distinguish three oracle models.
    $$
    \operatorname{Aut}(T).
    $$
-
 3. $TA_{\mathrm{dec}}$:
 
    Input $T$ and answer whether
@@ -1331,17 +1326,16 @@ Under this promise, $TI$ can be reduced to $TA_{\mathrm{dec}}$.
 But this is not the general case. Turning arbitrary instances into rigid instances would require an additional rigidification gadget.
 #+end remark
 
-| 模型 | 是否足以完成一般 $TI\to TA$ | 原因 |
-|---|---|---|
-| $TA_{\mathrm{all}}$ | 可以 | 整群已知，直接检测是否存在 switch。 |
-| $TA_{\mathrm{gen}}$ | 可以，但要后处理 | 要解 transporter / orbit / membership 型群算法子问题。 |
-| $TA_{\mathrm{dec}}$ | 一般不可以 | 非平凡 automorphism 可能来自内部对称，不一定来自 switch。 |
+| 模型                  | 是否足以完成一般 $TI\to TA$ | 原因                                           |
+| ------------------- | ------------------- | -------------------------------------------- |
+| $TA_{\mathrm{all}}$ | 可以                  | 整群已知，直接检测是否存在 switch。                        |
+| $TA_{\mathrm{gen}}$ | 可以，但要后处理            | 要解 transporter / orbit / membership 型群算法子问题。 |
+| $TA_{\mathrm{dec}}$ | 一般不可以               | 非平凡 automorphism 可能来自内部对称，不一定来自 switch。      |
 
 #+begin proposition Complexity estimate
 Let $N$ denote the input size.
 
 1. Minimal support reduction is a linear-algebraic computation and takes time polynomial in $N$.
-
 2. Constructing
 
    $$
@@ -1349,11 +1343,8 @@ Let $N$ denote the input size.
    $$
 
    also takes polynomial time.
-
 3. With $TA_{\mathrm{all}}$, the post-processing time is polynomial in the input size and in the oracle output length.
-
 4. With $TA_{\mathrm{gen}}$ over a finite field, the remaining switch detection problem can be phrased as a finite matrix-group / transporter problem. The precise polynomial-time claim depends on the available constructive membership and transporter algorithms.
-
 5. With the centroid / idempotent route, over finite fields one may use finite-dimensional algebra algorithms to compute primitive idempotents. These are typically randomized polynomial-time in the standard models.
 #+end proposition
 
@@ -1381,15 +1372,14 @@ Over infinite fields, $\operatorname{Aut}(T)$ may be infinite and may be better 
 Therefore the paper should separate:
 
 1. Structural layer: arbitrary fields, subject to the hypotheses of the relevant decomposition theorem.
-
 2. Algorithmic layer: finite fields, unless an explicit algebraic-group oracle model is introduced.
 #+end remark
 
-| 底域 | 结构性结论 | 算法性结论 |
-|---|---|---|
-| finite field $F_q$ | minimal support、switching criterion、centroid / direct-sum 结构都成立。 | 最适合写成 polynomial-time oracle reduction；Rónyai / matrix-group routines 可接上。 |
-| effective field of characteristic $0$ | 结构通常仍成立。 | 若要算法化，需要额外规定 factorization、finite-vs-infinite group handling、algebraic-group representation。 |
-| arbitrary field | 主 iff 与 minimal support 内在性成立。 | 若 oracle 模型不加强，通常只能保留结构定理，不宜贸然声称统一多项式时间算法。 |
+| 底域                                    | 结构性结论                                                            | 算法性结论                                                                                        |
+| ------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| finite field $F_q$                    | minimal support、switching criterion、centroid / direct-sum 结构都成立。 | 最适合写成 polynomial-time oracle reduction；Rónyai / matrix-group routines 可接上。                   |
+| effective field of characteristic $0$ | 结构通常仍成立。                                                         | 若要算法化，需要额外规定 factorization、finite-vs-infinite group handling、algebraic-group representation。 |
+| arbitrary field                       | 主 iff 与 minimal support 内在性成立。                                   | 若 oracle 模型不加强，通常只能保留结构定理，不宜贸然声称统一多项式时间算法。                                                   |
 
 #+begin summary Recommended theorem wording
 The safest final theorem wording should be split into three layers.
@@ -1458,12 +1448,12 @@ Symmetric tensors and alternating tensors use diagonal actions and may require a
 They should appear as remarks or future directions unless treated separately.
 #+end warning
 
-| 验证项 | 最小代码实验 | 预期现象 |
-|---|---|---|
-| minimal support | 随机生成小尺寸张量，计算三条腿的 contraction span。 | 去掉零方向后，$TI$ 实例尺寸下降但同构结论不变。 |
-| switch positive case | 取随机 $A$ 与其基变换副本 $B$，再构造 $S=A\oplus B$。 | $\operatorname{Aut}(S)$ 中存在明显的块交换元素。 |
+| 验证项                  | 最小代码实验                                                                     | 预期现象                                             |
+| -------------------- | -------------------------------------------------------------------------- | ------------------------------------------------ |
+| minimal support      | 随机生成小尺寸张量，计算三条腿的 contraction span。                                         | 去掉零方向后，$TI$ 实例尺寸下降但同构结论不变。                       |
+| switch positive case | 取随机 $A$ 与其基变换副本 $B$，再构造 $S=A\oplus B$。                                     | $\operatorname{Aut}(S)$ 中存在明显的块交换元素。             |
 | switch negative case | 取 $A\not\cong B$ 但让 $\operatorname{Aut}(A)$ 或 $\operatorname{Aut}(B)$ 非平凡。 | $TA_{\mathrm{dec}}$ 给出假阳性；说明 decision oracle 不够。 |
-| idempotent route | 从 structure constants 求有限维交换代数的 primitive idempotents。 | 完全分解时得到块投影；indecomposable 时只得到 local algebra。 |
+| idempotent route     | 从 structure constants 求有限维交换代数的 primitive idempotents。                     | 完全分解时得到块投影；indecomposable 时只得到 local algebra。    |
 
 # 文中直接可引用的定理陈述草稿
 
@@ -1491,7 +1481,6 @@ Then the following are equivalent:
    $$
    \operatorname{GL}(U)\times \operatorname{GL}(V)\times \operatorname{GL}(W).
    $$
-
 2. The automorphism group
 
    $$

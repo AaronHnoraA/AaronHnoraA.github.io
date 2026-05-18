@@ -14,6 +14,7 @@ import {
   parseBlockCommandOpenLine,
   parseBlockCommandText,
 } from "../command-syntax.ts";
+import { changedRangesFromTransactions, changedTextblocks } from "../transaction-ranges.ts";
 import type { FeatureSpec } from "./_types.ts";
 
 const ENV_LABELS: Record<string, string> = {
@@ -50,31 +51,24 @@ function paragraphFromText(schema: Schema, text: string): PMNode | null {
 
 function orgEnvCommitPlugin(): Plugin {
   return new Plugin({
-    appendTransaction(_trs, _oldState, newState) {
+    appendTransaction(transactions, _oldState, newState) {
+      if (!transactions.some((tr) => tr.docChanged)) return null;
       const orgEnvType = newState.schema.nodes.org_env_block;
       if (!orgEnvType) return null;
-      const found: Array<{ from: number; to: number; kind: string; title: string; content: string }> = [];
-      newState.doc.descendants((node, pos) => {
-        if (found.length > 0 || node.type.name !== "paragraph") return found.length === 0;
+      const ranges = changedRangesFromTransactions(transactions);
+      const candidates = changedTextblocks(newState.doc, ranges);
+      for (const { node, pos } of candidates) {
+        if (node.type.name !== "paragraph") continue;
         const parsed = parseBlockCommandText(node.textContent);
-        if (!parsed) return true;
-        found.push({
-          from: pos,
-          to: pos + node.nodeSize,
+        if (!parsed) continue;
+        const paragraph = paragraphFromText(newState.schema, parsed.content);
+        const block = orgEnvType.createChecked({
           kind: parsed.name,
           title: parsed.title,
-          content: parsed.content,
-        });
-        return false;
-      });
-      const replacement = found[0];
-      if (!replacement) return null;
-      const paragraph = paragraphFromText(newState.schema, replacement.content);
-      const block = orgEnvType.createChecked({
-        kind: replacement.kind,
-        title: replacement.title,
-      }, paragraph ? [paragraph] : []);
-      return newState.tr.replaceWith(replacement.from, replacement.to, block);
+        }, paragraph ? [paragraph] : []);
+        return newState.tr.replaceWith(pos, pos + node.nodeSize, block);
+      }
+      return null;
     },
   });
 }

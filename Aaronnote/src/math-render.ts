@@ -6,6 +6,7 @@ type KatexRenderOptions = {
   strict?: boolean | "error" | "ignore" | "warn";
   trust?: boolean;
   output?: "html" | "mathml" | "htmlAndMathml";
+  deferUntilIdle?: boolean;
 };
 
 const mathHtmlCache = new Map<string, { html: string; error?: string }>();
@@ -64,7 +65,31 @@ export function renderMathLazy(
 ): void {
   const key = `${options.displayMode ? "display" : "inline"}\n${tex}`;
   element.setAttribute("data-math-render-key", key);
-  const rendered = renderMathHTML(tex, options);
+  const cached = cachedMathHtml(key);
+  if (cached) {
+    applyRenderedMath(tex, element, options, key, cached, onError);
+    return;
+  }
+  if (options.deferUntilIdle === true) {
+    element.textContent = tex;
+    const idle = window.requestIdleCallback ?? ((cb: IdleRequestCallback) => window.setTimeout(() => cb({ didTimeout: false, timeRemaining: () => 0 }), 16));
+    idle(() => {
+      if (element.getAttribute("data-math-render-key") !== key || !element.isConnected) return;
+      applyRenderedMath(tex, element, options, key, renderMathHTML(tex, options), onError);
+    }, { timeout: 500 });
+    return;
+  }
+  applyRenderedMath(tex, element, options, key, renderMathHTML(tex, options), onError);
+}
+
+function applyRenderedMath(
+  tex: string,
+  element: HTMLElement,
+  options: KatexRenderOptions,
+  key: string,
+  rendered: { html: string; error?: string },
+  onError: () => void,
+): void {
   if (!rendered.error) {
     element.innerHTML = rendered.html;
     fitRenderedMath(element);

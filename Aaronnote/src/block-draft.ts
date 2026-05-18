@@ -109,7 +109,8 @@ export function leaveLineDraft<M>(spec: LeaveLineDraftSpec<M>): LeaveLineDraftHa
     key,
     state: {
       init: (_, state) => buildDecos(state),
-      apply: (_tr, _old, _oldState, newState) => buildDecos(newState),
+      apply: (tr, old, _oldState, newState) =>
+        tr.docChanged || tr.selectionSet ? buildDecos(newState) : old,
     },
     props: {
       decorations(state) {

@@ -14,6 +14,7 @@ import { Decoration, DecorationSet, type EditorView } from "prosemirror-view";
 
 import { renderMathLazy } from "./math-render.ts";
 import { getDelims, getExtras, getWidgets, type WidgetDecoration } from "./normalize.ts";
+import { getViewportRange, VIEWPORT_RANGE_META } from "./viewport.ts";
 
 declare global {
   interface Window {
@@ -100,6 +101,8 @@ const widgetDisposers = new WeakMap<Node, () => void>();
 const LARGE_DOC_DECORATION_SIZE = 220_000;
 const LARGE_DECORATION_COUNT = 7_500;
 const LARGE_DECORATION_WINDOW = 48_000;
+const IMAGE_LOAD_META = "image-load-status-changed";
+const NORMALIZE_RECOMPUTE_META = "normalize-inline-recompute";
 
 // Widget builders — keyed by `kind`. A widget renders as a DOM element
 // at a specific position; decorations.ts decides whether to emit it based
@@ -119,6 +122,7 @@ const widgetBuilders: Record<string, (attrs: Record<string, string>) => HTMLElem
       strict: false,
       trust: false,
       output: "html",
+      deferUntilIdle: true,
     }, () => {
       el.classList.add("aaronnote-math-error");
       el.textContent = display ? `$$ ${tex} $$` : `$${tex}$`;
@@ -296,6 +300,28 @@ function buildWidgetLazy(w: WidgetDecoration): (view: EditorView, getPos: () => 
   };
 }
 
+function lowerBoundByPosition<T>(items: readonly T[], target: number, posOf: (item: T) => number): number {
+  let lo = 0;
+  let hi = items.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (posOf(items[mid]!) < target) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
+function rangeStartIndex<T>(
+  items: readonly T[],
+  windowFrom: number,
+  fromOf: (item: T) => number,
+  toOf: (item: T) => number,
+): number {
+  let index = lowerBoundByPosition(items, windowFrom, fromOf);
+  while (index > 0 && toOf(items[index - 1]!) >= windowFrom) index--;
+  return index;
+}
+
 function buildDecorationSet(state: EditorState): DecorationSet {
   const decos: Decoration[] = [];
   const cursor = state.selection.empty ? state.selection.from : null;
@@ -304,13 +330,19 @@ function buildDecorationSet(state: EditorState): DecorationSet {
   const widgets = getWidgets(state);
   const totalDecorations = delims.length + extras.length + widgets.length;
   const largeMode = state.doc.content.size > LARGE_DOC_DECORATION_SIZE || totalDecorations > LARGE_DECORATION_COUNT;
+  const viewport = largeMode ? getViewportRange(state) : null;
   const selectionFrom = state.selection.from;
   const selectionTo = state.selection.to;
-  const windowFrom = largeMode ? Math.max(0, selectionFrom - LARGE_DECORATION_WINDOW) : 0;
-  const windowTo = largeMode ? Math.min(state.doc.content.size, selectionTo + LARGE_DECORATION_WINDOW) : state.doc.content.size;
+  const windowFrom = largeMode
+    ? Math.max(0, (viewport?.from ?? selectionFrom) - LARGE_DECORATION_WINDOW)
+    : 0;
+  const windowTo = largeMode
+    ? Math.min(state.doc.content.size, (viewport?.to ?? selectionTo) + LARGE_DECORATION_WINDOW)
+    : state.doc.content.size;
   const overlapsWindow = (from: number, to: number): boolean => !largeMode || (to >= windowFrom && from <= windowTo);
 
-  for (const d of delims) {
+  for (let i = largeMode ? rangeStartIndex(delims, windowFrom, (d) => d.from, (d) => d.to) : 0; i < delims.length; i++) {
+    const d = delims[i]!;
     if (largeMode && d.from > windowTo) break;
     if (!overlapsWindow(d.from, d.to)) continue;
     const cursorInside =
@@ -338,14 +370,16 @@ function buildDecorationSet(state: EditorState): DecorationSet {
     const cls = visible ? "syntax-hint" : "syntax-hidden";
     decos.push(Decoration.inline(d.from, d.to, { class: cls }));
   }
-  for (const ex of extras) {
+  for (let i = largeMode ? rangeStartIndex(extras, windowFrom, (ex) => ex.from, (ex) => ex.to) : 0; i < extras.length; i++) {
+    const ex = extras[i]!;
     if (largeMode && ex.from > windowTo) break;
     if (!overlapsWindow(ex.from, ex.to)) continue;
     decos.push(
       Decoration.inline(ex.from, ex.to, { nodeName: ex.nodeName, ...(ex.attrs ?? {}) }),
     );
   }
-  for (const w of widgets) {
+  for (let i = largeMode ? lowerBoundByPosition(widgets, windowFrom, (w) => w.pos) : 0; i < widgets.length; i++) {
+    const w = widgets[i]!;
     if (largeMode && w.pos > windowTo) break;
     if (!overlapsWindow(w.pos, w.pos)) continue;
     const cursorInsideSpan =
@@ -389,7 +423,15 @@ export function syntaxHintsPlugin(): Plugin<DecorationSet> {
     key: syntaxHintsKey,
     state: {
       init: (_, state) => buildDecorationSet(state),
-      apply: (_tr, _old, _oldState, newState) => buildDecorationSet(newState),
+      apply: (tr, old, oldState, newState) =>
+        tr.docChanged ||
+        tr.selectionSet ||
+        tr.getMeta(VIEWPORT_RANGE_META) ||
+        tr.getMeta(IMAGE_LOAD_META) ||
+        tr.getMeta(NORMALIZE_RECOMPUTE_META) ||
+        !oldState.selection.eq(newState.selection)
+          ? buildDecorationSet(newState)
+          : old,
     },
     props: {
       decorations(state) {
