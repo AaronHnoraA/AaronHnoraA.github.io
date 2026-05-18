@@ -229,7 +229,6 @@ export function cleanEditorHTML(root: HTMLElement): string {
       "data-empty",
       "data-tex",
       "data-math-render-key",
-      "data-temml-error",
       "data-aaronnote-math-block",
     ],
   });

@@ -21,7 +21,7 @@ $$
 \end{array}
 $$
 
-Here the graph-side chain @@todo [这里是我的任务] {ddl:2026-05-19} 
+Here the graph-side chain @@todo [to check it] {ddl:2026-05-19} 
 
 $$
 d\mathrm{GA} \le_p \mathrm{GI} \le_p \mathrm{GA}
@@ -64,212 +64,70 @@ $$
 #+end comment
 #+end summary
 
-# Basic Concepts
+# $d\mathrm{GA} \le_p \mathrm{GI}$
 
-# Complexity Theory
+Take two distinct vertices $i \ne j$ of a graph $G$.
 
-# Reductions
-
-## Basic Reductions
-
-## Reductions in Our Paper
-
-# Today
-
-## Title
-
-From Graph Isomorphism/Automorphism to Tensor Isomorphism/Automorphism
-
-## Goal
-
-My current task is to understand the graph-side relationships between $\mathrm{GI}$, $\mathrm{GA}$, $\#\mathrm{GI}$, and $\#\mathrm{GA}$ from Köbler--Schöning--Torán, and then identify which parts of this workflow may have tensor analogues.
-
-## 1. Graph-Side Definitions
-
-For graphs $G$ and $H$, the graph isomorphism problem asks whether there exists a bijection between their vertex sets preserving adjacency. I write
+Let
 
 $$
-\mathrm{GI}
-=
-\{(G,H) : G \cong H\}.
+G[i]
 $$
 
-The automorphism group of a graph $G$ is
+denote the graph obtained from $G$ by giving vertex $i$ a special label.
+
+Then:
 
 $$
-\operatorname{Aut}(G)
-=
-\{\varphi \in S_n : \varphi(G) = G\}.
-$$
-
-The graph automorphism problem asks whether $\operatorname{Aut}(G)$ contains a non-identity element.
-
-The corresponding counting versions are
-
-$$
-\#\mathrm{GI}(G,H)
-=
-|\operatorname{Iso}(G,H)|,
-$$
-
-and
-
-$$
-\#\mathrm{GA}(G)
-=
-|\operatorname{Aut}(G)|.
-$$
-
-## 2. Reduction from $\mathrm{GA}$ to $\mathrm{GI}$
-
-For a vertex $i \in V(G)$, let $G[i]$ denote the graph $G$ with vertex $i$ distinguished or labelled.
-
-Then $G$ has a nontrivial automorphism if and only if there exist distinct vertices $i \neq j$ such that
-
-$$
-G[i] \cong G[j].
-$$
-
-Indeed, if an automorphism $\varphi \in \operatorname{Aut}(G)$ moves $i$ to $j$, then $\varphi$ gives an isomorphism
-
-$$
-G[i] \cong G[j].
-$$
-
-Conversely, any isomorphism
-
-$$
-G[i] \cong G[j]
-$$
-
-with $i \neq j$ induces a nontrivial automorphism of $G$.
-
-Therefore $\mathrm{GA}$ can be decided using polynomially many $\mathrm{GI}$-queries. 
-
-## 3. The Disjoint-Union Trick
-
-For connected graphs $G$ and $H$,
-
-$$
-G \cong H
-$$
-
-if and only if the disjoint union $G \sqcup H$ has an automorphism that switches the two connected components.
-
-This is the key graph-side mechanism:
-
-$$
-\text{isomorphism between two objects}
-\quad \leadsto \quad
-\text{symmetry of their disjoint union}.
-$$
-
-## 4. Counting Relation
-
-For connected graphs $G$ and $H$, one has
-
-$$
-\#\mathrm{GA}(G \sqcup H)
-=
-\#\mathrm{GA}(G)\#\mathrm{GA}(H)
-+
-\#\mathrm{GI}(G,H)^2.
-$$
-
-If $G \not\cong H$, then there are no automorphisms switching the two connected components, so every automorphism of $G \sqcup H$ preserves each component.
-
-If $G \cong H$, then the additional automorphisms are exactly those that switch the two components. These are determined by choosing an isomorphism $G \to H$ and an isomorphism $H \to G$, giving the $\#\mathrm{GI}(G,H)^2$ term.
-
-## 5. Tensor Analogue
-
-For tensors
-
-$$
-A,B \in U \otimes V \otimes W,
-$$
-
-the tensor isomorphism problem asks whether there exists
-
-$$
-(P,Q,R) \in \mathrm{GL}(U) \times \mathrm{GL}(V) \times \mathrm{GL}(W)
-$$
-
-such that
-
-$$
-B = (P,Q,R) \cdot A.
-$$
-
-The automorphism group of $A$ is
-
-$$
-\operatorname{Aut}(A)
-=
-\{(P,Q,R) : (P,Q,R) \cdot A = A\}.
-$$
-
-The natural graph-to-tensor analogy is
-
-$$
-G \sqcup H
-\quad \leadsto \quad
-A \oplus B.
-$$
-
-The desired tensor-side statement would be something like:
-
-$$
-A \cong B
+G \text{ has an automorphism sending } i \text{ to } j
 $$
 
 if and only if
 
 $$
-A \oplus B
+G[i] \cong G[j].
 $$
 
-has an automorphism that switches the two direct summands.
+## Why?
 
-## 6. Main Obstruction
-
-In graph theory, the connected components of $G \sqcup H$ are canonical and combinatorially visible.
-
-In tensor theory, the direct summands of $A \oplus B$ are not necessarily visible after arbitrary changes of basis. Therefore, the tensor analogue cannot rely only on the formal expression $A \oplus B$. It requires a theorem ensuring that direct-sum decompositions are sufficiently canonical.
-
-This is where a Strassen/Krull--Schmidt type direct-sum decomposition theorem may be needed.
-
-Informally:
+Suppose there exists an automorphism
 
 $$
-\text{graph connected components}
-\quad \leadsto \quad
-\text{tensor indecomposable summands}.
+\varphi \in \operatorname{Aut}(G)
 $$
 
-The difficulty is that tensor summands are linear-algebraic objects rather than visibly separated combinatorial components.
+such that
 
-## 7. Questions
+$$
+\varphi(i) = j.
+$$
 
-1. Are we trying to prove
+Since $\varphi$ preserves all adjacency relations of $G$, it naturally induces an isomorphism
 
-   $$
-   \mathrm{TI} \le_p \mathrm{TA},
-   $$
+$$
+G[i] \to G[j].
+$$
 
-   or
+The special label on $i$ is sent to the special label on $j$, so the labeled graphs are isomorphic.
 
-   $$
-   \mathrm{TI} \le_p \mathrm{cTA},
-   $$
+Conversely, suppose
 
-   or are we only trying to identify the obstruction to such a reduction?
-2. What is the correct tensor category for the analogue?
+$$
+G[i] \cong G[j].
+$$
 
-   Possible candidates include:
+Because graph isomorphisms between labeled graphs must preserve labels, the unique specially labeled vertex of $G[i]$, namely $i$, must be mapped to the unique specially labeled vertex of $G[j]$, namely $j$.
 
-   - ordinary 3-tensors;
-   - bilinear maps;
-   - structure tensors of algebras or rings.
-3. Which version of Strassen's indecomposable direct-sum theorem is actually needed?
-4. If $\operatorname{Aut}(A \oplus B)$ is given by generators, how do we detect whether the generated group contains an element that switches the two direct summands?
-5. More generally, what is the correct tensor-side analogue of the graph operation of distinguishing, colouring, or labelling vertices?
+After forgetting the special labels, this isomorphism is an automorphism of the original graph $G$.
+
+Therefore, it is an automorphism of $G$ sending $i$ to $j$.
+
+Since $i \ne j$, this automorphism is nontrivial.
+
+Hence the algorithmic criterion is:
+
+$$
+G \in \mathrm{GA}
+\iff
+\exists i \ne j,\quad G[i] \cong G[j].
+$$

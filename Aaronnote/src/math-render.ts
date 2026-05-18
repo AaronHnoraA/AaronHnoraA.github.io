@@ -1,4 +1,5 @@
-import temml, { type Options as TemmlOptions } from "temml";
+import katex from "katex";
+import katexCssUrl from "katex/dist/katex.min.css?url";
 
 type KatexRenderOptions = {
   displayMode?: boolean;
@@ -45,7 +46,7 @@ export function renderMathHTML(
   const cached = cachedMathHtml(key);
   if (cached) return cached;
   try {
-    const html = temml.renderToString(tex, temmlOptions(options));
+    const html = katex.renderToString(tex, katexOptions(options));
     const rendered = { html };
     rememberMathHtml(key, rendered);
     return rendered;
@@ -67,7 +68,7 @@ export function renderMathLazy(
   element.setAttribute("data-math-render-key", key);
   const cached = cachedMathHtml(key);
   if (cached) {
-    applyRenderedMath(tex, element, options, key, cached, onError);
+    applyRenderedMath(element, key, cached, onError);
     return;
   }
   if (options.deferUntilIdle === true) {
@@ -75,67 +76,39 @@ export function renderMathLazy(
     const idle = window.requestIdleCallback ?? ((cb: IdleRequestCallback) => window.setTimeout(() => cb({ didTimeout: false, timeRemaining: () => 0 }), 16));
     idle(() => {
       if (element.getAttribute("data-math-render-key") !== key || !element.isConnected) return;
-      applyRenderedMath(tex, element, options, key, renderMathHTML(tex, options), onError);
+      applyRenderedMath(element, key, renderMathHTML(tex, options), onError);
     }, { timeout: 500 });
     return;
   }
-  applyRenderedMath(tex, element, options, key, renderMathHTML(tex, options), onError);
+  applyRenderedMath(element, key, renderMathHTML(tex, options), onError);
 }
 
 function applyRenderedMath(
-  tex: string,
   element: HTMLElement,
-  options: KatexRenderOptions,
   key: string,
   rendered: { html: string; error?: string },
   onError: () => void,
 ): void {
   if (!rendered.error) {
+    ensureKatexCss(katexCssUrl);
     element.innerHTML = rendered.html;
     fitRenderedMath(element);
     return;
   }
   if (element.getAttribute("data-math-render-key") !== key) return;
-  void renderKatexFallback(tex, element, options, key, onError, rendered.error);
+  onError();
+  rememberMathHtml(key, rendered);
+  fitRenderedMath(element);
 }
 
-function temmlOptions(options: KatexRenderOptions): TemmlOptions {
+function katexOptions(options: KatexRenderOptions): KatexRenderOptions {
   return {
     displayMode: options.displayMode,
     throwOnError: true,
-    strict: options.strict === true || options.strict === "error",
+    strict: options.strict,
     trust: options.trust,
+    output: options.output,
   };
-}
-
-async function renderKatexFallback(
-  tex: string,
-  element: HTMLElement,
-  options: KatexRenderOptions,
-  key: string,
-  onError: () => void,
-  temmlError: unknown,
-): Promise<void> {
-  try {
-    const [{ default: katex }, { default: katexCssUrl }] = await Promise.all([
-      import("katex"),
-      import("katex/dist/katex.min.css?url"),
-    ]);
-    if (element.getAttribute("data-math-render-key") !== key) return;
-    ensureKatexCss(katexCssUrl);
-    katex.render(tex, element, { ...options, throwOnError: true });
-    rememberMathHtml(key, { html: element.innerHTML });
-    fitRenderedMath(element);
-  } catch {
-    if (element.getAttribute("data-math-render-key") !== key) return;
-    if (temmlError instanceof Error) element.setAttribute("data-temml-error", temmlError.message);
-    onError();
-    rememberMathHtml(key, {
-      html: element.innerHTML,
-      error: temmlError instanceof Error ? temmlError.message : String(temmlError),
-    });
-    fitRenderedMath(element);
-  }
 }
 
 function ensureKatexCss(href: string): void {
