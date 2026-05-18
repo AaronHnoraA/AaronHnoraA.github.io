@@ -2,6 +2,7 @@ import { describe, expect, test } from "@voidzero-dev/vite-plus-test";
 
 import { parse } from "../src/parser.ts";
 import { schema } from "../src/schema.ts";
+import { serialize } from "../src/serializer.ts";
 
 describe("parser: block nodes", () => {
   test("paragraph with plain text", () => {
@@ -93,6 +94,17 @@ $$`;
     const block = doc.child(0);
     expect(block.type).toBe(schema.nodes.math_block);
     expect(block.textContent).toBe(source.split("\n").slice(1, -1).join("\n"));
+  });
+
+  test("display math serializes exact raw TeX source", () => {
+    const source = String.raw`$$
+\#\begin{array}{ccccc}
+d\mathrm{GA} & \le_p & \mathrm{GI} & \le_p & \mathrm{GA} \\
+\downarrow & & \downarrow & & \downarrow \\
+d\mathrm{TA} & \overset{?}{\le_p} & \mathrm{TI} & \le_p & \mathrm{cTA}
+\end{array}
+$$`;
+    expect(serialize(parse(source)).trimEnd()).toBe(source);
   });
 
   test("same-line double-dollar math source stays editable text", () => {
@@ -240,6 +252,11 @@ describe("parser: inline marks", () => {
     const doc = parse("value $$x+y$$ here");
     const p = doc.child(0);
     expect(p.textContent).toBe("value $$x+y$$ here");
+  });
+
+  test("inline math preserves raw TeX escapes before markdown escape handling", () => {
+    const source = String.raw`outside $\#\mathrm{GI}(G,H)$`;
+    expect(serialize(parse(source)).trimEnd()).toBe(source);
   });
 });
 

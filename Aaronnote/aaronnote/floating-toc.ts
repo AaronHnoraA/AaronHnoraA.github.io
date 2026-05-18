@@ -60,6 +60,11 @@ export function createFloatingTocPanel(options: {
         button.textContent = note.title || note.id || note.file || "Untitled";
         button.title = note.file || note.title || "";
         button.addEventListener("click", (event) => options.openNote(note, { newWindow: event.altKey || event.metaKey }));
+        button.addEventListener("auxclick", (event) => {
+          if (event.button !== 1) return;
+          event.preventDefault();
+          options.openNote(note, { newWindow: true });
+        });
         parent.appendChild(button);
       }
     }

@@ -514,20 +514,8 @@ $
 #+end proof
 
 #+begin proposition equal-space 多线性形式的幂等元分解骨架
-设
-$
-Θ: V × V × V → k
-$
-是非退化三线性形式。定义其中心代数
-$
-Z(V, Θ)
-:=
-{ φ ∈ "End"(V) :
-Θ(φ x, y, z)
-===
-
+设 $Θ: V × V × V → k $ 是非退化三线性形式。定义其中心代数 $ Z(V, Θ) := { φ ∈ "End"(V) : Θ(φ x, y, z)
 Θ(x, φ y, z)
-===
 
 Θ(x, y, φ z)\\ "for all" x,y,z }.
 $

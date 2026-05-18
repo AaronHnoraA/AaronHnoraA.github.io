@@ -339,6 +339,7 @@ function buildMenu() {
       },
       {
         label: "New Note...",
+        accelerator: "CmdOrCtrl+Shift+N",
         click: () => runInWindow(dispatchCommandScript("new-node")),
       },
       {
@@ -374,7 +375,17 @@ function buildMenu() {
         label: "Sync Roam DB",
         click: () => runInWindow(dispatchCommandScript("sync-roamdb")),
       },
+      {
+        label: "Reload Snippets",
+        accelerator: "CmdOrCtrl+Shift+R",
+        click: () => runInWindow(dispatchCommandScript("reload-snippets")),
+      },
       { type: "separator" },
+      {
+        label: "Insert Block...",
+        accelerator: "CmdOrCtrl+Enter",
+        click: () => runInWindow(dispatchCommandScript("open-block-menu")),
+      },
       {
         label: "Quick Add Meta",
         accelerator: "CmdOrCtrl+Shift+M",
@@ -416,6 +427,10 @@ function buildMenu() {
         accelerator: "CmdOrCtrl+/",
         click: () => runInWindow(dispatchCommandScript("toggle-source")),
       },
+      { type: "separator" },
+      { role: "resetZoom", accelerator: "CmdOrCtrl+0" },
+      { role: "zoomIn", accelerator: "CmdOrCtrl+=" },
+      { role: "zoomOut", accelerator: "CmdOrCtrl+-" },
       {
         label: "Toggle TOC",
         accelerator: "Alt+T",

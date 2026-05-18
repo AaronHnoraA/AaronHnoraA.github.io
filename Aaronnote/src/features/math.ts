@@ -2,6 +2,7 @@ import type { Node as PMNode, Schema } from "prosemirror-model";
 import { TextSelection, type Command, type EditorState, Plugin } from "prosemirror-state";
 import { Decoration, DecorationSet, type EditorView, type NodeView, type ViewMutationRecord } from "prosemirror-view";
 import type { RuleBlock } from "markdown-it/lib/parser_block.mjs";
+import type StateInline from "markdown-it/lib/rules_inline/state_inline.mjs";
 
 import { markConsumed, markExtRanges, type InlineSpan } from "../inline-parse.ts";
 import { renderMathLazy } from "../math-render.ts";
@@ -21,28 +22,53 @@ function adjacentDollar(text: string, pos: number): boolean {
   return text[pos - 1] === "$" || text[pos + 1] === "$";
 }
 
+type InlineMathMatch = {
+  rawTex: string;
+  tex: string;
+  openFrom: number;
+  openTo: number;
+  closeFrom: number;
+  closeTo: number;
+};
+
+function readInlineMathAt(text: string, pos: number): InlineMathMatch | null {
+  if (text[pos] !== "$" || escaped(text, pos)) return null;
+  if (text[pos + 1] === "$") return null;
+  if (adjacentDollar(text, pos)) return null;
+  const openFrom = pos;
+  const openTo = openFrom + 1;
+  let closeFrom = -1;
+
+  for (let j = openTo; j < text.length; j++) {
+    if (text[j] === "\n") break;
+    if (text[j] !== "$" || escaped(text, j) || adjacentDollar(text, j)) continue;
+    closeFrom = j;
+    break;
+  }
+
+  if (closeFrom < 0) return null;
+  const closeTo = closeFrom + 1;
+  const rawTex = text.slice(openTo, closeFrom);
+  const tex = rawTex.trim();
+  if (tex.length === 0) return null;
+  return {
+    rawTex,
+    tex,
+    openFrom,
+    openTo,
+    closeFrom,
+    closeTo,
+  };
+}
+
 function scanInlineMath(text: string, consumed: Uint8Array): InlineSpan[] {
   const out: InlineSpan[] = [];
   for (let i = 0; i < text.length; i++) {
-    if (consumed[i] || text[i] !== "$" || escaped(text, i)) continue;
-    if (text[i + 1] === "$") continue;
-    if (adjacentDollar(text, i)) continue;
-
-    const openFrom = i;
-    const openTo = openFrom + 1;
-    let closeFrom = -1;
-    for (let j = openTo; j < text.length; j++) {
-      if (text[j] === "\n") break;
-      if (consumed[j]) continue;
-      if (text[j] !== "$" || escaped(text, j) || adjacentDollar(text, j)) continue;
-      closeFrom = j;
-      break;
-    }
-    if (closeFrom < 0) continue;
-
-    const closeTo = closeFrom + 1;
+    if (consumed[i]) continue;
+    const match = readInlineMathAt(text, i);
+    if (!match) continue;
     let blocked = false;
-    for (let j = openFrom; j < closeTo; j++) {
+    for (let j = match.openFrom; j < match.closeTo; j++) {
       if (consumed[j]) {
         blocked = true;
         break;
@@ -50,34 +76,43 @@ function scanInlineMath(text: string, consumed: Uint8Array): InlineSpan[] {
     }
     if (blocked) continue;
 
-    const rawTex = text.slice(openTo, closeFrom);
-    if (rawTex.trim().length === 0) continue;
-
-    const tex = rawTex.trim();
-    markConsumed(consumed, openFrom, closeTo);
+    markConsumed(consumed, match.openFrom, match.closeTo);
     out.push({
       type: "math",
-      from: openTo,
-      to: closeFrom,
-      openFrom,
-      openTo,
-      closeFrom,
-      closeTo,
-      attrs: { tex, delimiter: "$", display: false },
-      delimRanges: [{ from: openFrom, to: closeTo, softInside: true }],
+      from: match.openTo,
+      to: match.closeFrom,
+      openFrom: match.openFrom,
+      openTo: match.openTo,
+      closeFrom: match.closeFrom,
+      closeTo: match.closeTo,
+      attrs: { tex: match.tex, delimiter: "$", display: false },
+      delimRanges: [{ from: match.openFrom, to: match.closeTo, softInside: true }],
       widgetDecorations: [
         {
-          pos: openFrom,
+          pos: match.openFrom,
           when: "outside",
           kind: "math-render",
-          attrs: { tex, display: "0" },
+          attrs: { tex: match.tex, display: "0" },
           side: -1,
         },
       ],
     });
-    i = closeTo - 1;
+    i = match.closeTo - 1;
   }
   return out;
+}
+
+function mathInlineRule(state: StateInline, silent: boolean): boolean {
+  const match = readInlineMathAt(state.src, state.pos);
+  if (!match || match.closeTo > state.posMax) return false;
+  if (!silent) {
+    const token = state.push("math_inline", "math", 0);
+    token.content = match.rawTex;
+    token.markup = "$";
+    token.meta = { tex: match.tex, display: false };
+  }
+  state.pos = match.closeTo;
+  return true;
 }
 
 type DisplayMathText = {
@@ -90,11 +125,19 @@ type DisplayMathText = {
 function parseDisplayMathText(text: string): DisplayMathText | null {
   const openEnd = text.indexOf("\n");
   if (openEnd < 0) return null;
-  const closeStart = text.lastIndexOf("\n") + 1;
+
+  let effectiveEnd = text.length;
+  while (effectiveEnd > openEnd && /[ \t]/.test(text[effectiveEnd - 1]!)) effectiveEnd--;
+  if (text[effectiveEnd - 1] === "\n") {
+    effectiveEnd -= 1;
+    while (effectiveEnd > openEnd && /[ \t]/.test(text[effectiveEnd - 1]!)) effectiveEnd--;
+  }
+
+  const closeStart = text.lastIndexOf("\n", effectiveEnd - 1) + 1;
   if (closeStart <= openEnd) return null;
 
   const openLine = text.slice(0, openEnd);
-  const closeLine = text.slice(closeStart);
+  const closeLine = text.slice(closeStart, effectiveEnd);
   if (!/^[ \t]*\$\$[ \t]*$/.test(openLine)) return null;
   if (!/^[ \t]*\$\$[ \t]*$/.test(closeLine)) return null;
 
@@ -104,7 +147,7 @@ function parseDisplayMathText(text: string): DisplayMathText | null {
     content: text.slice(bodyFrom, bodyTo),
     bodyFrom,
     bodyTo,
-    closeTo: text.length,
+    closeTo: effectiveEnd,
   };
 }
 
@@ -426,12 +469,23 @@ export const math: FeatureSpec = {
       md.block.ruler.before("paragraph", "math_block", mathBlockRule, {
         alt: ["paragraph", "reference", "blockquote", "list"],
       });
+      md.inline.ruler.before("escape", "math_inline", mathInlineRule);
     },
   ],
 
   parserTokens: {
     math_block: (state, token, schema) => {
       state.push(schema.nodes.math_block.createChecked(null, textNode(schema, token.content)));
+    },
+    math_inline: (state, token, schema) => {
+      const delimiter = token.markup === "$$" ? "$$" : "$";
+      const tex = String(token.meta?.tex ?? token.content.trim());
+      const display = token.meta?.display === true;
+      state.addText(delimiter);
+      state.openMark(schema.marks.math.create({ tex, delimiter, display }));
+      state.addText(token.content);
+      state.closeMarkType(schema.marks.math);
+      state.addText(delimiter);
     },
   },
 

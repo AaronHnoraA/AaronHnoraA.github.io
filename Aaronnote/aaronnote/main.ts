@@ -216,6 +216,7 @@ blockMenuTrigger.className = "aaronnote-block-menu-trigger";
 blockMenuTrigger.title = "Block menu";
 blockMenuTrigger.textContent = "+";
 blockMenuTrigger.hidden = true;
+blockMenuTrigger.setAttribute("aria-hidden", "true");
 document.body.appendChild(blockMenuTrigger);
 
 const modal = document.createElement("div");
@@ -1927,32 +1928,7 @@ function openBlockMenu(): void {
 }
 
 function updateBlockMenuTrigger(): void {
-  if (editor.isSourceMode() || vimMode !== "insert" || notesPage.hidden === false) {
-    hideBlockMenuTrigger();
-    return;
-  }
-  if (editorHasNativeSelection() || !quickInsertPopup.hidden || !snippetPopup.hidden) {
-    hideBlockMenuTrigger();
-    return;
-  }
-  const active = document.activeElement;
-  if (!active || !host.contains(active)) {
-    hideBlockMenuTrigger();
-    return;
-  }
-  const ctx = editor.getBlockContext();
-  if (!ctx.rect || ctx.type === "doc") {
-    hideBlockMenuTrigger();
-    return;
-  }
-  const size = 26;
-  const margin = 8;
-  const left = Math.max(margin, ctx.rect.left - size - 10);
-  const top = Math.max(margin, ctx.rect.top + 1);
-  blockMenuTrigger.style.left = `${Math.round(left)}px`;
-  blockMenuTrigger.style.top = `${Math.round(top)}px`;
-  blockMenuTrigger.dataset.blockType = ctx.type;
-  blockMenuTrigger.hidden = false;
+  hideBlockMenuTrigger();
 }
 
 function placeFloatingAbove(el: HTMLElement, rect: { left: number; top: number; bottom: number } | null, width = 320): void {
@@ -2357,6 +2333,21 @@ function updateVimCursorNow(): void {
 
 function renderSnippets(): void {
   scheduleAssistUpdate({ snippets: true });
+}
+
+async function reloadSnippets(): Promise<void> {
+  setStatus("Reloading snippets");
+  try {
+    const res = await fetch("/api/snippets?reload=1");
+    const msg = await res.json() as { snippets?: SnippetSummary[]; message?: string };
+    if (!res.ok || !Array.isArray(msg.snippets)) throw new Error(msg.message || "Snippet reload failed");
+    snippets = msg.snippets.length > 0 ? msg.snippets : demoSnippets;
+    hideSnippetPopup();
+    renderSnippets();
+    setStatus(`Reloaded ${snippets.length} snippets`);
+  } catch (err) {
+    setStatus(err instanceof Error ? err.message : "Snippet reload failed");
+  }
 }
 
 function normalizeRecentNotes(entries: unknown): RecentNote[] {
@@ -2876,6 +2867,8 @@ window.addEventListener("aaronnote:command", (event) => {
   if (command === "add-tag") void addTag();
   if (command === "tag-manager") void handleTagCommand();
   if (command === "sync-roamdb") void syncRoamDb();
+  if (command === "reload-snippets") void reloadSnippets();
+  if (command === "open-block-menu") openBlockMenu();
   if (command === "toggle-source") toggleSourceMode();
   if (command === "save-now") save();
   if (command === "flush-state") flushState({ keepalive: true });

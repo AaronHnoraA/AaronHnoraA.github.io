@@ -88,6 +88,19 @@ function openLinkOnModClickPlugin(): Plugin {
         openExternalHref(href, { newWindow: event.altKey || event.metaKey });
         return true;
       },
+      handleDOMEvents: {
+        auxclick(_view, event) {
+          const mouseEvent = event as MouseEvent;
+          if (mouseEvent.button !== 1) return false;
+          const a = (event.target as Element | null)?.closest("a");
+          if (!a) return false;
+          const href = a.getAttribute("href");
+          if (!href) return false;
+          event.preventDefault();
+          openExternalHref(href, { newWindow: true });
+          return true;
+        },
+      },
     },
   });
 }

@@ -1173,11 +1173,11 @@ function parseSnippetBody(content) {
   };
 }
 
-async function scanSnippets() {
+async function scanSnippets(options = {}) {
   const dirs = snippetDirs();
   const key = dirs.join(":");
   const now = Date.now();
-  if (snippetCache.key === key && now - snippetCache.scannedAt < 10_000) {
+  if (!options.force && snippetCache.key === key && now - snippetCache.scannedAt < 10_000) {
     return snippetCache.snippets;
   }
   const snippets = [];
@@ -1556,6 +1556,12 @@ async function routeApi(req, res) {
 
     if (req.method === "GET" && url.pathname === "/api/notes") {
       sendJson(res, 200, { type: "notes", notes: await scanNotes(), root: noteRoot });
+      return true;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/snippets") {
+      const force = url.searchParams.get("reload") === "1";
+      sendJson(res, 200, { type: "snippets", snippets: await scanSnippets({ force }) });
       return true;
     }
 

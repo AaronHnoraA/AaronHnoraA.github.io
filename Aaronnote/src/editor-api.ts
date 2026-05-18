@@ -426,6 +426,7 @@ export function createEditor(
 
   let view: EditorView;
   let inSource = false;
+  let lastSourceMarkdown = options.initialContent ?? "";
   let sourceValueOnEnter = "";
   let caretFlashTimer = 0;
   let cachedDoc: PMNode | null = null;
@@ -509,7 +510,8 @@ export function createEditor(
         v.updateState(next);
         if (tr.docChanged) {
           scheduleMarkdownPrewarm(next.doc);
-          emitChange(() => markdownFromDoc(next.doc));
+          lastSourceMarkdown = markdownFromDoc(next.doc);
+          emitChange(lastSourceMarkdown);
         }
         if (writingMode.typewriterMode && (tr.docChanged || tr.selectionSet)) {
           window.requestAnimationFrame(() => revealRenderedCursor(true));
@@ -743,7 +745,7 @@ export function createEditor(
     }
     const sel = view.state.selection;
     return {
-      md: markdownFromDoc(view.state.doc),
+      md: lastSourceMarkdown,
       from: renderedPosToMdOffset(sel.from),
       to: renderedPosToMdOffset(sel.to),
     };
@@ -776,12 +778,14 @@ export function createEditor(
     const selectedOffset = current.from + Math.max(0, Math.min(selectionOffset, text.length));
     if (inSource) {
       sourceTextarea.value = nextMd;
+      lastSourceMarkdown = nextMd;
       autoSizeSource();
       emitChange(sourceTextarea.value);
       selectMarkdownOffset(nextMd, selectedOffset);
     } else {
       rebuild(nextMd);
-      emitChange(() => markdownFromDoc(view.state.doc));
+      lastSourceMarkdown = nextMd;
+      emitChange(nextMd);
       selectMarkdownOffset(nextMd, selectedOffset);
     }
     return { from: current.from, to: current.from + text.length };
@@ -811,8 +815,8 @@ export function createEditor(
   }
 
   function enterSource(): void {
-    const md = markdownFromDoc(view.state.doc);
-    const mdCursor = renderedCursorToMdOffset();
+    const md = lastSourceMarkdown;
+    const mdCursor = Math.min(renderedCursorToMdOffset(), md.length);
     sourceValueOnEnter = md;
     sourceTextarea.value = md;
     editorHost.hidden = true;
@@ -830,6 +834,7 @@ export function createEditor(
     const mdCursor = sourceTextarea.selectionStart ?? md.length;
     const targetRaw = mdOffsetToRenderedPos(md, mdCursor);
     rebuild(md);
+    lastSourceMarkdown = md;
     const target = Math.min(targetRaw, view.state.doc.content.size);
     try {
       const sel = TextSelection.near(view.state.doc.resolve(target));
@@ -843,7 +848,7 @@ export function createEditor(
     view.focus();
     inSource = false;
     revealAndFlashActiveCursor();
-    if (md !== sourceValueOnEnter) emitChange(() => markdownFromDoc(view.state.doc));
+    if (md !== sourceValueOnEnter) emitChange(md);
   }
 
   // ⌘/ on Mac, Ctrl+/ elsewhere. Window-level keydown so it works
@@ -875,6 +880,7 @@ export function createEditor(
   // owns the scroll, never the textarea.
   sourceTextarea.addEventListener("input", () => {
     autoSizeSource();
+    lastSourceMarkdown = sourceTextarea.value;
     emitChange(sourceTextarea.value);
     if (writingMode.typewriterMode) window.requestAnimationFrame(scrollTextareaCursorIntoView);
   });
@@ -888,6 +894,7 @@ export function createEditor(
     const end = sourceTextarea.selectionEnd ?? start;
     sourceTextarea.setRangeText(text, start, end, "end");
     autoSizeSource();
+    lastSourceMarkdown = sourceTextarea.value;
     emitChange(sourceTextarea.value);
     if (writingMode.typewriterMode) window.requestAnimationFrame(scrollTextareaCursorIntoView);
   });
@@ -913,6 +920,7 @@ export function createEditor(
       sourceTextarea.setRangeText("  ", start, end, "end");
     }
     autoSizeSource();
+    lastSourceMarkdown = sourceTextarea.value;
     emitChange(sourceTextarea.value);
   });
 
@@ -933,6 +941,7 @@ export function createEditor(
       const start = sourceTextarea.selectionStart ?? sourceTextarea.value.length;
       const end = sourceTextarea.selectionEnd ?? start;
       sourceTextarea.setRangeText(text, start, end, select === "all" ? "select" : select);
+      lastSourceMarkdown = sourceTextarea.value;
       autoSizeSource();
       emitChange(sourceTextarea.value);
       sourceTextarea.focus();
@@ -949,6 +958,7 @@ export function createEditor(
       tr = tr.setSelection(TextSelection.near(tr.doc.resolve(insertedTo)));
     }
     view.dispatch(tr);
+    lastSourceMarkdown = markdownFromDoc(view.state.doc);
     view.focus();
   }
 
@@ -967,7 +977,7 @@ export function createEditor(
   }
 
   function mutateCurrentMarkdownLine(f: (line: string) => string): boolean {
-    const md = inSource ? sourceTextarea.value : markdownFromDoc(view.state.doc);
+    const md = inSource ? sourceTextarea.value : lastSourceMarkdown;
     const offset = inSource
       ? sourceTextarea.selectionStart ?? md.length
       : renderedCursorToMdOffset();
@@ -981,6 +991,7 @@ export function createEditor(
     const nextOffset = offset + (nextLine.length - line.length);
     if (inSource) {
       sourceTextarea.value = nextMd;
+      lastSourceMarkdown = nextMd;
       autoSizeSource();
       const clamped = Math.max(0, Math.min(nextOffset, nextMd.length));
       sourceTextarea.setSelectionRange(clamped, clamped);
@@ -989,12 +1000,13 @@ export function createEditor(
       return true;
     }
     rebuild(nextMd);
+    lastSourceMarkdown = nextMd;
     const target = Math.min(mdOffsetToRenderedPos(nextMd, Math.max(0, nextOffset)), view.state.doc.content.size);
     try {
       view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(target))).scrollIntoView());
     } catch {}
     view.focus();
-    emitChange(() => markdownFromDoc(view.state.doc));
+    emitChange(nextMd);
     return true;
   }
 
@@ -1311,12 +1323,13 @@ export function createEditor(
 
   return {
     getMarkdown(): string {
-      return inSource ? sourceTextarea.value : markdownFromDoc(view.state.doc);
+      return inSource ? sourceTextarea.value : lastSourceMarkdown;
     },
     getHTML(): string {
       return inSource ? markdownToHTML(sourceTextarea.value) : cleanEditorHTML(view.dom);
     },
     setMarkdown(md: string): void {
+      lastSourceMarkdown = md;
       if (inSource) {
         sourceTextarea.value = md;
         sourceValueOnEnter = md;
@@ -1331,6 +1344,7 @@ export function createEditor(
         const end = sourceTextarea.selectionEnd ?? start;
         const replaceStart = Math.max(0, start - deleteBefore);
         sourceTextarea.setRangeText(text, replaceStart, end, "end");
+        lastSourceMarkdown = sourceTextarea.value;
         autoSizeSource();
         sourceTextarea.focus();
         emitChange(sourceTextarea.value);
@@ -1343,6 +1357,7 @@ export function createEditor(
             .insertText(text, replaceStart, to)
             .scrollIntoView(),
         );
+        lastSourceMarkdown = markdownFromDoc(view.state.doc);
         view.focus();
         return { from: replaceStart, to: replaceStart + text.length };
       }
@@ -1404,6 +1419,7 @@ export function createEditor(
         const start = Math.max(0, Math.min(from, max));
         const end = Math.max(0, Math.min(to, max));
         sourceTextarea.setRangeText(text, start, end, select === "all" ? "select" : select);
+        lastSourceMarkdown = sourceTextarea.value;
         autoSizeSource();
         sourceTextarea.focus();
         emitChange(sourceTextarea.value);
@@ -1413,6 +1429,7 @@ export function createEditor(
       const start = Math.max(0, Math.min(from, max));
       const end = Math.max(0, Math.min(to, max));
       view.dispatch(view.state.tr.insertText(text, start, end).scrollIntoView());
+      lastSourceMarkdown = markdownFromDoc(view.state.doc);
       const inserted = { from: start, to: start + text.length };
       const selectionFrom = select === "start" ? inserted.from : inserted.to;
       const selectionTo = select === "all" ? inserted.from : selectionFrom;

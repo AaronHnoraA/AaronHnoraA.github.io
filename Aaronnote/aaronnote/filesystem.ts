@@ -144,6 +144,11 @@ export function createFilesystemBrowser(options: {
     button.addEventListener("click", (event) => {
       options.openNote(note, { newWindow: event.altKey || event.metaKey });
     });
+    button.addEventListener("auxclick", (event) => {
+      if (event.button !== 1) return;
+      event.preventDefault();
+      options.openNote(note, { newWindow: true });
+    });
     return button;
   }
 

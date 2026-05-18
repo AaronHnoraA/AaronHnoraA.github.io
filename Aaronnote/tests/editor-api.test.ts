@@ -55,6 +55,105 @@ $$`);
   });
 });
 
+describe("editor api source preservation", () => {
+  test("preview/source toggles do not rewrite TeX or markdown escapes", () => {
+    const source = String.raw`My current task mentions $\mathrm{GI}$, $\#\mathrm{GA}$, and $a_b$.
+
+$$
+\#\mathrm{GI}(G,H)
+=
+|\operatorname{Iso}(G,H)|
+$$`;
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const editor = createEditor(mount, { initialContent: source });
+    try {
+      expect(editor.getMarkdown()).toBe(source);
+      editor.toggleSource();
+      expect(editor.getMarkdown()).toBe(source);
+      editor.toggleSource();
+      expect(editor.getMarkdown()).toBe(source);
+      editor.toggleSource();
+      expect(editor.getMarkdown()).toBe(source);
+    } finally {
+      editor.destroy();
+      mount.remove();
+    }
+  });
+
+  test("source-to-preview keeps display math body raw", () => {
+    const source = String.raw`$$
+\#\begin{array}{ccccc}
+d\mathrm{GA} & \le_p & \mathrm{GI} & \le_p & \mathrm{GA} \\
+\downarrow & & \downarrow & & \downarrow \\
+d\mathrm{TA} & \overset{?}{\le_p} & \mathrm{TI} & \le_p & \mathrm{cTA}
+\end{array}
+$$`;
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const editor = createEditor(mount, { initialContent: "" });
+    try {
+      editor.toggleSource();
+      editor.insertText(source);
+      expect(editor.getMarkdown()).toBe(source);
+      editor.toggleSource();
+      expect(editor.getMarkdown()).toBe(source);
+      const mathBlock = findFirstNode(editor, "math_block").node;
+      expect(mathBlock.textContent).toBe(source.split("\n").slice(1, -1).join("\n"));
+    } finally {
+      editor.destroy();
+      mount.remove();
+    }
+  });
+
+  test("typing a display math block in preview does not cache escaped TeX", () => {
+    const open = String.raw`$$
+\#\begin{array}{c}
+d\mathrm{GA} & \le_p & \mathrm{GI} \\`;
+    const close = String.raw`
+\end{array}
+$$
+`;
+    const source = open + close;
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const editor = createEditor(mount, { initialContent: "" });
+    try {
+      editor.insertText(open);
+      editor.insertText(close);
+      expect(editor.getMarkdown()).toBe(source.trimEnd());
+      editor.toggleSource();
+      expect(editor.getMarkdown()).toBe(source.trimEnd());
+    } finally {
+      editor.destroy();
+      mount.remove();
+    }
+  });
+
+  test("rendered edits do not rewrite math source", () => {
+    const source = String.raw`intro
+
+$$
+\begin{array}{c}
+d\mathrm{GA} \le_p \mathrm{GI}
+\end{array}
+$$
+
+inline $\#\operatorname{Aut}(G)$`;
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const editor = createEditor(mount, { initialContent: source });
+    try {
+      editor.setSelection(1 + "intro".length);
+      editor.insertText(" updated");
+      expect(editor.getMarkdown()).toBe(source.replace("intro", "intro updated"));
+    } finally {
+      editor.destroy();
+      mount.remove();
+    }
+  });
+});
+
 describe("editor api HTML export", () => {
   test("exports rendered HTML in markdown and source modes", () => {
     const mount = document.createElement("div");
