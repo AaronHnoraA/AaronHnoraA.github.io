@@ -41,6 +41,15 @@ function normalizeLang(lang: string): string {
   if (["css", "scss", "less"].includes(raw)) return "css";
   if (["json", "jsonc"].includes(raw)) return "json";
   if (["md", "markdown"].includes(raw)) return "markdown";
+  if (["c", "h"].includes(raw)) return "c";
+  if (["cc", "cpp", "cxx", "c++", "hpp", "hh", "hxx"].includes(raw)) return "cpp";
+  if (["rs", "rust"].includes(raw)) return "rust";
+  if (["go", "golang"].includes(raw)) return "go";
+  if (["el", "elisp", "emacs-lisp", "lisp", "cl", "clojure", "clj", "scheme", "scm"].includes(raw)) return "lisp";
+  if (["sql", "pgsql", "postgres", "postgresql", "mysql", "sqlite"].includes(raw)) return "sql";
+  if (["yaml", "yml"].includes(raw)) return "yaml";
+  if (["toml"].includes(raw)) return "toml";
+  if (["nix"].includes(raw)) return "nix";
   return raw;
 }
 
@@ -120,6 +129,82 @@ function markdownRules(): Rule[] {
   ];
 }
 
+function cLikeRules(kind: "c" | "cpp" | "go" | "rust"): Rule[] {
+  const keywordMap = {
+    c: "auto|break|case|char|const|continue|default|do|double|else|enum|extern|float|for|goto|if|inline|int|long|register|restrict|return|short|signed|sizeof|static|struct|switch|typedef|union|unsigned|void|volatile|while",
+    cpp: "alignas|alignof|and|asm|auto|bool|break|case|catch|char|class|concept|const|constexpr|consteval|constinit|continue|decltype|default|delete|do|double|else|enum|explicit|export|extern|false|float|for|friend|if|inline|int|long|mutable|namespace|new|noexcept|nullptr|operator|private|protected|public|return|short|signed|sizeof|static|struct|switch|template|this|throw|true|try|typedef|typename|union|unsigned|using|virtual|void|volatile|while",
+    go: "break|case|chan|const|continue|default|defer|else|fallthrough|for|func|go|goto|if|import|interface|map|package|range|return|select|struct|switch|type|var",
+    rust: "as|async|await|break|const|continue|crate|dyn|else|enum|extern|false|fn|for|if|impl|in|let|loop|match|mod|move|mut|pub|ref|return|self|Self|static|struct|super|trait|true|type|unsafe|use|where|while",
+  };
+  return [
+    { className: "code-token-comment", pattern: /\/\*[\s\S]*?\*\/|\/\/[^\n]*/y },
+    { className: "code-token-string", pattern: /"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'/y },
+    { className: "code-token-keyword", pattern: new RegExp(`\\b(?:${keywordMap[kind]})\\b`, "y") },
+    { className: "code-token-number", pattern: /\b(?:0x[\da-f_]+|0b[01_]+|\d[\d_]*(?:\.\d[\d_]*)?(?:e[+-]?\d+)?)\b/iy },
+    { className: "code-token-function", pattern: /\b[A-Za-z_][\w]*(?=\s*\()/y },
+    { className: "code-token-operator", pattern: /::|->|=>|==|!=|<=|>=|\+\+|--|&&|\|\||[+\-*/%=&|!<>?:~]/y },
+    { className: "code-token-punctuation", pattern: /[{}[\]();,.]/y },
+  ];
+}
+
+function lispRules(): Rule[] {
+  return [
+    { className: "code-token-comment", pattern: /;[^\n]*/y },
+    { className: "code-token-string", pattern: /"(?:\\[\s\S]|[^"\\])*"/y },
+    { className: "code-token-keyword", pattern: /:[A-Za-z_*!?<>=+\-/][\w*!?<>=+\-/]*/y },
+    { className: "code-token-keyword", pattern: /\b(?:defun|defvar|defconst|defmacro|lambda|let|let\*|if|cond|when|unless|setq|quote|progn|interactive|require|provide|use-package)\b/y },
+    { className: "code-token-number", pattern: /[-+]?\b\d+(?:\.\d+)?\b/y },
+    { className: "code-token-function", pattern: /(?<=\()[A-Za-z_*!?<>=+\-/][\w*!?<>=+\-/]*/y },
+    { className: "code-token-punctuation", pattern: /[()'`,.]/y },
+  ];
+}
+
+function sqlRules(): Rule[] {
+  return [
+    { className: "code-token-comment", pattern: /--[^\n]*|\/\*[\s\S]*?\*\//y },
+    { className: "code-token-string", pattern: /'(?:''|[^'])*'|"(?:\"\"|[^"])*"/y },
+    { className: "code-token-keyword", pattern: /\b(?:add|alter|and|as|asc|between|by|case|check|column|constraint|create|delete|desc|distinct|drop|else|end|exists|false|foreign|from|group|having|in|index|inner|insert|into|is|join|key|left|like|limit|null|on|or|order|outer|primary|references|right|select|set|table|then|true|union|update|values|view|when|where)\b/iy },
+    { className: "code-token-number", pattern: /\b\d+(?:\.\d+)?\b/y },
+    { className: "code-token-function", pattern: /\b[A-Za-z_][\w$]*(?=\s*\()/y },
+    { className: "code-token-operator", pattern: /<>|!=|<=|>=|[-+*/%=<>]/y },
+    { className: "code-token-punctuation", pattern: /[(),.;]/y },
+  ];
+}
+
+function yamlRules(): Rule[] {
+  return [
+    { className: "code-token-comment", pattern: /#[^\n]*/y },
+    { className: "code-token-string", pattern: /"(?:\\[\s\S]|[^"\\])*"|'[^']*'/y },
+    { className: "code-token-property", pattern: /[A-Za-z0-9_.-]+(?=\s*:)/y },
+    { className: "code-token-keyword", pattern: /\b(?:false|null|off|on|true|yes|no)\b/iy },
+    { className: "code-token-number", pattern: /[-+]?\b\d+(?:\.\d+)?\b/y },
+    { className: "code-token-operator", pattern: /---|\.\.\.|[?:[\]{},&*!|>-]/y },
+  ];
+}
+
+function tomlRules(): Rule[] {
+  return [
+    { className: "code-token-comment", pattern: /#[^\n]*/y },
+    { className: "code-token-string", pattern: /"""[\s\S]*?"""|'''[\s\S]*?'''|"(?:\\[\s\S]|[^"\\])*"|'[^']*'/y },
+    { className: "code-token-property", pattern: /[A-Za-z0-9_.-]+(?=\s*=)/y },
+    { className: "code-token-keyword", pattern: /\b(?:false|true)\b/y },
+    { className: "code-token-number", pattern: /[-+]?\b\d+(?:\.\d+)?\b/y },
+    { className: "code-token-punctuation", pattern: /[=[\]{},.]/y },
+  ];
+}
+
+function nixRules(): Rule[] {
+  return [
+    { className: "code-token-comment", pattern: /\/\*[\s\S]*?\*\/|#[^\n]*/y },
+    { className: "code-token-string", pattern: /''[\s\S]*?''|"(?:\\[\s\S]|[^"\\])*"/y },
+    { className: "code-token-keyword", pattern: /\b(?:assert|else|false|if|in|inherit|let|null|or|rec|then|true|with)\b/y },
+    { className: "code-token-property", pattern: /[A-Za-z_][\w'-]*(?=\s*=)/y },
+    { className: "code-token-number", pattern: /\b\d+(?:\.\d+)?\b/y },
+    { className: "code-token-operator", pattern: /==|!=|<=|>=|\+\+|->|[+\-*/=!<>?:&|]/y },
+    { className: "code-token-punctuation", pattern: /[{}[\]();,.]/y },
+  ];
+}
+
 function rulesForLang(lang: string): Rule[] {
   switch (normalizeLang(lang)) {
     case "javascript":
@@ -137,6 +222,24 @@ function rulesForLang(lang: string): Rule[] {
       return jsonRules();
     case "markdown":
       return markdownRules();
+    case "c":
+      return cLikeRules("c");
+    case "cpp":
+      return cLikeRules("cpp");
+    case "go":
+      return cLikeRules("go");
+    case "rust":
+      return cLikeRules("rust");
+    case "lisp":
+      return lispRules();
+    case "sql":
+      return sqlRules();
+    case "yaml":
+      return yamlRules();
+    case "toml":
+      return tomlRules();
+    case "nix":
+      return nixRules();
     default:
       return [];
   }

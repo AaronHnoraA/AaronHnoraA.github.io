@@ -210,6 +210,14 @@ quickInsertPopup.className = "aaronnote-quick-popup";
 quickInsertPopup.hidden = true;
 document.body.appendChild(quickInsertPopup);
 
+const blockMenuTrigger = document.createElement("button");
+blockMenuTrigger.type = "button";
+blockMenuTrigger.className = "aaronnote-block-menu-trigger";
+blockMenuTrigger.title = "Block menu";
+blockMenuTrigger.textContent = "+";
+blockMenuTrigger.hidden = true;
+document.body.appendChild(blockMenuTrigger);
+
 const modal = document.createElement("div");
 modal.className = "aaronnote-modal";
 modal.hidden = true;
@@ -237,6 +245,8 @@ let quickInsertIndex = 0;
 let quickInsertDeleteBefore = 0;
 let quickInsertRenderKey = "";
 let quickInsertSuppressedPrefix = "";
+let quickInsertMode: "slash" | "block" = "slash";
+let blockMenuPinned = false;
 let snippetSession: SnippetSession;
 let mathPreviewKey = "";
 let snippetScanRequested = false;
@@ -1733,6 +1743,8 @@ function hideQuickInsertPopup(): void {
   quickInsertPopup.hidden = true;
   quickInsertItems = [];
   quickInsertRenderKey = "";
+  quickInsertMode = "slash";
+  blockMenuPinned = false;
 }
 
 function placeFloating(el: HTMLElement, rect: { left: number; top: number; bottom: number } | null, width = 320): void {
@@ -1758,8 +1770,17 @@ function quickInsertPrefix(before: string): { query: string; deleteBefore: numbe
   return { query, deleteBefore: query.length + 1 };
 }
 
+function editorHasNativeSelection(): boolean {
+  if (editor.isSourceMode()) return false;
+  const selection = window.getSelection();
+  if (!selection || selection.isCollapsed || selection.rangeCount === 0) return false;
+  const anchor = selection.anchorNode;
+  const focus = selection.focusNode;
+  return !!anchor && !!focus && host.contains(anchor) && host.contains(focus);
+}
+
 function renderQuickInsertPopup(query: string, rect: { left: number; top: number; bottom: number } | null): void {
-  const nextKey = `${query}\n${quickInsertIndex}\n${quickInsertItems.map((item) => `${item.id}:${item.label}`).join("\n")}`;
+  const nextKey = `${quickInsertMode}\n${query}\n${quickInsertIndex}\n${quickInsertItems.map((item) => `${item.id}:${item.label}`).join("\n")}`;
   if (!quickInsertPopup.hidden && quickInsertRenderKey === nextKey) {
     placeFloating(quickInsertPopup, rect, 360);
     quickInsertPopup.querySelector(".aaronnote-quick-option.is-active")?.scrollIntoView({ block: "nearest" });
@@ -1802,6 +1823,7 @@ function renderQuickInsertPopup(query: string, rect: { left: number; top: number
 }
 
 function updateQuickInsertPopup(ctx: ReturnType<typeof editor.cursorContext>): boolean {
+  if (quickInsertMode === "block" && blockMenuPinned) return true;
   const active = document.activeElement;
   if (!active || !host.contains(active)) {
     hideQuickInsertPopup();
@@ -1817,6 +1839,7 @@ function updateQuickInsertPopup(ctx: ReturnType<typeof editor.cursorContext>): b
     hideQuickInsertPopup();
     return false;
   }
+  quickInsertMode = "slash";
   quickInsertDeleteBefore = prefix.deleteBefore;
   quickInsertIndex = Math.min(quickInsertIndex, items.length - 1);
   quickInsertItems = items;
@@ -1830,7 +1853,7 @@ function chooseQuickInsertItem(): void {
   const deleteBefore = quickInsertDeleteBefore;
   hideQuickInsertPopup();
   quickInsertSuppressedPrefix = "";
-  editor.insertText("", deleteBefore);
+  if (deleteBefore > 0) editor.insertText("", deleteBefore);
   if (editor.runQuickInsert(item)) {
     setStatus(item.label);
     scheduleAssistUpdate({ snippets: true });
@@ -1875,6 +1898,61 @@ function handleQuickInsertKey(event: KeyboardEvent): boolean {
     return true;
   }
   return false;
+}
+
+function hideBlockMenuTrigger(): void {
+  blockMenuTrigger.hidden = true;
+  blockMenuTrigger.removeAttribute("data-block-type");
+}
+
+function blockMenuAnchorRect(): { left: number; top: number; bottom: number } | null {
+  const rect = blockMenuTrigger.getBoundingClientRect();
+  if (rect.width === 0 && rect.height === 0) return null;
+  return { left: rect.left, top: rect.top, bottom: rect.bottom };
+}
+
+function openBlockMenu(): void {
+  const ctx = editor.getBlockContext();
+  if (ctx.sourceMode || !ctx.rect) return;
+  const items = editor.getQuickInsertItems("");
+  if (items.length === 0) return;
+  quickInsertMode = "block";
+  blockMenuPinned = true;
+  quickInsertDeleteBefore = 0;
+  quickInsertIndex = 0;
+  quickInsertItems = items;
+  hideSnippetPopup();
+  selectionTool.hidden = true;
+  renderQuickInsertPopup(ctx.type, blockMenuAnchorRect() ?? ctx.rect);
+}
+
+function updateBlockMenuTrigger(): void {
+  if (editor.isSourceMode() || vimMode !== "insert" || notesPage.hidden === false) {
+    hideBlockMenuTrigger();
+    return;
+  }
+  if (editorHasNativeSelection() || !quickInsertPopup.hidden || !snippetPopup.hidden) {
+    hideBlockMenuTrigger();
+    return;
+  }
+  const active = document.activeElement;
+  if (!active || !host.contains(active)) {
+    hideBlockMenuTrigger();
+    return;
+  }
+  const ctx = editor.getBlockContext();
+  if (!ctx.rect || ctx.type === "doc") {
+    hideBlockMenuTrigger();
+    return;
+  }
+  const size = 26;
+  const margin = 8;
+  const left = Math.max(margin, ctx.rect.left - size - 10);
+  const top = Math.max(margin, ctx.rect.top + 1);
+  blockMenuTrigger.style.left = `${Math.round(left)}px`;
+  blockMenuTrigger.style.top = `${Math.round(top)}px`;
+  blockMenuTrigger.dataset.blockType = ctx.type;
+  blockMenuTrigger.hidden = false;
 }
 
 function placeFloatingAbove(el: HTMLElement, rect: { left: number; top: number; bottom: number } | null, width = 320): void {
@@ -2253,16 +2331,22 @@ function scheduleAssistUpdate(options: { snippets?: boolean } = {}): void {
       if (vimMode !== "insert") {
         hideSnippetPopup();
         hideQuickInsertPopup();
+        hideBlockMenuTrigger();
         mathPreview.hidden = true;
         selectionTool.hidden = true;
         return;
       }
       const quickOpen = updateQuickInsertPopup(ctx);
-      if (quickOpen) hideSnippetPopup();
+      if (quickOpen) {
+        hideSnippetPopup();
+        hideBlockMenuTrigger();
+      }
       else if (shouldScanSnippets) updateSnippetPopup(ctx);
       updateMathPreview(ctx);
       updateFloatingToc();
       updateSelectionTool();
+      if (activeEditorSelection()) hideBlockMenuTrigger();
+      else updateBlockMenuTrigger();
     });
   }, 35);
 }
@@ -2816,6 +2900,15 @@ notesTabButtons.forEach((button) => {
 tocToggle.addEventListener("click", () => {
   floatingTocPanel.toggle();
 });
+blockMenuTrigger.addEventListener("mousedown", (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+});
+blockMenuTrigger.addEventListener("click", (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  openBlockMenu();
+});
 selectionTool.addEventListener("mousedown", (event) => event.preventDefault());
 selectionTool.addEventListener("click", (event) => {
   const button = (event.target as Element | null)?.closest<HTMLButtonElement>("[data-selection-command]");
@@ -2835,6 +2928,13 @@ document.addEventListener("keyup", (event) => {
   if (event.key !== "Escape") quickInsertSuppressedPrefix = "";
   scheduleCursorPositionSave();
   scheduleAssistUpdate();
+});
+document.addEventListener("mousedown", (event) => {
+  if (quickInsertMode !== "block" || quickInsertPopup.hidden) return;
+  const target = event.target as Node | null;
+  if (!target) return;
+  if (quickInsertPopup.contains(target) || blockMenuTrigger.contains(target)) return;
+  hideQuickInsertPopup();
 });
 document.addEventListener("selectionchange", () => {
   updateVimCursorNow();

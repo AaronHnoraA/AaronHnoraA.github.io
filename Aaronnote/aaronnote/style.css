@@ -1237,6 +1237,33 @@ input {
   padding: 12px 16px;
 }
 
+.aaronnote-block-menu-trigger {
+  position: fixed;
+  z-index: 48;
+  width: 26px;
+  height: 26px;
+  border: 1px solid color-mix(in srgb, var(--aaron-paper-line), var(--aaron-red) 18%);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--aaron-paper), white 12%);
+  color: var(--aaron-muted);
+  cursor: pointer;
+  font: 700 18px/22px "Avenir Next", Inter, ui-sans-serif, system-ui, sans-serif;
+  text-align: center;
+  box-shadow: 0 8px 20px rgb(67 39 25 / 12%);
+}
+
+.aaronnote-block-menu-trigger[hidden] {
+  display: none;
+}
+
+.aaronnote-block-menu-trigger:hover,
+.aaronnote-block-menu-trigger:focus-visible {
+  border-color: color-mix(in srgb, var(--aaron-red), transparent 18%);
+  color: var(--aaron-red-dark);
+  background: color-mix(in srgb, var(--aaron-paper-soft), white 18%);
+  outline: none;
+}
+
 .aaronnote-selection-tool {
   position: fixed;
   z-index: 60;

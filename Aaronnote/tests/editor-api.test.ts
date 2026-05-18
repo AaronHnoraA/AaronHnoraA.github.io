@@ -1,6 +1,40 @@
 import { describe, expect, test } from "@voidzero-dev/vite-plus-test";
+import type { Node as PMNode } from "prosemirror-model";
 
-import { createEditor, normalizePastedSourceText } from "../src/editor-api.ts";
+import { createEditor, normalizePastedSourceText, type Editor } from "../src/editor-api.ts";
+
+function findFirstNode(editor: Editor, typeName: string): { node: PMNode; pos: number } {
+  let found: { node: PMNode; pos: number } | null = null;
+  editor.view.state.doc.descendants((node, pos) => {
+    if (found || node.type.name !== typeName) return true;
+    found = { node, pos };
+    return false;
+  });
+  expect(found).toBeTruthy();
+  return found!;
+}
+
+function selectFirstCell(editor: Editor, bodyOnly = false): { node: PMNode; pos: number } {
+  let found: { node: PMNode; pos: number } | null = null;
+  editor.view.state.doc.descendants((node, pos) => {
+    if (found || node.type.name !== "table_cell") return true;
+    if (bodyOnly && node.attrs.header === true) return true;
+    found = { node, pos };
+    return false;
+  });
+  expect(found).toBeTruthy();
+  editor.setSelection(found!.pos + 1);
+  return found!;
+}
+
+function tableShape(editor: Editor): { rows: number; cols: number[] } {
+  const table = findFirstNode(editor, "table").node;
+  const cols: number[] = [];
+  for (let row = 0; row < table.childCount; row++) {
+    cols.push(table.child(row).childCount);
+  }
+  return { rows: table.childCount, cols };
+}
 
 describe("editor api paste normalization", () => {
   test("preserves TeX source instead of command-specific repair", () => {
@@ -140,6 +174,80 @@ describe("editor api commands and writing modes", () => {
       expect(editor.getMarkdown()).toContain("#+begin lemma");
       unregister();
       expect(editor.getQuickInsertItems("lemma").some((candidate) => candidate.id === "lemma")).toBe(false);
+    } finally {
+      editor.destroy();
+      mount.remove();
+    }
+  });
+
+  test("narrows quick insert items to table commands inside a table cell", () => {
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const editor = createEditor(mount, {
+      initialContent: "| A | B |\n| --- | --- |\n| 1 | 2 |",
+    });
+    try {
+      selectFirstCell(editor, true);
+      const context = editor.getBlockContext();
+      expect(context.type).toBe("table_cell");
+      expect(context.commands).toEqual([
+        "table-insert-row",
+        "table-insert-column",
+        "table-delete-row",
+        "table-delete-column",
+      ]);
+
+      const commands = editor.getQuickInsertItems("").map((item) => item.command);
+      expect(commands).toEqual([
+        "table-insert-row",
+        "table-insert-column",
+        "table-delete-row",
+        "table-delete-column",
+      ]);
+    } finally {
+      editor.destroy();
+      mount.remove();
+    }
+  });
+
+  test("runs table row and column commands from the public api", () => {
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const editor = createEditor(mount, {
+      initialContent: "| A | B |\n| --- | --- |\n| 1 | 2 |",
+    });
+    try {
+      selectFirstCell(editor, true);
+      expect(tableShape(editor)).toEqual({ rows: 2, cols: [2, 2] });
+
+      expect(editor.runCommand("table-insert-row")).toBe(true);
+      expect(tableShape(editor)).toEqual({ rows: 3, cols: [2, 2, 2] });
+
+      expect(editor.runCommand("table-insert-column")).toBe(true);
+      expect(tableShape(editor)).toEqual({ rows: 3, cols: [3, 3, 3] });
+
+      expect(editor.runCommand("table-delete-column")).toBe(true);
+      expect(tableShape(editor)).toEqual({ rows: 3, cols: [2, 2, 2] });
+
+      expect(editor.runCommand("table-delete-row")).toBe(true);
+      expect(tableShape(editor)).toEqual({ rows: 2, cols: [2, 2] });
+    } finally {
+      editor.destroy();
+      mount.remove();
+    }
+  });
+
+  test("offers copy code only from code block context", () => {
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const editor = createEditor(mount, { initialContent: "```ts\nconst x = 1;\n```" });
+    try {
+      const code = findFirstNode(editor, "code_block");
+      editor.setSelection(code.pos + 1);
+      const commands = editor.getQuickInsertItems("").map((item) => item.command);
+      expect(commands).toContain("copy-code");
+      expect(commands).toContain("code-block");
+      expect(commands).not.toContain("insert-table");
     } finally {
       editor.destroy();
       mount.remove();

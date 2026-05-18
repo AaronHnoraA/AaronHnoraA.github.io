@@ -66,11 +66,17 @@ const FENCE_RE = /^```(\w*)$/;
 // ─────────────────────────────────────────────────────────────────────────────
 
 type LangFocus = { pos: number } | null;
+type FencedCodePluginState = {
+  langFocus: LangFocus;
+  decorations: DecorationSet;
+};
 
-const langFocusKey = new PluginKey<LangFocus>("fencedCodeLangFocus");
+const langFocusKey = new PluginKey<FencedCodePluginState>("fencedCodeLangFocus");
+const LARGE_CODE_HIGHLIGHT_DOC_SIZE = 260_000;
+const LARGE_CODE_HIGHLIGHT_WINDOW = 90_000;
 
 export function getLangFocus(state: EditorState): LangFocus {
-  return langFocusKey.getState(state) ?? null;
+  return langFocusKey.getState(state)?.langFocus ?? null;
 }
 
 // Find the pos of the code_block containing a doc position, or null.
@@ -81,6 +87,78 @@ function codeBlockPosAt(state: EditorState, pos: number): number | null {
     if (node.type.name === "code_block") return $.before(d);
   }
   return null;
+}
+
+function sameLangFocus(a: LangFocus, b: LangFocus): boolean {
+  return a?.pos === b?.pos;
+}
+
+function mappedLangFocus(focus: LangFocus, tr: import("prosemirror-state").Transaction): LangFocus {
+  if (!focus) return null;
+  const mapped = tr.mapping.map(focus.pos);
+  const node = tr.doc.nodeAt(mapped);
+  if (!node || node.type.name !== "code_block") return null;
+  return { pos: mapped };
+}
+
+function buildFencedCodeDecorations(state: EditorState, langFocus: LangFocus): DecorationSet {
+  const decos: Decoration[] = [];
+  const largeMode = state.doc.content.size > LARGE_CODE_HIGHLIGHT_DOC_SIZE;
+  const windowFrom = largeMode ? Math.max(0, state.selection.from - LARGE_CODE_HIGHLIGHT_WINDOW) : 0;
+  const windowTo = largeMode
+    ? Math.min(state.doc.content.size, state.selection.to + LARGE_CODE_HIGHLIGHT_WINDOW)
+    : state.doc.content.size;
+  const overlapsWindow = (from: number, to: number): boolean =>
+    !largeMode || (to >= windowFrom && from <= windowTo);
+
+  state.doc.descendants((node, pos) => {
+    if (node.type.name !== "code_block") return true;
+    if (overlapsWindow(pos, pos + node.nodeSize)) {
+      const lang = String(node.attrs.lang ?? "");
+      for (const token of highlightCode(lang, node.textContent)) {
+        decos.push(
+          Decoration.inline(pos + 1 + token.from, pos + 1 + token.to, {
+            class: token.className,
+          }),
+        );
+      }
+    }
+    return false;
+  });
+
+  const sel = state.selection;
+  if (sel.empty) {
+    const cbPos = codeBlockPosAt(state, sel.from);
+    if (cbPos !== null) {
+      const node = state.doc.nodeAt(cbPos);
+      if (node) {
+        decos.push(
+          Decoration.node(
+            cbPos,
+            cbPos + node.nodeSize,
+            { class: "cb-active" },
+            { cbActive: true },
+          ),
+        );
+      }
+    }
+  }
+
+  if (langFocus) {
+    const node = state.doc.nodeAt(langFocus.pos);
+    if (node && node.type.name === "code_block") {
+      decos.push(
+        Decoration.node(
+          langFocus.pos,
+          langFocus.pos + node.nodeSize,
+          { class: "cb-active cb-lang-focus" },
+          { cbActive: true, cbLangFocus: true },
+        ),
+      );
+    }
+  }
+
+  return decos.length > 0 ? DecorationSet.create(state.doc, decos) : DecorationSet.empty;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -359,21 +437,26 @@ class CodeBlockView implements NodeView {
 // state, and ArrowUp/Down handlers for crossing main ↔ lang-input.
 // ─────────────────────────────────────────────────────────────────────────────
 
-function fencedCodeChromePlugin(): Plugin<LangFocus> {
-  return new Plugin<LangFocus>({
+function fencedCodeChromePlugin(): Plugin<FencedCodePluginState> {
+  return new Plugin<FencedCodePluginState>({
     key: langFocusKey,
     state: {
-      init: () => null,
-      apply: (tr, old) => {
+      init: (_, state) => ({
+        langFocus: null,
+        decorations: buildFencedCodeDecorations(state, null),
+      }),
+      apply: (tr, old, _oldState, newState) => {
         const m = tr.getMeta(langFocusKey);
-        if (m === null) return null;
-        if (m !== undefined) return m as LangFocus;
-        // Map old pos through tr.mapping; if code_block no longer exists, drop.
-        if (!old) return null;
-        const mapped = tr.mapping.map(old.pos);
-        const node = tr.doc.nodeAt(mapped);
-        if (!node || node.type.name !== "code_block") return null;
-        return { pos: mapped };
+        const nextLangFocus = m === null
+          ? null
+          : m !== undefined
+            ? m as LangFocus
+            : mappedLangFocus(old.langFocus, tr);
+        const changed = tr.docChanged || tr.selectionSet || !sameLangFocus(old.langFocus, nextLangFocus);
+        return {
+          langFocus: nextLangFocus,
+          decorations: changed ? buildFencedCodeDecorations(newState, nextLangFocus) : old.decorations,
+        };
       },
     },
     props: {
@@ -382,58 +465,13 @@ function fencedCodeChromePlugin(): Plugin<LangFocus> {
           new CodeBlockView(node, view, getPos, decorations as readonly Decoration[]),
       },
       decorations(state) {
-        const decos: Decoration[] = [];
-        state.doc.descendants((node, pos) => {
-          if (node.type.name !== "code_block") return true;
-          const lang = String(node.attrs.lang ?? "");
-          for (const token of highlightCode(lang, node.textContent)) {
-            decos.push(
-              Decoration.inline(pos + 1 + token.from, pos + 1 + token.to, {
-                class: token.className,
-              }),
-            );
-          }
-          return false;
-        });
-        // Active = cursor sits inside a code_block.
-        const sel = state.selection;
-        if (sel.empty) {
-          const cbPos = codeBlockPosAt(state, sel.from);
-          if (cbPos !== null) {
-            const node = state.doc.nodeAt(cbPos);
-            if (node) {
-              decos.push(
-                Decoration.node(
-                  cbPos,
-                  cbPos + node.nodeSize,
-                  { class: "cb-active" },
-                  { cbActive: true },
-                ),
-              );
-            }
-          }
-        }
-        const lf = langFocusKey.getState(state);
-        if (lf) {
-          const node = state.doc.nodeAt(lf.pos);
-          if (node && node.type.name === "code_block") {
-            decos.push(
-              Decoration.node(
-                lf.pos,
-                lf.pos + node.nodeSize,
-                { class: "cb-active cb-lang-focus" },
-                { cbActive: true, cbLangFocus: true },
-              ),
-            );
-          }
-        }
-        return decos.length > 0 ? DecorationSet.create(state.doc, decos) : null;
+        return langFocusKey.getState(state)?.decorations ?? DecorationSet.empty;
       },
       handleKeyDown(view, e) {
         if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return false;
         if (e.shiftKey || e.metaKey || e.ctrlKey || e.altKey) return false;
         const state = view.state;
-        const lf = langFocusKey.getState(state);
+        const lf = getLangFocus(state);
 
         // Case A: already in lang-focus → ArrowUp exits back to code body,
         // ArrowDown exits to the block below (or spawns one).

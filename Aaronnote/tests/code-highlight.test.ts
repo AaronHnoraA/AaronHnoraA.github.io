@@ -13,4 +13,19 @@ describe("code highlighting", () => {
     expect(highlightCode("typescript", "const answer = 42;\n// done")).toEqual(ranges);
     expect(codeHighlightCacheSize()).toBe(1);
   });
+
+  test("covers common note code block languages", () => {
+    expect(highlightCode("rust", "fn main() { let answer = 42; }")
+      .some((range) => range.className === "code-token-keyword")).toBe(true);
+    expect(highlightCode("go", "func main() { return }")
+      .some((range) => range.className === "code-token-keyword")).toBe(true);
+    expect(highlightCode("elisp", "(defun aaron-test () ; done\n  t)")
+      .some((range) => range.className === "code-token-comment")).toBe(true);
+    expect(highlightCode("sql", "select * from notes where done = false")
+      .some((range) => range.className === "code-token-keyword")).toBe(true);
+    expect(highlightCode("yaml", "title: Aaronnote\npublished: true")
+      .some((range) => range.className === "code-token-property")).toBe(true);
+    expect(highlightCode("nix", "{ pkgs ? import <nixpkgs> {} }: with pkgs; hello")
+      .some((range) => range.className === "code-token-keyword")).toBe(true);
+  });
 });
