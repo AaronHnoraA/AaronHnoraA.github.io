@@ -144,7 +144,7 @@ $$
 
 with $i \neq j$ induces a nontrivial automorphism of $G$.
 
-Therefore $\mathrm{GA}$ can be decided using polynomially many $\mathrm{GI}$-queries.
+Therefore $\mathrm{GA}$ can be decided using polynomially many $\mathrm{GI}$-queries. 
 
 ## 3. The Disjoint-Union Trick
 
