@@ -1,5 +1,6 @@
 {
   "inputs": [
+    "Aaronnote/aaronnote/published-toc.js",
     "Aaronnote/aaronnote/style.css",
     "Aaronnote/scripts/render-html.mjs",
     "Aaronnote/src/block-draft.ts",

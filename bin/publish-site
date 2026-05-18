@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PUBLIC = ROOT / "public"
 PUBLISH_STATE = PUBLIC / ".publish-state.json"
 ASSET_VERSION = "20260517-md"
-NOTE_THEME_VERSION = "20260518-aaronnote"
+NOTE_THEME_VERSION = "20260518-aaronnote-toc"
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".avif"}
 STATIC_EXTENSIONS = IMAGE_EXTENSIONS | {".css", ".js", ".pdf"}
 SKIP_DIRS = {".git", ".git-rewrite", ".cache", ".direnv", ".venv", "node_modules", "public", "release", "ltximg", "_typst", "__pycache__"}
@@ -26,6 +26,7 @@ PUBLISH_INPUT_PATHS = (
     "roam",
     "CV",
     "Aaronnote/aaronnote/style.css",
+    "Aaronnote/aaronnote/published-toc.js",
     "Aaronnote/src",
     "Aaronnote/src/styles/theme-typora.css",
     "Aaronnote/src/styles/widgets.css",
@@ -407,6 +408,7 @@ def deps_for_note(note: Note) -> set[str]:
         "bin/publish-site",
         "Aaronnote/scripts/render-html.mjs",
         "Aaronnote/aaronnote/style.css",
+        "Aaronnote/aaronnote/published-toc.js",
         "Aaronnote/src/styles/widgets.css",
         "Aaronnote/src/styles/theme-typora.css",
         "css/aaronnote-published.css",
@@ -539,7 +541,12 @@ def note_page_html(note: Note, content_html: str, *, include_private_content: bo
         </div>
       </div>
     </section>
+    <aside class="aaronnote-floating-toc is-collapsed" data-floating-toc data-published-toc>
+      <button type="button" data-toc-toggle aria-expanded="false">TOC</button>
+      <nav data-toc-list aria-label="Table of contents"></nav>
+    </aside>
   </main>
+  <script type="module" src="{root}Aaronnote/aaronnote/published-toc.js?v={NOTE_THEME_VERSION}"></script>
 </body>
 </html>
 """
@@ -616,16 +623,17 @@ def _copy_into_public(source: Path, target: Path) -> None:
     shutil.copy2(source, target)
 
 
-PUBLISHED_STYLE_PATHS = (
+PUBLISHED_ASSET_PATHS = (
     Path("Aaronnote/aaronnote/style.css"),
+    Path("Aaronnote/aaronnote/published-toc.js"),
     Path("Aaronnote/src/styles/widgets.css"),
     Path("Aaronnote/src/styles/theme-typora.css"),
     Path("css/aaronnote-published.css"),
 )
 
 
-def copy_published_styles(output_root: Path) -> None:
-    for rel in PUBLISHED_STYLE_PATHS:
+def copy_published_assets(output_root: Path) -> None:
+    for rel in PUBLISHED_ASSET_PATHS:
         source = ROOT / rel
         if source.exists():
             _copy_into_public(source, output_root / rel)
@@ -845,7 +853,7 @@ def publish_single_note(args: list[str]) -> bool:
     include_private = "--include-private" in args
     note = parse_note_for_export(note_path)
     output_root.mkdir(parents=True, exist_ok=True)
-    copy_published_styles(output_root)
+    copy_published_assets(output_root)
     copy_note_static_assets(note, output_root)
     copy_note_kind_assets(note, output_root)
     status = render_note_html(
