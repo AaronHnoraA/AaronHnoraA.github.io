@@ -1585,6 +1585,12 @@ function setKindDataset(kind: string): void {
   document.body.dataset.noteKind = value;
 }
 
+function prepareNoteKindRender(kindValue: unknown): void {
+  const kind = activeKindName(kindValue);
+  if (activeNoteKind && activeNoteKind !== kind) clearNoteKindAssets();
+  setKindDataset(kind);
+}
+
 function clearNoteKindAssets(): void {
   const context = activeNoteKind ? noteKindContext(activeNoteKind) : null;
   try {
@@ -1986,9 +1992,19 @@ function jumpSnippetTabstopBack(): boolean {
   return moved;
 }
 
+function currentSnippetKind(): string {
+  return activeKindName(root.dataset.noteKind || document.body.dataset.noteKind || currentNote()?.kind || "");
+}
+
+function snippetAppliesToCurrentKind(snippet: SnippetSummary): boolean {
+  const kind = activeKindName(snippet.kind || "");
+  return !kind || kind === currentSnippetKind();
+}
+
 function matchingSnippets(prefix: string): SnippetSummary[] {
   const query = prefix.toLowerCase();
   return snippets
+    .filter(snippetAppliesToCurrentKind)
     .map((snippet) => ({ snippet, score: snippetScore(snippet, query) }))
     .filter((item) => Number.isFinite(item.score))
     .sort((a, b) => {
@@ -3054,8 +3070,10 @@ function applyOpen(msg: Extract<Inbound, { type: "open" }>): void {
   if (currentMode === "source" && !editor.isSourceMode()) editor.toggleSource();
   if (currentMode === "markdown" && editor.isSourceMode()) editor.toggleSource();
   syncSourceUi();
+  const kindValue = msg.kind ?? currentNote()?.kind ?? noteKindFromMarkdown(msg.content ?? "");
+  prepareNoteKindRender(kindValue);
   editor.setMarkdown(msg.content ?? "");
-  void applyNoteKindAssets(msg.kind ?? currentNote()?.kind ?? noteKindFromMarkdown(msg.content ?? ""));
+  void applyNoteKindAssets(kindValue);
   const equationTag = normalizeEquationTag(pendingEquationTag);
   pendingEquationTag = "";
   const todoFocus = pendingTodoFocus && pendingTodoFocus.file === currentFile ? pendingTodoFocus : null;

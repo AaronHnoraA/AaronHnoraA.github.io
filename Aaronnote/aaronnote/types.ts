@@ -26,6 +26,7 @@ export type SnippetSummary = {
   name?: string;
   mode?: string;
   group?: string;
+  kind?: string;
   body?: string;
   source?: string;
 };

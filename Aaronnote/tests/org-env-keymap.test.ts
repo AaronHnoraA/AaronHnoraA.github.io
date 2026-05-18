@@ -64,4 +64,38 @@ describe("org-env keymap", () => {
       mount.remove();
     }
   });
+
+  test("external wrapper attributes do not collapse meta block source", async () => {
+    const source = [
+      "#+begin meta",
+      "title: Slides Kind Demo",
+      "date: 2026-05-18",
+      "kind: slides",
+      "tags: demo, aaronnote",
+      "#+end meta",
+    ].join("\n");
+    const state = createState(parse(source));
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const view = new EditorView(mount, { state });
+    try {
+      const block = view.dom.querySelector<HTMLElement>('org-env-block[data-kind="meta"]');
+      expect(block).not.toBeNull();
+      block!.hidden = true;
+      block!.style.display = "none";
+      block!.classList.add("aaronnote-slide-hidden");
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      expect(view.state.doc.child(0).textContent).toBe([
+        "title: Slides Kind Demo",
+        "date: 2026-05-18",
+        "kind: slides",
+        "tags: demo, aaronnote",
+      ].join("\n"));
+      expect(serialize(view.state.doc)).toBe(source);
+    } finally {
+      view.destroy();
+      mount.remove();
+    }
+  });
 });

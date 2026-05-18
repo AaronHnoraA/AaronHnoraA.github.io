@@ -552,7 +552,8 @@ export function snippetLabel(snippet: SnippetSummary): string {
 }
 
 export function snippetDetail(snippet: SnippetSummary): string {
-  return [snippet.name, snippet.mode, snippet.group].filter(Boolean).join(" / ");
+  const kind = snippet.kind ? `kind:${snippet.kind}` : "";
+  return [snippet.name, snippet.mode, kind, snippet.group].filter(Boolean).join(" / ");
 }
 
 export function snippetScore(snippet: SnippetSummary, query: string): number {
@@ -560,11 +561,12 @@ export function snippetScore(snippet: SnippetSummary, query: string): number {
   const name = (snippet.name ?? "").toLowerCase();
   const mode = (snippet.mode ?? "").toLowerCase();
   const group = (snippet.group ?? "").toLowerCase();
+  const kind = (snippet.kind ?? "").toLowerCase();
   if (key === query) return 0;
   if (key.startsWith(query)) return 1;
   if (name.startsWith(query)) return 2;
   if (key.includes(query)) return 3;
   if (name.includes(query)) return 4;
-  if (mode.includes(query) || group.includes(query)) return 5;
+  if (mode.includes(query) || group.includes(query) || kind.includes(query)) return 5;
   return Number.POSITIVE_INFINITY;
 }

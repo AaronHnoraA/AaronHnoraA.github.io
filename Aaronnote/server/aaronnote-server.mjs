@@ -1225,6 +1225,28 @@ function snippetDirs() {
   return [...new Set(dirs.map((dir) => resolve(dir)).filter((dir) => existsSync(dir)))];
 }
 
+async function snippetRoots() {
+  const roots = snippetDirs().map((dir) => ({ dir, kind: "" }));
+  const kindRoots = [
+    resolve(workspaceRoot, "kinds"),
+    resolve(appDir, "..", "kinds"),
+    resolve(process.cwd(), "kinds"),
+  ].filter((dir, index, dirs) => dirs.indexOf(dir) === index && existsSync(dir));
+  for (const kindsRoot of kindRoots) {
+    try {
+      const entries = await readdir(kindsRoot, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const kind = normalizeNoteKind(entry.name);
+        if (kind === defaultNoteKind || kind !== entry.name.toLowerCase()) continue;
+        const dir = resolve(kindsRoot, entry.name, "snippet");
+        if (existsSync(dir) && !roots.some((root) => root.dir === dir)) roots.push({ dir, kind });
+      }
+    } catch {}
+  }
+  return roots;
+}
+
 function parseSnippetBody(content) {
   const lines = content.split(/\r?\n/);
   const headers = new Map();
@@ -1244,22 +1266,22 @@ function parseSnippetBody(content) {
   };
 }
 
-async function scanSnippets(options = {}) {
-  const dirs = snippetDirs();
-  const key = dirs.join(":");
+export async function scanSnippets(options = {}) {
+  const roots = await snippetRoots();
+  const key = roots.map((root) => `${root.kind}@${root.dir}`).join(":");
   const now = Date.now();
   if (!options.force && snippetCache.key === key && now - snippetCache.scannedAt < 10_000) {
     return snippetCache.snippets;
   }
   const snippets = [];
-  for (const root of dirs) {
-    const files = await walkFiles(root, (_file, name) => !name.startsWith(".") && !name.endsWith(".el"));
+  for (const root of roots) {
+    const files = await walkFiles(root.dir, (_file, name) => !name.startsWith(".") && !name.endsWith(".el"));
     for (const file of files) {
       try {
         const content = await readFile(file, "utf8");
         const { headers, body } = parseSnippetBody(content);
         if (!body.trim()) continue;
-        const rel = relative(root, file);
+        const rel = relative(root.dir, file);
         const parts = rel.split(sep);
         const mode = parts[0] || "";
         const key = headers.get("key") || parts.at(-1) || "snippet";
@@ -1268,6 +1290,7 @@ async function scanSnippets(options = {}) {
           name: headers.get("name") || key,
           mode,
           group: headers.get("group") || "",
+          kind: root.kind,
           body,
           source: file,
         });
@@ -1277,7 +1300,7 @@ async function scanSnippets(options = {}) {
   snippetCache = {
     key,
     scannedAt: now,
-    snippets: snippets.sort((a, b) => `${a.mode}/${a.key}`.localeCompare(`${b.mode}/${b.key}`)),
+    snippets: snippets.sort((a, b) => `${a.kind}/${a.mode}/${a.key}`.localeCompare(`${b.kind}/${b.mode}/${b.key}`)),
   };
   return snippetCache.snippets;
 }

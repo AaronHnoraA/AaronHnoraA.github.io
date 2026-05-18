@@ -192,6 +192,7 @@ class OrgEnvNodeView implements NodeView {
   }
 
   ignoreMutation(mutation: ViewMutationRecord): boolean {
+    if (mutation.type === "attributes" && mutation.target === this.dom) return true;
     return mutation.target instanceof Node
       && (
         this.title.contains(mutation.target)
