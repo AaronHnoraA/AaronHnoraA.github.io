@@ -3,6 +3,13 @@ import { describe, expect, test } from "@voidzero-dev/vite-plus-test";
 // @ts-ignore The server is a Node ESM module outside the TS app graph.
 import { activeKindFromContent, kindFromContent, scanSnippets } from "../server/aaronnote-server.mjs";
 
+type ServerSnippet = {
+  key?: string;
+  mode?: string;
+  kind?: string;
+  body?: string;
+};
+
 describe("server note kind assets", () => {
   test("reads active kind from org meta", () => {
     expect(kindFromContent("#+begin meta\nkind: slides\n#+end meta\n\n# Talk")).toBe("slides");
@@ -21,7 +28,7 @@ describe("server note kind assets", () => {
   });
 
   test("loads kind-specific snippets from kinds/name/snippet", async () => {
-    const snippets = await scanSnippets({ force: true });
+    const snippets = await scanSnippets({ force: true }) as ServerSnippet[];
     const slide = snippets.find((snippet) => snippet.kind === "slides" && snippet.key === "slide");
     expect(slide?.mode).toBe("markdown-mode");
     expect(slide?.body).toContain("# ${1:Slide title}");
