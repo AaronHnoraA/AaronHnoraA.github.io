@@ -1,3 +1,3 @@
-export default function setup() {
-  return () => {};
-}
+import { defineKind } from "../_shared/kind.js";
+
+export default defineKind("assignment", () => {});

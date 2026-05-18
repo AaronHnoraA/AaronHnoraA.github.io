@@ -1,39 +1,134 @@
 const CONTROL_CLASS = "aaronnote-slides-controls";
 const PROGRESS_CLASS = "aaronnote-slides-progress";
-const SURFACE_CLASS = "aaronnote-slides-surface";
-const HIDDEN_CLASS = "aaronnote-slide-hidden";
+const TOC_CLASS = "aaronnote-slides-toc";
+const RUNTIME_STYLE_ATTR = "data-aaronnote-slides-runtime";
+const GLOBAL_CONFIG_KINDS = new Set(["slidegconfig", "slide-g-config", "slidesconfig", "slideconfig"]);
+const LOCAL_CONFIG_KINDS = new Set(["slidelconfig", "slide-l-config", "slidelocalconfig", "slide-local-config", "lconfig"]);
 
 function slideSurface(context) {
-  return context?.article
-    || context?.host?.querySelector?.(".ProseMirror")
+  const article = context?.article;
+  if (article instanceof HTMLElement) return article;
+  return context?.host?.querySelector?.(".ProseMirror")
     || document.querySelector("#content")
     || document.querySelector(".ProseMirror");
 }
 
-function slideChildren(surface) {
+function orgEnvKind(child) {
+  return child instanceof HTMLElement && child.matches("org-env-block")
+    ? String(child.dataset.kind || "").toLowerCase()
+    : "";
+}
+
+function isMetaBlock(child) {
+  return orgEnvKind(child) === "meta";
+}
+
+function isGlobalConfigBlock(child) {
+  return GLOBAL_CONFIG_KINDS.has(orgEnvKind(child));
+}
+
+function isLocalConfigBlock(child) {
+  return LOCAL_CONFIG_KINDS.has(orgEnvKind(child));
+}
+
+function isSlidesChrome(child) {
+  return child.classList.contains(CONTROL_CLASS)
+    || child.classList.contains(PROGRESS_CLASS)
+    || child.classList.contains(TOC_CLASS);
+}
+
+function displayChildren(surface) {
   return Array.from(surface.children).filter((child) => {
     if (!(child instanceof HTMLElement)) return false;
-    if (child.classList.contains(CONTROL_CLASS) || child.classList.contains(PROGRESS_CLASS)) return false;
+    if (isSlidesChrome(child)) return false;
+    if (isMetaBlock(child) || isGlobalConfigBlock(child) || isLocalConfigBlock(child)) return false;
     if (child.matches("script, style")) return false;
     return true;
   });
 }
 
+function emptySlide() {
+  return { items: [], configBlocks: [] };
+}
+
 function buildSlides(surface) {
   const slides = [];
-  let current = [];
-  for (const child of slideChildren(surface)) {
+  let current = emptySlide();
+  for (const child of Array.from(surface.children)) {
+    if (!(child instanceof HTMLElement)) continue;
+    if (isSlidesChrome(child) || child.matches("script, style")) continue;
+    if (isMetaBlock(child) || isGlobalConfigBlock(child)) continue;
+    if (isLocalConfigBlock(child)) {
+      current.configBlocks.push(child);
+      continue;
+    }
+
     const isBreak = child.matches("hr");
-    const isHeadingStart = child.matches("h1") && current.some((item) => !item.matches('org-env-block[data-kind="meta"]'));
+    const isHeadingStart = child.matches("h1") && current.items.length > 0;
     if (isBreak || isHeadingStart) {
-      if (current.length > 0) slides.push(current);
-      current = [];
+      if (current.items.length > 0) slides.push(current);
+      current = emptySlide();
       if (isBreak) continue;
     }
-    current.push(child);
+    current.items.push(child);
   }
-  if (current.length > 0) slides.push(current);
-  return slides.length > 0 ? slides : [slideChildren(surface)];
+  if (current.items.length > 0) slides.push(current);
+  return slides.length > 0 ? slides : [{ items: displayChildren(surface), configBlocks: [] }];
+}
+
+function textConfigValue(value) {
+  return String(value || "").trim();
+}
+
+function boolConfigValue(value) {
+  return /^(1|true|yes|on)$/i.test(textConfigValue(value));
+}
+
+function normalizeConfigKey(key) {
+  return String(key || "").trim().toLowerCase().replace(/[_\s]+/g, "-");
+}
+
+function parseConfigText(text) {
+  const config = {};
+  const css = [];
+  let collectingCss = false;
+  for (const rawLine of String(text || "").split(/\r?\n/)) {
+    const pair = rawLine.match(/^([A-Za-z][\w -]*)\s*:\s*(.*)$/);
+    if (pair) {
+      const key = normalizeConfigKey(pair[1]);
+      const value = textConfigValue(pair[2]);
+      collectingCss = key === "css";
+      if (key === "toc") config.toc = boolConfigValue(value);
+      else if (key === "title-position") config.titlePosition = value.toLowerCase();
+      else if (key === "title-align") config.titleAlign = value.toLowerCase();
+      else if (key === "css" && value) css.push(value);
+      else if (key === "class") config.className = value;
+      continue;
+    }
+    if (collectingCss) css.push(rawLine.replace(/^\s{2}/, ""));
+  }
+  if (css.length > 0) config.css = css.join("\n").trim();
+  return config;
+}
+
+function mergeConfig(base, next) {
+  return Object.assign({}, base, next || {});
+}
+
+function configBlocks(surface, predicate) {
+  return Array.from(surface.children).filter((child) => child instanceof HTMLElement && predicate(child));
+}
+
+function globalConfig(surface) {
+  return configBlocks(surface, isGlobalConfigBlock)
+    .map((block) => parseConfigText(block.textContent || ""))
+    .reduce((config, next) => mergeConfig(config, next), {});
+}
+
+function slideConfig(base, slide) {
+  return slide.configBlocks
+    .map((block) => parseConfigText(block.textContent || ""))
+    .reduce((config, next) => mergeConfig(config, next), base);
 }
 
 function makeControls() {
@@ -53,10 +148,55 @@ function makeControls() {
   return { controls, progress };
 }
 
+function makeToc() {
+  const toc = document.createElement("nav");
+  toc.className = TOC_CLASS;
+  toc.setAttribute("aria-label", "Slides");
+  document.body.append(toc);
+  return toc;
+}
+
 function editableTarget(event) {
   const target = event.target;
   return target instanceof HTMLElement
     && Boolean(target.closest('input, textarea, select, [contenteditable="true"]'));
+}
+
+function surfaceSelectors(surface) {
+  if (surface.id && /^[A-Za-z][\w-]*$/.test(surface.id)) return [`body[data-note-kind="slides"] #${surface.id}`];
+  if (surface.classList.contains("ProseMirror")) return ['body[data-note-kind="slides"] .ProseMirror'];
+  if (surface.matches("#content")) return ['body[data-note-kind="slides"] #content'];
+  return [
+    'body[data-note-kind="slides"] .ProseMirror',
+    'body[data-note-kind="slides"] #content',
+  ];
+}
+
+function childNumber(surface, child) {
+  return Array.prototype.indexOf.call(surface.children, child) + 1;
+}
+
+function slideTitle(slide, fallback) {
+  const heading = slide.items.find((item) => item.matches("h1, h2"));
+  const title = heading?.textContent?.trim();
+  return title || fallback;
+}
+
+function titleRules(selector, slide, config) {
+  const position = String(config.titlePosition || "").toLowerCase();
+  const align = String(config.titleAlign || "").toLowerCase();
+  if (!position && !align) return [];
+  const declarations = [];
+  if (["center", "middle"].includes(position)) declarations.push("margin-top: 22vh");
+  if (position === "bottom") declarations.push("margin-top: 44vh");
+  if (["left", "center", "right"].includes(position)) declarations.push(`text-align: ${position}`);
+  if (["left", "center", "right"].includes(align)) declarations.push(`text-align: ${align}`);
+  if (declarations.length === 0) return [];
+  return slide.items
+    .filter((item) => item.matches("h1"))
+    .map((item) => childNumber(item.parentElement, item))
+    .filter((n) => n > 0)
+    .map((n) => `${selector} > h1:nth-child(${n}) { ${declarations.join("; ")}; }`);
 }
 
 export default function setup(initialContext = {}) {
@@ -64,17 +204,63 @@ export default function setup(initialContext = {}) {
   let surface = null;
   let controls = null;
   let progress = null;
+  let toc = null;
+  let runtimeStyle = null;
   let slides = [];
+  let config = {};
   let index = 0;
+  let observer = null;
+  let rebuildTimer = 0;
 
-  function resetSurface() {
-    if (!surface) return;
-    surface.classList.remove(SURFACE_CLASS);
-    for (const child of slideChildren(surface)) {
-      child.classList.remove(HIDDEN_CLASS);
-      child.removeAttribute("data-slide-index");
-      child.removeAttribute("data-slide-active");
+  function ensureRuntimeStyle() {
+    if (runtimeStyle?.isConnected) return runtimeStyle;
+    runtimeStyle = document.createElement("style");
+    runtimeStyle.setAttribute(RUNTIME_STYLE_ATTR, "true");
+    document.head.appendChild(runtimeStyle);
+    return runtimeStyle;
+  }
+
+  function removeRuntimeStyle() {
+    runtimeStyle?.remove();
+    runtimeStyle = null;
+  }
+
+  function hiddenElementIndexes() {
+    const hidden = new Set();
+    slides.forEach((slide, slideIndex) => {
+      if (slideIndex === index) return;
+      for (const child of slide.items) hidden.add(child);
+    });
+    return [...hidden]
+      .map((child) => childNumber(surface, child))
+      .filter((n) => n > 0);
+  }
+
+  function updateVisibility() {
+    if (!surface) {
+      removeRuntimeStyle();
+      return;
     }
+    const style = ensureRuntimeStyle();
+    const selectors = surfaceSelectors(surface);
+    const activeSlide = slides[index] || emptySlide();
+    const activeConfig = slideConfig(config, activeSlide);
+    const rules = [];
+    for (const selector of selectors) {
+      rules.push(`${selector} > org-env-block[data-kind="meta"] { display: none !important; }`);
+      for (const kind of [...GLOBAL_CONFIG_KINDS, ...LOCAL_CONFIG_KINDS]) {
+        rules.push(`${selector} > org-env-block[data-kind="${kind}"] { display: none !important; }`);
+      }
+      rules.push(`${selector} > hr { display: none !important; }`);
+      for (const childIndex of hiddenElementIndexes()) {
+        rules.push(`${selector} > :nth-child(${childIndex}) { display: none !important; }`);
+      }
+      rules.push(...titleRules(selector, activeSlide, activeConfig));
+    }
+    if (config.css) rules.push(String(config.css));
+    if (activeConfig.css && activeConfig.css !== config.css) rules.push(String(activeConfig.css));
+    style.textContent = rules.join("\n");
+    updateToc(activeConfig);
   }
 
   function ensureControls() {
@@ -93,16 +279,32 @@ export default function setup(initialContext = {}) {
     progress = null;
   }
 
+  function updateToc(activeConfig) {
+    if (!boolConfigValue(activeConfig.toc)) {
+      toc?.remove();
+      toc = null;
+      return;
+    }
+    if (!toc?.isConnected) toc = makeToc();
+    toc.replaceChildren(...slides.map((slide, slideIndex) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = slideTitle(slide, `Slide ${slideIndex + 1}`);
+      button.className = slideIndex === index ? "is-active" : "";
+      button.addEventListener("click", () => show(slideIndex));
+      return button;
+    }));
+  }
+
+  function removeToc() {
+    toc?.remove();
+    toc = null;
+  }
+
   function show(nextIndex) {
     if (!surface || slides.length === 0) return;
     index = Math.max(0, Math.min(nextIndex, slides.length - 1));
-    slides.forEach((slide, slideIndex) => {
-      for (const child of slide) {
-        child.classList.toggle(HIDDEN_CLASS, slideIndex !== index);
-        child.dataset.slideIndex = String(slideIndex + 1);
-        child.dataset.slideActive = slideIndex === index ? "true" : "false";
-      }
-    });
+    updateVisibility();
     const counter = controls?.querySelector("[data-slide-counter]");
     if (counter) counter.textContent = `${index + 1} / ${slides.length}`;
     controls?.querySelector('[data-slide-action="prev"]')?.toggleAttribute("disabled", index === 0);
@@ -110,16 +312,34 @@ export default function setup(initialContext = {}) {
     progress?.style.setProperty("--slides-progress", `${((index + 1) / slides.length) * 100}%`);
   }
 
-  function rebuild(nextContext = context) {
+  function watchSurface() {
+    observer?.disconnect();
+    observer = null;
+    if (!surface) return;
+    observer = new MutationObserver(() => {
+      scheduleRebuild();
+    });
+    observer.observe(surface, { childList: true, subtree: false });
+  }
+
+  function scheduleRebuild() {
+    window.clearTimeout(rebuildTimer);
+    rebuildTimer = window.setTimeout(() => rebuild(context, false), 30);
+  }
+
+  function rebuild(nextContext = context, resetIndex = true) {
     context = nextContext;
-    resetSurface();
+    if (resetIndex) index = 0;
     surface = slideSurface(context);
     if (!surface) {
       removeControls();
+      removeRuntimeStyle();
+      removeToc();
       return;
     }
-    surface.classList.add(SURFACE_CLASS);
-    slides = buildSlides(surface).filter((slide) => slide.length > 0);
+    config = globalConfig(surface);
+    slides = buildSlides(surface).filter((slide) => slide.items.length > 0);
+    watchSurface();
     if (slides.length <= 1) {
       removeControls();
     } else {
@@ -152,11 +372,20 @@ export default function setup(initialContext = {}) {
   window.addEventListener("aaronnote:kind-ready", onKindReady);
   window.addEventListener("keydown", onKeydown);
   rebuild(context);
+  window.requestAnimationFrame(() => rebuild(context, false));
+  window.requestAnimationFrame(() => window.requestAnimationFrame(() => rebuild(context, false)));
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", scheduleRebuild, { once: true });
+  }
 
   return () => {
     window.removeEventListener("aaronnote:kind-ready", onKindReady);
     window.removeEventListener("keydown", onKeydown);
-    resetSurface();
+    document.removeEventListener("DOMContentLoaded", scheduleRebuild);
+    observer?.disconnect();
+    window.clearTimeout(rebuildTimer);
+    removeRuntimeStyle();
     removeControls();
+    removeToc();
   };
 }

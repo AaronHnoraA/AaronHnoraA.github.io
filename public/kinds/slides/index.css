@@ -12,7 +12,8 @@ body[data-note-kind="slides"] .aaronnote-editor {
     var(--slides-paper);
 }
 
-body[data-note-kind="slides"] .aaronnote-slides-surface {
+body[data-note-kind="slides"] .aaronnote-editor .ProseMirror,
+body[data-note-kind="slides"] #content {
   max-width: min(1120px, calc(100vw - 56px));
   min-height: calc(100vh - 128px);
   margin: 0 auto;
@@ -20,43 +21,77 @@ body[data-note-kind="slides"] .aaronnote-slides-surface {
   color: var(--slides-ink);
 }
 
-body[data-note-kind="slides"] .aaronnote-slides-surface > * {
+body[data-note-kind="slides"] .aaronnote-editor .ProseMirror > *,
+body[data-note-kind="slides"] #content > * {
   max-width: 820px;
 }
 
-body[data-note-kind="slides"] .aaronnote-slides-surface > .aaronnote-slide-hidden {
+body[data-note-kind="slides"] .aaronnote-editor .ProseMirror > org-env-block[data-kind="meta"],
+body[data-note-kind="slides"] .aaronnote-editor .ProseMirror > org-env-block[data-kind="slidegconfig"],
+body[data-note-kind="slides"] .aaronnote-editor .ProseMirror > org-env-block[data-kind="slide-g-config"],
+body[data-note-kind="slides"] .aaronnote-editor .ProseMirror > org-env-block[data-kind="slidesconfig"],
+body[data-note-kind="slides"] .aaronnote-editor .ProseMirror > org-env-block[data-kind="slideconfig"],
+body[data-note-kind="slides"] .aaronnote-editor .ProseMirror > org-env-block[data-kind="slidelconfig"],
+body[data-note-kind="slides"] .aaronnote-editor .ProseMirror > org-env-block[data-kind="slide-l-config"],
+body[data-note-kind="slides"] .aaronnote-editor .ProseMirror > org-env-block[data-kind="slidelocalconfig"],
+body[data-note-kind="slides"] .aaronnote-editor .ProseMirror > org-env-block[data-kind="slide-local-config"],
+body[data-note-kind="slides"] .aaronnote-editor .ProseMirror > org-env-block[data-kind="lconfig"],
+body[data-note-kind="slides"] #content > org-env-block[data-kind="meta"],
+body[data-note-kind="slides"] #content > org-env-block[data-kind="slidegconfig"],
+body[data-note-kind="slides"] #content > org-env-block[data-kind="slide-g-config"],
+body[data-note-kind="slides"] #content > org-env-block[data-kind="slidesconfig"],
+body[data-note-kind="slides"] #content > org-env-block[data-kind="slideconfig"],
+body[data-note-kind="slides"] #content > org-env-block[data-kind="slidelconfig"],
+body[data-note-kind="slides"] #content > org-env-block[data-kind="slide-l-config"],
+body[data-note-kind="slides"] #content > org-env-block[data-kind="slidelocalconfig"],
+body[data-note-kind="slides"] #content > org-env-block[data-kind="slide-local-config"],
+body[data-note-kind="slides"] #content > org-env-block[data-kind="lconfig"] {
   display: none !important;
 }
 
-body[data-note-kind="slides"] .aaronnote-slides-surface h1,
-body[data-note-kind="slides"] .aaronnote-slides-surface h2 {
+body[data-note-kind="slides"] .aaronnote-editor .ProseMirror > .aaronnote-slide-hidden,
+body[data-note-kind="slides"] #content > .aaronnote-slide-hidden {
+  display: none !important;
+}
+
+body[data-note-kind="slides"] .aaronnote-editor .ProseMirror h1,
+body[data-note-kind="slides"] .aaronnote-editor .ProseMirror h2,
+body[data-note-kind="slides"] #content h1,
+body[data-note-kind="slides"] #content h2 {
   letter-spacing: 0;
 }
 
-body[data-note-kind="slides"] .aaronnote-slides-surface h1 {
+body[data-note-kind="slides"] .aaronnote-editor .ProseMirror h1,
+body[data-note-kind="slides"] #content h1 {
   margin-top: 0;
   font-size: clamp(2.1rem, 6vw, 4.8rem);
   line-height: 0.98;
   color: var(--slides-ink);
 }
 
-body[data-note-kind="slides"] .aaronnote-slides-surface h2 {
+body[data-note-kind="slides"] .aaronnote-editor .ProseMirror h2,
+body[data-note-kind="slides"] #content h2 {
   margin-top: 1.3rem;
   font-size: clamp(1.4rem, 3vw, 2.2rem);
 }
 
-body[data-note-kind="slides"] .aaronnote-slides-surface p,
-body[data-note-kind="slides"] .aaronnote-slides-surface li {
+body[data-note-kind="slides"] .aaronnote-editor .ProseMirror p,
+body[data-note-kind="slides"] .aaronnote-editor .ProseMirror li,
+body[data-note-kind="slides"] #content p,
+body[data-note-kind="slides"] #content li {
   font-size: clamp(1.08rem, 2vw, 1.55rem);
   line-height: 1.55;
 }
 
-body[data-note-kind="slides"] .aaronnote-slides-surface ul,
-body[data-note-kind="slides"] .aaronnote-slides-surface ol {
+body[data-note-kind="slides"] .aaronnote-editor .ProseMirror ul,
+body[data-note-kind="slides"] .aaronnote-editor .ProseMirror ol,
+body[data-note-kind="slides"] #content ul,
+body[data-note-kind="slides"] #content ol {
   padding-left: 1.4em;
 }
 
-body[data-note-kind="slides"] .aaronnote-slides-surface .title {
+body[data-note-kind="slides"] .aaronnote-editor .ProseMirror .title,
+body[data-note-kind="slides"] #content .title {
   color: var(--slides-accent);
 }
 
@@ -120,8 +155,43 @@ body[data-note-kind="slides"] .aaronnote-slides-surface .title {
   transition: width 160ms ease;
 }
 
+.aaronnote-slides-toc {
+  position: fixed;
+  left: 18px;
+  bottom: 18px;
+  z-index: 50;
+  display: grid;
+  gap: 4px;
+  max-width: min(260px, calc(100vw - 36px));
+  max-height: min(48vh, 420px);
+  padding: 8px;
+  overflow: auto;
+  border: 1px solid var(--slides-line);
+  border-radius: 8px;
+  background: rgba(251, 250, 247, 0.94);
+  box-shadow: 0 12px 30px rgba(31, 41, 55, 0.14);
+}
+
+.aaronnote-slides-toc button {
+  width: 100%;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--slides-muted);
+  font: 600 0.78rem/1.25 system-ui, sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+.aaronnote-slides-toc button:hover,
+.aaronnote-slides-toc button.is-active {
+  background: rgba(180, 35, 24, 0.08);
+  color: var(--slides-ink);
+}
+
 @media (max-width: 720px) {
-  body[data-note-kind="slides"] .aaronnote-slides-surface {
+  body[data-note-kind="slides"] .aaronnote-editor .ProseMirror,
+  body[data-note-kind="slides"] #content {
     max-width: calc(100vw - 24px);
     min-height: calc(100vh - 112px);
     padding: 24px 14px 92px;
@@ -131,5 +201,13 @@ body[data-note-kind="slides"] .aaronnote-slides-surface .title {
     left: 12px;
     right: 12px;
     justify-content: center;
+  }
+
+  .aaronnote-slides-toc {
+    left: 12px;
+    right: 12px;
+    bottom: 68px;
+    max-width: none;
+    max-height: 28vh;
   }
 }

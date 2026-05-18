@@ -467,6 +467,10 @@ input {
   box-shadow: none;
 }
 
+#app[data-view-mode="markdown"][data-note-kind]:not([data-note-kind="default"]) .aaronnote-editor .ProseMirror > org-env-block[data-kind="meta"] {
+  display: none !important;
+}
+
 .aaronnote-editor.is-typewriter-mode .ProseMirror,
 .aaronnote-editor.is-typewriter-mode .typora-web-source {
   padding-top: max(18px, 28vh);
