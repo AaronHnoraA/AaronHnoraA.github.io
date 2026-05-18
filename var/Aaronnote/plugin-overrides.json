@@ -1,4 +1,4 @@
 {
-  "copilot": "off",
-  "roamlookup": "off"
+  "copilot": "on",
+  "roamlookup": "on"
 }
