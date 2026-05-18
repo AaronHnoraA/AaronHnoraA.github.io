@@ -36,6 +36,26 @@ export function mathRenderCacheSize(): number {
   return mathHtmlCache.size;
 }
 
+export function renderMathHTML(
+  tex: string,
+  options: KatexRenderOptions,
+): { html: string; error?: string } {
+  const key = `${options.displayMode ? "display" : "inline"}\n${tex}`;
+  const cached = cachedMathHtml(key);
+  if (cached) return cached;
+  try {
+    const html = temml.renderToString(tex, temmlOptions(options));
+    const rendered = { html };
+    rememberMathHtml(key, rendered);
+    return rendered;
+  } catch (error) {
+    return {
+      html: "",
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
 export function renderMathLazy(
   tex: string,
   element: HTMLElement,
@@ -44,22 +64,14 @@ export function renderMathLazy(
 ): void {
   const key = `${options.displayMode ? "display" : "inline"}\n${tex}`;
   element.setAttribute("data-math-render-key", key);
-  const cached = cachedMathHtml(key);
-  if (cached) {
-    element.innerHTML = cached.html;
-    if (cached.error) element.setAttribute("data-temml-error", cached.error);
+  const rendered = renderMathHTML(tex, options);
+  if (!rendered.error) {
+    element.innerHTML = rendered.html;
     fitRenderedMath(element);
     return;
   }
-
-  try {
-    temml.render(tex, element, temmlOptions(options));
-    rememberMathHtml(key, { html: element.innerHTML });
-    fitRenderedMath(element);
-  } catch (temmlError) {
-    if (element.getAttribute("data-math-render-key") !== key) return;
-    void renderKatexFallback(tex, element, options, key, onError, temmlError);
-  }
+  if (element.getAttribute("data-math-render-key") !== key) return;
+  void renderKatexFallback(tex, element, options, key, onError, rendered.error);
 }
 
 function temmlOptions(options: KatexRenderOptions): TemmlOptions {

@@ -6,8 +6,6 @@ source: roam/project/UNSW/ISO(202603)/Kobler.md
 
 # Progress in Theoretical Computer Science
 
-# Basic Concepts
-
 #+begin summary Reading Note
 This is a note for [Köbler, 2020, "ISO(2026-03)"](zotero://select/items/1_54IJ8DAF).
 
@@ -65,6 +63,8 @@ d\mathrm{GA} \le_p \mathrm{GI}.
 $$
 #+end comment
 #+end summary
+
+# Basic Concepts
 
 # Complexity Theory
 

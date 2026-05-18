@@ -16,12 +16,13 @@
 import { EditorState, Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import { Decoration, DecorationSet, EditorView } from "prosemirror-view";
 import { redo, undo } from "prosemirror-history";
-import { DOMSerializer, Slice, type Node as PMNode } from "prosemirror-model";
+import { Slice, type Node as PMNode } from "prosemirror-model";
 
 import { defaultPlugins } from "./editor.ts";
 import { cleanEditorHTML } from "./export-html.ts";
 import { htmlToMarkdown } from "./paste-html.ts";
 import { parse } from "./parser.ts";
+import { renderMarkdownHTML } from "./render-html.ts";
 import { schema } from "./schema.ts";
 import { serialize } from "./serializer.ts";
 
@@ -779,13 +780,6 @@ export function createEditor(
     }
   }
 
-  function markdownToHTML(md: string): string {
-    const doc = parse(md);
-    const container = document.createElement("div");
-    container.appendChild(DOMSerializer.fromSchema(schema).serializeFragment(doc.content, { document }));
-    return container.innerHTML;
-  }
-
   function activeMarkdownSelection(): { md: string; from: number; to: number } {
     if (inSource) {
       const from = sourceTextarea.selectionStart ?? sourceTextarea.value.length;
@@ -1376,7 +1370,7 @@ export function createEditor(
       return inSource ? sourceTextarea.value : lastSourceMarkdown;
     },
     getHTML(): string {
-      return inSource ? markdownToHTML(sourceTextarea.value) : cleanEditorHTML(view.dom);
+      return inSource ? renderMarkdownHTML(sourceTextarea.value) : cleanEditorHTML(view.dom);
     },
     setMarkdown(md: string): void {
       lastSourceMarkdown = md;

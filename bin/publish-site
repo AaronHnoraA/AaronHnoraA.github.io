@@ -25,6 +25,7 @@ PUBLISH_INPUT_PATHS = (
     "roam",
     "CV",
     "Aaronnote/aaronnote/style.css",
+    "Aaronnote/src",
     "Aaronnote/src/styles/theme-typora.css",
     "Aaronnote/src/styles/widgets.css",
     "css",
@@ -45,111 +46,6 @@ ORG_ENV_RE = re.compile(r"(?ms)^#\+begin(?:_|\s+)([A-Za-z][\w-]*)(?:\s+([^\n]+?)
 MD_IMAGE_RE = re.compile(r"!\[[^\]]*\]\(([^)]+)\)")
 MD_LINK_RE = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
 HTML_MD_LINK_RE = re.compile(r'href="([^"#?:]+)\.md((?:#[^"]*)?)"')
-
-
-def render_inline_markdown(text: str) -> str:
-    escaped = html.escape(text)
-    escaped = re.sub(r"`([^`]+)`", r"<code>\1</code>", escaped)
-    escaped = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", escaped)
-    escaped = re.sub(r"\*([^*]+)\*", r"<em>\1</em>", escaped)
-    escaped = re.sub(r"!\[([^\]]*)\]\(([^)]+)\)", r'<img src="\2" alt="\1" />', escaped)
-    escaped = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', escaped)
-    return escaped
-
-
-def fallback_markdown_to_html(text: str) -> str:
-    lines = text.splitlines()
-    blocks: list[str] = []
-    paragraph: list[str] = []
-    list_items: list[str] = []
-    in_code = False
-    code_lang = ""
-    code_lines: list[str] = []
-
-    def flush_paragraph() -> None:
-        nonlocal paragraph
-        if paragraph:
-            blocks.append(f"<p>{render_inline_markdown(' '.join(paragraph))}</p>")
-            paragraph = []
-
-    def flush_list() -> None:
-        nonlocal list_items
-        if list_items:
-            items = "".join(f"<li>{render_inline_markdown(item)}</li>" for item in list_items)
-            blocks.append(f"<ul>{items}</ul>")
-            list_items = []
-
-    for line in lines:
-        fence = re.match(r"^```([A-Za-z0-9_-]*)\s*$", line)
-        if fence:
-            if in_code:
-                class_attr = f' class="language-{html.escape(code_lang)}"' if code_lang else ""
-                blocks.append(f"<pre><code{class_attr}>{html.escape(chr(10).join(code_lines))}</code></pre>")
-                in_code = False
-                code_lang = ""
-                code_lines = []
-            else:
-                flush_paragraph()
-                flush_list()
-                in_code = True
-                code_lang = fence.group(1)
-            continue
-        if in_code:
-            code_lines.append(line)
-            continue
-
-        stripped = line.strip()
-        if not stripped:
-            flush_paragraph()
-            flush_list()
-            continue
-
-        heading = re.match(r"^(#{1,6})\s+(.+)$", stripped)
-        if heading:
-            flush_paragraph()
-            flush_list()
-            level = len(heading.group(1))
-            title = heading.group(2).strip()
-            slug = re.sub(r"[^A-Za-z0-9\u3400-\u9fff_-]+", "-", title).strip("-").lower()
-            blocks.append(f'<h{level} id="{html.escape(slug)}">{render_inline_markdown(title)}</h{level}>')
-            continue
-
-        item = re.match(r"^[-*+]\s+(.+)$", stripped)
-        if item:
-            flush_paragraph()
-            list_items.append(item.group(1))
-            continue
-
-        if stripped.startswith("<") and stripped.endswith(">"):
-            flush_paragraph()
-            flush_list()
-            blocks.append(stripped)
-            continue
-
-        paragraph.append(stripped)
-
-    flush_paragraph()
-    flush_list()
-    if in_code:
-        class_attr = f' class="language-{html.escape(code_lang)}"' if code_lang else ""
-        blocks.append(f"<pre><code{class_attr}>{html.escape(chr(10).join(code_lines))}</code></pre>")
-    return "\n".join(blocks)
-
-
-def markdown_to_html(text: str) -> str:
-    pandoc = shutil.which("pandoc")
-    if pandoc:
-        try:
-            return subprocess.run(
-                [pandoc, "--from", "gfm+raw_html", "--to", "html"],
-                input=text,
-                text=True,
-                check=True,
-                capture_output=True,
-            ).stdout.strip()
-        except (OSError, subprocess.CalledProcessError):
-            pass
-    return fallback_markdown_to_html(text)
 
 
 @dataclass
@@ -435,69 +331,45 @@ def output_is_current(output_file: Path, deps_file: Path) -> bool:
 
 
 def deps_for_note(note: Note) -> set[str]:
-    return {
+    deps = {
         note.path.relative_to(ROOT).as_posix(),
         "bin/publish-site",
+        "Aaronnote/scripts/render-html.mjs",
         "Aaronnote/aaronnote/style.css",
         "Aaronnote/src/styles/widgets.css",
         "Aaronnote/src/styles/theme-typora.css",
         "css/aaronnote-published.css",
     }
+    src_dir = ROOT / "Aaronnote" / "src"
+    if src_dir.exists():
+        deps.update(path.relative_to(ROOT).as_posix() for path in src_dir.glob("**/*.ts"))
+    return deps
 
 
-ORG_ENV_LABELS = {
-    "proof": "Proof",
-    "theorem": "Theorem",
-    "thm": "Theorem",
-    "lemma": "Lemma",
-    "proposition": "Proposition",
-    "prop": "Proposition",
-    "corollary": "Corollary",
-    "cor": "Corollary",
-    "definition": "Definition",
-    "defn": "Definition",
-    "summary": "Summary",
-    "remark": "Remark",
-    "example": "Example",
-    "note": "Note",
-    "info": "Info",
-    "attention": "Attention",
-    "property": "Property",
-    "warning": "Warning",
-}
-
-
-def render_org_envs(text: str) -> str:
-    def repl(match: re.Match[str]) -> str:
-        kind = match.group(1).lower()
-        title = (match.group(2) or "").strip()
-        body = markdown_to_html(render_org_envs(match.group(3).strip()))
-        label = ORG_ENV_LABELS.get(kind, kind.title())
-        title_attr = "false" if title else "true"
-        return (
-            f'\n<org-env-block data-kind="{html.escape(kind)}" data-title="{html.escape(title)}" '
-            f'data-label="{html.escape(label)}">'
-            '<span class="org-env-heading">'
-            f'<span class="org-env-heading-label">{html.escape(label)}</span>'
-            f'<span class="org-env-heading-title" data-empty="{title_attr}">{html.escape(title)}</span>'
-            '</span>'
-            f'<div class="org-env-content">{body}</div>'
-            '</org-env-block>\n'
+def render_aaronnote_markdown(text: str) -> str:
+    try:
+        result = subprocess.run(
+            ["node", "Aaronnote/scripts/render-html.mjs"],
+            cwd=ROOT,
+            input=json.dumps({"markdown": text}, ensure_ascii=False),
+            text=True,
+            check=True,
+            capture_output=True,
         )
-
-    previous = None
-    while previous != text:
-        previous = text
-        text = ORG_ENV_RE.sub(repl, text)
-    return text
+    except (OSError, subprocess.CalledProcessError) as err:
+        stderr = err.stderr if isinstance(err, subprocess.CalledProcessError) else str(err)
+        raise RuntimeError(f"Aaronnote renderer failed: {stderr}") from err
+    try:
+        return str(json.loads(result.stdout)["html"])
+    except (json.JSONDecodeError, KeyError) as err:
+        raise RuntimeError(f"Aaronnote renderer returned invalid JSON: {result.stdout[:500]}") from err
 
 
 def render_markdown_body(note: Note, markdown_text: str) -> str:
     _metadata, body = parse_metadata_block(markdown_text)
     first_heading = re.compile(rf"\A\s*#\s+{re.escape(note.title)}\s*(?:\n+|\Z)")
     body = first_heading.sub("", body, count=1)
-    body = render_org_envs(body)
-    rendered = markdown_to_html(body)
+    rendered = render_aaronnote_markdown(body)
     rendered = HTML_MD_LINK_RE.sub(r'href="\1.html\2"', rendered)
     return rendered
 

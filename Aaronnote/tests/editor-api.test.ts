@@ -287,13 +287,15 @@ describe("editor api HTML export", () => {
   test("exports rendered HTML in markdown and source modes", () => {
     const mount = document.createElement("div");
     document.body.appendChild(mount);
-    const editor = createEditor(mount, { initialContent: "# Title\n\n**bold**" });
+    const editor = createEditor(mount, { initialContent: "# Title\n\n**bold**\n\n$$\nx+1\n$$" });
     try {
       expect(editor.getHTML()).toContain("<h1>Title</h1>");
       expect(editor.getHTML()).toContain("<strong>");
+      expect(editor.getHTML()).toContain("math-block-rendered");
       editor.toggleSource();
       expect(editor.getHTML()).toContain("<h1>Title</h1>");
       expect(editor.getHTML()).toContain("<strong>");
+      expect(editor.getHTML()).toContain("math-block-rendered");
     } finally {
       editor.destroy();
       mount.remove();

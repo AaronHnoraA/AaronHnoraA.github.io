@@ -27,288 +27,249 @@
         <div class="typora-web-editor-host">
           <article id="content" class="ProseMirror" data-note-title="Variance">
             <h1 class="title">Variance</h1>
-            <h1 id="variance-方差">Variance 方差</h1>
-<p><org-env-block data-kind="summary" data-title="In quantum measurement, the variance of an observable $M$ measures how spread out the measurement outcomes are around their expectation value." data-label="Summary"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="false">In
-quantum measurement, the variance of an observable <span
-class="math inline"><em>M</em></span> measures how spread out the
-measurement outcomes are around their expectation
-value.</span></span><div class="org-env-content"><p>For an observable
-<span class="math inline"><em>M</em></span> and a state
-<span class="math inline">|<em>ψ</em>⟩</span>, the variance is</p></p>
-<h1 id="-delta-m2">$$ (\Delta M)^2</h1>
-<p>\langle (M-\langle M\rangle)^2\rangle. $$</p>
-<p>Equivalently,</p>
-<h1 id="-delta-m2-1">$$ (\Delta M)^2</h1>
-<h2 id="langle-m2rangle">\langle M^2\rangle</h2>
-<p>\langle M\rangle^2. $$</p>
-<p>The standard deviation is</p>
-<h1 id="-delta-m">$$ \Delta M</h1>
-<p>\sqrt{\langle M^2\rangle-\langle M\rangle^2}. $$</p></div></org-env-block>
-
-<h1 id="1-setup-测量设定">1. Setup 测量设定</h1>
-<p>Let <span class="math inline"><em>M</em></span> be an observable, so
-<span class="math inline"><em>M</em></span> is a Hermitian operator.</p>
-<p>Assume first that <span class="math inline"><em>M</em></span> has a
-discrete non-degenerate spectral decomposition</p>
-<h1 id="-m">$$ M</h1>
-<p>\sum_i m_i |m_i\rangle\langle m_i|, $$</p>
-<p>where</p>
-<h1 id="-mm_irangle">$$ M|m_i\rangle</h1>
-<p>m_i |m_i\rangle. $$</p>
-<p>Let the system be in a normalized state</p>
-<p><span class="math display">|<em>ψ</em>⟩.</span></p>
-<p>The probability of measuring the outcome <span
-class="math inline"><em>m</em><sub><em>i</em></sub></span> is</p>
-<h1 id="-p_i">$$ p_i</h1>
-<p>|\langle m_i|\psi\rangle|^2. $$</p>
-<p>The expectation value of <span class="math inline"><em>M</em></span>
-is</p>
-<h1 id="-langle-mrangle">$$ \langle M\rangle</h1>
-<p>\sum_i p_i m_i. $$</p>
-<p>Equivalently,</p>
-<h1 id="-langle-mrangle-1">$$ \langle M\rangle</h1>
-<p>\langle \psi|M|\psi\rangle. $$</p>
-<h1 id="2-definition-of-variance-方差的定义">2. Definition of Variance
-方差的定义</h1>
-<p><org-env-block data-kind="define" data-title="The variance of the observable $M$ in the state $|\psi\rangle$ is" data-label="Define"><span class="org-env-heading"><span class="org-env-heading-label">Define</span><span class="org-env-heading-title" data-empty="false">The
-variance of the observable <span class="math inline"><em>M</em></span>
-in the state <span class="math inline">|<em>ψ</em>⟩</span>
-is</span></span><div class="org-env-content"><h1 id="-delta-m2">$$
-(\Delta M)^2</h1></p>
-<p>\langle (M-\langle M\rangle I)^2\rangle. $$</p>
-<p>Since <span class="math inline">⟨<em>M</em>⟩</span> is a scalar, we
-often write this more simply as</p>
-<h1 id="-delta-m2-1">$$ (\Delta M)^2</h1>
-<p>\langle (M-\langle M\rangle)^2\rangle. $$</p></div></org-env-block>
-
-<p>In terms of measurement outcomes, this is exactly the classical
-variance:</p>
-<h1 id="-delta-m2">$$ (\Delta M)^2</h1>
-<p>\sum_i p_i (m_i-\langle M\rangle)^2. $$</p>
-<p>Here:</p>
-<ul>
-<li><span class="math inline"><em>m</em><sub><em>i</em></sub></span> is
-a possible measurement outcome;</li>
-<li><span class="math inline"><em>p</em><sub><em>i</em></sub></span> is
-the probability of obtaining <span
-class="math inline"><em>m</em><sub><em>i</em></sub></span>;</li>
-<li><span class="math inline">⟨<em>M</em>⟩</span> is the average
-measurement outcome.</li>
-</ul>
-<h1 id="3-main-formula-主公式">3. Main Formula 主公式</h1>
-<p><org-env-block data-kind="theorem" data-title="For any observable $M$ and normalized state $|\psi\rangle$," data-label="Theorem"><span class="org-env-heading"><span class="org-env-heading-label">Theorem</span><span class="org-env-heading-title" data-empty="false">For
-any observable <span class="math inline"><em>M</em></span> and
-normalized state <span
-class="math inline">|<em>ψ</em>⟩</span>,</span></span><div class="org-env-content"><h1 id="-delta-m2">$$
-(\Delta M)^2</h1></p>
-<h2 id="langle-m2rangle">\langle M^2\rangle</h2>
-<p>\langle M\rangle^2. $$</p></div></org-env-block>
-
-<p><org-env-block data-kind="proof" data-title="Start from the classical variance formula for measurement outcomes:" data-label="Proof"><span class="org-env-heading"><span class="org-env-heading-label">Proof</span><span class="org-env-heading-title" data-empty="false">Start
-from the classical variance formula for measurement
-outcomes:</span></span><div class="org-env-content"><h1 id="-delta-m2">$$
-(\Delta M)^2</h1></p>
-<p>\sum_i p_i (m_i-\langle M\rangle)^2. $$</p>
-<p>Expand the square:</p>
-<h1 id="-delta-m2-1">$$ (\Delta M)^2</h1>
-<h2 id="sum_i-p_i-left-m_i2">\sum_i p_i \left( m_i^2</h2>
-<p>2m_i\langle M\rangle + \langle M\rangle^2 \right). $$</p>
-<p>Distribute the sum:</p>
-<h1 id="-delta-m2-2">$$ (\Delta M)^2</h1>
-<h2 id="sum_i-p_i-m_i2">\sum_i p_i m_i^2</h2>
-<p>2\langle M\rangle \sum_i p_i m_i + \langle M\rangle^2 \sum_i p_i.
-$$</p>
-<p>Now use the two basic facts:</p>
-<h1 id="-sum_i-p_i-m_i">$$ \sum_i p_i m_i</h1>
-<p>\langle M\rangle, $$</p>
-<p>and</p>
-<h1 id="-sum_i-p_i">$$ \sum_i p_i</h1>
-<ol type="1">
-<li></li>
-</ol>
-<p>$$</p>
-<p>Substituting gives</p>
-<h1 id="-delta-m2-3">$$ (\Delta M)^2</h1>
-<h2 id="sum_i-p_i-m_i2-1">\sum_i p_i m_i^2</h2>
-<p>2\langle M\rangle^2 + \langle M\rangle^2. $$</p>
-<p>Therefore,</p>
-<h1 id="-delta-m2-4">$$ (\Delta M)^2</h1>
-<h2 id="sum_i-p_i-m_i2-2">\sum_i p_i m_i^2</h2>
-<p>\langle M\rangle^2. $$</p>
-<p>It remains to identify the first term as <span
-class="math inline">⟨<em>M</em><sup>2</sup>⟩</span>.</p>
-<p>Since</p>
-<h1 id="-mm_irangle">$$ M|m_i\rangle</h1>
-<p>m_i |m_i\rangle, $$</p>
-<p>we have</p>
-<h1 id="-m2m_irangle">$$ M^2|m_i\rangle</h1>
-<h1 id="mmm_irangle">M(M|m_i\rangle)</h1>
-<h1 id="mm_im_irangle">M(m_i|m_i\rangle)</h1>
-<h1 id="m_i-mm_irangle">m_i M|m_i\rangle</h1>
-<p>m_i^2 |m_i\rangle. $$</p>
-<p>Thus <span
-class="math inline">|<em>m</em><sub><em>i</em></sub>⟩</span> is also an
-eigenvector of <span class="math inline"><em>M</em><sup>2</sup></span>,
-with eigenvalue <span
-class="math inline"><em>m</em><sub><em>i</em></sub><sup>2</sup></span>.</p>
-<p>The probability of obtaining the eigenstate component <span
-class="math inline">|<em>m</em><sub><em>i</em></sub>⟩</span> is
-still</p>
-<h1 id="-p_i">$$ p_i</h1>
-<p>|\langle m_i|\psi\rangle|^2, $$</p>
-<p>because squaring the operator changes the eigenvalues from <span
-class="math inline"><em>m</em><sub><em>i</em></sub></span> to <span
-class="math inline"><em>m</em><sub><em>i</em></sub><sup>2</sup></span>,
-but does not change the eigenvectors.</p>
-<p>Hence</p>
-<h1 id="-langle-m2rangle">$$ \langle M^2\rangle</h1>
-<p>\sum_i p_i m_i^2. $$</p>
-<p>Therefore,</p>
-<h1 id="-delta-m2-5">$$ (\Delta M)^2</h1>
-<h2 id="langle-m2rangle">\langle M^2\rangle</h2>
-<p>\langle M\rangle^2. $$</p>
-<p>This proves the formula.</p></div></org-env-block>
-
-<h1 id="4-operator-derivation-算符推导">4. Operator Derivation
-算符推导</h1>
-<p>There is also a shorter operator-level derivation.</p>
-<p><org-env-block data-kind="proof" data-title="By definition," data-label="Proof"><span class="org-env-heading"><span class="org-env-heading-label">Proof</span><span class="org-env-heading-title" data-empty="false">By
-definition,</span></span><div class="org-env-content"><h1 id="-delta-m2">$$
-(\Delta M)^2</h1></p>
-<p>\langle (M-\langle M\rangle I)^2\rangle. $$</p>
-<p>Expand the operator square:</p>
-<h1 id="-m-langle-mrangle-i2">$$ (M-\langle M\rangle I)^2</h1>
-<h2 id="m2">M^2</h2>
-<p>2\langle M\rangle M + \langle M\rangle^2 I. $$</p>
-<p>Taking expectation values gives</p>
-<h1 id="-delta-m2-1">$$ (\Delta M)^2</h1>
-<h2 id="langle-m2rangle">\langle M^2\rangle</h2>
-<p>2\langle M\rangle \langle M\rangle + \langle M\rangle^2 \langle
-I\rangle. $$</p>
-<p>Since the state is normalized,</p>
-<h1 id="-langle-irangle">$$ \langle I\rangle</h1>
-<h1 id="langle-psiipsirangle">\langle \psi|I|\psi\rangle</h1>
-<h1 id="langle-psipsirangle">\langle \psi|\psi\rangle</h1>
-<ol type="1">
-<li></li>
-</ol>
-<p>$$</p>
-<p>Therefore,</p>
-<h1 id="-delta-m2-2">$$ (\Delta M)^2</h1>
-<h2 id="langle-m2rangle-1">\langle M^2\rangle</h2>
-<p>2\langle M\rangle^2 + \langle M\rangle^2. $$</p>
-<p>Hence</p>
-<h1 id="-delta-m2-3">$$ (\Delta M)^2</h1>
-<h2 id="langle-m2rangle-2">\langle M^2\rangle</h2>
-<p>\langle M\rangle^2. $$</p></div></org-env-block>
-
-<h1 id="5-degenerate-spectrum-简并谱情形">5. Degenerate Spectrum
-简并谱情形</h1>
-<p>If <span class="math inline"><em>M</em></span> has degenerate
-eigenvalues, then we should use spectral projections.</p>
-<p>Let</p>
-<h1 id="-m-1">$$ M</h1>
-<p>\sum_m m P_m, $$</p>
-<p>where <span
-class="math inline"><em>P</em><sub><em>m</em></sub></span> is the
-orthogonal projection onto the eigenspace with eigenvalue <span
-class="math inline"><em>m</em></span>.</p>
-<p>Then the probability of obtaining outcome <span
-class="math inline"><em>m</em></span> is</p>
-<h1 id="-pm">$$ p(m)</h1>
-<p>\langle \psi|P_m|\psi\rangle. $$</p>
-<p>The expectation value is</p>
-<h1 id="-langle-mrangle-2">$$ \langle M\rangle</h1>
-<p>\sum_m m,p(m). $$</p>
-<p>The second moment is</p>
-<h1 id="-langle-m2rangle">$$ \langle M^2\rangle</h1>
-<p>\sum_m m^2 p(m). $$</p>
-<p>Hence the same variance formula holds:</p>
-<h1 id="-delta-m2-1">$$ (\Delta M)^2</h1>
-<h2 id="langle-m2rangle">\langle M^2\rangle</h2>
-<p>\langle M\rangle^2. $$</p>
-<h1 id="6-density-operator-form-密度算符形式">6. Density Operator Form
-密度算符形式</h1>
-<p>If the quantum state is represented by a density operator <span
-class="math inline"><em>ρ</em></span>, then</p>
-<h1 id="-langle-mrangle-3">$$ \langle M\rangle</h1>
-<p>\operatorname{tr}(\rho M), $$</p>
-<p>and</p>
-<h1 id="-langle-m2rangle-1">$$ \langle M^2\rangle</h1>
-<p>\operatorname{tr}(\rho M^2). $$</p>
-<p>Therefore,</p>
-<h1 id="-delta-m2-2">$$ (\Delta M)^2</h1>
-<h2 id="operatornametrrho-m2">\operatorname{tr}(\rho M^2)</h2>
-<p>\operatorname{tr}(\rho M)^2. $$</p>
-<p>Equivalently,</p>
-<h1 id="-delta-m2-3">$$ (\Delta M)^2</h1>
-<p>\operatorname{tr}\left(\rho (M-\langle M\rangle I)^2\right). $$</p>
-<h1 id="7-interpretation-物理解释">7. Interpretation 物理解释</h1>
-<p>The variance measures how uncertain the measurement outcomes of <span
-class="math inline"><em>M</em></span> are in the state <span
-class="math inline">|<em>ψ</em>⟩</span>.</p>
-<p>If</p>
-<p><span
-class="math display">(<em>Δ</em><em>M</em>)<sup>2</sup> = 0,</span></p>
-<p>then the measurement of <span class="math inline"><em>M</em></span>
-is deterministic in that state.</p>
-<p>For a pure state, this happens exactly when <span
-class="math inline">|<em>ψ</em>⟩</span> lies in an eigenspace of <span
-class="math inline"><em>M</em></span>.</p>
-<p>If</p>
-<p><span
-class="math display">(<em>Δ</em><em>M</em>)<sup>2</sup> &gt; 0,</span></p>
-<p>then repeated measurements of <span
-class="math inline"><em>M</em></span> on identically prepared systems
-can give different outcomes.</p>
-<p>中文直觉：</p>
-<p><span class="math display"><em>Δ</em><em>M</em></span></p>
-<p>measures the typical size of fluctuation around the mean value</p>
-<p><span class="math display">⟨<em>M</em>⟩.</span></p>
-<h1 id="8-important-special-case-eigenstates-本征态情形">8. Important
-Special Case: Eigenstates 本征态情形</h1>
-<p>Suppose</p>
-<h1 id="-mpsirangle">$$ M|\psi\rangle</h1>
-<p>m|\psi\rangle. $$</p>
-<p>Then measuring <span class="math inline"><em>M</em></span> always
-gives the value <span class="math inline"><em>m</em></span>.</p>
-<p>Indeed,</p>
-<h1 id="-langle-mrangle-4">$$ \langle M\rangle</h1>
-<h1 id="langle-psimpsirangle">\langle \psi|M|\psi\rangle</h1>
-<p>m, $$</p>
-<p>and</p>
-<h1 id="-langle-m2rangle-2">$$ \langle M^2\rangle</h1>
-<h1 id="langle-psim2psirangle">\langle \psi|M^2|\psi\rangle</h1>
-<p>m^2. $$</p>
-<p>Therefore,</p>
-<h1 id="-delta-m2-4">$$ (\Delta M)^2</h1>
-<h1 id="m2-m2">m^2-m^2</h1>
-<ol start="0" type="1">
-<li></li>
-</ol>
-<p>$$</p>
-<p>So eigenstates have zero variance for their corresponding
-observable.</p>
-<h1 id="9-conceptual-summary-概念总结">9. Conceptual Summary
-概念总结</h1>
-<p><org-env-block data-kind="summary" data-title="Variance in quantum mechanics is the variance of measurement outcomes." data-label="Summary"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="false">Variance
-in quantum mechanics is the variance of measurement
-outcomes.</span></span><div class="org-env-content"><p>Starting from the
-classical statistical formula,</p></p>
-<h1 id="-delta-m2">$$ (\Delta M)^2</h1>
-<p>\sum_i p_i(m_i-\langle M\rangle)^2, $$</p>
-<p>we obtain the compact operator formula</p>
-<h1 id="-delta-m2-1">$$ (\Delta M)^2</h1>
-<h2 id="langle-m2rangle">\langle M^2\rangle</h2>
-<p>\langle M\rangle^2. $$</p>
-<p>For a pure state,</p>
-<h1 id="-langle-mrangle">$$ \langle M\rangle</h1>
-<p>\langle \psi|M|\psi\rangle. $$</p>
-<p>For a density operator,</p>
-<h1 id="-langle-mrangle-1">$$ \langle M\rangle</h1>
-<p>\operatorname{tr}(\rho M). $$</p>
-<p>Thus variance measures the statistical spread of possible measurement
-outcomes around their expectation value.</p></div></org-env-block>
+            <h1>Variance 方差</h1><org-env-block data-kind="summary" data-title="" data-label="Summary" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="true"></span></span><div class="org-env-content"><p>In quantum measurement, the variance of an observable <span class="aaronnote-math-inline" data-tex="M" data-math-render-key="inline
+M"><math><mi>M</mi></math></span> measures how spread out the measurement outcomes are around their expectation value.</p><p>For an observable <span class="aaronnote-math-inline" data-tex="M" data-math-render-key="inline
+M"><math><mi>M</mi></math></span> and a state <span class="aaronnote-math-inline" data-tex="|\psi\rangle" data-math-render-key="inline
+|\psi\rangle"><math><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo></mrow></math></span>, the variance is</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+(\Delta M)^2
+=
+\langle (M-\langle M\rangle)^2\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mrow><mi mathvariant="normal">Δ</mi><mspace></mspace></mrow><mi>M</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>M</mi><mo>−</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block></div><p>Equivalently,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+(\Delta M)^2
+=
+\langle M^2\rangle
+-
+\langle M\rangle^2."><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mrow><mi mathvariant="normal">Δ</mi><mspace></mspace></mrow><mi>M</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msup><mi>M</mi><mn class="tml-med-pad">2</mn></msup><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>−</mo><msup><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mn>2</mn></msup><mi>.</mi></mrow></math></div></math-block><p>The standard deviation is</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\Delta M
+=
+\sqrt{\langle M^2\rangle-\langle M\rangle^2}."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mi mathvariant="normal">Δ</mi><mspace></mspace></mrow><mi>M</mi><mo>=</mo><msqrt><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msup><mi>M</mi><mn class="tml-med-pad">2</mn></msup><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>−</mo><msup><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mn>2</mn></msup></mrow></msqrt><mi>.</mi></mrow></math></div></math-block></org-env-block><h1>1. Setup 测量设定</h1><p>Let <span class="aaronnote-math-inline" data-tex="M" data-math-render-key="inline
+M"><math><mi>M</mi></math></span> be an observable, so <span class="aaronnote-math-inline" data-tex="M" data-math-render-key="inline
+M"><math><mi>M</mi></math></span> is a Hermitian operator.</p><p>Assume first that <span class="aaronnote-math-inline" data-tex="M" data-math-render-key="inline
+M"><math><mi>M</mi></math></span> has a discrete non-degenerate spectral decomposition</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+M
+=
+\sum_i m_i |m_i\rangle\langle m_i|,"><math display="block" class="tml-display" style="display:block math;"><mrow><mi>M</mi><mo>=</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>i</mi></munder></mrow><msub><mi>m</mi><mi>i</mi></msub><mi>|</mi><msub><mi>m</mi><mi>i</mi></msub><mo form="postfix" stretchy="false">⟩</mo><mo form="prefix" stretchy="false">⟨</mo><msub><mi>m</mi><mi>i</mi></msub><mi>|</mi><mo separator="true">,</mo></mrow></math></div></math-block><p>where</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+M|m_i\rangle
+=
+m_i |m_i\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>M</mi><mi>|</mi><msub><mi>m</mi><mi>i</mi></msub><mo form="postfix" stretchy="false">⟩</mo><mo>=</mo><msub><mi>m</mi><mi>i</mi></msub><mi>|</mi><msub><mi>m</mi><mi>i</mi></msub><mo form="postfix" stretchy="false">⟩</mo><mi>.</mi></mrow></math></div></math-block><p>Let the system be in a normalized state</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+|\psi\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mi>.</mi></mrow></math></div></math-block><p>The probability of measuring the outcome <span class="aaronnote-math-inline" data-tex="m_i" data-math-render-key="inline
+m_i"><math><msub><mi>m</mi><mi>i</mi></msub></math></span> is</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+p_i
+=
+|\langle m_i|\psi\rangle|^2."><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mi>p</mi><mi>i</mi></msub><mo>=</mo><mi>|</mi><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msub><mi>m</mi><mi>i</mi></msub><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><msup><mi>|</mi><mn>2</mn></msup><mi>.</mi></mrow></math></div></math-block><p>The expectation value of <span class="aaronnote-math-inline" data-tex="M" data-math-render-key="inline
+M"><math><mi>M</mi></math></span> is</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle M\rangle
+=
+\sum_i p_i m_i."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>i</mi></munder></mrow><msub><mi>p</mi><mi>i</mi></msub><msub><mi>m</mi><mi>i</mi></msub><mi>.</mi></mrow></math></div></math-block><p>Equivalently,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle M\rangle
+=
+\langle \psi|M|\psi\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><mi>M</mi><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block><h1>2. Definition of Variance 方差的定义</h1><org-env-block data-kind="define" data-title="" data-label="define" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">define</span><span class="org-env-heading-title" data-empty="true"></span></span><div class="org-env-content"><p>The variance of the observable <span class="aaronnote-math-inline" data-tex="M" data-math-render-key="inline
+M"><math><mi>M</mi></math></span> in the state <span class="aaronnote-math-inline" data-tex="|\psi\rangle" data-math-render-key="inline
+|\psi\rangle"><math><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo></mrow></math></span> is</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+(\Delta M)^2
+=
+\langle (M-\langle M\rangle I)^2\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mrow><mi mathvariant="normal">Δ</mi><mspace></mspace></mrow><mi>M</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>M</mi><mo>−</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>I</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block></div><p>Since <span class="aaronnote-math-inline" data-tex="\langle M\rangle" data-math-render-key="inline
+\langle M\rangle"><math><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow></math></span> is a scalar, we often write this more simply as</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+(\Delta M)^2
+=
+\langle (M-\langle M\rangle)^2\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mrow><mi mathvariant="normal">Δ</mi><mspace></mspace></mrow><mi>M</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>M</mi><mo>−</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block></org-env-block><p>In terms of measurement outcomes, this is exactly the classical variance:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+(\Delta M)^2
+=
+\sum_i p_i (m_i-\langle M\rangle)^2."><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mrow><mi mathvariant="normal">Δ</mi><mspace></mspace></mrow><mi>M</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo>=</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>i</mi></munder></mrow><msub><mi>p</mi><mi>i</mi></msub><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><msub><mi>m</mi><mi>i</mi></msub><mo>−</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mi>.</mi></mrow></math></div></math-block><p>Here:</p><ul><li><p><span class="aaronnote-math-inline" data-tex="m_i" data-math-render-key="inline
+m_i"><math><msub><mi>m</mi><mi>i</mi></msub></math></span> is a possible measurement outcome;</p></li><li><p><span class="aaronnote-math-inline" data-tex="p_i" data-math-render-key="inline
+p_i"><math><msub><mi>p</mi><mi>i</mi></msub></math></span> is the probability of obtaining <span class="aaronnote-math-inline" data-tex="m_i" data-math-render-key="inline
+m_i"><math><msub><mi>m</mi><mi>i</mi></msub></math></span>;</p></li><li><p><span class="aaronnote-math-inline" data-tex="\langle M\rangle" data-math-render-key="inline
+\langle M\rangle"><math><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow></math></span> is the average measurement outcome.</p></li></ul><h1>3. Main Formula 主公式</h1><org-env-block data-kind="theorem" data-title="" data-label="Theorem" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">Theorem</span><span class="org-env-heading-title" data-empty="true"></span></span><div class="org-env-content"><p>For any observable <span class="aaronnote-math-inline" data-tex="M" data-math-render-key="inline
+M"><math><mi>M</mi></math></span> and normalized state <span class="aaronnote-math-inline" data-tex="|\psi\rangle" data-math-render-key="inline
+|\psi\rangle"><math><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo></mrow></math></span>,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+(\Delta M)^2
+=
+\langle M^2\rangle
+-
+\langle M\rangle^2."><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mrow><mi mathvariant="normal">Δ</mi><mspace></mspace></mrow><mi>M</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msup><mi>M</mi><mn class="tml-med-pad">2</mn></msup><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>−</mo><msup><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mn>2</mn></msup><mi>.</mi></mrow></math></div></math-block></div></org-env-block><org-env-block data-kind="proof" data-title="" data-label="Proof" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">Proof</span><span class="org-env-heading-title" data-empty="true"></span></span><div class="org-env-content"><p>Start from the classical variance formula for measurement outcomes:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+(\Delta M)^2
+=
+\sum_i p_i (m_i-\langle M\rangle)^2."><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mrow><mi mathvariant="normal">Δ</mi><mspace></mspace></mrow><mi>M</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo>=</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>i</mi></munder></mrow><msub><mi>p</mi><mi>i</mi></msub><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><msub><mi>m</mi><mi>i</mi></msub><mo>−</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mi>.</mi></mrow></math></div></math-block></div><p>Expand the square:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+(\Delta M)^2
+=
+\sum_i p_i
+\left(
+m_i^2
+-
+2m_i\langle M\rangle
++
+\langle M\rangle^2
+\right)."><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mrow><mi mathvariant="normal">Δ</mi><mspace></mspace></mrow><mi>M</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo>=</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>i</mi></munder></mrow><msub><mi>p</mi><mi>i</mi></msub><mrow><mo fence="true" form="prefix" stretchy="true">(</mo><msubsup><mi>m</mi><mi>i</mi><mn>2</mn></msubsup><mo>−</mo><mn>2</mn><msub><mi>m</mi><mi>i</mi></msub><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>+</mo><msup><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mn>2</mn></msup><mo fence="true" form="postfix" stretchy="true">)</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>Distribute the sum:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+(\Delta M)^2
+=
+\sum_i p_i m_i^2
+-
+2\langle M\rangle \sum_i p_i m_i
++
+\langle M\rangle^2 \sum_i p_i."><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mrow><mi mathvariant="normal">Δ</mi><mspace></mspace></mrow><mi>M</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo>=</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>i</mi></munder></mrow><msub><mi>p</mi><mi>i</mi></msub><msubsup><mi>m</mi><mi>i</mi><mn>2</mn></msubsup><mo>−</mo><mn>2</mn><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mrow><munder><mo movablelimits="false">∑</mo><mi>i</mi></munder></mrow><msub><mi>p</mi><mi>i</mi></msub><msub><mi>m</mi><mi>i</mi></msub><mo>+</mo><msup><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mn>2</mn></msup><mrow><munder><mo movablelimits="false">∑</mo><mi>i</mi></munder></mrow><msub><mi>p</mi><mi>i</mi></msub><mi>.</mi></mrow></math></div></math-block><p>Now use the two basic facts:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\sum_i p_i m_i
+=
+\langle M\rangle,"><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><munder><mo movablelimits="false">∑</mo><mi>i</mi></munder></mrow><msub><mi>p</mi><mi>i</mi></msub><msub><mi>m</mi><mi>i</mi></msub><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo separator="true">,</mo></mrow></math></div></math-block><p>and</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\sum_i p_i
+=
+1."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><munder><mo movablelimits="false">∑</mo><mi>i</mi></munder></mrow><msub><mi>p</mi><mi>i</mi></msub><mo>=</mo><mn>1.</mn></mrow></math></div></math-block><p>Substituting gives</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+(\Delta M)^2
+=
+\sum_i p_i m_i^2
+-
+2\langle M\rangle^2
++
+\langle M\rangle^2."><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mrow><mi mathvariant="normal">Δ</mi><mspace></mspace></mrow><mi>M</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo>=</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>i</mi></munder></mrow><msub><mi>p</mi><mi>i</mi></msub><msubsup><mi>m</mi><mi>i</mi><mn>2</mn></msubsup><mo>−</mo><mn>2</mn><msup><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mn>2</mn></msup><mo>+</mo><msup><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mn>2</mn></msup><mi>.</mi></mrow></math></div></math-block><p>Therefore,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+(\Delta M)^2
+=
+\sum_i p_i m_i^2
+-
+\langle M\rangle^2."><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mrow><mi mathvariant="normal">Δ</mi><mspace></mspace></mrow><mi>M</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo>=</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>i</mi></munder></mrow><msub><mi>p</mi><mi>i</mi></msub><msubsup><mi>m</mi><mi>i</mi><mn>2</mn></msubsup><mo>−</mo><msup><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mn>2</mn></msup><mi>.</mi></mrow></math></div></math-block><p>It remains to identify the first term as <span class="aaronnote-math-inline" data-tex="\langle M^2\rangle" data-math-render-key="inline
+\langle M^2\rangle"><math><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msup><mi>M</mi><mn class="tml-med-pad">2</mn></msup><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow></math></span>.</p><p>Since</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+M|m_i\rangle
+=
+m_i |m_i\rangle,"><math display="block" class="tml-display" style="display:block math;"><mrow><mi>M</mi><mi>|</mi><msub><mi>m</mi><mi>i</mi></msub><mo form="postfix" stretchy="false">⟩</mo><mo>=</mo><msub><mi>m</mi><mi>i</mi></msub><mi>|</mi><msub><mi>m</mi><mi>i</mi></msub><mo form="postfix" stretchy="false">⟩</mo><mo separator="true">,</mo></mrow></math></div></math-block><p>we have</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+M^2|m_i\rangle
+=
+M(M|m_i\rangle)
+=
+M(m_i|m_i\rangle)
+=
+m_i M|m_i\rangle
+=
+m_i^2 |m_i\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mi>M</mi><mn class="tml-med-pad">2</mn></msup><mi>|</mi><msub><mi>m</mi><mi>i</mi></msub><mo form="postfix" stretchy="false">⟩</mo><mo>=</mo><mi>M</mi><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>M</mi><mi>|</mi><msub><mi>m</mi><mi>i</mi></msub><mo form="postfix" stretchy="false">⟩</mo><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mo>=</mo><mi>M</mi><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><msub><mi>m</mi><mi>i</mi></msub><mi>|</mi><msub><mi>m</mi><mi>i</mi></msub><mo form="postfix" stretchy="false">⟩</mo><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mo>=</mo><msub><mi>m</mi><mi>i</mi></msub><mi>M</mi><mi>|</mi><msub><mi>m</mi><mi>i</mi></msub><mo form="postfix" stretchy="false">⟩</mo><mo>=</mo><msubsup><mi>m</mi><mi>i</mi><mn>2</mn></msubsup><mi>|</mi><msub><mi>m</mi><mi>i</mi></msub><mo form="postfix" stretchy="false">⟩</mo><mi>.</mi></mrow></math></div></math-block><p>Thus <span class="aaronnote-math-inline" data-tex="|m_i\rangle" data-math-render-key="inline
+|m_i\rangle"><math><mrow><mi>|</mi><msub><mi>m</mi><mi>i</mi></msub><mo form="postfix" stretchy="false">⟩</mo></mrow></math></span> is also an eigenvector of <span class="aaronnote-math-inline" data-tex="M^2" data-math-render-key="inline
+M^2"><math><msup><mi>M</mi><mn class="tml-med-pad">2</mn></msup></math></span>, with eigenvalue <span class="aaronnote-math-inline" data-tex="m_i^2" data-math-render-key="inline
+m_i^2"><math><msubsup><mi>m</mi><mi>i</mi><mn>2</mn></msubsup></math></span>.</p><p>The probability of obtaining the eigenstate component <span class="aaronnote-math-inline" data-tex="|m_i\rangle" data-math-render-key="inline
+|m_i\rangle"><math><mrow><mi>|</mi><msub><mi>m</mi><mi>i</mi></msub><mo form="postfix" stretchy="false">⟩</mo></mrow></math></span> is still</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+p_i
+=
+|\langle m_i|\psi\rangle|^2,"><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mi>p</mi><mi>i</mi></msub><mo>=</mo><mi>|</mi><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msub><mi>m</mi><mi>i</mi></msub><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><msup><mi>|</mi><mn>2</mn></msup><mo separator="true">,</mo></mrow></math></div></math-block><p>because squaring the operator changes the eigenvalues from <span class="aaronnote-math-inline" data-tex="m_i" data-math-render-key="inline
+m_i"><math><msub><mi>m</mi><mi>i</mi></msub></math></span> to <span class="aaronnote-math-inline" data-tex="m_i^2" data-math-render-key="inline
+m_i^2"><math><msubsup><mi>m</mi><mi>i</mi><mn>2</mn></msubsup></math></span>, but does not change the eigenvectors.</p><p>Hence</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle M^2\rangle
+=
+\sum_i p_i m_i^2."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msup><mi>M</mi><mn class="tml-med-pad">2</mn></msup><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>i</mi></munder></mrow><msub><mi>p</mi><mi>i</mi></msub><msubsup><mi>m</mi><mi>i</mi><mn>2</mn></msubsup><mi>.</mi></mrow></math></div></math-block><p>Therefore,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+(\Delta M)^2
+=
+\langle M^2\rangle
+-
+\langle M\rangle^2."><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mrow><mi mathvariant="normal">Δ</mi><mspace></mspace></mrow><mi>M</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msup><mi>M</mi><mn class="tml-med-pad">2</mn></msup><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>−</mo><msup><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mn>2</mn></msup><mi>.</mi></mrow></math></div></math-block><p>This proves the formula.</p></org-env-block><h1>4. Operator Derivation 算符推导</h1><p>There is also a shorter operator-level derivation.</p><org-env-block data-kind="proof" data-title="" data-label="Proof" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">Proof</span><span class="org-env-heading-title" data-empty="true"></span></span><div class="org-env-content"><p>By definition,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+(\Delta M)^2
+=
+\langle (M-\langle M\rangle I)^2\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mrow><mi mathvariant="normal">Δ</mi><mspace></mspace></mrow><mi>M</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>M</mi><mo>−</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>I</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block></div><p>Expand the operator square:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+(M-\langle M\rangle I)^2
+=
+M^2
+-
+2\langle M\rangle M
++
+\langle M\rangle^2 I."><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>M</mi><mo>−</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>I</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo>=</mo><msup><mi>M</mi><mn class="tml-med-pad">2</mn></msup><mo>−</mo><mn>2</mn><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>M</mi><mo>+</mo><msup><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mn>2</mn></msup><mi>I</mi><mi>.</mi></mrow></math></div></math-block><p>Taking expectation values gives</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+(\Delta M)^2
+=
+\langle M^2\rangle
+-
+2\langle M\rangle \langle M\rangle
++
+\langle M\rangle^2 \langle I\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mrow><mi mathvariant="normal">Δ</mi><mspace></mspace></mrow><mi>M</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msup><mi>M</mi><mn class="tml-med-pad">2</mn></msup><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>−</mo><mn>2</mn><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>+</mo><msup><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mn>2</mn></msup><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>I</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>Since the state is normalized,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle I\rangle
+=
+\langle \psi|I|\psi\rangle
+=
+\langle \psi|\psi\rangle
+=
+1."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>I</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><mi>I</mi><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mn>1.</mn></mrow></math></div></math-block><p>Therefore,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+(\Delta M)^2
+=
+\langle M^2\rangle
+-
+2\langle M\rangle^2
++
+\langle M\rangle^2."><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mrow><mi mathvariant="normal">Δ</mi><mspace></mspace></mrow><mi>M</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msup><mi>M</mi><mn class="tml-med-pad">2</mn></msup><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>−</mo><mn>2</mn><msup><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mn>2</mn></msup><mo>+</mo><msup><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mn>2</mn></msup><mi>.</mi></mrow></math></div></math-block><p>Hence</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+(\Delta M)^2
+=
+\langle M^2\rangle
+-
+\langle M\rangle^2."><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mrow><mi mathvariant="normal">Δ</mi><mspace></mspace></mrow><mi>M</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msup><mi>M</mi><mn class="tml-med-pad">2</mn></msup><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>−</mo><msup><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mn>2</mn></msup><mi>.</mi></mrow></math></div></math-block></org-env-block><h1>5. Degenerate Spectrum 简并谱情形</h1><p>If <span class="aaronnote-math-inline" data-tex="M" data-math-render-key="inline
+M"><math><mi>M</mi></math></span> has degenerate eigenvalues, then we should use spectral projections.</p><p>Let</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+M
+=
+\sum_m m P_m,"><math display="block" class="tml-display" style="display:block math;"><mrow><mi>M</mi><mo>=</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>m</mi></munder></mrow><mi>m</mi><msub><mi>P</mi><mi>m</mi></msub><mo separator="true">,</mo></mrow></math></div></math-block><p>where <span class="aaronnote-math-inline" data-tex="P_m" data-math-render-key="inline
+P_m"><math><msub><mi>P</mi><mi>m</mi></msub></math></span> is the orthogonal projection onto the eigenspace with eigenvalue <span class="aaronnote-math-inline" data-tex="m" data-math-render-key="inline
+m"><math><mi>m</mi></math></span>.</p><p>Then the probability of obtaining outcome <span class="aaronnote-math-inline" data-tex="m" data-math-render-key="inline
+m"><math><mi>m</mi></math></span> is</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+p(m)
+=
+\langle \psi|P_m|\psi\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>p</mi><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>m</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><msub><mi>P</mi><mi>m</mi></msub><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>The expectation value is</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle M\rangle
+=
+\sum_m m\,p(m)."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>m</mi></munder></mrow><mi>m</mi><mspace width="0.1667em"></mspace><mi>p</mi><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>m</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>The second moment is</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle M^2\rangle
+=
+\sum_m m^2 p(m)."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msup><mi>M</mi><mn class="tml-med-pad">2</mn></msup><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>m</mi></munder></mrow><msup><mi>m</mi><mn>2</mn></msup><mi>p</mi><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>m</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>Hence the same variance formula holds:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+(\Delta M)^2
+=
+\langle M^2\rangle
+-
+\langle M\rangle^2."><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mrow><mi mathvariant="normal">Δ</mi><mspace></mspace></mrow><mi>M</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msup><mi>M</mi><mn class="tml-med-pad">2</mn></msup><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>−</mo><msup><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mn>2</mn></msup><mi>.</mi></mrow></math></div></math-block><h1>6. Density Operator Form 密度算符形式</h1><p>If the quantum state is represented by a density operator <span class="aaronnote-math-inline" data-tex="\rho" data-math-render-key="inline
+\rho"><math><mi>ρ</mi></math></span>, then</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle M\rangle
+=
+\operatorname{tr}(\rho M),"><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mi>tr</mi><mo>⁡</mo><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>ρ</mi><mi>M</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mo separator="true">,</mo></mrow></math></div></math-block><p>and</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle M^2\rangle
+=
+\operatorname{tr}(\rho M^2)."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msup><mi>M</mi><mn class="tml-med-pad">2</mn></msup><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mi>tr</mi><mo>⁡</mo><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>ρ</mi><msup><mi>M</mi><mn class="tml-med-pad">2</mn></msup><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>Therefore,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+(\Delta M)^2
+=
+\operatorname{tr}(\rho M^2)
+-
+\operatorname{tr}(\rho M)^2."><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mrow><mi mathvariant="normal">Δ</mi><mspace></mspace></mrow><mi>M</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo>=</mo><mi>tr</mi><mo>⁡</mo><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>ρ</mi><msup><mi>M</mi><mn class="tml-med-pad">2</mn></msup><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mo>−</mo><mi>tr</mi><mo>⁡</mo><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>ρ</mi><mi>M</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mi>.</mi></mrow></math></div></math-block><p>Equivalently,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+(\Delta M)^2
+=
+\operatorname{tr}\left(\rho (M-\langle M\rangle I)^2\right)."><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mrow><mi mathvariant="normal">Δ</mi><mspace></mspace></mrow><mi>M</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo>=</mo><mi>tr</mi><mo>⁡</mo><mrow><mo fence="true" form="prefix" stretchy="true">(</mo><mi>ρ</mi><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>M</mi><mo>−</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>I</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo fence="true" form="postfix" stretchy="true">)</mo></mrow><mi>.</mi></mrow></math></div></math-block><h1>7. Interpretation 物理解释</h1><p>The variance measures how uncertain the measurement outcomes of <span class="aaronnote-math-inline" data-tex="M" data-math-render-key="inline
+M"><math><mi>M</mi></math></span> are in the state <span class="aaronnote-math-inline" data-tex="|\psi\rangle" data-math-render-key="inline
+|\psi\rangle"><math><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo></mrow></math></span>.</p><p>If</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+(\Delta M)^2 = 0,"><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mrow><mi mathvariant="normal">Δ</mi><mspace></mspace></mrow><mi>M</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo>=</mo><mn>0</mn><mo separator="true">,</mo></mrow></math></div></math-block><p>then the measurement of <span class="aaronnote-math-inline" data-tex="M" data-math-render-key="inline
+M"><math><mi>M</mi></math></span> is deterministic in that state.</p><p>For a pure state, this happens exactly when <span class="aaronnote-math-inline" data-tex="|\psi\rangle" data-math-render-key="inline
+|\psi\rangle"><math><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo></mrow></math></span> lies in an eigenspace of <span class="aaronnote-math-inline" data-tex="M" data-math-render-key="inline
+M"><math><mi>M</mi></math></span>.</p><p>If</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+(\Delta M)^2 > 0,"><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mrow><mi mathvariant="normal">Δ</mi><mspace></mspace></mrow><mi>M</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo>&gt;</mo><mn>0</mn><mo separator="true">,</mo></mrow></math></div></math-block><p>then repeated measurements of <span class="aaronnote-math-inline" data-tex="M" data-math-render-key="inline
+M"><math><mi>M</mi></math></span> on identically prepared systems can give different outcomes.</p><p>中文直觉：</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\Delta M"><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mi mathvariant="normal">Δ</mi><mspace></mspace></mrow><mi>M</mi></mrow></math></div></math-block><p>measures the typical size of fluctuation around the mean value</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle M\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block><h1>8. Important Special Case: Eigenstates 本征态情形</h1><p>Suppose</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+M|\psi\rangle
+=
+m|\psi\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>M</mi><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mo>=</mo><mi>m</mi><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mi>.</mi></mrow></math></div></math-block><p>Then measuring <span class="aaronnote-math-inline" data-tex="M" data-math-render-key="inline
+M"><math><mi>M</mi></math></span> always gives the value <span class="aaronnote-math-inline" data-tex="m" data-math-render-key="inline
+m"><math><mi>m</mi></math></span>.</p><p>Indeed,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle M\rangle
+=
+\langle \psi|M|\psi\rangle
+=
+m,"><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><mi>M</mi><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mi>m</mi><mo separator="true">,</mo></mrow></math></div></math-block><p>and</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle M^2\rangle
+=
+\langle \psi|M^2|\psi\rangle
+=
+m^2."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msup><mi>M</mi><mn class="tml-med-pad">2</mn></msup><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><msup><mi>M</mi><mn class="tml-med-pad">2</mn></msup><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><msup><mi>m</mi><mn>2</mn></msup><mi>.</mi></mrow></math></div></math-block><p>Therefore,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+(\Delta M)^2
+=
+m^2-m^2
+=
+0."><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mrow><mi mathvariant="normal">Δ</mi><mspace></mspace></mrow><mi>M</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo>=</mo><msup><mi>m</mi><mn>2</mn></msup><mo>−</mo><msup><mi>m</mi><mn>2</mn></msup><mo>=</mo><mn>0.</mn></mrow></math></div></math-block><p>So eigenstates have zero variance for their corresponding observable.</p><h1>9. Conceptual Summary 概念总结</h1><org-env-block data-kind="summary" data-title="" data-label="Summary" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="true"></span></span><div class="org-env-content"><p>Variance in quantum mechanics is the variance of measurement outcomes.</p><p>Starting from the classical statistical formula,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+(\Delta M)^2
+=
+\sum_i p_i(m_i-\langle M\rangle)^2,"><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mrow><mi mathvariant="normal">Δ</mi><mspace></mspace></mrow><mi>M</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo>=</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>i</mi></munder></mrow><msub><mi>p</mi><mi>i</mi></msub><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><msub><mi>m</mi><mi>i</mi></msub><mo>−</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo separator="true">,</mo></mrow></math></div></math-block></div><p>we obtain the compact operator formula</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+(\Delta M)^2
+=
+\langle M^2\rangle
+-
+\langle M\rangle^2."><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mrow><mi mathvariant="normal">Δ</mi><mspace></mspace></mrow><mi>M</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mn>2</mn></msup><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msup><mi>M</mi><mn class="tml-med-pad">2</mn></msup><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>−</mo><msup><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mn>2</mn></msup><mi>.</mi></mrow></math></div></math-block><p>For a pure state,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle M\rangle
+=
+\langle \psi|M|\psi\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><mi>M</mi><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>For a density operator,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle M\rangle
+=
+\operatorname{tr}(\rho M)."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>M</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mi>tr</mi><mo>⁡</mo><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>ρ</mi><mi>M</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>Thus variance measures the statistical spread of possible measurement outcomes around their expectation value.</p></org-env-block>
           </article>
         </div>
       </div>

@@ -27,337 +27,228 @@
         <div class="typora-web-editor-host">
           <article id="content" class="ProseMirror" data-note-title="Observable &amp; Expectation">
             <h1 class="title">Observable &amp; Expectation</h1>
-            <h1 id="observable--expectation-可观测量与期望值">Observable &amp;
-Expectation 可观测量与期望值</h1>
-<p><org-env-block data-kind="summary" data-title="In quantum mechanics, an observable is represented by a Hermitian operator on a Hilbert space." data-label="Summary"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="false">In
-quantum mechanics, an observable is represented by a Hermitian operator
-on a Hilbert space.</span></span><div class="org-env-content"><p>The key
-chain is:</p></p>
-<p><span class="math display">observable ⇒ Hermitian operator ⇒ spectral
-decomposition ⇒ measurement outcomes ⇒ Born probabilities ⇒ expectation
-value.</span></p>
-<p>For a pure state <span class="math inline">|<em>ψ</em>⟩</span> and an
-observable <span class="math inline"><em>Â</em></span>, the expectation
-value is</p>
-<h1 id="-langle-arangle">$$ \langle A\rangle</h1>
-<p>\langle \psi|\hat{A}|\psi\rangle. $$</p>
-<p>For a density operator <span class="math inline"><em>ρ</em></span>,
-the expectation value is</p>
-<h1 id="-langle-arangle-1">$$ \langle A\rangle</h1>
-<p>\operatorname{tr}(\rho \hat{A}). $$</p></div></org-env-block>
-
-<h1
-id="1-why-observables-are-hermitian-operators-为什么可观测量是厄米算符">1.
-Why Observables Are Hermitian Operators 为什么可观测量是厄米算符</h1>
-<p>In quantum mechanics, every physical observable <span
-class="math inline"><em>A</em></span> is represented by a Hermitian
-operator</p>
-<p><span class="math display"><em>Â</em></span></p>
-<p>acting on a Hilbert space <span
-class="math inline"><em>H</em></span>.</p>
-<p>That is,</p>
-<p><span
-class="math display"><em>Â</em><sup>†</sup> = <em>Â</em>.</span></p>
-<p>There are two main reasons.</p>
-<h2 id="11-measurement-outcomes-must-be-real-测量结果必须是实数">1.1
-Measurement outcomes must be real 测量结果必须是实数</h2>
-<p>Experimental measurement outcomes are real numbers.</p>
-<p>Hermitian operators have real eigenvalues. If</p>
-<h1 id="-hataa_nrangle">$$ \hat{A}|a_n\rangle</h1>
-<p>a_n |a_n\rangle, $$</p>
-<p>then</p>
-<p><span
-class="math display"><em>a</em><sub><em>n</em></sub> ∈ ℝ.</span></p>
-<p>Thus the eigenvalues of <span class="math inline"><em>Â</em></span>
-can consistently represent possible measurement outcomes.</p>
-<h2
-id="12-hermitian-operators-admit-orthogonal-spectral-decompositions-厄米算符允许正交谱分解">1.2
-Hermitian operators admit orthogonal spectral decompositions
-厄米算符允许正交谱分解</h2>
-<p>By the spectral theorem, a Hermitian operator has an orthonormal
-eigenbasis in the finite-dimensional case.</p>
-<p>So we can write</p>
-<h1 id="-hata">$$ \hat{A}</h1>
-<p>\sum_n a_n |a_n\rangle\langle a_n|, $$</p>
-<p>where</p>
-<p><span
-class="math display"><em>Â</em>|<em>a</em><sub><em>n</em></sub>⟩ = <em>a</em><sub><em>n</em></sub>|<em>a</em><sub><em>n</em></sub>⟩,</span></p>
-<p>and</p>
-<p><span
-class="math display">⟨<em>a</em><sub><em>m</em></sub>|<em>a</em><sub><em>n</em></sub>⟩ = <em>δ</em><sub><em>m</em><em>n</em></sub>.</span></p>
-<p>This orthogonal decomposition is what makes the probability
-interpretation possible.</p>
-<p><org-env-block data-kind="important" data-title="A measurement of the observable $A$ does not directly output the operator $\hat{A}$." data-label="Important"><span class="org-env-heading"><span class="org-env-heading-label">Important</span><span class="org-env-heading-title" data-empty="false">A
-measurement of the observable <span
-class="math inline"><em>A</em></span> does not directly output the
-operator <span
-class="math inline"><em>Â</em></span>.</span></span><div class="org-env-content"><p>It
-outputs one of the eigenvalues of <span
-class="math inline"><em>Â</em></span>.</p></p>
-<p>The operator encodes the full structure of possible outcomes.</p></div></org-env-block>
-
-<h1 id="2-physical-meaning-of-expectation-value-期望值的物理意义">2.
-Physical Meaning of Expectation Value 期望值的物理意义</h1>
-<p>Suppose the system is in a normalized pure state</p>
-<p><span
-class="math display">|<em>ψ</em>⟩ ∈ <em>H</em>,   ⟨<em>ψ</em>|<em>ψ</em>⟩ = 1.</span></p>
-<p>We repeatedly prepare the same state <span
-class="math inline">|<em>ψ</em>⟩</span> and measure the same observable
-<span class="math inline"><em>Â</em></span>.</p>
-<p>Each measurement produces one eigenvalue</p>
-<p><span class="math display"><em>a</em><sub><em>n</em></sub></span></p>
-<p>with probability</p>
-<p><span
-class="math display"><em>p</em><sub><em>n</em></sub>.</span></p>
-<p>The statistical average is</p>
-<h1 id="-langle-arangle">$$ \langle A\rangle</h1>
-<p>\sum_n a_n p_n. $$</p>
-<p>This is the expectation value.</p>
-<p><org-env-block data-kind="note" data-title="The expectation value is not usually the result of a single measurement." data-label="Note"><span class="org-env-heading"><span class="org-env-heading-label">Note</span><span class="org-env-heading-title" data-empty="false">The
-expectation value is not usually the result of a single
-measurement.</span></span><div class="org-env-content"><p>It is the
-average value obtained in the limit of many repeated experiments with
-the same preparation.</p></div></org-env-block></p>
-<h1 id="3-born-rule-and-spectral-expansion-玻恩规则与谱展开">3. Born
-Rule and Spectral Expansion 玻恩规则与谱展开</h1>
-<p>Assume for now that <span class="math inline"><em>Â</em></span> has a
-discrete non-degenerate spectrum with orthonormal eigenbasis</p>
-<p><span
-class="math display">{|<em>a</em><sub><em>n</em></sub>⟩}<sub><em>n</em></sub>.</span></p>
-<p>Then every state <span class="math inline">|<em>ψ</em>⟩</span> can be
-expanded as</p>
-<h1 id="-psirangle">$$ |\psi\rangle</h1>
-<p>\sum_n c_n |a_n\rangle, $$</p>
-<p>where</p>
-<h1 id="-c_n">$$ c_n</h1>
-<p>\langle a_n|\psi\rangle. $$</p>
-<p>Since <span class="math inline">|<em>ψ</em>⟩</span> is
-normalized,</p>
-<p><span
-class="math display">∑<sub><em>n</em></sub>|<em>c</em><sub><em>n</em></sub>|<sup>2</sup> = 1.</span></p>
-<p>The Born rule says that the probability of obtaining outcome <span
-class="math inline"><em>a</em><sub><em>n</em></sub></span> is</p>
-<h1 id="-p_n">$$ p_n</h1>
-<h1 id="langle-a_npsirangle2">|\langle a_n|\psi\rangle|^2</h1>
-<p>|c_n|^2. $$</p>
-<p>Therefore,</p>
-<h1 id="-langle-arangle-1">$$ \langle A\rangle</h1>
-<p>\sum_n a_n |c_n|^2. $$</p>
-<h1 id="4-derivation-of-the-operator-formula-期望值算符公式的推导">4.
-Derivation of the Operator Formula 期望值算符公式的推导</h1>
-<p>Starting from the statistical average,</p>
-<h1 id="-langle-arangle-2">$$ \langle A\rangle</h1>
-<p>\sum_n a_n p_n. $$</p>
-<p>Using Born's rule,</p>
-<h1 id="-p_n-1">$$ p_n</h1>
-<p>|\langle a_n|\psi\rangle|^2. $$</p>
-<p>Therefore,</p>
-<h1 id="-langle-arangle-3">$$ \langle A\rangle</h1>
-<p>\sum_n a_n |\langle a_n|\psi\rangle|^2. $$</p>
-<p>Now,</p>
-<h1 id="-langle-a_npsirangle2">$$ |\langle a_n|\psi\rangle|^2</h1>
-<p>\langle \psi|a_n\rangle\langle a_n|\psi\rangle. $$</p>
-<p>So</p>
-<h1 id="-langle-arangle-4">$$ \langle A\rangle</h1>
-<p>\sum_n a_n \langle \psi|a_n\rangle \langle a_n|\psi\rangle. $$</p>
-<p>Move the scalar expression into bra-ket form:</p>
-<h1 id="-langle-arangle-5">$$ \langle A\rangle</h1>
-<p>\left\langle \psi \middle| \left( \sum_n a_n |a_n\rangle\langle a_n|
-\right) \middle| \psi \right\rangle. $$</p>
-<p>By the spectral decomposition,</p>
-<h1 id="-hata-1">$$ \hat{A}</h1>
-<p>\sum_n a_n |a_n\rangle\langle a_n|. $$</p>
-<p>Hence</p>
-<h1 id="-langle-arangle-6">$$ \langle A\rangle</h1>
-<p>\langle \psi|\hat{A}|\psi\rangle. $$</p>
-<p><org-env-block data-kind="important" data-title="The formula" data-label="Important"><span class="org-env-heading"><span class="org-env-heading-label">Important</span><span class="org-env-heading-title" data-empty="false">The
-formula</span></span><div class="org-env-content"><h1 id="-langle-arangle">$$
-\langle A\rangle</h1></p>
-<p>\langle \psi|\hat{A}|\psi\rangle $$</p>
-<p>is not an arbitrary definition.</p>
-<p>It is the compact linear-algebraic expression of the statistical
-average</p>
-<p><span
-class="math display">∑<sub><em>n</em></sub><em>a</em><sub><em>n</em></sub><em>p</em><sub><em>n</em></sub>.</span></p>
-<p>However, in the axiomatic formulation of quantum mechanics, this
-formula is often taken as part of the measurement postulate.</p></div></org-env-block>
-
-<h1 id="5-degenerate-eigenvalues-简并本征值情形">5. Degenerate
-Eigenvalues 简并本征值情形</h1>
-<p>If an eigenvalue <span class="math inline"><em>a</em></span> has
-eigenspace <span
-class="math inline"><em>E</em><sub><em>a</em></sub></span>, then
-measurement outcome <span class="math inline"><em>a</em></span>
-corresponds not to one eigenvector but to the whole eigenspace.</p>
-<p>Let <span class="math inline"><em>P</em><sub><em>a</em></sub></span>
-be the orthogonal projection onto <span
-class="math inline"><em>E</em><sub><em>a</em></sub></span>.</p>
-<p>Then the spectral decomposition is</p>
-<h1 id="-hata-2">$$ \hat{A}</h1>
-<p>\sum_a a P_a. $$</p>
-<p>The probability of measuring outcome <span
-class="math inline"><em>a</em></span> is</p>
-<h1 id="-pa">$$ p(a)</h1>
-<p>|P_a|\psi\rangle|^2. $$</p>
-<p>Equivalently,</p>
-<h1 id="-pa-1">$$ p(a)</h1>
-<p>\langle \psi|P_a|\psi\rangle. $$</p>
-<p>The expectation value is</p>
-<h1 id="-langle-arangle-7">$$ \langle A\rangle</h1>
-<p>\sum_a a,\langle \psi|P_a|\psi\rangle. $$</p>
-<p>Using</p>
-<h1 id="-hata-3">$$ \hat{A}</h1>
-<p>\sum_a aP_a, $$</p>
-<p>we again obtain</p>
-<h1 id="-langle-arangle-8">$$ \langle A\rangle</h1>
-<p>\langle \psi|\hat{A}|\psi\rangle. $$</p>
-<p><org-env-block data-kind="note" data-title="The non-degenerate formula" data-label="Note"><span class="org-env-heading"><span class="org-env-heading-label">Note</span><span class="org-env-heading-title" data-empty="false">The
-non-degenerate
-formula</span></span><div class="org-env-content"><p><span
-class="math display"><em>p</em><sub><em>n</em></sub> = |⟨<em>a</em><sub><em>n</em></sub>|<em>ψ</em>⟩|<sup>2</sup></span></p></p>
-<p>is a special case of the projection formula</p>
-<p><span
-class="math display"><em>p</em>(<em>a</em>) = ⟨<em>ψ</em>|<em>P</em><sub><em>a</em></sub>|<em>ψ</em>⟩.</span></p>
-<p>When <span class="math inline"><em>E</em><sub><em>a</em></sub></span>
-is one-dimensional,</p>
-<p><span
-class="math display"><em>P</em><sub><em>a</em></sub> = |<em>a</em>⟩⟨<em>a</em>|.</span></p></div></org-env-block>
-
-<h1 id="6-core-spectral-theoretic-statement-谱理论的核心结论">6. Core
-Spectral-Theoretic Statement 谱理论的核心结论</h1>
-<p>For a Hermitian operator <span
-class="math inline"><em>Â</em></span>:</p>
-<ul>
-<li>possible measurement outcomes lie in the spectrum of <span
-class="math inline"><em>Â</em></span>;</li>
-<li>in the finite-dimensional case, the spectrum consists of
-eigenvalues;</li>
-<li>for discrete spectra, outcomes correspond to eigenvalues;</li>
-<li>for degenerate spectra, outcomes correspond to eigenspaces and
-projections;</li>
-<li>for continuous spectra, one needs the spectral measure
-formulation.</li>
-</ul>
-<p>In finite dimensions, the clean statement is:</p>
-<h1 id="-hata-4">$$ \hat{A}</h1>
-<p>\sum_a a P_a, $$</p>
-<p>where <span
-class="math inline"><em>P</em><sub><em>a</em></sub></span> is the
-orthogonal projection onto the eigenspace of eigenvalue <span
-class="math inline"><em>a</em></span>.</p>
-<p>The corresponding probability rule is:</p>
-<h1 id="-praa">$$ \Pr(A=a)</h1>
-<p>\langle \psi|P_a|\psi\rangle. $$</p>
-<p>The expectation value is:</p>
-<h1 id="-mathbbea">$$ \mathbb{E}[A]</h1>
-<h1 id="sum_a-apraa">\sum_a a,\Pr(A=a)</h1>
-<p>\langle \psi|\hat{A}|\psi\rangle. $$</p>
-<h1 id="7-continuous-spectrum-连续谱情形">7. Continuous Spectrum
-连续谱情形</h1>
-<p>For observables with continuous spectrum, such as position or
-momentum, the eigenvectors are not ordinary Hilbert-space vectors. They
-are generalized eigenvectors.</p>
-<p>For example, one often formally writes</p>
-<h1 id="-hatxxrangle">$$ \hat{X}|x\rangle</h1>
-<p>x|x\rangle. $$</p>
-<p>But <span class="math inline">|<em>x</em>⟩</span> is not usually an
-element of the Hilbert space <span
-class="math inline"><em>L</em><sup>2</sup>(ℝ)</span>.</p>
-<p>The rigorous formulation uses a projection-valued measure <span
-class="math inline"><em>E</em><sub><em>A</em></sub></span> such that</p>
-<h1 id="-hata-5">$$ \hat{A}</h1>
-<p>\int_{\mathbb{R}} \lambda , dE_A(\lambda). $$</p>
-<p>For a state <span class="math inline">|<em>ψ</em>⟩</span>, the
-probability of getting a result in a measurable set <span
-class="math inline"><em>S</em> ⊆ ℝ</span> is</p>
-<h1 id="-pra-in-s">$$ \Pr(A \in S)</h1>
-<p>\langle \psi|E_A(S)|\psi\rangle. $$</p>
-<p>The expectation value is</p>
-<h1 id="-langle-arangle-9">$$ \langle A\rangle</h1>
-<p>\int_{\mathbb{R}} \lambda , d\mu_\psi(\lambda), $$</p>
-<p>where</p>
-<h1 id="-mu_psis">$$ \mu_\psi(S)</h1>
-<p>\langle \psi|E_A(S)|\psi\rangle. $$</p>
-<p><org-env-block data-kind="note" data-title="In introductory quantum computing, we usually work in finite-dimensional Hilbert spaces, so the finite-dimensional spectral decomposition is enough." data-label="Note"><span class="org-env-heading"><span class="org-env-heading-label">Note</span><span class="org-env-heading-title" data-empty="false">In
-introductory quantum computing, we usually work in finite-dimensional
-Hilbert spaces, so the finite-dimensional spectral decomposition is
-enough.</span></span><div class="org-env-content"><p>Continuous-spectrum
-issues become important in functional analysis and continuous-variable
-quantum mechanics.</p></div></org-env-block></p>
-<h1 id="8-geometric-interpretation-几何解释">8. Geometric Interpretation
-几何解释</h1>
-<p>If</p>
-<h1 id="-psirangle-1">$$ |\psi\rangle</h1>
-<p>\sum_n c_n |a_n\rangle, $$</p>
-<p>then each coefficient</p>
-<h1 id="-c_n-1">$$ c_n</h1>
-<p>\langle a_n|\psi\rangle $$</p>
-<p>is the amplitude of <span class="math inline">|<em>ψ</em>⟩</span> in
-the <span class="math inline">|<em>a</em><sub><em>n</em></sub>⟩</span>
-direction.</p>
-<p>The probability of measuring <span
-class="math inline"><em>a</em><sub><em>n</em></sub></span> is</p>
-<p><span
-class="math display">|<em>c</em><sub><em>n</em></sub>|<sup>2</sup>.</span></p>
-<p>Thus the probabilistic nature of quantum measurement is not merely
-“measurement disturbance.”</p>
-<p>Rather, it is encoded in the geometric projection of the state vector
-onto the spectral subspaces of the observable.</p>
-<p>More precisely:</p>
-<p><span class="math display">state + observable ⇒ projection onto
-spectral subspaces ⇒ probabilities.</span></p>
-<p><org-env-block data-kind="important" data-title="For a given observable $\hat{A}$, if $|\psi\rangle$ is an eigenstate of $\hat{A}$, then measuring $A$ is deterministic." data-label="Important"><span class="org-env-heading"><span class="org-env-heading-label">Important</span><span class="org-env-heading-title" data-empty="false">For
-a given observable <span class="math inline"><em>Â</em></span>, if <span
-class="math inline">|<em>ψ</em>⟩</span> is an eigenstate of <span
-class="math inline"><em>Â</em></span>, then measuring <span
-class="math inline"><em>A</em></span> is
-deterministic.</span></span><div class="org-env-content"><p>If
-<span class="math inline">|<em>ψ</em>⟩</span> is a superposition of
-different eigenspaces of <span class="math inline"><em>Â</em></span>,
-then the measurement outcomes are
-probabilistic.</p></div></org-env-block></p>
-<h1 id="9-density-operator-form-密度算符形式">9. Density-Operator Form
-密度算符形式</h1>
-<p>If the state is represented by a density operator <span
-class="math inline"><em>ρ</em></span>, then the expectation value of
-observable <span class="math inline"><em>Â</em></span> is</p>
-<h1 id="-langle-arangle-10">$$ \langle A\rangle</h1>
-<p>\operatorname{tr}(\rho \hat{A}). $$</p>
-<p>For a pure state</p>
-<h1 id="-rho_psi">$$ \rho_\psi</h1>
-<p>|\psi\rangle\langle \psi|, $$</p>
-<p>we recover</p>
-<h1 id="-operatornametrrho_psi-hata">$$ \operatorname{tr}(\rho_\psi
-\hat{A})</h1>
-<p>\langle \psi|\hat{A}|\psi\rangle. $$</p>
-<p>Thus the density-operator formula generalises the pure-state
-formula.</p>
-<h1 id="conceptual-summary-概念总结">Conceptual Summary 概念总结</h1>
-<p><org-env-block data-kind="summary" data-title="An observable $A$ is represented by a Hermitian operator $\hat{A}$." data-label="Summary"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="false">An
-observable <span class="math inline"><em>A</em></span> is represented by
-a Hermitian operator <span
-class="math inline"><em>Â</em></span>.</span></span><div class="org-env-content"><p>The
-spectral theorem gives</p></p>
-<h1 id="-hata">$$ \hat{A}</h1>
-<p>\sum_a aP_a. $$</p>
-<p>The eigenvalues <span class="math inline"><em>a</em></span> are
-possible measurement outcomes.</p>
-<p>The projections <span
-class="math inline"><em>P</em><sub><em>a</em></sub></span> determine the
-probabilities:</p>
-<h1 id="-praa">$$ \Pr(A=a)</h1>
-<p>\langle \psi|P_a|\psi\rangle. $$</p>
-<p>The expectation value is</p>
-<h1 id="-langle-arangle">$$ \langle A\rangle</h1>
-<h1 id="sum_a-apraa">\sum_a a,\Pr(A=a)</h1>
-<p>\langle \psi|\hat{A}|\psi\rangle. $$</p>
-<p>For a density operator <span
-class="math inline"><em>ρ</em></span>,</p>
-<h1 id="-langle-arangle-1">$$ \langle A\rangle</h1>
-<p>\operatorname{tr}(\rho\hat{A}). $$</p>
-<p>Therefore, expectation value is the bridge between spectral
-measurement outcomes and experimentally reproducible statistical
-averages.</p></div></org-env-block>
+            <h1>Observable &amp; Expectation 可观测量与期望值</h1><org-env-block data-kind="summary" data-title="" data-label="Summary" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="true"></span></span><div class="org-env-content"><p>In quantum mechanics, an observable is represented by a Hermitian operator on a Hilbert space.</p><p>The key chain is:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\text{observable}
+\Longrightarrow
+\text{Hermitian operator}
+\Longrightarrow
+\text{spectral decomposition}
+\Longrightarrow
+\text{measurement outcomes}
+\Longrightarrow
+\text{Born probabilities}
+\Longrightarrow
+\text{expectation value}."><math display="block" class="tml-display" style="display:block math;"><mrow><mtext>observable</mtext><mo stretchy="false">⟹</mo><mtext>Hermitian&nbsp;operator</mtext><mo stretchy="false">⟹</mo><mtext>spectral&nbsp;decomposition</mtext><mo stretchy="false">⟹</mo><mtext>measurement&nbsp;outcomes</mtext><mo stretchy="false">⟹</mo><mtext>Born&nbsp;probabilities</mtext><mo stretchy="false">⟹</mo><mtext>expectation&nbsp;value</mtext><mi>.</mi></mrow></math></div></math-block></div><p>For a pure state <span class="aaronnote-math-inline" data-tex="|\psi\rangle" data-math-render-key="inline
+|\psi\rangle"><math><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo></mrow></math></span> and an observable <span class="aaronnote-math-inline" data-tex="\hat{A}" data-math-render-key="inline
+\hat{A}"><math><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover></math></span>, the expectation value is</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle A\rangle
+=
+\langle \psi|\hat{A}|\psi\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>A</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>For a density operator <span class="aaronnote-math-inline" data-tex="\rho" data-math-render-key="inline
+\rho"><math><mi>ρ</mi></math></span>, the expectation value is</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle A\rangle
+=
+\operatorname{tr}(\rho \hat{A})."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>A</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mi>tr</mi><mo>⁡</mo><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>ρ</mi><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mi>.</mi></mrow></math></div></math-block></org-env-block><h1>1. Why Observables Are Hermitian Operators 为什么可观测量是厄米算符</h1><p>In quantum mechanics, every physical observable <span class="aaronnote-math-inline" data-tex="A" data-math-render-key="inline
+A"><math><mi>A</mi></math></span> is represented by a Hermitian operator</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\hat{A}"><math display="block" class="tml-display" style="display:block math;"><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover></math></div></math-block><p>acting on a Hilbert space <span class="aaronnote-math-inline" data-tex="H" data-math-render-key="inline
+H"><math><mi>H</mi></math></span>.</p><p>That is,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\hat{A}^\dagger = \hat{A}."><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover><mo form="prefix" stretchy="false">†</mo></msup><mo>=</mo><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover><mi>.</mi></mrow></math></div></math-block><p>There are two main reasons.</p><h2>1.1 Measurement outcomes must be real 测量结果必须是实数</h2><p>Experimental measurement outcomes are real numbers.</p><p>Hermitian operators have real eigenvalues. If</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\hat{A}|a_n\rangle
+=
+a_n |a_n\rangle,"><math display="block" class="tml-display" style="display:block math;"><mrow><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover><mi>|</mi><msub><mi>a</mi><mi>n</mi></msub><mo form="postfix" stretchy="false">⟩</mo><mo>=</mo><msub><mi>a</mi><mi>n</mi></msub><mi>|</mi><msub><mi>a</mi><mi>n</mi></msub><mo form="postfix" stretchy="false">⟩</mo><mo separator="true">,</mo></mrow></math></div></math-block><p>then</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+a_n \in \mathbb{R}."><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mi>a</mi><mi>n</mi></msub><mo>∈</mo><mi>ℝ</mi><mi>.</mi></mrow></math></div></math-block><p>Thus the eigenvalues of <span class="aaronnote-math-inline" data-tex="\hat{A}" data-math-render-key="inline
+\hat{A}"><math><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover></math></span> can consistently represent possible measurement outcomes.</p><h2>1.2 Hermitian operators admit orthogonal spectral decompositions 厄米算符允许正交谱分解</h2><p>By the spectral theorem, a Hermitian operator has an orthonormal eigenbasis in the finite-dimensional case.</p><p>So we can write</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\hat{A}
+=
+\sum_n a_n |a_n\rangle\langle a_n|,"><math display="block" class="tml-display" style="display:block math;"><mrow><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover><mo>=</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>n</mi></munder></mrow><msub><mi>a</mi><mi>n</mi></msub><mi>|</mi><msub><mi>a</mi><mi>n</mi></msub><mo form="postfix" stretchy="false">⟩</mo><mo form="prefix" stretchy="false">⟨</mo><msub><mi>a</mi><mi>n</mi></msub><mi>|</mi><mo separator="true">,</mo></mrow></math></div></math-block><p>where</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\hat{A}|a_n\rangle = a_n |a_n\rangle,"><math display="block" class="tml-display" style="display:block math;"><mrow><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover><mi>|</mi><msub><mi>a</mi><mi>n</mi></msub><mo form="postfix" stretchy="false">⟩</mo><mo>=</mo><msub><mi>a</mi><mi>n</mi></msub><mi>|</mi><msub><mi>a</mi><mi>n</mi></msub><mo form="postfix" stretchy="false">⟩</mo><mo separator="true">,</mo></mrow></math></div></math-block><p>and</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle a_m|a_n\rangle = \delta_{mn}."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msub><mi>a</mi><mi>m</mi></msub><mi>|</mi><msub><mi>a</mi><mi>n</mi></msub><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><msub><mi>δ</mi><mrow><mi>m</mi><mi>n</mi></mrow></msub><mi>.</mi></mrow></math></div></math-block><p>This orthogonal decomposition is what makes the probability interpretation possible.</p><org-env-block data-kind="important" data-title="" data-label="important" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">important</span><span class="org-env-heading-title" data-empty="true"></span></span><div class="org-env-content"><p>A measurement of the observable <span class="aaronnote-math-inline" data-tex="A" data-math-render-key="inline
+A"><math><mi>A</mi></math></span> does not directly output the operator <span class="aaronnote-math-inline" data-tex="\hat{A}" data-math-render-key="inline
+\hat{A}"><math><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover></math></span>.</p><p>It outputs one of the eigenvalues of <span class="aaronnote-math-inline" data-tex="\hat{A}" data-math-render-key="inline
+\hat{A}"><math><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover></math></span>.</p><p>The operator encodes the full structure of possible outcomes.</p></div></org-env-block><h1>2. Physical Meaning of Expectation Value 期望值的物理意义</h1><p>Suppose the system is in a normalized pure state</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+|\psi\rangle \in H,
+\qquad
+\langle \psi|\psi\rangle = 1."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mo>∈</mo><mi>H</mi><mo separator="true">,</mo><mspace width="2em"></mspace><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mn>1.</mn></mrow></math></div></math-block><p>We repeatedly prepare the same state <span class="aaronnote-math-inline" data-tex="|\psi\rangle" data-math-render-key="inline
+|\psi\rangle"><math><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo></mrow></math></span> and measure the same observable <span class="aaronnote-math-inline" data-tex="\hat{A}" data-math-render-key="inline
+\hat{A}"><math><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover></math></span>.</p><p>Each measurement produces one eigenvalue</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+a_n"><math display="block" class="tml-display" style="display:block math;"><msub><mi>a</mi><mi>n</mi></msub></math></div></math-block><p>with probability</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+p_n."><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mi>p</mi><mi>n</mi></msub><mi>.</mi></mrow></math></div></math-block><p>The statistical average is</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle A\rangle
+=
+\sum_n a_n p_n."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>A</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>n</mi></munder></mrow><msub><mi>a</mi><mi>n</mi></msub><msub><mi>p</mi><mi>n</mi></msub><mi>.</mi></mrow></math></div></math-block><p>This is the expectation value.</p><org-env-block data-kind="note" data-title="" data-label="Note" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">Note</span><span class="org-env-heading-title" data-empty="true"></span></span><div class="org-env-content"><p>The expectation value is not usually the result of a single measurement.</p><p>It is the average value obtained in the limit of many repeated experiments with the same preparation.</p></div></org-env-block><h1>3. Born Rule and Spectral Expansion 玻恩规则与谱展开</h1><p>Assume for now that <span class="aaronnote-math-inline" data-tex="\hat{A}" data-math-render-key="inline
+\hat{A}"><math><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover></math></span> has a discrete non-degenerate spectrum with orthonormal eigenbasis</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\{|a_n\rangle\}_n."><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mrow><mo fence="true" form="prefix" stretchy="false">{</mo><mi>|</mi><msub><mi>a</mi><mi>n</mi></msub><mo form="postfix" stretchy="false">⟩</mo><mo fence="true" form="postfix" stretchy="false">}</mo></mrow><mi>n</mi></msub><mi>.</mi></mrow></math></div></math-block><p>Then every state <span class="aaronnote-math-inline" data-tex="|\psi\rangle" data-math-render-key="inline
+|\psi\rangle"><math><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo></mrow></math></span> can be expanded as</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+|\psi\rangle
+=
+\sum_n c_n |a_n\rangle,"><math display="block" class="tml-display" style="display:block math;"><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mo>=</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>n</mi></munder></mrow><msub><mi>c</mi><mi>n</mi></msub><mi>|</mi><msub><mi>a</mi><mi>n</mi></msub><mo form="postfix" stretchy="false">⟩</mo><mo separator="true">,</mo></mrow></math></div></math-block><p>where</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+c_n
+=
+\langle a_n|\psi\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mi>c</mi><mi>n</mi></msub><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msub><mi>a</mi><mi>n</mi></msub><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>Since <span class="aaronnote-math-inline" data-tex="|\psi\rangle" data-math-render-key="inline
+|\psi\rangle"><math><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo></mrow></math></span> is normalized,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\sum_n |c_n|^2 = 1."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><munder><mo movablelimits="false">∑</mo><mi>n</mi></munder></mrow><mi>|</mi><msub><mi>c</mi><mi>n</mi></msub><msup><mi>|</mi><mn>2</mn></msup><mo>=</mo><mn>1.</mn></mrow></math></div></math-block><p>The Born rule says that the probability of obtaining outcome <span class="aaronnote-math-inline" data-tex="a_n" data-math-render-key="inline
+a_n"><math><msub><mi>a</mi><mi>n</mi></msub></math></span> is</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+p_n
+=
+|\langle a_n|\psi\rangle|^2
+=
+|c_n|^2."><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mi>p</mi><mi>n</mi></msub><mo>=</mo><mi>|</mi><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msub><mi>a</mi><mi>n</mi></msub><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><msup><mi>|</mi><mn>2</mn></msup><mo>=</mo><mi>|</mi><msub><mi>c</mi><mi>n</mi></msub><msup><mi>|</mi><mn>2</mn></msup><mi>.</mi></mrow></math></div></math-block><p>Therefore,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle A\rangle
+=
+\sum_n a_n |c_n|^2."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>A</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>n</mi></munder></mrow><msub><mi>a</mi><mi>n</mi></msub><mi>|</mi><msub><mi>c</mi><mi>n</mi></msub><msup><mi>|</mi><mn>2</mn></msup><mi>.</mi></mrow></math></div></math-block><h1>4. Derivation of the Operator Formula 期望值算符公式的推导</h1><p>Starting from the statistical average,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle A\rangle
+=
+\sum_n a_n p_n."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>A</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>n</mi></munder></mrow><msub><mi>a</mi><mi>n</mi></msub><msub><mi>p</mi><mi>n</mi></msub><mi>.</mi></mrow></math></div></math-block><p>Using Born's rule,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+p_n
+=
+|\langle a_n|\psi\rangle|^2."><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mi>p</mi><mi>n</mi></msub><mo>=</mo><mi>|</mi><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msub><mi>a</mi><mi>n</mi></msub><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><msup><mi>|</mi><mn>2</mn></msup><mi>.</mi></mrow></math></div></math-block><p>Therefore,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle A\rangle
+=
+\sum_n a_n |\langle a_n|\psi\rangle|^2."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>A</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>n</mi></munder></mrow><msub><mi>a</mi><mi>n</mi></msub><mi>|</mi><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msub><mi>a</mi><mi>n</mi></msub><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><msup><mi>|</mi><mn>2</mn></msup><mi>.</mi></mrow></math></div></math-block><p>Now,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+|\langle a_n|\psi\rangle|^2
+=
+\langle \psi|a_n\rangle\langle a_n|\psi\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>|</mi><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msub><mi>a</mi><mi>n</mi></msub><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><msup><mi>|</mi><mn>2</mn></msup><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><msub><mi>a</mi><mi>n</mi></msub><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msub><mi>a</mi><mi>n</mi></msub><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>So</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle A\rangle
+=
+\sum_n a_n
+\langle \psi|a_n\rangle
+\langle a_n|\psi\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>A</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>n</mi></munder></mrow><msub><mi>a</mi><mi>n</mi></msub><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><msub><mi>a</mi><mi>n</mi></msub><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msub><mi>a</mi><mi>n</mi></msub><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>Move the scalar expression into bra-ket form:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle A\rangle
+=
+\left\langle
+\psi
+\middle|
+\left(
+\sum_n a_n |a_n\rangle\langle a_n|
+\right)
+\middle|
+\psi
+\right\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mo form="prefix" stretchy="false">⟨</mo><mi>A</mi><mo form="postfix" stretchy="false">⟩</mo><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="true">⟨</mo><mi>ψ</mi><mo stretchy="true" form="infix" lspace="0.05em" rspace="0.05em">|</mo><mrow><mo fence="true" form="prefix" stretchy="true">(</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>n</mi></munder></mrow><msub><mi>a</mi><mi>n</mi></msub><mi>|</mi><msub><mi>a</mi><mi>n</mi></msub><mo form="postfix" stretchy="false">⟩</mo><mo form="prefix" stretchy="false">⟨</mo><msub><mi>a</mi><mi>n</mi></msub><mi>|</mi><mo fence="true" form="postfix" stretchy="true">)</mo></mrow><mo stretchy="true" form="infix" lspace="0.05em" rspace="0.05em">|</mo><mi>ψ</mi><mo fence="true" form="postfix" stretchy="true">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>By the spectral decomposition,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\hat{A}
+=
+\sum_n a_n |a_n\rangle\langle a_n|."><math display="block" class="tml-display" style="display:block math;"><mrow><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover><mo>=</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>n</mi></munder></mrow><msub><mi>a</mi><mi>n</mi></msub><mi>|</mi><msub><mi>a</mi><mi>n</mi></msub><mo form="postfix" stretchy="false">⟩</mo><mo form="prefix" stretchy="false">⟨</mo><msub><mi>a</mi><mi>n</mi></msub><mi>|</mi><mi>.</mi></mrow></math></div></math-block><p>Hence</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle A\rangle
+=
+\langle \psi|\hat{A}|\psi\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>A</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block><org-env-block data-kind="important" data-title="" data-label="important" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">important</span><span class="org-env-heading-title" data-empty="true"></span></span><div class="org-env-content"><p>The formula</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle A\rangle
+=
+\langle \psi|\hat{A}|\psi\rangle"><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>A</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow></mrow></math></div></math-block></div><p>is not an arbitrary definition.</p><p>It is the compact linear-algebraic expression of the statistical average</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\sum_n a_n p_n."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><munder><mo movablelimits="false">∑</mo><mi>n</mi></munder></mrow><msub><mi>a</mi><mi>n</mi></msub><msub><mi>p</mi><mi>n</mi></msub><mi>.</mi></mrow></math></div></math-block><p>However, in the axiomatic formulation of quantum mechanics, this formula is often taken as part of the measurement postulate.</p></org-env-block><h1>5. Degenerate Eigenvalues 简并本征值情形</h1><p>If an eigenvalue <span class="aaronnote-math-inline" data-tex="a" data-math-render-key="inline
+a"><math><mi>a</mi></math></span> has eigenspace <span class="aaronnote-math-inline" data-tex="E_a" data-math-render-key="inline
+E_a"><math><msub><mi>E</mi><mi>a</mi></msub></math></span>, then measurement outcome <span class="aaronnote-math-inline" data-tex="a" data-math-render-key="inline
+a"><math><mi>a</mi></math></span> corresponds not to one eigenvector but to the whole eigenspace.</p><p>Let <span class="aaronnote-math-inline" data-tex="P_a" data-math-render-key="inline
+P_a"><math><msub><mi>P</mi><mi>a</mi></msub></math></span> be the orthogonal projection onto <span class="aaronnote-math-inline" data-tex="E_a" data-math-render-key="inline
+E_a"><math><msub><mi>E</mi><mi>a</mi></msub></math></span>.</p><p>Then the spectral decomposition is</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\hat{A}
+=
+\sum_a a P_a."><math display="block" class="tml-display" style="display:block math;"><mrow><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover><mo>=</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>a</mi></munder></mrow><mi>a</mi><msub><mi>P</mi><mi>a</mi></msub><mi>.</mi></mrow></math></div></math-block><p>The probability of measuring outcome <span class="aaronnote-math-inline" data-tex="a" data-math-render-key="inline
+a"><math><mi>a</mi></math></span> is</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+p(a)
+=
+\|P_a|\psi\rangle\|^2."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>p</mi><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>a</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mo>=</mo><mi>‖</mi><msub><mi>P</mi><mi>a</mi></msub><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><msup><mi>‖</mi><mn>2</mn></msup><mi>.</mi></mrow></math></div></math-block><p>Equivalently,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+p(a)
+=
+\langle \psi|P_a|\psi\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>p</mi><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>a</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><msub><mi>P</mi><mi>a</mi></msub><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>The expectation value is</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle A\rangle
+=
+\sum_a a\,\langle \psi|P_a|\psi\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>A</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>a</mi></munder></mrow><mi>a</mi><mspace width="0.1667em"></mspace><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><msub><mi>P</mi><mi>a</mi></msub><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>Using</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\hat{A}
+=
+\sum_a aP_a,"><math display="block" class="tml-display" style="display:block math;"><mrow><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover><mo>=</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>a</mi></munder></mrow><mi>a</mi><msub><mi>P</mi><mi>a</mi></msub><mo separator="true">,</mo></mrow></math></div></math-block><p>we again obtain</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle A\rangle
+=
+\langle \psi|\hat{A}|\psi\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>A</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block><org-env-block data-kind="note" data-title="" data-label="Note" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">Note</span><span class="org-env-heading-title" data-empty="true"></span></span><div class="org-env-content"><p>The non-degenerate formula</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+p_n = |\langle a_n|\psi\rangle|^2"><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mi>p</mi><mi>n</mi></msub><mo>=</mo><mi>|</mi><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msub><mi>a</mi><mi>n</mi></msub><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><msup><mi>|</mi><mn>2</mn></msup></mrow></math></div></math-block></div><p>is a special case of the projection formula</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+p(a)=\langle \psi|P_a|\psi\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>p</mi><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>a</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><msub><mi>P</mi><mi>a</mi></msub><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>When <span class="aaronnote-math-inline" data-tex="E_a" data-math-render-key="inline
+E_a"><math><msub><mi>E</mi><mi>a</mi></msub></math></span> is one-dimensional,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+P_a = |a\rangle\langle a|."><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mi>P</mi><mi>a</mi></msub><mo>=</mo><mi>|</mi><mi>a</mi><mo form="postfix" stretchy="false">⟩</mo><mo form="prefix" stretchy="false">⟨</mo><mi>a</mi><mi>|</mi><mi>.</mi></mrow></math></div></math-block></org-env-block><h1>6. Core Spectral-Theoretic Statement 谱理论的核心结论</h1><p>For a Hermitian operator <span class="aaronnote-math-inline" data-tex="\hat{A}" data-math-render-key="inline
+\hat{A}"><math><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover></math></span>:</p><ul><li><p>possible measurement outcomes lie in the spectrum of <span class="aaronnote-math-inline" data-tex="\hat{A}" data-math-render-key="inline
+\hat{A}"><math><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover></math></span>;</p></li><li><p>in the finite-dimensional case, the spectrum consists of eigenvalues;</p></li><li><p>for discrete spectra, outcomes correspond to eigenvalues;</p></li><li><p>for degenerate spectra, outcomes correspond to eigenspaces and projections;</p></li><li><p>for continuous spectra, one needs the spectral measure formulation.</p></li></ul><p>In finite dimensions, the clean statement is:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\hat{A}
+=
+\sum_a a P_a,"><math display="block" class="tml-display" style="display:block math;"><mrow><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover><mo>=</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>a</mi></munder></mrow><mi>a</mi><msub><mi>P</mi><mi>a</mi></msub><mo separator="true">,</mo></mrow></math></div></math-block><p>where <span class="aaronnote-math-inline" data-tex="P_a" data-math-render-key="inline
+P_a"><math><msub><mi>P</mi><mi>a</mi></msub></math></span> is the orthogonal projection onto the eigenspace of eigenvalue <span class="aaronnote-math-inline" data-tex="a" data-math-render-key="inline
+a"><math><mi>a</mi></math></span>.</p><p>The corresponding probability rule is:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\Pr(A=a)
+=
+\langle \psi|P_a|\psi\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mi>Pr</mi><mo>⁡</mo></mrow><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>A</mi><mo>=</mo><mi>a</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><msub><mi>P</mi><mi>a</mi></msub><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>The expectation value is:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\mathbb{E}[A]
+=
+\sum_a a\,\Pr(A=a)
+=
+\langle \psi|\hat{A}|\psi\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>𝔼</mi><mrow><mo fence="true" form="prefix" stretchy="false">[</mo><mi>A</mi><mo fence="true" form="postfix" stretchy="false">]</mo></mrow><mo>=</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>a</mi></munder></mrow><mi>a</mi><mspace width="0.1667em"></mspace><mrow><mspace width="0.1667em"></mspace><mi>Pr</mi><mo>⁡</mo></mrow><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>A</mi><mo>=</mo><mi>a</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block><h1>7. Continuous Spectrum 连续谱情形</h1><p>For observables with continuous spectrum, such as position or momentum, the eigenvectors are not ordinary Hilbert-space vectors. They are generalized eigenvectors.</p><p>For example, one often formally writes</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\hat{X}|x\rangle
+=
+x|x\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mover><mi>X</mi><mo stretchy="false" class="chr-med wbk-med-acc" style="math-depth:0;">^</mo></mover><mi>|</mi><mi>x</mi><mo form="postfix" stretchy="false">⟩</mo><mo>=</mo><mi>x</mi><mi>|</mi><mi>x</mi><mo form="postfix" stretchy="false">⟩</mo><mi>.</mi></mrow></math></div></math-block><p>But <span class="aaronnote-math-inline" data-tex="|x\rangle" data-math-render-key="inline
+|x\rangle"><math><mrow><mi>|</mi><mi>x</mi><mo form="postfix" stretchy="false">⟩</mo></mrow></math></span> is not usually an element of the Hilbert space <span class="aaronnote-math-inline" data-tex="L^2(\mathbb{R})" data-math-render-key="inline
+L^2(\mathbb{R})"><math><mrow><msup><mi>L</mi><mn class="tml-sml-pad">2</mn></msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>ℝ</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow></mrow></math></span>.</p><p>The rigorous formulation uses a projection-valued measure <span class="aaronnote-math-inline" data-tex="E_A" data-math-render-key="inline
+E_A"><math><msub><mi>E</mi><mi>A</mi></msub></math></span> such that</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\hat{A}
+=
+\int_{\mathbb{R}} \lambda \, dE_A(\lambda)."><math display="block" class="tml-display" style="display:block math;"><mrow><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover><mo>=</mo><msub><mo movablelimits="false">∫</mo><mi>ℝ</mi></msub><mi>λ</mi><mspace width="0.1667em"></mspace><mi>d</mi><msub><mi>E</mi><mi>A</mi></msub><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>λ</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>For a state <span class="aaronnote-math-inline" data-tex="|\psi\rangle" data-math-render-key="inline
+|\psi\rangle"><math><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo></mrow></math></span>, the probability of getting a result in a measurable set <span class="aaronnote-math-inline" data-tex="S \subseteq \mathbb{R}" data-math-render-key="inline
+S \subseteq \mathbb{R}"><math><mrow><mi>S</mi><mo>⊆</mo><mi>ℝ</mi></mrow></math></span> is</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\Pr(A \in S)
+=
+\langle \psi|E_A(S)|\psi\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mi>Pr</mi><mo>⁡</mo></mrow><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>A</mi><mo>∈</mo><mi>S</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><msub><mi>E</mi><mi>A</mi></msub><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>S</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>The expectation value is</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle A\rangle
+=
+\int_{\mathbb{R}} \lambda \, d\mu_\psi(\lambda),"><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>A</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><msub><mo movablelimits="false">∫</mo><mi>ℝ</mi></msub><mi>λ</mi><mspace width="0.1667em"></mspace><mi>d</mi><msub><mi>μ</mi><mi>ψ</mi></msub><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>λ</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mo separator="true">,</mo></mrow></math></div></math-block><p>where</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\mu_\psi(S)
+=
+\langle \psi|E_A(S)|\psi\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mi>μ</mi><mi>ψ</mi></msub><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>S</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><msub><mi>E</mi><mi>A</mi></msub><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>S</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block><org-env-block data-kind="note" data-title="" data-label="Note" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">Note</span><span class="org-env-heading-title" data-empty="true"></span></span><div class="org-env-content"><p>In introductory quantum computing, we usually work in finite-dimensional Hilbert spaces, so the finite-dimensional spectral decomposition is enough.</p><p>Continuous-spectrum issues become important in functional analysis and continuous-variable quantum mechanics.</p></div></org-env-block><h1>8. Geometric Interpretation 几何解释</h1><p>If</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+|\psi\rangle
+=
+\sum_n c_n |a_n\rangle,"><math display="block" class="tml-display" style="display:block math;"><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mo>=</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>n</mi></munder></mrow><msub><mi>c</mi><mi>n</mi></msub><mi>|</mi><msub><mi>a</mi><mi>n</mi></msub><mo form="postfix" stretchy="false">⟩</mo><mo separator="true">,</mo></mrow></math></div></math-block><p>then each coefficient</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+c_n
+=
+\langle a_n|\psi\rangle"><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mi>c</mi><mi>n</mi></msub><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msub><mi>a</mi><mi>n</mi></msub><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow></mrow></math></div></math-block><p>is the amplitude of <span class="aaronnote-math-inline" data-tex="|\psi\rangle" data-math-render-key="inline
+|\psi\rangle"><math><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo></mrow></math></span> in the <span class="aaronnote-math-inline" data-tex="|a_n\rangle" data-math-render-key="inline
+|a_n\rangle"><math><mrow><mi>|</mi><msub><mi>a</mi><mi>n</mi></msub><mo form="postfix" stretchy="false">⟩</mo></mrow></math></span> direction.</p><p>The probability of measuring <span class="aaronnote-math-inline" data-tex="a_n" data-math-render-key="inline
+a_n"><math><msub><mi>a</mi><mi>n</mi></msub></math></span> is</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+|c_n|^2."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>|</mi><msub><mi>c</mi><mi>n</mi></msub><msup><mi>|</mi><mn>2</mn></msup><mi>.</mi></mrow></math></div></math-block><p>Thus the probabilistic nature of quantum measurement is not merely “measurement disturbance.”</p><p>Rather, it is encoded in the geometric projection of the state vector onto the spectral subspaces of the observable.</p><p>More precisely:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\text{state}
++
+\text{observable}
+\Longrightarrow
+\text{projection onto spectral subspaces}
+\Longrightarrow
+\text{probabilities}."><math display="block" class="tml-display" style="display:block math;"><mrow><mtext>state</mtext><mo>+</mo><mtext>observable</mtext><mo stretchy="false">⟹</mo><mtext>projection&nbsp;onto&nbsp;spectral&nbsp;subspaces</mtext><mo stretchy="false">⟹</mo><mtext>probabilities</mtext><mi>.</mi></mrow></math></div></math-block><org-env-block data-kind="important" data-title="" data-label="important" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">important</span><span class="org-env-heading-title" data-empty="true"></span></span><div class="org-env-content"><p>For a given observable <span class="aaronnote-math-inline" data-tex="\hat{A}" data-math-render-key="inline
+\hat{A}"><math><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover></math></span>, if <span class="aaronnote-math-inline" data-tex="|\psi\rangle" data-math-render-key="inline
+|\psi\rangle"><math><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo></mrow></math></span> is an eigenstate of <span class="aaronnote-math-inline" data-tex="\hat{A}" data-math-render-key="inline
+\hat{A}"><math><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover></math></span>, then measuring <span class="aaronnote-math-inline" data-tex="A" data-math-render-key="inline
+A"><math><mi>A</mi></math></span> is deterministic.</p><p>If <span class="aaronnote-math-inline" data-tex="|\psi\rangle" data-math-render-key="inline
+|\psi\rangle"><math><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo></mrow></math></span> is a superposition of different eigenspaces of <span class="aaronnote-math-inline" data-tex="\hat{A}" data-math-render-key="inline
+\hat{A}"><math><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover></math></span>, then the measurement outcomes are probabilistic.</p></div></org-env-block><h1>9. Density-Operator Form 密度算符形式</h1><p>If the state is represented by a density operator <span class="aaronnote-math-inline" data-tex="\rho" data-math-render-key="inline
+\rho"><math><mi>ρ</mi></math></span>, then the expectation value of observable <span class="aaronnote-math-inline" data-tex="\hat{A}" data-math-render-key="inline
+\hat{A}"><math><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover></math></span> is</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle A\rangle
+=
+\operatorname{tr}(\rho \hat{A})."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>A</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mi>tr</mi><mo>⁡</mo><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>ρ</mi><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>For a pure state</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\rho_\psi
+=
+|\psi\rangle\langle \psi|,"><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mi>ρ</mi><mi>ψ</mi></msub><mo>=</mo><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mo form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><mo separator="true">,</mo></mrow></math></div></math-block><p>we recover</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\operatorname{tr}(\rho_\psi \hat{A})
+=
+\langle \psi|\hat{A}|\psi\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>tr</mi><mo>⁡</mo><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><msub><mi>ρ</mi><mi>ψ</mi></msub><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>Thus the density-operator formula generalises the pure-state formula.</p><h1>Conceptual Summary 概念总结</h1><org-env-block data-kind="summary" data-title="" data-label="Summary" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="true"></span></span><div class="org-env-content"><p>An observable <span class="aaronnote-math-inline" data-tex="A" data-math-render-key="inline
+A"><math><mi>A</mi></math></span> is represented by a Hermitian operator <span class="aaronnote-math-inline" data-tex="\hat{A}" data-math-render-key="inline
+\hat{A}"><math><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover></math></span>.</p><p>The spectral theorem gives</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\hat{A}
+=
+\sum_a aP_a."><math display="block" class="tml-display" style="display:block math;"><mrow><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover><mo>=</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>a</mi></munder></mrow><mi>a</mi><msub><mi>P</mi><mi>a</mi></msub><mi>.</mi></mrow></math></div></math-block></div><p>The eigenvalues <span class="aaronnote-math-inline" data-tex="a" data-math-render-key="inline
+a"><math><mi>a</mi></math></span> are possible measurement outcomes.</p><p>The projections <span class="aaronnote-math-inline" data-tex="P_a" data-math-render-key="inline
+P_a"><math><msub><mi>P</mi><mi>a</mi></msub></math></span> determine the probabilities:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\Pr(A=a)
+=
+\langle \psi|P_a|\psi\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mi>Pr</mi><mo>⁡</mo></mrow><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>A</mi><mo>=</mo><mi>a</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><msub><mi>P</mi><mi>a</mi></msub><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>The expectation value is</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle A\rangle
+=
+\sum_a a\,\Pr(A=a)
+=
+\langle \psi|\hat{A}|\psi\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>A</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>a</mi></munder></mrow><mi>a</mi><mspace width="0.1667em"></mspace><mrow><mspace width="0.1667em"></mspace><mi>Pr</mi><mo>⁡</mo></mrow><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>A</mi><mo>=</mo><mi>a</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>For a density operator <span class="aaronnote-math-inline" data-tex="\rho" data-math-render-key="inline
+\rho"><math><mi>ρ</mi></math></span>,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle A\rangle
+=
+\operatorname{tr}(\rho\hat{A})."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>A</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mi>tr</mi><mo>⁡</mo><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>ρ</mi><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>Therefore, expectation value is the bridge between spectral measurement outcomes and experimentally reproducible statistical averages.</p></org-env-block>
           </article>
         </div>
       </div>

@@ -27,284 +27,150 @@
         <div class="typora-web-editor-host">
           <article id="content" class="ProseMirror" data-note-title="Quantum State">
             <h1 class="title">Quantum State</h1>
-            <h1 id="quantum-state-量子态">Quantum State 量子态</h1>
-<p><org-env-block data-kind="summary" data-title="A quantum state describes the physical state of a quantum system." data-label="Summary"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="false">A
-quantum state describes the physical state of a quantum
-system.</span></span><div class="org-env-content"><p>Mathematically, a
-closed quantum system is associated with a complex Hilbert space
-<span class="math inline"><em>H</em></span>.</p></p>
-<p>A pure quantum state is not literally a single vector in <span
-class="math inline"><em>H</em></span>, but a ray, namely a
-one-dimensional subspace of <span
-class="math inline"><em>H</em></span>.</p>
-<p>In calculations, we usually choose a normalized representative vector
-<span class="math inline">|<em>ψ</em>⟩</span> from that ray.</p></div></org-env-block>
-
-<h1 id="1-mathematical-carrier-of-quantum-states-量子态的数学载体">1.
-Mathematical Carrier of Quantum States 量子态的数学载体</h1>
-<p>In quantum mechanics, every physical system is associated with a
-complex Hilbert space</p>
-<p><span class="math display"><em>H</em>.</span></p>
-<p>This Hilbert space has three key structures.</p>
-<ol type="1">
-<li><p>Linear structure:</p>
-<p><span
-class="math display"><em>α</em>|<em>ψ</em>⟩ + <em>β</em>|<em>ϕ</em>⟩ ∈ <em>H</em>.</span></p>
-<p>This supports the superposition principle.</p></li>
-<li><p>Inner product:</p>
-<p><span class="math display">⟨<em>ϕ</em>|<em>ψ</em>⟩.</span></p>
-<p>The inner product is used to compute amplitudes, probabilities,
-orthogonality, projections, and expectation values.</p></li>
-<li><p>Completeness:</p>
-<p>Cauchy sequences converge inside the space. This guarantees that
-limiting processes do not leave the state space.</p></li>
-</ol>
-<p>中文直觉：</p>
-<h1 id="-texthilbert-space">$$ \text{Hilbert space}</h1>
-<p>\text{linear structure} + \text{geometry} + \text{limit structure}.
-$$</p>
-<p>So Hilbert space is the mathematical environment in which quantum
-states live.</p>
-<h1 id="2-separable-hilbert-spaces-可分希尔伯特空间">2. Separable
-Hilbert Spaces 可分希尔伯特空间</h1>
-<p>In many physical settings, one assumes that the Hilbert space is
-separable.</p>
-<p><org-env-block data-kind="define" data-title="A Hilbert space $H$ is separable if it contains a countable dense subset." data-label="Define"><span class="org-env-heading"><span class="org-env-heading-label">Define</span><span class="org-env-heading-title" data-empty="false">A
-Hilbert space <span class="math inline"><em>H</em></span> is separable
-if it contains a countable dense
-subset.</span></span><div class="org-env-content"><p>Equivalently, for
-Hilbert spaces, separability means that <span
-class="math inline"><em>H</em></span> has a countable orthonormal
-basis.</p></div></org-env-block></p>
-<p>This means that there exists an orthonormal basis</p>
-<p><span
-class="math display">{|<em>e</em><sub><em>n</em></sub>⟩}<sub><em>n</em> ∈ ℕ</sub></span></p>
-<p>such that every vector <span
-class="math inline">|<em>ψ</em>⟩ ∈ <em>H</em></span> can be approximated
-by finite linear combinations of these basis vectors.</p>
-<p>In finite-dimensional quantum computing, the Hilbert spaces are
-automatically separable. For example, an <span
-class="math inline"><em>n</em></span>-qubit system has state space</p>
-<p><span
-class="math display">(ℂ<sup>2</sup>)<sup>⊗<em>n</em></sup> ≅ ℂ<sup>2<sup><em>n</em></sup></sup>.</span></p>
-<p><org-env-block data-kind="note" data-title="It is better to say that separability makes the Hilbert space manageable by countable coordinates." data-label="Note"><span class="org-env-heading"><span class="org-env-heading-label">Note</span><span class="org-env-heading-title" data-empty="false">It
-is better to say that separability makes the Hilbert space manageable by
-countable coordinates.</span></span><div class="org-env-content"><p>The
-phrase “finite experiments can determine the state” is not quite
-accurate, because exact quantum state determination generally requires
-infinitely many samples in principle. In practice, one estimates a state
-statistically.</p></div></org-env-block></p>
-<h1
-id="3-a-quantum-state-is-not-literally-a-vector-量子态不是单个矢量">3. A
-Quantum State Is Not Literally a Vector 量子态不是单个矢量</h1>
-<p>The key conceptual point is:</p>
-<p><span class="math display">quantum state ≠ one specific vector in
-<em>H</em>.</span></p>
-<p>Rather,</p>
-<h1 id="-textpure-quantum-state">$$ \text{pure quantum state}</h1>
-<p>\text{a ray in } H. $$</p>
-<p>A ray is a one-dimensional subspace of <span
-class="math inline"><em>H</em></span>.</p>
-<p>If <span class="math inline">|<em>ψ</em>⟩ ≠ 0</span>, then the
-corresponding ray is</p>
-<h1 id="-psirangle">$$ [|\psi\rangle]</h1>
-<p>{\lambda |\psi\rangle : \lambda \in \mathbb{C},\ \lambda \neq 0}.
-$$</p>
-<p>When we restrict to normalized vectors, this becomes the equivalence
-relation</p>
-<p><span
-class="math display">|<em>ψ</em>⟩ ∼ <em>e</em><sup><em>i</em><em>θ</em></sup>|<em>ψ</em>⟩,</span></p>
-<p>where</p>
-<p><span class="math display"><em>θ</em> ∈ ℝ.</span></p>
-<p>Thus two normalized vectors that differ only by a global phase
-represent the same physical pure state.</p>
-<p><org-env-block data-kind="important" data-title="A global phase has no physical effect:" data-label="Important"><span class="org-env-heading"><span class="org-env-heading-label">Important</span><span class="org-env-heading-title" data-empty="false">A
-global phase has no physical
-effect:</span></span><div class="org-env-content"><p><span
-class="math display">|<em>ψ</em>⟩  and  <em>e</em><sup><em>i</em><em>θ</em></sup>|<em>ψ</em>⟩</span></p></p>
-<p>represent the same physical state.</p></div></org-env-block>
-
-<h1 id="4-why-global-phase-is-unobservable-为什么整体相位不可观测">4.
-Why Global Phase Is Unobservable 为什么整体相位不可观测</h1>
-<p>Suppose</p>
-<h1 id="-psirangle-1">$$ |\psi'\rangle</h1>
-<p>e^{i\theta}|\psi\rangle. $$</p>
-<p>Let <span class="math inline">|<em>ϕ</em>⟩</span> be any measurement
-basis vector. Then the probability amplitude changes as</p>
-<h1 id="-langle-phipsirangle">$$ \langle \phi|\psi'\rangle</h1>
-<h1 id="langle-phieithetapsirangle">\langle
-\phi|e^{i\theta}\psi\rangle</h1>
-<p>e^{i\theta}\langle \phi|\psi\rangle. $$</p>
-<p>But the probability is the squared modulus:</p>
-<h1 id="-langle-phipsirangle2">$$ |\langle \phi|\psi'\rangle|^2</h1>
-<p>|e^{i\theta}\langle \phi|\psi\rangle|^2. $$</p>
-<p>Since</p>
-<p><span
-class="math display">|<em>e</em><sup><em>i</em><em>θ</em></sup>| = 1,</span></p>
-<p>we get</p>
-<h1 id="-langle-phipsirangle2-1">$$ |\langle \phi|\psi'\rangle|^2</h1>
-<p>|\langle \phi|\psi\rangle|^2. $$</p>
-<p>So measurement probabilities do not change.</p>
-<p>The same holds for expectation values. Let <span
-class="math inline"><em>Â</em></span> be an observable. Then</p>
-<h1 id="-langle-psihatapsirangle">$$ \langle
-\psi'|\hat{A}|\psi'\rangle</h1>
-<p>\langle e^{i\theta}\psi|\hat{A}|e^{i\theta}\psi\rangle. $$</p>
-<p>Since the bra transforms as</p>
-<h1 id="-langle-psi">$$ \langle \psi'|</h1>
-<p>e^{-i\theta}\langle \psi|, $$</p>
-<p>we have</p>
-<h1 id="-langle-psihatapsirangle-1">$$ \langle
-\psi'|\hat{A}|\psi'\rangle</h1>
-<p>e^{-i\theta}e^{i\theta} \langle \psi|\hat{A}|\psi\rangle. $$</p>
-<p>Therefore,</p>
-<h1 id="-langle-psihatapsirangle-2">$$ \langle
-\psi'|\hat{A}|\psi'\rangle</h1>
-<p>\langle \psi|\hat{A}|\psi\rangle. $$</p>
-<p>Thus all probabilities and expectation values are unchanged by a
-global phase.</p>
-<h1 id="5-projective-hilbert-space-射影希尔伯特空间">5. Projective
-Hilbert Space 射影希尔伯特空间</h1>
-<p>The set of physical pure states is the projective Hilbert space</p>
-<p><span class="math display">ℙ(<em>H</em>).</span></p>
-<p>It is defined as</p>
-<h1 id="-mathbbph">$$ \mathbb{P}(H)</h1>
-<p>(H \setminus {0})/\mathbb{C}^{\times}, $$</p>
-<p>where two nonzero vectors are identified if they differ by a nonzero
-complex scalar.</p>
-<p>Equivalently, if we restrict to normalized vectors, then</p>
-<h1 id="-mathbbph-1">$$ \mathbb{P}(H)</h1>
-<p>{|\psi\rangle \in H : \langle \psi|\psi\rangle = 1}/U(1), $$</p>
-<p>where</p>
-<h1 id="-u1">$$ U(1)</h1>
-<p>{e^{i\theta} : \theta \in \mathbb{R}}. $$</p>
-<p>中文直觉：</p>
-<ul>
-<li>Hilbert space <span class="math inline"><em>H</em></span> contains
-vectors.</li>
-<li>Physical pure states are rays in <span
-class="math inline"><em>H</em></span>.</li>
-<li>Choosing <span class="math inline">|<em>ψ</em>⟩</span> is choosing
-one representative of the ray.</li>
-</ul>
-<h1 id="6-why-we-still-use-state-vectors-为什么平时还说态矢">6. Why We
-Still Use State Vectors 为什么平时还说“态矢”</h1>
-<p>Although a pure quantum state is strictly a ray, in calculations we
-usually choose one normalized representative</p>
-<p><span class="math display">|<em>ψ</em>⟩</span></p>
-<p>and call it a state vector.</p>
-<p>This is convenient because:</p>
-<ol type="1">
-<li>linear algebra is done with vectors;</li>
-<li>amplitudes are written as inner products;</li>
-<li>global phase cancels out in probabilities and expectation
-values;</li>
-<li>choosing a representative does not change physical predictions.</li>
-</ol>
-<p>Thus the phrase “state vector” is a computational shorthand.</p>
-<p><org-env-block data-kind="important" data-title="Strictly speaking:" data-label="Important"><span class="org-env-heading"><span class="org-env-heading-label">Important</span><span class="org-env-heading-title" data-empty="false">Strictly
-speaking:</span></span><div class="org-env-content"><h1 id="-textstate-vector">$$
-\text{state vector}</h1></p>
-<p>\text{chosen representative}, $$</p>
-<p>while</p>
-<h1 id="-textphysical-pure-state">$$ \text{physical pure state}</h1>
-<p>\text{ray / equivalence class}. $$</p>
-<p>So using <span class="math inline">|<em>ψ</em>⟩</span> is a
-calculation convention, not a conceptual identity.</p></div></org-env-block>
-
-<h1 id="7-pure-states-and-mixed-states-纯态与混合态">7. Pure States and
-Mixed States 纯态与混合态</h1>
-<p>The discussion above concerns pure states.</p>
-<p>A pure state can be represented by a ray</p>
-<p><span class="math display">[|<em>ψ</em>⟩]</span></p>
-<p>or equivalently by the rank-one density operator</p>
-<h1 id="-rho_psi">$$ \rho_\psi</h1>
-<p>|\psi\rangle\langle \psi|. $$</p>
-<p>This density operator is invariant under global phase. Indeed, if</p>
-<h1 id="-psirangle-2">$$ |\psi'\rangle</h1>
-<p>e^{i\theta}|\psi\rangle, $$</p>
-<p>then</p>
-<h1 id="-psiranglelangle-psi">$$ |\psi'\rangle\langle \psi'|</h1>
-<h1 id="eithetapsirangle-e-ithetalangle-psi">e^{i\theta}|\psi\rangle
-e^{-i\theta}\langle \psi|</h1>
-<p>|\psi\rangle\langle \psi|. $$</p>
-<p>So the density-operator representation removes the global-phase
-ambiguity automatically.</p>
-<p>A mixed state is represented by a density operator</p>
-<h1 id="-rho">$$ \rho</h1>
-<p>\sum_i p_i |\psi_i\rangle\langle \psi_i|, $$</p>
-<p>where</p>
-<p><span
-class="math display"><em>p</em><sub><em>i</em></sub> ≥ 0,   ∑<sub><em>i</em></sub><em>p</em><sub><em>i</em></sub> = 1.</span></p>
-<p>Mixed states are not generally rays. They represent classical
-probabilistic mixtures of pure states.</p>
-<h1 id="8-qubit-example-单量子比特例子">8. Qubit Example
-单量子比特例子</h1>
-<p>For one qubit, the Hilbert space is</p>
-<p><span class="math display"><em>H</em> = ℂ<sup>2</sup>.</span></p>
-<p>A normalized state vector can be written as</p>
-<h1 id="-psirangle-3">$$ |\psi\rangle</h1>
-<p>\alpha |0\rangle + \beta |1\rangle, $$</p>
-<p>where</p>
-<p><span class="math display"><em>α</em>, <em>β</em> ∈ ℂ,</span></p>
-<p>and</p>
-<p><span
-class="math display">|<em>α</em>|<sup>2</sup> + |<em>β</em>|<sup>2</sup> = 1.</span></p>
-<p>The vectors</p>
-<p><span class="math display">|<em>ψ</em>⟩</span></p>
-<p>and</p>
-<p><span
-class="math display"><em>e</em><sup><em>i</em><em>θ</em></sup>|<em>ψ</em>⟩</span></p>
-<p>represent the same physical state.</p>
-<p>The probabilities of measuring <span class="math inline">0</span> and
-<span class="math inline">1</span> are</p>
-<p><span
-class="math display">Pr (0) = |<em>α</em>|<sup>2</sup>,</span></p>
-<p>and</p>
-<p><span
-class="math display">Pr (1) = |<em>β</em>|<sup>2</sup>.</span></p>
-<p>These probabilities are unchanged by multiplying the whole state
-vector by <span
-class="math inline"><em>e</em><sup><em>i</em><em>θ</em></sup></span>.</p>
-<p><org-env-block data-kind="note" data-title="Global phase is unobservable, but relative phase is observable." data-label="Note"><span class="org-env-heading"><span class="org-env-heading-label">Note</span><span class="org-env-heading-title" data-empty="false">Global
-phase is unobservable, but relative phase is
-observable.</span></span><div class="org-env-content"><p>For
-example,</p></p>
-<p><span class="math display">$$
-\frac{|0\rangle+|1\rangle}{\sqrt{2}}
-$$</span></p>
-<p>and</p>
-<p><span class="math display">$$
-\frac{|0\rangle-|1\rangle}{\sqrt{2}}
-$$</span></p>
-<p>are physically different states.</p>
-<p>They differ by a relative phase between the <span
-class="math inline">|0⟩</span> and <span class="math inline">|1⟩</span>
-components, not merely by a global phase.</p></div></org-env-block>
-
-<h1 id="conceptual-summary-概念总结">Conceptual Summary 概念总结</h1>
-<p><org-env-block data-kind="summary" data-title="A quantum system is associated with a complex Hilbert space $H$." data-label="Summary"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="false">A
-quantum system is associated with a complex Hilbert space <span
-class="math inline"><em>H</em></span>.</span></span><div class="org-env-content"><p>A
-pure quantum state is a ray in <span
-class="math inline"><em>H</em></span>:</p></p>
-<h1 id="-psirangle">$$ [|\psi\rangle]</h1>
-<p>{\lambda|\psi\rangle : \lambda \in \mathbb{C},\ \lambda \neq 0}.
-$$</p>
-<p>For normalized representatives,</p>
-<p><span
-class="math display">|<em>ψ</em>⟩ ∼ <em>e</em><sup><em>i</em><em>θ</em></sup>|<em>ψ</em>⟩.</span></p>
-<p>Thus:</p>
-<h1 id="-textphysical-pure-state">$$ \text{physical pure state}</h1>
-<h1 id="textray">\text{ray}</h1>
-<h1 id="textone-dimensional-subspace">\text{one-dimensional
-subspace}</h1>
-<p>\text{equivalence class up to global phase}. $$</p>
-<p>In calculations, we usually choose a normalized representative <span
-class="math inline">|<em>ψ</em>⟩</span> and call it the state
-vector.</p>
-<p>This is convenient because all physical predictions are invariant
-under global phase.</p></div></org-env-block>
+            <h1>Quantum State 量子态</h1><org-env-block data-kind="summary" data-title="" data-label="Summary" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="true"></span></span><div class="org-env-content"><p>A quantum state describes the physical state of a quantum system.</p><p>Mathematically, a closed quantum system is associated with a complex Hilbert space <span class="aaronnote-math-inline" data-tex="H" data-math-render-key="inline
+H"><math><mi>H</mi></math></span>.</p><p>A pure quantum state is not literally a single vector in <span class="aaronnote-math-inline" data-tex="H" data-math-render-key="inline
+H"><math><mi>H</mi></math></span>, but a ray, namely a one-dimensional subspace of <span class="aaronnote-math-inline" data-tex="H" data-math-render-key="inline
+H"><math><mi>H</mi></math></span>.</p><p>In calculations, we usually choose a normalized representative vector <span class="aaronnote-math-inline" data-tex="|\psi\rangle" data-math-render-key="inline
+|\psi\rangle"><math><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo></mrow></math></span> from that ray.</p></div></org-env-block><h1>1. Mathematical Carrier of Quantum States 量子态的数学载体</h1><p>In quantum mechanics, every physical system is associated with a complex Hilbert space</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+H."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>H</mi><mi>.</mi></mrow></math></div></math-block><p>This Hilbert space has three key structures.</p><ol><li><p>Linear structure:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\alpha |\psi\rangle + \beta |\phi\rangle \in H."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>α</mi><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mo>+</mo><mi>β</mi><mi>|</mi><mi>ϕ</mi><mo form="postfix" stretchy="false">⟩</mo><mo>∈</mo><mi>H</mi><mi>.</mi></mrow></math></div></math-block><p>This supports the superposition principle.</p></li><li><p>Inner product:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle \phi|\psi\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ϕ</mi><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>The inner product is used to compute amplitudes, probabilities, orthogonality, projections, and expectation values.</p></li><li><p>Completeness:</p><p>Cauchy sequences converge inside the space. This guarantees that limiting processes do not leave the state space.</p></li></ol><p>中文直觉：</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\text{Hilbert space}
+=
+\text{linear structure}
++
+\text{geometry}
++
+\text{limit structure}."><math display="block" class="tml-display" style="display:block math;"><mrow><mtext>Hilbert&nbsp;space</mtext><mo>=</mo><mtext>linear&nbsp;structure</mtext><mo>+</mo><mtext>geometry</mtext><mo>+</mo><mtext>limit&nbsp;structure</mtext><mi>.</mi></mrow></math></div></math-block><p>So Hilbert space is the mathematical environment in which quantum states live.</p><h1>2. Separable Hilbert Spaces 可分希尔伯特空间</h1><p>In many physical settings, one assumes that the Hilbert space is separable.</p><org-env-block data-kind="define" data-title="" data-label="define" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">define</span><span class="org-env-heading-title" data-empty="true"></span></span><div class="org-env-content"><p>A Hilbert space <span class="aaronnote-math-inline" data-tex="H" data-math-render-key="inline
+H"><math><mi>H</mi></math></span> is separable if it contains a countable dense subset.</p><p>Equivalently, for Hilbert spaces, separability means that <span class="aaronnote-math-inline" data-tex="H" data-math-render-key="inline
+H"><math><mi>H</mi></math></span> has a countable orthonormal basis.</p></div></org-env-block><p>This means that there exists an orthonormal basis</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\{|e_n\rangle\}_{n \in \mathbb{N}}"><math display="block" class="tml-display" style="display:block math;"><msub><mrow><mo fence="true" form="prefix" stretchy="false">{</mo><mi>|</mi><msub><mi>e</mi><mi>n</mi></msub><mo form="postfix" stretchy="false">⟩</mo><mo fence="true" form="postfix" stretchy="false">}</mo></mrow><mrow><mi>n</mi><mo>∈</mo><mi>ℕ</mi></mrow></msub></math></div></math-block><p>such that every vector <span class="aaronnote-math-inline" data-tex="|\psi\rangle \in H" data-math-render-key="inline
+|\psi\rangle \in H"><math><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mo>∈</mo><mi>H</mi></mrow></math></span> can be approximated by finite linear combinations of these basis vectors.</p><p>In finite-dimensional quantum computing, the Hilbert spaces are automatically separable. For example, an <span class="aaronnote-math-inline" data-tex="n" data-math-render-key="inline
+n"><math><mi>n</mi></math></span>-qubit system has state space</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+(\mathbb{C}^2)^{\otimes n}
+\cong
+\mathbb{C}^{2^n}."><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><msup><mi>ℂ</mi><mn>2</mn></msup><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mrow><mo form="prefix" stretchy="false" lspace="0em" rspace="0em">⊗</mo><mi>n</mi></mrow></msup><mo>≅</mo><msup><mi>ℂ</mi><msup><mn>2</mn><mi>n</mi></msup></msup><mi>.</mi></mrow></math></div></math-block><org-env-block data-kind="note" data-title="" data-label="Note" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">Note</span><span class="org-env-heading-title" data-empty="true"></span></span><div class="org-env-content"><p>It is better to say that separability makes the Hilbert space manageable by countable coordinates.</p><p>The phrase “finite experiments can determine the state” is not quite accurate, because exact quantum state determination generally requires infinitely many samples in principle. In practice, one estimates a state statistically.</p></div></org-env-block><h1>3. A Quantum State Is Not Literally a Vector 量子态不是单个矢量</h1><p>The key conceptual point is:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\text{quantum state}
+\neq
+\text{one specific vector in } H."><math display="block" class="tml-display" style="display:block math;"><mrow><mtext>quantum&nbsp;state</mtext><mrow><mspace width="0.2778em"></mspace><mo>≠</mo><mspace width="0.2778em"></mspace></mrow><mtext>one&nbsp;specific&nbsp;vector&nbsp;in&nbsp;</mtext><mi>H</mi><mi>.</mi></mrow></math></div></math-block><p>Rather,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\text{pure quantum state}
+=
+\text{a ray in } H."><math display="block" class="tml-display" style="display:block math;"><mrow><mtext>pure&nbsp;quantum&nbsp;state</mtext><mo>=</mo><mtext>a&nbsp;ray&nbsp;in&nbsp;</mtext><mi>H</mi><mi>.</mi></mrow></math></div></math-block><p>A ray is a one-dimensional subspace of <span class="aaronnote-math-inline" data-tex="H" data-math-render-key="inline
+H"><math><mi>H</mi></math></span>.</p><p>If <span class="aaronnote-math-inline" data-tex="|\psi\rangle \neq 0" data-math-render-key="inline
+|\psi\rangle \neq 0"><math><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mo>≠</mo><mn>0</mn></mrow></math></span>, then the corresponding ray is</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+[|\psi\rangle]
+=
+\{\lambda |\psi\rangle : \lambda \in \mathbb{C},\ \lambda \neq 0\}."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">[</mo><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mo fence="true" form="postfix" stretchy="false">]</mo></mrow><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">{</mo><mi>λ</mi><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mo lspace="0.2222em" rspace="0.2222em">:</mo><mi>λ</mi><mo>∈</mo><mi>ℂ</mi><mo separator="true">,</mo><mtext>&nbsp;</mtext><mi>λ</mi><mo>≠</mo><mn>0</mn><mo fence="true" form="postfix" stretchy="false">}</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>When we restrict to normalized vectors, this becomes the equivalence relation</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+|\psi\rangle
+\sim
+e^{i\theta}|\psi\rangle,"><math display="block" class="tml-display" style="display:block math;"><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mo>∼</mo><msup><mi>e</mi><mrow class="tml-sml-pad"><mi>i</mi><mi>θ</mi></mrow></msup><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mo separator="true">,</mo></mrow></math></div></math-block><p>where</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\theta \in \mathbb{R}."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>θ</mi><mo>∈</mo><mi>ℝ</mi><mi>.</mi></mrow></math></div></math-block><p>Thus two normalized vectors that differ only by a global phase represent the same physical pure state.</p><org-env-block data-kind="important" data-title="" data-label="important" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">important</span><span class="org-env-heading-title" data-empty="true"></span></span><div class="org-env-content"><p>A global phase has no physical effect:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+|\psi\rangle
+\quad \text{and} \quad
+e^{i\theta}|\psi\rangle"><math display="block" class="tml-display" style="display:block math;"><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mspace width="1em"></mspace><mtext>and</mtext><mspace width="1em"></mspace><msup><mi>e</mi><mrow class="tml-sml-pad"><mi>i</mi><mi>θ</mi></mrow></msup><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo></mrow></math></div></math-block></div><p>represent the same physical state.</p></org-env-block><h1>4. Why Global Phase Is Unobservable 为什么整体相位不可观测</h1><p>Suppose</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+|\psi'\rangle
+=
+e^{i\theta}|\psi\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>|</mi><msup><mi>ψ</mi><mo lspace="0em" rspace="0em" class="tml-prime">′</mo></msup><mo form="postfix" stretchy="false">⟩</mo><mo>=</mo><msup><mi>e</mi><mrow class="tml-sml-pad"><mi>i</mi><mi>θ</mi></mrow></msup><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mi>.</mi></mrow></math></div></math-block><p>Let <span class="aaronnote-math-inline" data-tex="|\phi\rangle" data-math-render-key="inline
+|\phi\rangle"><math><mrow><mi>|</mi><mi>ϕ</mi><mo form="postfix" stretchy="false">⟩</mo></mrow></math></span> be any measurement basis vector. Then the probability amplitude changes as</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle \phi|\psi'\rangle
+=
+\langle \phi|e^{i\theta}\psi\rangle
+=
+e^{i\theta}\langle \phi|\psi\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ϕ</mi><mi>|</mi><msup><mi>ψ</mi><mo lspace="0em" rspace="0em" class="tml-prime">′</mo></msup><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ϕ</mi><mi>|</mi><msup><mi>e</mi><mrow class="tml-sml-pad"><mi>i</mi><mi>θ</mi></mrow></msup><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><msup><mi>e</mi><mrow class="tml-sml-pad"><mi>i</mi><mi>θ</mi></mrow></msup><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ϕ</mi><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>But the probability is the squared modulus:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+|\langle \phi|\psi'\rangle|^2
+=
+|e^{i\theta}\langle \phi|\psi\rangle|^2."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>|</mi><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ϕ</mi><mi>|</mi><msup><mi>ψ</mi><mo lspace="0em" rspace="0em" class="tml-prime">′</mo></msup><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><msup><mi>|</mi><mn>2</mn></msup><mo>=</mo><mi>|</mi><msup><mi>e</mi><mrow class="tml-sml-pad"><mi>i</mi><mi>θ</mi></mrow></msup><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ϕ</mi><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><msup><mi>|</mi><mn>2</mn></msup><mi>.</mi></mrow></math></div></math-block><p>Since</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+|e^{i\theta}|=1,"><math display="block" class="tml-display" style="display:block math;"><mrow><mi>|</mi><msup><mi>e</mi><mrow class="tml-sml-pad"><mi>i</mi><mi>θ</mi></mrow></msup><mi>|</mi><mo>=</mo><mn>1</mn><mo separator="true">,</mo></mrow></math></div></math-block><p>we get</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+|\langle \phi|\psi'\rangle|^2
+=
+|\langle \phi|\psi\rangle|^2."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>|</mi><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ϕ</mi><mi>|</mi><msup><mi>ψ</mi><mo lspace="0em" rspace="0em" class="tml-prime">′</mo></msup><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><msup><mi>|</mi><mn>2</mn></msup><mo>=</mo><mi>|</mi><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ϕ</mi><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><msup><mi>|</mi><mn>2</mn></msup><mi>.</mi></mrow></math></div></math-block><p>So measurement probabilities do not change.</p><p>The same holds for expectation values. Let <span class="aaronnote-math-inline" data-tex="\hat{A}" data-math-render-key="inline
+\hat{A}"><math><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover></math></span> be an observable. Then</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle \psi'|\hat{A}|\psi'\rangle
+=
+\langle e^{i\theta}\psi|\hat{A}|e^{i\theta}\psi\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msup><mi>ψ</mi><mo lspace="0em" rspace="0em" class="tml-prime">′</mo></msup><mi>|</mi><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover><mi>|</mi><msup><mi>ψ</mi><mo lspace="0em" rspace="0em" class="tml-prime">′</mo></msup><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msup><mi>e</mi><mrow class="tml-sml-pad"><mi>i</mi><mi>θ</mi></mrow></msup><mi>ψ</mi><mi>|</mi><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover><mi>|</mi><msup><mi>e</mi><mrow class="tml-sml-pad"><mi>i</mi><mi>θ</mi></mrow></msup><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>Since the bra transforms as</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle \psi'|
+=
+e^{-i\theta}\langle \psi|,"><math display="block" class="tml-display" style="display:block math;"><mrow><mo form="prefix" stretchy="false">⟨</mo><msup><mi>ψ</mi><mo lspace="0em" rspace="0em" class="tml-prime">′</mo></msup><mi>|</mi><mo>=</mo><msup><mi>e</mi><mrow class="tml-sml-pad"><mo form="prefix" stretchy="false" lspace="0em" rspace="0em">−</mo><mi>i</mi><mi>θ</mi></mrow></msup><mo form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><mo separator="true">,</mo></mrow></math></div></math-block><p>we have</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle \psi'|\hat{A}|\psi'\rangle
+=
+e^{-i\theta}e^{i\theta}
+\langle \psi|\hat{A}|\psi\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msup><mi>ψ</mi><mo lspace="0em" rspace="0em" class="tml-prime">′</mo></msup><mi>|</mi><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover><mi>|</mi><msup><mi>ψ</mi><mo lspace="0em" rspace="0em" class="tml-prime">′</mo></msup><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><msup><mi>e</mi><mrow class="tml-sml-pad"><mo form="prefix" stretchy="false" lspace="0em" rspace="0em">−</mo><mi>i</mi><mi>θ</mi></mrow></msup><msup><mi>e</mi><mrow class="tml-sml-pad"><mi>i</mi><mi>θ</mi></mrow></msup><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>Therefore,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle \psi'|\hat{A}|\psi'\rangle
+=
+\langle \psi|\hat{A}|\psi\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msup><mi>ψ</mi><mo lspace="0em" rspace="0em" class="tml-prime">′</mo></msup><mi>|</mi><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover><mi>|</mi><msup><mi>ψ</mi><mo lspace="0em" rspace="0em" class="tml-prime">′</mo></msup><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><mover><mi>A</mi><mo stretchy="false" class="chr-lrg wbk-lrg-acc" style="math-depth:0;">^</mo></mover><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>Thus all probabilities and expectation values are unchanged by a global phase.</p><h1>5. Projective Hilbert Space 射影希尔伯特空间</h1><p>The set of physical pure states is the projective Hilbert space</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\mathbb{P}(H)."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>ℙ</mi><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>H</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>It is defined as</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\mathbb{P}(H)
+=
+(H \setminus \{0\})/\mathbb{C}^{\times},"><math display="block" class="tml-display" style="display:block math;"><mrow><mi>ℙ</mi><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>H</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>H</mi><mo>∖</mo><mrow><mo fence="true" form="prefix" stretchy="false">{</mo><mn>0</mn><mo fence="true" form="postfix" stretchy="false">}</mo></mrow><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mi>/</mi><msup><mi>ℂ</mi><mo form="prefix" stretchy="false" lspace="0em" rspace="0em">×</mo></msup><mo separator="true">,</mo></mrow></math></div></math-block><p>where two nonzero vectors are identified if they differ by a nonzero complex scalar.</p><p>Equivalently, if we restrict to normalized vectors, then</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\mathbb{P}(H)
+=
+\{|\psi\rangle \in H : \langle \psi|\psi\rangle = 1\}/U(1),"><math display="block" class="tml-display" style="display:block math;"><mrow><mi>ℙ</mi><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>H</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">{</mo><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mo>∈</mo><mi>H</mi><mo lspace="0.2222em" rspace="0.2222em">:</mo><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mn>1</mn><mo fence="true" form="postfix" stretchy="false">}</mo></mrow><mi>/</mi><mi>U</mi><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mn>1</mn><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mo separator="true">,</mo></mrow></math></div></math-block><p>where</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+U(1)
+=
+\{e^{i\theta} : \theta \in \mathbb{R}\}."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>U</mi><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mn>1</mn><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">{</mo><msup><mi>e</mi><mrow class="tml-sml-pad"><mi>i</mi><mi>θ</mi></mrow></msup><mo lspace="0.2222em" rspace="0.2222em">:</mo><mi>θ</mi><mo>∈</mo><mi>ℝ</mi><mo fence="true" form="postfix" stretchy="false">}</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>中文直觉：</p><ul><li><p>Hilbert space <span class="aaronnote-math-inline" data-tex="H" data-math-render-key="inline
+H"><math><mi>H</mi></math></span> contains vectors.</p></li><li><p>Physical pure states are rays in <span class="aaronnote-math-inline" data-tex="H" data-math-render-key="inline
+H"><math><mi>H</mi></math></span>.</p></li><li><p>Choosing <span class="aaronnote-math-inline" data-tex="|\psi\rangle" data-math-render-key="inline
+|\psi\rangle"><math><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo></mrow></math></span> is choosing one representative of the ray.</p></li></ul><h1>6. Why We Still Use State Vectors 为什么平时还说“态矢”</h1><p>Although a pure quantum state is strictly a ray, in calculations we usually choose one normalized representative</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+|\psi\rangle"><math display="block" class="tml-display" style="display:block math;"><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo></mrow></math></div></math-block><p>and call it a state vector.</p><p>This is convenient because:</p><ol><li><p>linear algebra is done with vectors;</p></li><li><p>amplitudes are written as inner products;</p></li><li><p>global phase cancels out in probabilities and expectation values;</p></li><li><p>choosing a representative does not change physical predictions.</p></li></ol><p>Thus the phrase “state vector” is a computational shorthand.</p><org-env-block data-kind="important" data-title="" data-label="important" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">important</span><span class="org-env-heading-title" data-empty="true"></span></span><div class="org-env-content"><p>Strictly speaking:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\text{state vector}
+=
+\text{chosen representative},"><math display="block" class="tml-display" style="display:block math;"><mrow><mtext>state&nbsp;vector</mtext><mo>=</mo><mtext>chosen&nbsp;representative</mtext><mo separator="true">,</mo></mrow></math></div></math-block></div><p>while</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\text{physical pure state}
+=
+\text{ray / equivalence class}."><math display="block" class="tml-display" style="display:block math;"><mrow><mtext>physical&nbsp;pure&nbsp;state</mtext><mo>=</mo><mtext>ray&nbsp;/&nbsp;equivalence&nbsp;class</mtext><mi>.</mi></mrow></math></div></math-block><p>So using <span class="aaronnote-math-inline" data-tex="|\psi\rangle" data-math-render-key="inline
+|\psi\rangle"><math><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo></mrow></math></span> is a calculation convention, not a conceptual identity.</p></org-env-block><h1>7. Pure States and Mixed States 纯态与混合态</h1><p>The discussion above concerns pure states.</p><p>A pure state can be represented by a ray</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+[|\psi\rangle]"><math display="block" class="tml-display" style="display:block math;"><mrow><mo fence="true" form="prefix" stretchy="false">[</mo><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mo fence="true" form="postfix" stretchy="false">]</mo></mrow></math></div></math-block><p>or equivalently by the rank-one density operator</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\rho_\psi
+=
+|\psi\rangle\langle \psi|."><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mi>ρ</mi><mi>ψ</mi></msub><mo>=</mo><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mo form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><mi>.</mi></mrow></math></div></math-block><p>This density operator is invariant under global phase. Indeed, if</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+|\psi'\rangle
+=
+e^{i\theta}|\psi\rangle,"><math display="block" class="tml-display" style="display:block math;"><mrow><mi>|</mi><msup><mi>ψ</mi><mo lspace="0em" rspace="0em" class="tml-prime">′</mo></msup><mo form="postfix" stretchy="false">⟩</mo><mo>=</mo><msup><mi>e</mi><mrow class="tml-sml-pad"><mi>i</mi><mi>θ</mi></mrow></msup><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mo separator="true">,</mo></mrow></math></div></math-block><p>then</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+|\psi'\rangle\langle \psi'|
+=
+e^{i\theta}|\psi\rangle
+e^{-i\theta}\langle \psi|
+=
+|\psi\rangle\langle \psi|."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>|</mi><msup><mi>ψ</mi><mo lspace="0em" rspace="0em" class="tml-prime">′</mo></msup><mo form="postfix" stretchy="false">⟩</mo><mo form="prefix" stretchy="false">⟨</mo><msup><mi>ψ</mi><mo lspace="0em" rspace="0em" class="tml-prime">′</mo></msup><mi>|</mi><mo>=</mo><msup><mi>e</mi><mrow class="tml-sml-pad"><mi>i</mi><mi>θ</mi></mrow></msup><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><msup><mi>e</mi><mrow class="tml-sml-pad"><mo form="prefix" stretchy="false" lspace="0em" rspace="0em">−</mo><mi>i</mi><mi>θ</mi></mrow></msup><mo form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><mo>=</mo><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mo form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mi>|</mi><mi>.</mi></mrow></math></div></math-block><p>So the density-operator representation removes the global-phase ambiguity automatically.</p><p>A mixed state is represented by a density operator</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\rho
+=
+\sum_i p_i |\psi_i\rangle\langle \psi_i|,"><math display="block" class="tml-display" style="display:block math;"><mrow><mi>ρ</mi><mo>=</mo><mrow><munder><mo movablelimits="false">∑</mo><mi>i</mi></munder></mrow><msub><mi>p</mi><mi>i</mi></msub><mi>|</mi><msub><mi>ψ</mi><mi>i</mi></msub><mo form="postfix" stretchy="false">⟩</mo><mo form="prefix" stretchy="false">⟨</mo><msub><mi>ψ</mi><mi>i</mi></msub><mi>|</mi><mo separator="true">,</mo></mrow></math></div></math-block><p>where</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+p_i \ge 0,
+\qquad
+\sum_i p_i = 1."><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mi>p</mi><mi>i</mi></msub><mo>≥</mo><mn>0</mn><mo separator="true">,</mo><mspace width="2em"></mspace><mrow><munder><mo movablelimits="false">∑</mo><mi>i</mi></munder></mrow><msub><mi>p</mi><mi>i</mi></msub><mo>=</mo><mn>1.</mn></mrow></math></div></math-block><p>Mixed states are not generally rays. They represent classical probabilistic mixtures of pure states.</p><h1>8. Qubit Example 单量子比特例子</h1><p>For one qubit, the Hilbert space is</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+H = \mathbb{C}^2."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>H</mi><mo>=</mo><msup><mi>ℂ</mi><mn>2</mn></msup><mi>.</mi></mrow></math></div></math-block><p>A normalized state vector can be written as</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+|\psi\rangle
+=
+\alpha |0\rangle + \beta |1\rangle,"><math display="block" class="tml-display" style="display:block math;"><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mo>=</mo><mi>α</mi><mi>|</mi><mn>0</mn><mo form="postfix" stretchy="false">⟩</mo><mo>+</mo><mi>β</mi><mi>|</mi><mn>1</mn><mo form="postfix" stretchy="false">⟩</mo><mo separator="true">,</mo></mrow></math></div></math-block><p>where</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\alpha,\beta \in \mathbb{C},"><math display="block" class="tml-display" style="display:block math;"><mrow><mi>α</mi><mo separator="true">,</mo><mi>β</mi><mo>∈</mo><mi>ℂ</mi><mo separator="true">,</mo></mrow></math></div></math-block><p>and</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+|\alpha|^2 + |\beta|^2 = 1."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>|</mi><mi>α</mi><msup><mi>|</mi><mn>2</mn></msup><mo>+</mo><mi>|</mi><mi>β</mi><msup><mi>|</mi><mn>2</mn></msup><mo>=</mo><mn>1.</mn></mrow></math></div></math-block><p>The vectors</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+|\psi\rangle"><math display="block" class="tml-display" style="display:block math;"><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo></mrow></math></div></math-block><p>and</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+e^{i\theta}|\psi\rangle"><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mi>e</mi><mrow class="tml-sml-pad"><mi>i</mi><mi>θ</mi></mrow></msup><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo></mrow></math></div></math-block><p>represent the same physical state.</p><p>The probabilities of measuring <span class="aaronnote-math-inline" data-tex="0" data-math-render-key="inline
+0"><math><mn>0</mn></math></span> and <span class="aaronnote-math-inline" data-tex="1" data-math-render-key="inline
+1"><math><mn>1</mn></math></span> are</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\Pr(0)=|\alpha|^2,"><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mi>Pr</mi><mo>⁡</mo></mrow><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mn>0</mn><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mo>=</mo><mi>|</mi><mi>α</mi><msup><mi>|</mi><mn>2</mn></msup><mo separator="true">,</mo></mrow></math></div></math-block><p>and</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\Pr(1)=|\beta|^2."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mi>Pr</mi><mo>⁡</mo></mrow><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mn>1</mn><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mo>=</mo><mi>|</mi><mi>β</mi><msup><mi>|</mi><mn>2</mn></msup><mi>.</mi></mrow></math></div></math-block><p>These probabilities are unchanged by multiplying the whole state vector by <span class="aaronnote-math-inline" data-tex="e^{i\theta}" data-math-render-key="inline
+e^{i\theta}"><math><msup><mi>e</mi><mrow class="tml-sml-pad"><mi>i</mi><mi>θ</mi></mrow></msup></math></span>.</p><org-env-block data-kind="note" data-title="" data-label="Note" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">Note</span><span class="org-env-heading-title" data-empty="true"></span></span><div class="org-env-content"><p>Global phase is unobservable, but relative phase is observable.</p><p>For example,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\frac{|0\rangle+|1\rangle}{\sqrt{2}}"><math display="block" class="tml-display" style="display:block math;"><mfrac><mrow><mi>|</mi><mn>0</mn><mo form="postfix" stretchy="false">⟩</mo><mo>+</mo><mi>|</mi><mn>1</mn><mo form="postfix" stretchy="false" lspace="0em" rspace="0em">⟩</mo></mrow><msqrt><mn>2</mn></msqrt></mfrac></math></div></math-block></div><p>and</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\frac{|0\rangle-|1\rangle}{\sqrt{2}}"><math display="block" class="tml-display" style="display:block math;"><mfrac><mrow><mi>|</mi><mn>0</mn><mo form="postfix" stretchy="false">⟩</mo><mo>−</mo><mi>|</mi><mn>1</mn><mo form="postfix" stretchy="false" lspace="0em" rspace="0em">⟩</mo></mrow><msqrt><mn>2</mn></msqrt></mfrac></math></div></math-block><p>are physically different states.</p><p>They differ by a relative phase between the <span class="aaronnote-math-inline" data-tex="|0\rangle" data-math-render-key="inline
+|0\rangle"><math><mrow><mi>|</mi><mn>0</mn><mo form="postfix" stretchy="false">⟩</mo></mrow></math></span> and <span class="aaronnote-math-inline" data-tex="|1\rangle" data-math-render-key="inline
+|1\rangle"><math><mrow><mi>|</mi><mn>1</mn><mo form="postfix" stretchy="false">⟩</mo></mrow></math></span> components, not merely by a global phase.</p></org-env-block><h1>Conceptual Summary 概念总结</h1><org-env-block data-kind="summary" data-title="" data-label="Summary" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="true"></span></span><div class="org-env-content"><p>A quantum system is associated with a complex Hilbert space <span class="aaronnote-math-inline" data-tex="H" data-math-render-key="inline
+H"><math><mi>H</mi></math></span>.</p><p>A pure quantum state is a ray in <span class="aaronnote-math-inline" data-tex="H" data-math-render-key="inline
+H"><math><mi>H</mi></math></span>:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+[|\psi\rangle]
+=
+\{\lambda|\psi\rangle : \lambda \in \mathbb{C},\ \lambda \neq 0\}."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">[</mo><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mo fence="true" form="postfix" stretchy="false">]</mo></mrow><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">{</mo><mi>λ</mi><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mo lspace="0.2222em" rspace="0.2222em">:</mo><mi>λ</mi><mo>∈</mo><mi>ℂ</mi><mo separator="true">,</mo><mtext>&nbsp;</mtext><mi>λ</mi><mo>≠</mo><mn>0</mn><mo fence="true" form="postfix" stretchy="false">}</mo></mrow><mi>.</mi></mrow></math></div></math-block></div><p>For normalized representatives,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+|\psi\rangle
+\sim
+e^{i\theta}|\psi\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mo>∼</mo><msup><mi>e</mi><mrow class="tml-sml-pad"><mi>i</mi><mi>θ</mi></mrow></msup><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mi>.</mi></mrow></math></div></math-block><p>Thus:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\text{physical pure state}
+=
+\text{ray}
+=
+\text{one-dimensional subspace}
+=
+\text{equivalence class up to global phase}."><math display="block" class="tml-display" style="display:block math;"><mrow><mtext>physical&nbsp;pure&nbsp;state</mtext><mo>=</mo><mtext>ray</mtext><mo>=</mo><mtext>one-dimensional&nbsp;subspace</mtext><mo>=</mo><mtext>equivalence&nbsp;class&nbsp;up&nbsp;to&nbsp;global&nbsp;phase</mtext><mi>.</mi></mrow></math></div></math-block><p>In calculations, we usually choose a normalized representative <span class="aaronnote-math-inline" data-tex="|\psi\rangle" data-math-render-key="inline
+|\psi\rangle"><math><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo></mrow></math></span> and call it the state vector.</p><p>This is convenient because all physical predictions are invariant under global phase.</p></org-env-block>
           </article>
         </div>
       </div>

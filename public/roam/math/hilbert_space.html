@@ -27,383 +27,181 @@
         <div class="typora-web-editor-host">
           <article id="content" class="ProseMirror" data-note-title="Hilbert Space">
             <h1 class="title">Hilbert Space</h1>
-            <h1 id="hilbert-space-希尔伯特空间">Hilbert Space 希尔伯特空间</h1>
-<p><org-env-block data-kind="attention" data-title="Hilbert" data-label="Attention"><span class="org-env-heading"><span class="org-env-heading-label">Attention</span><span class="org-env-heading-title" data-empty="false">Hilbert</span></span><div class="org-env-content"><p>"Hilbert
-space is a big space." --- Carlton Caves</p></div></org-env-block></p>
-<p><org-env-block data-kind="summary" data-title="A Hilbert space is a complete inner product space." data-label="Summary"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="false">A
-Hilbert space is a complete inner product
-space.</span></span><div class="org-env-content"><p>Conceptually, it
-generalises Euclidean space while preserving the geometric notions of
-length, angle, orthogonality, projection, and convergence.</p></p>
-<p>The key chain is:</p>
-<p><span class="math display">inner
-product ⇒ norm ⇒ metric ⇒ convergence ⇒ completeness.</span></p>
-<p>If an inner product space is complete with respect to the metric
-induced by its norm, then it is a Hilbert space.</p></div></org-env-block>
-
-<h2 id="1-mathematical-understanding-数学理解">1. Mathematical
-Understanding 数学理解</h2>
-<p>The essential idea is to generalise Euclidean space</p>
-<p><span class="math display">ℝ<sup><em>n</em></sup></span></p>
-<p>to possibly infinite-dimensional settings while preserving geometric
-intuition.</p>
-<p><org-env-block data-kind="define" data-title="A Hilbert space is a complete inner product space." data-label="Define"><span class="org-env-heading"><span class="org-env-heading-label">Define</span><span class="org-env-heading-title" data-empty="false">A
-Hilbert space is a complete inner product
-space.</span></span><div class="org-env-content"></div></org-env-block></p>
-<p>Equivalently, a Hilbert space is a vector space <span
-class="math inline"><em>H</em></span> equipped with an inner product</p>
-<p><span
-class="math display">⟨⋅, ⋅⟩ : <em>H</em> × <em>H</em> → <em>F</em>,</span></p>
-<p>where usually <span class="math inline"><em>F</em> = ℝ</span> or
-<span class="math inline"><em>F</em> = ℂ</span>, such that every Cauchy
-sequence in <span class="math inline"><em>H</em></span> converges to an
-element of <span class="math inline"><em>H</em></span>.</p>
-<h3 id="core-components-核心组成">Core Components 核心组成</h3>
-<ul>
-<li><p><strong>Inner product 内积</strong></p>
-<p>The inner product</p>
-<p><span class="math display">⟨<em>u</em>, <em>v</em>⟩</span></p>
-<p>defines geometric notions such as angle, orthogonality, and
-projection.</p>
-<p>If</p>
-<p><span class="math display">⟨<em>u</em>, <em>v</em>⟩ = 0,</span></p>
-<p>then <span class="math inline"><em>u</em></span> and <span
-class="math inline"><em>v</em></span> are orthogonal.</p></li>
-<li><p><strong>Norm 范数</strong></p>
-<p>The norm is induced by the inner product:</p>
-<h1 id="-v">$$ |v|</h1>
-<p>\sqrt{\langle v,v\rangle}. $$</p>
-<p>It measures the length of a vector.</p></li>
-<li><p><strong>Metric 距离</strong></p>
-<p>The norm induces a distance function:</p>
-<h1 id="-duv">$$ d(u,v)</h1>
-<p>|u-v|. $$</p></li>
-<li><p><strong>Completeness 完备性</strong></p>
-<p>Completeness means that every Cauchy sequence converges to an element
-inside the same space.</p>
-<p>In symbols, if <span
-class="math inline">(<em>v</em><sub><em>n</em></sub>)</span> is Cauchy,
-then there exists <span
-class="math inline"><em>v</em> ∈ <em>H</em></span> such that</p>
-<p><span
-class="math display"><em>v</em><sub><em>n</em></sub> → <em>v</em>.</span></p>
-<p>中文直觉：完备性保证“应该存在的极限”不会跑到空间外面去。</p></li>
-</ul>
-<h3 id="common-examples-常见例子">Common Examples 常见例子</h3>
-<ol type="1">
-<li><p>Finite-dimensional Euclidean spaces:</p>
-<p><span class="math display">ℝ<sup><em>n</em></sup>.</span></p></li>
-<li><p>Finite-dimensional complex spaces:</p>
-<p><span class="math display">ℂ<sup><em>n</em></sup>.</span></p></li>
-<li><p>The space of square-integrable functions:</p>
-<p><span
-class="math display"><em>L</em><sup>2</sup>(<em>X</em>).</span></p>
-<p>This is one of the most important examples in quantum
-mechanics.</p></li>
-</ol>
-<h2 id="2-quantum-application-量子应用">2. Quantum Application
-量子应用</h2>
-<p>Hilbert spaces provide the mathematical foundation for the axiomatic
-formulation of quantum mechanics.</p>
-<h3 id="states-态">States 态</h3>
-<p>A quantum state is represented by a ray in a Hilbert space.</p>
-<p>Equivalently, one often represents a state by a normalised vector</p>
-<p><span class="math display">|<em>ψ</em>⟩ ∈ <em>H</em></span></p>
-<p>with</p>
-<p><span class="math display">⟨<em>ψ</em> ∣ <em>ψ</em>⟩ = 1.</span></p>
-<p>Strictly speaking, two nonzero vectors that differ by a nonzero
-scalar represent the same physical ray. In ordinary quantum mechanics,
-global phase does not change the physical state:</p>
-<p><span
-class="math display">|<em>ψ</em>⟩ ∼ <em>e</em><sup><em>i</em><em>θ</em></sup>|<em>ψ</em>⟩.</span></p>
-<h3 id="superposition-叠加原理">Superposition 叠加原理</h3>
-<p>If <span class="math inline">|<em>ψ</em>⟩</span> and <span
-class="math inline">|<em>ϕ</em>⟩</span> are state vectors, then their
-linear combination</p>
-<p><span
-class="math display"><em>α</em>|<em>ψ</em>⟩ + <em>β</em>|<em>ϕ</em>⟩</span></p>
-<p>is also a vector in the Hilbert space.</p>
-<p>After normalisation, it can represent another quantum state.</p>
-<h3 id="observables-可观测量">Observables 可观测量</h3>
-<p>Physical observables are represented by Hermitian operators.</p>
-<p>An operator <span class="math inline"><em>A</em></span> is Hermitian
-if</p>
-<p><span
-class="math display"><em>A</em><sup>†</sup> = <em>A</em>.</span></p>
-<p>The eigenvalues of a Hermitian operator are possible measurement
-outcomes.</p>
-<p>The eigenvectors or eigenspaces describe the corresponding states
-after measurement.</p>
-<h3 id="born-rule-玻恩规则">Born Rule 玻恩规则</h3>
-<p>The inner product gives probability amplitudes.</p>
-<p>If a system is in state <span class="math inline">|<em>ψ</em>⟩</span>
-and we measure whether it is in state <span
-class="math inline">|<em>ϕ</em>⟩</span>, then the probability is</p>
-<h1 id="-p">$$ P</h1>
-<p>|\langle \phi \mid \psi\rangle|^2. $$</p>
-<p>This is one of the main reasons Hilbert spaces are central in quantum
-theory.</p>
-<h2 id="3-finite-dimensional-inner-product-spaces-are-complete">3.
-Finite-Dimensional Inner Product Spaces Are Complete</h2>
-<p>有限维内积空间必然完备。</p>
-<p><org-env-block data-kind="theorem" data-title="Every finite-dimensional inner product space is complete." data-label="Theorem"><span class="org-env-heading"><span class="org-env-heading-label">Theorem</span><span class="org-env-heading-title" data-empty="false">Every
-finite-dimensional inner product space is
-complete.</span></span><div class="org-env-content"><p>Equivalently,
-every finite-dimensional inner product space is a Hilbert
-space.</p></div></org-env-block></p>
-<p><org-env-block data-kind="proof" data-title="Let $V$ be an $N$-dimensional inner product space over $\mathbb{C}$." data-label="Proof"><span class="org-env-heading"><span class="org-env-heading-label">Proof</span><span class="org-env-heading-title" data-empty="false">Let
-<span class="math inline"><em>V</em></span> be an <span
-class="math inline"><em>N</em></span>-dimensional inner product space
-over <span
-class="math inline">ℂ</span>.</span></span><div class="org-env-content"><p>The
-real case is similar and slightly simpler.</p></p>
-<h3 id="proof-idea-证明思路">Proof Idea 证明思路</h3>
-<p>We prove completeness by reducing vector convergence to coordinate
-convergence.</p>
-<p>The steps are:</p>
-<ol type="1">
-<li>choose an orthonormal basis;</li>
-<li>write each vector in coordinates;</li>
-<li>show that a Cauchy sequence of vectors gives Cauchy sequences of
-coordinates;</li>
-<li>use completeness of <span class="math inline">ℂ</span>;</li>
-<li>reconstruct the limit vector.</li>
-</ol>
-<h3 id="step-1-choose-an-orthonormal-basis">Step 1: Choose an
-orthonormal basis</h3>
-<p>Since <span class="math inline"><em>V</em></span> is
-finite-dimensional, by the Gram--Schmidt process there exists an
-orthonormal basis</p>
-<p><span
-class="math display">{<em>e</em><sub>1</sub>, <em>e</em><sub>2</sub>, …, <em>e</em><sub><em>N</em></sub>}.</span></p>
-<p>Thus every vector <span
-class="math inline"><em>v</em> ∈ <em>V</em></span> can be written
-uniquely as</p>
-<h1 id="-v">$$ v</h1>
-<p>\sum_{k=1}^N z_k e_k, $$</p>
-<p>where <span
-class="math inline"><em>z</em><sub><em>k</em></sub> ∈ ℂ</span>.</p>
-<h3 id="step-2-let-v_i-be-a-cauchy-sequence">Step 2: Let <span
-class="math inline">(<em>v</em><sub><em>i</em></sub>)</span> be a Cauchy
-sequence</h3>
-<p>Let <span
-class="math inline">(<em>v</em><sub><em>i</em></sub>)<sub><em>i</em> ∈ ℕ</sub></span>
-be a Cauchy sequence in <span class="math inline"><em>V</em></span>.</p>
-<p>By definition, for every <span
-class="math inline"><em>ε</em> &gt; 0</span>, there exists <span
-class="math inline"><em>M</em> ∈ ℕ</span> such that for all <span
-class="math inline"><em>i</em>, <em>j</em> ≥ <em>M</em></span>,</p>
-<p><span
-class="math display">∥<em>v</em><sub><em>i</em></sub> − <em>v</em><sub><em>j</em></sub>∥ &lt; <em>ε</em>.</span></p>
-<p>Equivalently,</p>
-<p><span
-class="math display"><em>d</em>(<em>v</em><sub><em>i</em></sub>, <em>v</em><sub><em>j</em></sub>) &lt; <em>ε</em>.</span></p>
-<h3 id="step-3-write-each-vector-in-coordinates">Step 3: Write each
-vector in coordinates</h3>
-<p>For each <span class="math inline"><em>i</em></span>, write</p>
-<h1 id="-v_i">$$ v_i</h1>
-<p>\sum_{k=1}^N z_{ik} e_k, $$</p>
-<p>where <span
-class="math inline"><em>z</em><sub><em>i</em><em>k</em></sub> ∈ ℂ</span>.</p>
-<p>Then</p>
-<h1 id="-v_i-v_j">$$ v_i-v_j</h1>
-<p>\sum_{k=1}^N (z_{ik}-z_{jk})e_k. $$</p>
-<h3 id="step-4-use-the-norm-formula-in-an-orthonormal-basis">Step 4: Use
-the norm formula in an orthonormal basis</h3>
-<p>Because <span
-class="math inline">{<em>e</em><sub>1</sub>, …, <em>e</em><sub><em>N</em></sub>}</span>
-is orthonormal,</p>
-<h1 id="-v_i-v_j2">$$ |v_i-v_j|^2</h1>
-<p>\sum_{k=1}^N |z_{ik}-z_{jk}|^2. $$</p>
-<p>Since <span
-class="math inline">(<em>v</em><sub><em>i</em></sub>)</span> is Cauchy,
-for all sufficiently large <span
-class="math inline"><em>i</em>, <em>j</em></span>,</p>
-<p><span class="math display">$$
+            <h1>Hilbert Space 希尔伯特空间</h1><org-env-block data-kind="attention" data-title="Hilbert" data-label="Attention" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">Attention</span><span class="org-env-heading-title" data-empty="false">Hilbert</span></span><div class="org-env-content"><p>"Hilbert space is a big space." --- Carlton Caves</p></div></org-env-block><org-env-block data-kind="summary" data-title="" data-label="Summary" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="true"></span></span><div class="org-env-content"><p>A Hilbert space is a complete inner product space.</p><p>Conceptually, it generalises Euclidean space while preserving the geometric notions of length, angle, orthogonality, projection, and convergence.</p><p>The key chain is:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\text{inner product}
+\Longrightarrow
+\text{norm}
+\Longrightarrow
+\text{metric}
+\Longrightarrow
+\text{convergence}
+\Longrightarrow
+\text{completeness}."><math display="block" class="tml-display" style="display:block math;"><mrow><mtext>inner&nbsp;product</mtext><mo stretchy="false">⟹</mo><mtext>norm</mtext><mo stretchy="false">⟹</mo><mtext>metric</mtext><mo stretchy="false">⟹</mo><mtext>convergence</mtext><mo stretchy="false">⟹</mo><mtext>completeness</mtext><mi>.</mi></mrow></math></div></math-block></div><p>If an inner product space is complete with respect to the metric induced by its norm, then it is a Hilbert space.</p></org-env-block><h2>1. Mathematical Understanding 数学理解</h2><p>The essential idea is to generalise Euclidean space</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\mathbb{R}^n"><math display="block" class="tml-display" style="display:block math;"><msup><mi>ℝ</mi><mi>n</mi></msup></math></div></math-block><p>to possibly infinite-dimensional settings while preserving geometric intuition.</p><org-env-block data-kind="define" data-title="" data-label="define" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">define</span><span class="org-env-heading-title" data-empty="true"></span></span><div class="org-env-content"><p>A Hilbert space is a complete inner product space.</p></div></org-env-block><p>Equivalently, a Hilbert space is a vector space <span class="aaronnote-math-inline" data-tex="H" data-math-render-key="inline
+H"><math><mi>H</mi></math></span> equipped with an inner product</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle \cdot,\cdot \rangle : H \times H \to F,"><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mo form="prefix" stretchy="false">⋅</mo><mo separator="true">,</mo><mo form="prefix" stretchy="false">⋅</mo><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo lspace="0.2222em" rspace="0.2222em">:</mo><mi>H</mi><mo>×</mo><mi>H</mi><mo>→</mo><mi>F</mi><mo separator="true">,</mo></mrow></math></div></math-block><p>where usually <span class="aaronnote-math-inline" data-tex="F=\mathbb{R}" data-math-render-key="inline
+F=\mathbb{R}"><math><mrow><mi>F</mi><mo>=</mo><mi>ℝ</mi></mrow></math></span> or <span class="aaronnote-math-inline" data-tex="F=\mathbb{C}" data-math-render-key="inline
+F=\mathbb{C}"><math><mrow><mi>F</mi><mo>=</mo><mi>ℂ</mi></mrow></math></span>, such that every Cauchy sequence in <span class="aaronnote-math-inline" data-tex="H" data-math-render-key="inline
+H"><math><mi>H</mi></math></span> converges to an element of <span class="aaronnote-math-inline" data-tex="H" data-math-render-key="inline
+H"><math><mi>H</mi></math></span>.</p><h3>Core Components 核心组成</h3><ul><li><p><strong>Inner product 内积</strong></p><p>The inner product</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle u,v\rangle"><math display="block" class="tml-display" style="display:block math;"><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>u</mi><mo separator="true">,</mo><mi>v</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow></math></div></math-block><p>defines geometric notions such as angle, orthogonality, and projection.</p><p>If</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle u,v\rangle = 0,"><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>u</mi><mo separator="true">,</mo><mi>v</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mn>0</mn><mo separator="true">,</mo></mrow></math></div></math-block><p>then <span class="aaronnote-math-inline" data-tex="u" data-math-render-key="inline
+u"><math><mi>u</mi></math></span> and <span class="aaronnote-math-inline" data-tex="v" data-math-render-key="inline
+v"><math><mi>v</mi></math></span> are orthogonal.</p></li><li><p><strong>Norm 范数</strong></p><p>The norm is induced by the inner product:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\|v\|
+=
+\sqrt{\langle v,v\rangle}."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>‖</mi><mi>v</mi><mi>‖</mi><mo>=</mo><msqrt><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>v</mi><mo separator="true">,</mo><mi>v</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow></msqrt><mi>.</mi></mrow></math></div></math-block><p>It measures the length of a vector.</p></li><li><p><strong>Metric 距离</strong></p><p>The norm induces a distance function:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+d(u,v)
+=
+\|u-v\|."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>d</mi><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>u</mi><mo separator="true">,</mo><mi>v</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mo>=</mo><mi>‖</mi><mi>u</mi><mo>−</mo><mi>v</mi><mi>‖</mi><mi>.</mi></mrow></math></div></math-block></li><li><p><strong>Completeness 完备性</strong></p><p>Completeness means that every Cauchy sequence converges to an element inside the same space.</p><p>In symbols, if <span class="aaronnote-math-inline" data-tex="(v_n)" data-math-render-key="inline
+(v_n)"><math><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><msub><mi>v</mi><mi>n</mi></msub><mo fence="true" form="postfix" stretchy="false">)</mo></mrow></math></span> is Cauchy, then there exists <span class="aaronnote-math-inline" data-tex="v \in H" data-math-render-key="inline
+v \in H"><math><mrow><mi>v</mi><mo>∈</mo><mi>H</mi></mrow></math></span> such that</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+v_n \to v."><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mi>v</mi><mi>n</mi></msub><mo>→</mo><mi>v</mi><mi>.</mi></mrow></math></div></math-block><p>中文直觉：完备性保证“应该存在的极限”不会跑到空间外面去。</p></li></ul><h3>Common Examples 常见例子</h3><ol><li><p>Finite-dimensional Euclidean spaces:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\mathbb{R}^n."><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mi>ℝ</mi><mi>n</mi></msup><mi>.</mi></mrow></math></div></math-block></li><li><p>Finite-dimensional complex spaces:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\mathbb{C}^n."><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mi>ℂ</mi><mi>n</mi></msup><mi>.</mi></mrow></math></div></math-block></li><li><p>The space of square-integrable functions:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+L^2(X)."><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mi>L</mi><mn class="tml-sml-pad">2</mn></msup><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><mi>X</mi><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mi>.</mi></mrow></math></div></math-block><p>This is one of the most important examples in quantum mechanics.</p></li></ol><h2>2. Quantum Application 量子应用</h2><p>Hilbert spaces provide the mathematical foundation for the axiomatic formulation of quantum mechanics.</p><h3>States 态</h3><p>A quantum state is represented by a ray in a Hilbert space.</p><p>Equivalently, one often represents a state by a normalised vector</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+|\psi\rangle \in H"><math display="block" class="tml-display" style="display:block math;"><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mo>∈</mo><mi>H</mi></mrow></math></div></math-block><p>with</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle \psi \mid \psi \rangle = 1."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ψ</mi><mo lspace="0.22em" rspace="0.22em" stretchy="false">|</mo><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><mn>1.</mn></mrow></math></div></math-block><p>Strictly speaking, two nonzero vectors that differ by a nonzero scalar represent the same physical ray. In ordinary quantum mechanics, global phase does not change the physical state:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+|\psi\rangle
+\sim
+e^{i\theta}|\psi\rangle."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mo>∼</mo><msup><mi>e</mi><mrow class="tml-sml-pad"><mi>i</mi><mi>θ</mi></mrow></msup><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mi>.</mi></mrow></math></div></math-block><h3>Superposition 叠加原理</h3><p>If <span class="aaronnote-math-inline" data-tex="|\psi\rangle" data-math-render-key="inline
+|\psi\rangle"><math><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo></mrow></math></span> and <span class="aaronnote-math-inline" data-tex="|\phi\rangle" data-math-render-key="inline
+|\phi\rangle"><math><mrow><mi>|</mi><mi>ϕ</mi><mo form="postfix" stretchy="false">⟩</mo></mrow></math></span> are state vectors, then their linear combination</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\alpha |\psi\rangle + \beta |\phi\rangle"><math display="block" class="tml-display" style="display:block math;"><mrow><mi>α</mi><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mo>+</mo><mi>β</mi><mi>|</mi><mi>ϕ</mi><mo form="postfix" stretchy="false">⟩</mo></mrow></math></div></math-block><p>is also a vector in the Hilbert space.</p><p>After normalisation, it can represent another quantum state.</p><h3>Observables 可观测量</h3><p>Physical observables are represented by Hermitian operators.</p><p>An operator <span class="aaronnote-math-inline" data-tex="A" data-math-render-key="inline
+A"><math><mi>A</mi></math></span> is Hermitian if</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+A^\dagger = A."><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mi>A</mi><mo form="prefix" stretchy="false" class="tml-lrg-pad">†</mo></msup><mo>=</mo><mi>A</mi><mi>.</mi></mrow></math></div></math-block><p>The eigenvalues of a Hermitian operator are possible measurement outcomes.</p><p>The eigenvectors or eigenspaces describe the corresponding states after measurement.</p><h3>Born Rule 玻恩规则</h3><p>The inner product gives probability amplitudes.</p><p>If a system is in state <span class="aaronnote-math-inline" data-tex="|\psi\rangle" data-math-render-key="inline
+|\psi\rangle"><math><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo></mrow></math></span> and we measure whether it is in state <span class="aaronnote-math-inline" data-tex="|\phi\rangle" data-math-render-key="inline
+|\phi\rangle"><math><mrow><mi>|</mi><mi>ϕ</mi><mo form="postfix" stretchy="false">⟩</mo></mrow></math></span>, then the probability is</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+P
+=
+|\langle \phi \mid \psi\rangle|^2."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>P</mi><mo>=</mo><mi>|</mi><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mi>ϕ</mi><mo lspace="0.22em" rspace="0.22em" stretchy="false">|</mo><mi>ψ</mi><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><msup><mi>|</mi><mn>2</mn></msup><mi>.</mi></mrow></math></div></math-block><p>This is one of the main reasons Hilbert spaces are central in quantum theory.</p><h2>3. Finite-Dimensional Inner Product Spaces Are Complete</h2><p>有限维内积空间必然完备。</p><org-env-block data-kind="theorem" data-title="" data-label="Theorem" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">Theorem</span><span class="org-env-heading-title" data-empty="true"></span></span><div class="org-env-content"><p>Every finite-dimensional inner product space is complete.</p><p>Equivalently, every finite-dimensional inner product space is a Hilbert space.</p></div></org-env-block><org-env-block data-kind="proof" data-title="" data-label="Proof" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">Proof</span><span class="org-env-heading-title" data-empty="true"></span></span><div class="org-env-content"><p>Let <span class="aaronnote-math-inline" data-tex="V" data-math-render-key="inline
+V"><math><mi>V</mi></math></span> be an <span class="aaronnote-math-inline" data-tex="N" data-math-render-key="inline
+N"><math><mi>N</mi></math></span>-dimensional inner product space over <span class="aaronnote-math-inline" data-tex="\mathbb{C}" data-math-render-key="inline
+\mathbb{C}"><math><mi>ℂ</mi></math></span>.</p><p>The real case is similar and slightly simpler.</p><h3>Proof Idea 证明思路</h3><p>We prove completeness by reducing vector convergence to coordinate convergence.</p><p>The steps are:</p><ol><li><p>choose an orthonormal basis;</p></li><li><p>write each vector in coordinates;</p></li><li><p>show that a Cauchy sequence of vectors gives Cauchy sequences of coordinates;</p></li><li><p>use completeness of <span class="aaronnote-math-inline" data-tex="\mathbb{C}" data-math-render-key="inline
+\mathbb{C}"><math><mi>ℂ</mi></math></span>;</p></li><li><p>reconstruct the limit vector.</p></li></ol><h3>Step 1: Choose an orthonormal basis</h3><p>Since <span class="aaronnote-math-inline" data-tex="V" data-math-render-key="inline
+V"><math><mi>V</mi></math></span> is finite-dimensional, by the Gram--Schmidt process there exists an orthonormal basis</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\{e_1,e_2,\dots,e_N\}."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">{</mo><msub><mi>e</mi><mn>1</mn></msub><mo separator="true">,</mo><msub><mi>e</mi><mn>2</mn></msub><mo separator="true">,</mo><mo>…</mo><mo separator="true">,</mo><msub><mi>e</mi><mi>N</mi></msub><mo fence="true" form="postfix" stretchy="false">}</mo></mrow><mi>.</mi></mrow></math></div></math-block></div><p>Thus every vector <span class="aaronnote-math-inline" data-tex="v \in V" data-math-render-key="inline
+v \in V"><math><mrow><mi>v</mi><mo>∈</mo><mi>V</mi></mrow></math></span> can be written uniquely as</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+v
+=
+\sum_{k=1}^N z_k e_k,"><math display="block" class="tml-display" style="display:block math;"><mrow><mi>v</mi><mo>=</mo><mrow><munderover><mo movablelimits="false">∑</mo><mrow><mi>k</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover></mrow><msub><mi>z</mi><mi>k</mi></msub><msub><mi>e</mi><mi>k</mi></msub><mo separator="true">,</mo></mrow></math></div></math-block><p>where <span class="aaronnote-math-inline" data-tex="z_k \in \mathbb{C}" data-math-render-key="inline
+z_k \in \mathbb{C}"><math><mrow><msub><mi>z</mi><mi>k</mi></msub><mo>∈</mo><mi>ℂ</mi></mrow></math></span>.</p><h3>Step 2: Let <span class="aaronnote-math-inline" data-tex="(v_i)" data-math-render-key="inline
+(v_i)"><math><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><msub><mi>v</mi><mi>i</mi></msub><mo fence="true" form="postfix" stretchy="false">)</mo></mrow></math></span> be a Cauchy sequence</h3><p>Let <span class="aaronnote-math-inline" data-tex="(v_i)_{i \in \mathbb{N}}" data-math-render-key="inline
+(v_i)_{i \in \mathbb{N}}"><math><msub><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><msub><mi>v</mi><mi>i</mi></msub><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mrow><mi>i</mi><mo>∈</mo><mi>ℕ</mi></mrow></msub></math></span> be a Cauchy sequence in <span class="aaronnote-math-inline" data-tex="V" data-math-render-key="inline
+V"><math><mi>V</mi></math></span>.</p><p>By definition, for every <span class="aaronnote-math-inline" data-tex="\varepsilon > 0" data-math-render-key="inline
+\varepsilon > 0"><math><mrow><mi>ε</mi><mo>&gt;</mo><mn>0</mn></mrow></math></span>, there exists <span class="aaronnote-math-inline" data-tex="M \in \mathbb{N}" data-math-render-key="inline
+M \in \mathbb{N}"><math><mrow><mi>M</mi><mo>∈</mo><mi>ℕ</mi></mrow></math></span> such that for all <span class="aaronnote-math-inline" data-tex="i,j \ge M" data-math-render-key="inline
+i,j \ge M"><math><mrow><mi>i</mi><mo separator="true">,</mo><mi>j</mi><mo>≥</mo><mi>M</mi></mrow></math></span>,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\|v_i-v_j\| < \varepsilon."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>‖</mi><msub><mi>v</mi><mi>i</mi></msub><mo>−</mo><msub><mi>v</mi><mi>j</mi></msub><mi>‖</mi><mo>&lt;</mo><mi>ε</mi><mi>.</mi></mrow></math></div></math-block><p>Equivalently,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+d(v_i,v_j) < \varepsilon."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>d</mi><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><msub><mi>v</mi><mi>i</mi></msub><mo separator="true">,</mo><msub><mi>v</mi><mi>j</mi></msub><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mo>&lt;</mo><mi>ε</mi><mi>.</mi></mrow></math></div></math-block><h3>Step 3: Write each vector in coordinates</h3><p>For each <span class="aaronnote-math-inline" data-tex="i" data-math-render-key="inline
+i"><math><mi>i</mi></math></span>, write</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+v_i
+=
+\sum_{k=1}^N z_{ik} e_k,"><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mi>v</mi><mi>i</mi></msub><mo>=</mo><mrow><munderover><mo movablelimits="false">∑</mo><mrow><mi>k</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover></mrow><msub><mi>z</mi><mrow><mi>i</mi><mi>k</mi></mrow></msub><msub><mi>e</mi><mi>k</mi></msub><mo separator="true">,</mo></mrow></math></div></math-block><p>where <span class="aaronnote-math-inline" data-tex="z_{ik} \in \mathbb{C}" data-math-render-key="inline
+z_{ik} \in \mathbb{C}"><math><mrow><msub><mi>z</mi><mrow><mi>i</mi><mi>k</mi></mrow></msub><mo>∈</mo><mi>ℂ</mi></mrow></math></span>.</p><p>Then</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+v_i-v_j
+=
+\sum_{k=1}^N (z_{ik}-z_{jk})e_k."><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mi>v</mi><mi>i</mi></msub><mo>−</mo><msub><mi>v</mi><mi>j</mi></msub><mo>=</mo><mrow><munderover><mo movablelimits="false">∑</mo><mrow><mi>k</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover></mrow><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><msub><mi>z</mi><mrow><mi>i</mi><mi>k</mi></mrow></msub><mo>−</mo><msub><mi>z</mi><mrow><mi>j</mi><mi>k</mi></mrow></msub><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><msub><mi>e</mi><mi>k</mi></msub><mi>.</mi></mrow></math></div></math-block><h3>Step 4: Use the norm formula in an orthonormal basis</h3><p>Because <span class="aaronnote-math-inline" data-tex="\{e_1,\dots,e_N\}" data-math-render-key="inline
+\{e_1,\dots,e_N\}"><math><mrow><mo fence="true" form="prefix" stretchy="false">{</mo><msub><mi>e</mi><mn>1</mn></msub><mo separator="true">,</mo><mo>…</mo><mo separator="true">,</mo><msub><mi>e</mi><mi>N</mi></msub><mo fence="true" form="postfix" stretchy="false">}</mo></mrow></math></span> is orthonormal,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\|v_i-v_j\|^2
+=
+\sum_{k=1}^N |z_{ik}-z_{jk}|^2."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>‖</mi><msub><mi>v</mi><mi>i</mi></msub><mo>−</mo><msub><mi>v</mi><mi>j</mi></msub><msup><mi>‖</mi><mn>2</mn></msup><mo>=</mo><mrow><munderover><mo movablelimits="false">∑</mo><mrow><mi>k</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover></mrow><mi>|</mi><msub><mi>z</mi><mrow><mi>i</mi><mi>k</mi></mrow></msub><mo>−</mo><msub><mi>z</mi><mrow><mi>j</mi><mi>k</mi></mrow></msub><msup><mi>|</mi><mn>2</mn></msup><mi>.</mi></mrow></math></div></math-block><p>Since <span class="aaronnote-math-inline" data-tex="(v_i)" data-math-render-key="inline
+(v_i)"><math><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><msub><mi>v</mi><mi>i</mi></msub><mo fence="true" form="postfix" stretchy="false">)</mo></mrow></math></span> is Cauchy, for all sufficiently large <span class="aaronnote-math-inline" data-tex="i,j" data-math-render-key="inline
+i,j"><math><mrow><mi>i</mi><mo separator="true">,</mo><mi>j</mi></mrow></math></span>,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
 \sum_{k=1}^N |z_{ik}-z_{jk}|^2
-&lt;
-\varepsilon^2.
-$$</span></p>
-<p>Therefore, for each fixed <span
-class="math inline"><em>k</em></span>,</p>
-<p><span class="math display">$$
+<
+\varepsilon^2."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><munderover><mo movablelimits="false">∑</mo><mrow><mi>k</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover></mrow><mi>|</mi><msub><mi>z</mi><mrow><mi>i</mi><mi>k</mi></mrow></msub><mo>−</mo><msub><mi>z</mi><mrow><mi>j</mi><mi>k</mi></mrow></msub><msup><mi>|</mi><mn>2</mn></msup><mo>&lt;</mo><msup><mi>ε</mi><mn>2</mn></msup><mi>.</mi></mrow></math></div></math-block><p>Therefore, for each fixed <span class="aaronnote-math-inline" data-tex="k" data-math-render-key="inline
+k"><math><mi>k</mi></math></span>,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
 |z_{ik}-z_{jk}|^2
 \le
 \sum_{\ell=1}^N |z_{i\ell}-z_{j\ell}|^2
-&lt;
-\varepsilon^2.
-$$</span></p>
-<p>Hence</p>
-<p><span
-class="math display">|<em>z</em><sub><em>i</em><em>k</em></sub> − <em>z</em><sub><em>j</em><em>k</em></sub>| &lt; <em>ε</em>.</span></p>
-<p>So for each <span class="math inline"><em>k</em></span>, the
-coordinate sequence <span
-class="math inline">(<em>z</em><sub><em>i</em><em>k</em></sub>)<sub><em>i</em> ∈ ℕ</sub></span>
-is Cauchy in <span class="math inline">ℂ</span>.</p>
-<h3 id="step-5-use-completeness-of-mathbbc">Step 5: Use completeness of
-<span class="math inline">ℂ</span></h3>
-<p>Since <span class="math inline">ℂ</span> is complete, for each <span
-class="math inline"><em>k</em></span> there exists <span
-class="math inline"><em>z</em><sub><em>k</em></sub> ∈ ℂ</span> such
-that</p>
-<p><span
-class="math display"><em>z</em><sub><em>i</em><em>k</em></sub> → <em>z</em><sub><em>k</em></sub></span></p>
-<p>as <span class="math inline"><em>i</em> → ∞</span>.</p>
-<h3 id="step-6-construct-the-candidate-limit-vector">Step 6: Construct
-the candidate limit vector</h3>
-<p>Define</p>
-<h1 id="-v-1">$$ v</h1>
-<p>\sum_{k=1}^N z_k e_k. $$</p>
-<p>Since <span class="math inline"><em>V</em></span> is a vector space
-and <span
-class="math inline"><em>e</em><sub>1</sub>, …, <em>e</em><sub><em>N</em></sub> ∈ <em>V</em></span>,
-we have</p>
-<p><span class="math display"><em>v</em> ∈ <em>V</em>.</span></p>
-<h3 id="step-7-show-that-v_i-to-v">Step 7: Show that <span
-class="math inline"><em>v</em><sub><em>i</em></sub> → <em>v</em></span></h3>
-<p>We compute</p>
-<h1 id="-v_i-v">$$ v_i-v</h1>
-<p>\sum_{k=1}^N (z_{ik}-z_k)e_k. $$</p>
-<p>Again using orthonormality,</p>
-<h1 id="-v_i-v2">$$ |v_i-v|^2</h1>
-<p>\sum_{k=1}^N |z_{ik}-z_k|^2. $$</p>
-<p>For each fixed <span class="math inline"><em>k</em></span>,</p>
-<p><span
-class="math display"><em>z</em><sub><em>i</em><em>k</em></sub> → <em>z</em><sub><em>k</em></sub>.</span></p>
-<p>Since the sum is finite,</p>
-<p><span class="math display">$$
+<
+\varepsilon^2."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>|</mi><msub><mi>z</mi><mrow><mi>i</mi><mi>k</mi></mrow></msub><mo>−</mo><msub><mi>z</mi><mrow><mi>j</mi><mi>k</mi></mrow></msub><msup><mi>|</mi><mn>2</mn></msup><mo>≤</mo><mrow><munderover><mo movablelimits="false">∑</mo><mrow><mi>ℓ</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover></mrow><mi>|</mi><msub><mi>z</mi><mrow><mi>i</mi><mi>ℓ</mi></mrow></msub><mo>−</mo><msub><mi>z</mi><mrow><mi>j</mi><mi>ℓ</mi></mrow></msub><msup><mi>|</mi><mn>2</mn></msup><mo>&lt;</mo><msup><mi>ε</mi><mn>2</mn></msup><mi>.</mi></mrow></math></div></math-block><p>Hence</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+|z_{ik}-z_{jk}|
+<
+\varepsilon."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>|</mi><msub><mi>z</mi><mrow><mi>i</mi><mi>k</mi></mrow></msub><mo>−</mo><msub><mi>z</mi><mrow><mi>j</mi><mi>k</mi></mrow></msub><mi>|</mi><mo>&lt;</mo><mi>ε</mi><mi>.</mi></mrow></math></div></math-block><p>So for each <span class="aaronnote-math-inline" data-tex="k" data-math-render-key="inline
+k"><math><mi>k</mi></math></span>, the coordinate sequence <span class="aaronnote-math-inline" data-tex="(z_{ik})_{i \in \mathbb{N}}" data-math-render-key="inline
+(z_{ik})_{i \in \mathbb{N}}"><math><msub><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><msub><mi>z</mi><mrow><mi>i</mi><mi>k</mi></mrow></msub><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mrow><mi>i</mi><mo>∈</mo><mi>ℕ</mi></mrow></msub></math></span> is Cauchy in <span class="aaronnote-math-inline" data-tex="\mathbb{C}" data-math-render-key="inline
+\mathbb{C}"><math><mi>ℂ</mi></math></span>.</p><h3>Step 5: Use completeness of <span class="aaronnote-math-inline" data-tex="\mathbb{C}" data-math-render-key="inline
+\mathbb{C}"><math><mi>ℂ</mi></math></span></h3><p>Since <span class="aaronnote-math-inline" data-tex="\mathbb{C}" data-math-render-key="inline
+\mathbb{C}"><math><mi>ℂ</mi></math></span> is complete, for each <span class="aaronnote-math-inline" data-tex="k" data-math-render-key="inline
+k"><math><mi>k</mi></math></span> there exists <span class="aaronnote-math-inline" data-tex="z_k \in \mathbb{C}" data-math-render-key="inline
+z_k \in \mathbb{C}"><math><mrow><msub><mi>z</mi><mi>k</mi></msub><mo>∈</mo><mi>ℂ</mi></mrow></math></span> such that</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+z_{ik} \to z_k"><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mi>z</mi><mrow><mi>i</mi><mi>k</mi></mrow></msub><mo>→</mo><msub><mi>z</mi><mi>k</mi></msub></mrow></math></div></math-block><p>as <span class="aaronnote-math-inline" data-tex="i \to \infty" data-math-render-key="inline
+i \to \infty"><math><mrow><mi>i</mi><mo>→</mo><mi>∞</mi></mrow></math></span>.</p><h3>Step 6: Construct the candidate limit vector</h3><p>Define</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+v
+=
+\sum_{k=1}^N z_k e_k."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>v</mi><mo>=</mo><mrow><munderover><mo movablelimits="false">∑</mo><mrow><mi>k</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover></mrow><msub><mi>z</mi><mi>k</mi></msub><msub><mi>e</mi><mi>k</mi></msub><mi>.</mi></mrow></math></div></math-block><p>Since <span class="aaronnote-math-inline" data-tex="V" data-math-render-key="inline
+V"><math><mi>V</mi></math></span> is a vector space and <span class="aaronnote-math-inline" data-tex="e_1,\dots,e_N \in V" data-math-render-key="inline
+e_1,\dots,e_N \in V"><math><mrow><msub><mi>e</mi><mn>1</mn></msub><mo separator="true">,</mo><mo>…</mo><mo separator="true">,</mo><msub><mi>e</mi><mi>N</mi></msub><mo>∈</mo><mi>V</mi></mrow></math></span>, we have</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+v \in V."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>v</mi><mo>∈</mo><mi>V</mi><mi>.</mi></mrow></math></div></math-block><h3>Step 7: Show that <span class="aaronnote-math-inline" data-tex="v_i \to v" data-math-render-key="inline
+v_i \to v"><math><mrow><msub><mi>v</mi><mi>i</mi></msub><mo>→</mo><mi>v</mi></mrow></math></span></h3><p>We compute</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+v_i-v
+=
+\sum_{k=1}^N (z_{ik}-z_k)e_k."><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mi>v</mi><mi>i</mi></msub><mo>−</mo><mi>v</mi><mo>=</mo><mrow><munderover><mo movablelimits="false">∑</mo><mrow><mi>k</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover></mrow><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><msub><mi>z</mi><mrow><mi>i</mi><mi>k</mi></mrow></msub><mo>−</mo><msub><mi>z</mi><mi>k</mi></msub><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><msub><mi>e</mi><mi>k</mi></msub><mi>.</mi></mrow></math></div></math-block><p>Again using orthonormality,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\|v_i-v\|^2
+=
+\sum_{k=1}^N |z_{ik}-z_k|^2."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>‖</mi><msub><mi>v</mi><mi>i</mi></msub><mo>−</mo><mi>v</mi><msup><mi>‖</mi><mn>2</mn></msup><mo>=</mo><mrow><munderover><mo movablelimits="false">∑</mo><mrow><mi>k</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover></mrow><mi>|</mi><msub><mi>z</mi><mrow><mi>i</mi><mi>k</mi></mrow></msub><mo>−</mo><msub><mi>z</mi><mi>k</mi></msub><msup><mi>|</mi><mn>2</mn></msup><mi>.</mi></mrow></math></div></math-block><p>For each fixed <span class="aaronnote-math-inline" data-tex="k" data-math-render-key="inline
+k"><math><mi>k</mi></math></span>,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+z_{ik} \to z_k."><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mi>z</mi><mrow><mi>i</mi><mi>k</mi></mrow></msub><mo>→</mo><msub><mi>z</mi><mi>k</mi></msub><mi>.</mi></mrow></math></div></math-block><p>Since the sum is finite,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
 \sum_{k=1}^N |z_{ik}-z_k|^2
-\to 0.
-$$</span></p>
-<p>Therefore,</p>
-<p><span
-class="math display">∥<em>v</em><sub><em>i</em></sub> − <em>v</em>∥ → 0.</span></p>
-<p>So</p>
-<p><span
-class="math display"><em>v</em><sub><em>i</em></sub> → <em>v</em>.</span></p>
-<p>Thus every Cauchy sequence in <span
-class="math inline"><em>V</em></span> converges to an element of <span
-class="math inline"><em>V</em></span>.</p>
-<p>Therefore <span class="math inline"><em>V</em></span> is
-complete.</p>
-<p>Hence every finite-dimensional inner product space is a Hilbert
-space.</p></div></org-env-block>
-
-<p><org-env-block data-kind="important" data-title="The finite-dimensional assumption is essential." data-label="Important"><span class="org-env-heading"><span class="org-env-heading-label">Important</span><span class="org-env-heading-title" data-empty="false">The
-finite-dimensional assumption is
-essential.</span></span><div class="org-env-content"><p>In
-infinite-dimensional spaces, an inner product space need not be
-complete. A Hilbert space is precisely an inner product space where this
-completeness condition has been imposed.</p></div></org-env-block></p>
-<h2 id="4-interaction-of-hilbert-spaces-希尔伯特空间之间的构造">4.
-Interaction of Hilbert Spaces 希尔伯特空间之间的构造</h2>
-<p>Hilbert spaces can be combined to form larger Hilbert spaces.</p>
-<p>There are two especially important operations:</p>
-<p><span
-class="math display"><em>H</em><sub>1</sub> ⊕ <em>H</em><sub>2</sub></span></p>
-<p>and</p>
-<p><span
-class="math display"><em>H</em><sub>1</sub> ⊗ <em>H</em><sub>2</sub>.</span></p>
-<h3 id="direct-sum-直和">Direct Sum 直和</h3>
-<p><org-env-block data-kind="define" data-title="Given two Hilbert spaces $H_1$ and $H_2$, their direct sum is" data-label="Define"><span class="org-env-heading"><span class="org-env-heading-label">Define</span><span class="org-env-heading-title" data-empty="false">Given
-two Hilbert spaces <span
-class="math inline"><em>H</em><sub>1</sub></span> and <span
-class="math inline"><em>H</em><sub>2</sub></span>, their direct sum
-is</span></span><div class="org-env-content"><h1 id="-h_1-oplus-h_2">$$
-H_1 \oplus H_2</h1></p>
-<p>{(v_1,v_2) : v_1 \in H_1,\ v_2 \in H_2}. $$</p>
-<p>The inner product is defined by</p>
-<h1 id="-langle-v_1v_2w_1w_2rangle">$$ \langle
-(v_1,v_2),(w_1,w_2)\rangle</h1>
-<p>\langle v_1,w_1\rangle_{H_1} + \langle v_2,w_2\rangle_{H_2}. $$</p></div></org-env-block>
-
-<p>The direct sum describes a space where states or vectors are placed
-side by side.</p>
-<p>Intuitively:</p>
-<p><span
-class="math display"><em>H</em><sub>1</sub> ⊕ <em>H</em><sub>2</sub>  means
-choosing between sectors/components.</span></p>
-<h3 id="tensor-product-张量积">Tensor Product 张量积</h3>
-<p><org-env-block data-kind="define" data-title="Given two Hilbert spaces $H_1$ and $H_2$, their tensor product is a Hilbert space" data-label="Define"><span class="org-env-heading"><span class="org-env-heading-label">Define</span><span class="org-env-heading-title" data-empty="false">Given
-two Hilbert spaces <span
-class="math inline"><em>H</em><sub>1</sub></span> and <span
-class="math inline"><em>H</em><sub>2</sub></span>, their tensor product
-is a Hilbert space</span></span><div class="org-env-content"><p><span
-class="math display"><em>H</em><sub>1</sub> ⊗ <em>H</em><sub>2</sub></span></p></p>
-<p>generated by formal tensors</p>
-<p><span
-class="math display"><em>v</em><sub>1</sub> ⊗ <em>v</em><sub>2</sub>,</span></p>
-<p>where <span
-class="math inline"><em>v</em><sub>1</sub> ∈ <em>H</em><sub>1</sub></span>
-and <span
-class="math inline"><em>v</em><sub>2</sub> ∈ <em>H</em><sub>2</sub></span>.</p></div></org-env-block>
-
-<p>The tensor product is the fundamental construction for combining
-quantum systems.</p>
-<p>If one system has Hilbert space <span
-class="math inline"><em>H</em><sub><em>A</em></sub></span> and another
-has Hilbert space <span
-class="math inline"><em>H</em><sub><em>B</em></sub></span>, then the
-joint system has Hilbert space</p>
-<p><span
-class="math display"><em>H</em><sub><em>A</em></sub> ⊗ <em>H</em><sub><em>B</em></sub>.</span></p>
-<p>For example, if</p>
-<p><span
-class="math display">|<em>ψ</em>⟩ ∈ <em>H</em><sub><em>A</em></sub></span></p>
-<p>and</p>
-<p><span
-class="math display">|<em>ϕ</em>⟩ ∈ <em>H</em><sub><em>B</em></sub>,</span></p>
-<p>then the product state is</p>
-<p><span
-class="math display">|<em>ψ</em>⟩ ⊗ |<em>ϕ</em>⟩ ∈ <em>H</em><sub><em>A</em></sub> ⊗ <em>H</em><sub><em>B</em></sub>.</span></p>
-<p>But not every vector in <span
-class="math inline"><em>H</em><sub><em>A</em></sub> ⊗ <em>H</em><sub><em>B</em></sub></span>
-is a simple product vector. Some vectors are entangled states.</p>
-<p>For example,</p>
-<p><span class="math display">$$
+\to 0."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><munderover><mo movablelimits="false">∑</mo><mrow><mi>k</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover></mrow><mi>|</mi><msub><mi>z</mi><mrow><mi>i</mi><mi>k</mi></mrow></msub><mo>−</mo><msub><mi>z</mi><mi>k</mi></msub><msup><mi>|</mi><mn>2</mn></msup><mo>→</mo><mn>0.</mn></mrow></math></div></math-block><p>Therefore,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\|v_i-v\| \to 0."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>‖</mi><msub><mi>v</mi><mi>i</mi></msub><mo>−</mo><mi>v</mi><mi>‖</mi><mo>→</mo><mn>0.</mn></mrow></math></div></math-block><p>So</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+v_i \to v."><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mi>v</mi><mi>i</mi></msub><mo>→</mo><mi>v</mi><mi>.</mi></mrow></math></div></math-block><p>Thus every Cauchy sequence in <span class="aaronnote-math-inline" data-tex="V" data-math-render-key="inline
+V"><math><mi>V</mi></math></span> converges to an element of <span class="aaronnote-math-inline" data-tex="V" data-math-render-key="inline
+V"><math><mi>V</mi></math></span>.</p><p>Therefore <span class="aaronnote-math-inline" data-tex="V" data-math-render-key="inline
+V"><math><mi>V</mi></math></span> is complete.</p><p>Hence every finite-dimensional inner product space is a Hilbert space.</p></org-env-block><org-env-block data-kind="important" data-title="" data-label="important" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">important</span><span class="org-env-heading-title" data-empty="true"></span></span><div class="org-env-content"><p>The finite-dimensional assumption is essential.</p><p>In infinite-dimensional spaces, an inner product space need not be complete. A Hilbert space is precisely an inner product space where this completeness condition has been imposed.</p></div></org-env-block><h2>4. Interaction of Hilbert Spaces 希尔伯特空间之间的构造</h2><p>Hilbert spaces can be combined to form larger Hilbert spaces.</p><p>There are two especially important operations:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+H_1 \oplus H_2"><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mi>H</mi><mn>1</mn></msub><mo>⊕︎</mo><msub><mi>H</mi><mn>2</mn></msub></mrow></math></div></math-block><p>and</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+H_1 \otimes H_2."><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mi>H</mi><mn>1</mn></msub><mo>⊗</mo><msub><mi>H</mi><mn>2</mn></msub><mi>.</mi></mrow></math></div></math-block><h3>Direct Sum 直和</h3><org-env-block data-kind="define" data-title="" data-label="define" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">define</span><span class="org-env-heading-title" data-empty="true"></span></span><div class="org-env-content"><p>Given two Hilbert spaces <span class="aaronnote-math-inline" data-tex="H_1" data-math-render-key="inline
+H_1"><math><msub><mi>H</mi><mn>1</mn></msub></math></span> and <span class="aaronnote-math-inline" data-tex="H_2" data-math-render-key="inline
+H_2"><math><msub><mi>H</mi><mn>2</mn></msub></math></span>, their direct sum is</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+H_1 \oplus H_2
+=
+\{(v_1,v_2) : v_1 \in H_1,\ v_2 \in H_2\}."><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mi>H</mi><mn>1</mn></msub><mo>⊕︎</mo><msub><mi>H</mi><mn>2</mn></msub><mo>=</mo><mrow><mo fence="true" form="prefix" stretchy="false">{</mo><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><msub><mi>v</mi><mn>1</mn></msub><mo separator="true">,</mo><msub><mi>v</mi><mn>2</mn></msub><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mo lspace="0.2222em" rspace="0.2222em">:</mo><msub><mi>v</mi><mn>1</mn></msub><mo>∈</mo><msub><mi>H</mi><mn>1</mn></msub><mo separator="true">,</mo><mtext>&nbsp;</mtext><msub><mi>v</mi><mn>2</mn></msub><mo>∈</mo><msub><mi>H</mi><mn>2</mn></msub><mo fence="true" form="postfix" stretchy="false">}</mo></mrow><mi>.</mi></mrow></math></div></math-block></div><p>The inner product is defined by</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\langle (v_1,v_2),(w_1,w_2)\rangle
+=
+\langle v_1,w_1\rangle_{H_1}
++
+\langle v_2,w_2\rangle_{H_2}."><math display="block" class="tml-display" style="display:block math;"><mrow><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><msub><mi>v</mi><mn>1</mn></msub><mo separator="true">,</mo><msub><mi>v</mi><mn>2</mn></msub><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mo separator="true">,</mo><mrow><mo fence="true" form="prefix" stretchy="false">(</mo><msub><mi>w</mi><mn>1</mn></msub><mo separator="true">,</mo><msub><mi>w</mi><mn>2</mn></msub><mo fence="true" form="postfix" stretchy="false">)</mo></mrow><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><mo>=</mo><msub><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msub><mi>v</mi><mn>1</mn></msub><mo separator="true">,</mo><msub><mi>w</mi><mn>1</mn></msub><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><msub><mi>H</mi><mn>1</mn></msub></msub><mo>+</mo><msub><mrow><mo fence="true" form="prefix" stretchy="false">⟨</mo><msub><mi>v</mi><mn>2</mn></msub><mo separator="true">,</mo><msub><mi>w</mi><mn>2</mn></msub><mo fence="true" form="postfix" stretchy="false">⟩</mo></mrow><msub><mi>H</mi><mn>2</mn></msub></msub><mi>.</mi></mrow></math></div></math-block></org-env-block><p>The direct sum describes a space where states or vectors are placed side by side.</p><p>Intuitively:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+H_1 \oplus H_2
+\quad
+\text{means choosing between sectors/components.}"><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mi>H</mi><mn>1</mn></msub><mo>⊕︎</mo><msub><mi>H</mi><mn>2</mn></msub><mspace width="1em"></mspace><mtext>means&nbsp;choosing&nbsp;between&nbsp;sectors/components.</mtext></mrow></math></div></math-block><h3>Tensor Product 张量积</h3><org-env-block data-kind="define" data-title="" data-label="define" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">define</span><span class="org-env-heading-title" data-empty="true"></span></span><div class="org-env-content"><p>Given two Hilbert spaces <span class="aaronnote-math-inline" data-tex="H_1" data-math-render-key="inline
+H_1"><math><msub><mi>H</mi><mn>1</mn></msub></math></span> and <span class="aaronnote-math-inline" data-tex="H_2" data-math-render-key="inline
+H_2"><math><msub><mi>H</mi><mn>2</mn></msub></math></span>, their tensor product is a Hilbert space</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+H_1 \otimes H_2"><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mi>H</mi><mn>1</mn></msub><mo>⊗</mo><msub><mi>H</mi><mn>2</mn></msub></mrow></math></div></math-block></div><p>generated by formal tensors</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+v_1 \otimes v_2,"><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mi>v</mi><mn>1</mn></msub><mo>⊗</mo><msub><mi>v</mi><mn>2</mn></msub><mo separator="true">,</mo></mrow></math></div></math-block><p>where <span class="aaronnote-math-inline" data-tex="v_1 \in H_1" data-math-render-key="inline
+v_1 \in H_1"><math><mrow><msub><mi>v</mi><mn>1</mn></msub><mo>∈</mo><msub><mi>H</mi><mn>1</mn></msub></mrow></math></span> and <span class="aaronnote-math-inline" data-tex="v_2 \in H_2" data-math-render-key="inline
+v_2 \in H_2"><math><mrow><msub><mi>v</mi><mn>2</mn></msub><mo>∈</mo><msub><mi>H</mi><mn>2</mn></msub></mrow></math></span>.</p></org-env-block><p>The tensor product is the fundamental construction for combining quantum systems.</p><p>If one system has Hilbert space <span class="aaronnote-math-inline" data-tex="H_A" data-math-render-key="inline
+H_A"><math><msub><mi>H</mi><mi>A</mi></msub></math></span> and another has Hilbert space <span class="aaronnote-math-inline" data-tex="H_B" data-math-render-key="inline
+H_B"><math><msub><mi>H</mi><mi>B</mi></msub></math></span>, then the joint system has Hilbert space</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+H_A \otimes H_B."><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mi>H</mi><mi>A</mi></msub><mo>⊗</mo><msub><mi>H</mi><mi>B</mi></msub><mi>.</mi></mrow></math></div></math-block><p>For example, if</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+|\psi\rangle \in H_A"><math display="block" class="tml-display" style="display:block math;"><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mo>∈</mo><msub><mi>H</mi><mi>A</mi></msub></mrow></math></div></math-block><p>and</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+|\phi\rangle \in H_B,"><math display="block" class="tml-display" style="display:block math;"><mrow><mi>|</mi><mi>ϕ</mi><mo form="postfix" stretchy="false">⟩</mo><mo>∈</mo><msub><mi>H</mi><mi>B</mi></msub><mo separator="true">,</mo></mrow></math></div></math-block><p>then the product state is</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+|\psi\rangle \otimes |\phi\rangle
+\in
+H_A \otimes H_B."><math display="block" class="tml-display" style="display:block math;"><mrow><mi>|</mi><mi>ψ</mi><mo form="postfix" stretchy="false">⟩</mo><mo>⊗</mo><mi>|</mi><mi>ϕ</mi><mo form="postfix" stretchy="false">⟩</mo><mo>∈</mo><msub><mi>H</mi><mi>A</mi></msub><mo>⊗</mo><msub><mi>H</mi><mi>B</mi></msub><mi>.</mi></mrow></math></div></math-block><p>But not every vector in <span class="aaronnote-math-inline" data-tex="H_A \otimes H_B" data-math-render-key="inline
+H_A \otimes H_B"><math><mrow><msub><mi>H</mi><mi>A</mi></msub><mo>⊗</mo><msub><mi>H</mi><mi>B</mi></msub></mrow></math></span> is a simple product vector. Some vectors are entangled states.</p><p>For example,</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
 \frac{1}{\sqrt{2}}
 \left(
 |00\rangle + |11\rangle
-\right)
-$$</span></p>
-<p>is an entangled state in</p>
-<p><span class="math display">ℂ<sup>2</sup> ⊗ ℂ<sup>2</sup>.</span></p>
-<p><org-env-block data-kind="important" data-title="For quantum mechanics, the tensor product is more fundamental than the direct sum for describing composite systems." data-label="Important"><span class="org-env-heading"><span class="org-env-heading-label">Important</span><span class="org-env-heading-title" data-empty="false">For
-quantum mechanics, the tensor product is more fundamental than the
-direct sum for describing composite
-systems.</span></span><div class="org-env-content"><p>If two systems are
-considered together, their joint state space is usually</p></p>
-<p><span
-class="math display"><em>H</em><sub><em>A</em></sub> ⊗ <em>H</em><sub><em>B</em></sub>,</span></p>
-<p>not</p>
-<p><span
-class="math display"><em>H</em><sub><em>A</em></sub> ⊕ <em>H</em><sub><em>B</em></sub>.</span></p></div></org-env-block>
-
-<h2 id="5-conceptual-summary-概念总结">5. Conceptual Summary
-概念总结</h2>
-<p>A Hilbert space is a vector space with enough structure to do both
-geometry and analysis.</p>
-<p>The structure can be viewed as the following chain:</p>
-<p><span class="math display">vector space ⇒ inner product
-space ⇒ normed vector space ⇒ metric space ⇒ complete metric
-structure.</span></p>
-<p>So:</p>
-<h1 id="-texthilbert-space">$$ \text{Hilbert space}</h1>
-<p>\text{inner product space} + \text{completeness}. $$</p>
-<p>In quantum computing, Hilbert spaces matter because:</p>
-<ol type="1">
-<li>quantum states are vectors or rays in Hilbert spaces;</li>
-<li>amplitudes are computed using inner products;</li>
-<li>measurement probabilities are given by the Born rule;</li>
-<li>observables are represented by Hermitian operators;</li>
-<li>composite systems are represented by tensor products.</li>
-</ol>
-<p><org-env-block data-kind="summary" data-title="A Hilbert space is the natural mathematical home for quantum theory." data-label="Summary"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="false">A
-Hilbert space is the natural mathematical home for quantum
-theory.</span></span><div class="org-env-content"><p>It is linear enough
-to support superposition, geometric enough to support orthogonality and
-projection, and complete enough to support limits, approximation, and
-analysis.</p></div></org-env-block></p>
+\right)"><math display="block" class="tml-display" style="display:block math;"><mrow><mfrac><mn>1</mn><msqrt><mn>2</mn></msqrt></mfrac><mrow><mo fence="true" form="prefix" stretchy="true">(</mo><mi>|</mi><mn>00</mn><mo form="postfix" stretchy="false">⟩</mo><mo>+</mo><mi>|</mi><mn>11</mn><mo form="postfix" stretchy="false">⟩</mo><mo fence="true" form="postfix" stretchy="true">)</mo></mrow></mrow></math></div></math-block><p>is an entangled state in</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\mathbb{C}^2 \otimes \mathbb{C}^2."><math display="block" class="tml-display" style="display:block math;"><mrow><msup><mi>ℂ</mi><mn>2</mn></msup><mo>⊗</mo><msup><mi>ℂ</mi><mn>2</mn></msup><mi>.</mi></mrow></math></div></math-block><org-env-block data-kind="important" data-title="" data-label="important" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">important</span><span class="org-env-heading-title" data-empty="true"></span></span><div class="org-env-content"><p>For quantum mechanics, the tensor product is more fundamental than the direct sum for describing composite systems.</p><p>If two systems are considered together, their joint state space is usually</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+H_A \otimes H_B,"><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mi>H</mi><mi>A</mi></msub><mo>⊗</mo><msub><mi>H</mi><mi>B</mi></msub><mo separator="true">,</mo></mrow></math></div></math-block></div><p>not</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+H_A \oplus H_B."><math display="block" class="tml-display" style="display:block math;"><mrow><msub><mi>H</mi><mi>A</mi></msub><mo>⊕︎</mo><msub><mi>H</mi><mi>B</mi></msub><mi>.</mi></mrow></math></div></math-block></org-env-block><h2>5. Conceptual Summary 概念总结</h2><p>A Hilbert space is a vector space with enough structure to do both geometry and analysis.</p><p>The structure can be viewed as the following chain:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\text{vector space}
+\Longrightarrow
+\text{inner product space}
+\Longrightarrow
+\text{normed vector space}
+\Longrightarrow
+\text{metric space}
+\Longrightarrow
+\text{complete metric structure}."><math display="block" class="tml-display" style="display:block math;"><mrow><mtext>vector&nbsp;space</mtext><mo stretchy="false">⟹</mo><mtext>inner&nbsp;product&nbsp;space</mtext><mo stretchy="false">⟹</mo><mtext>normed&nbsp;vector&nbsp;space</mtext><mo stretchy="false">⟹</mo><mtext>metric&nbsp;space</mtext><mo stretchy="false">⟹</mo><mtext>complete&nbsp;metric&nbsp;structure</mtext><mi>.</mi></mrow></math></div></math-block><p>So:</p><math-block data-aaronnote-math-block="" class="math-block-rendered"><div class="aaronnote-math-block math-block-render" data-math-render-key="display
+\text{Hilbert space}
+=
+\text{inner product space}
++
+\text{completeness}."><math display="block" class="tml-display" style="display:block math;"><mrow><mtext>Hilbert&nbsp;space</mtext><mo>=</mo><mtext>inner&nbsp;product&nbsp;space</mtext><mo>+</mo><mtext>completeness</mtext><mi>.</mi></mrow></math></div></math-block><p>In quantum computing, Hilbert spaces matter because:</p><ol><li><p>quantum states are vectors or rays in Hilbert spaces;</p></li><li><p>amplitudes are computed using inner products;</p></li><li><p>measurement probabilities are given by the Born rule;</p></li><li><p>observables are represented by Hermitian operators;</p></li><li><p>composite systems are represented by tensor products.</p></li></ol><org-env-block data-kind="summary" data-title="" data-label="Summary" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="true"></span></span><div class="org-env-content"><p>A Hilbert space is the natural mathematical home for quantum theory.</p><p>It is linear enough to support superposition, geometric enough to support orthogonality and projection, and complete enough to support limits, approximation, and analysis.</p></div></org-env-block>
           </article>
         </div>
       </div>
