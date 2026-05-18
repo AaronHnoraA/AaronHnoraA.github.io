@@ -41,7 +41,7 @@ export type UnusedAsset = {
 };
 
 export type Inbound =
-  | { type: "open"; file?: string; title?: string; content?: string; mode?: "markdown" | "source"; standalone?: boolean; notes?: NoteSummary[]; snippets?: SnippetSummary[] }
-  | { type: "saved"; ok?: boolean; message?: string; file?: string; standalone?: boolean; notes?: NoteSummary[] }
+  | { type: "open"; file?: string; title?: string; content?: string; kind?: string; mode?: "markdown" | "source"; standalone?: boolean; notes?: NoteSummary[]; snippets?: SnippetSummary[] }
+  | { type: "saved"; ok?: boolean; message?: string; file?: string; kind?: string; standalone?: boolean; notes?: NoteSummary[] }
   | { type: "notes"; notes?: NoteSummary[] }
   | { type: "snippets"; snippets?: SnippetSummary[] };

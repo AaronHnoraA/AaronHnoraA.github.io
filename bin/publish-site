@@ -31,6 +31,7 @@ PUBLISH_INPUT_PATHS = (
     "Aaronnote/src/styles/widgets.css",
     "css",
     "js",
+    "kinds",
     "homepage.html",
     "notes.html",
     "bin/publish-site",
@@ -47,6 +48,9 @@ ORG_ENV_RE = re.compile(r"(?ms)^#\+begin(?:_|\s+)([A-Za-z][\w-]*)(?:\s+([^\n]+?)
 MD_IMAGE_RE = re.compile(r"!\[[^\]]*\]\(([^)]+)\)")
 MD_LINK_RE = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
 HTML_MD_LINK_RE = re.compile(r'href="([^"#?:]+)\.md((?:#[^"]*)?)"')
+KIND_NAME_RE = re.compile(r"^[a-z0-9_-]+$")
+DEFAULT_NOTE_KIND = "default"
+DEFAULT_NOTE_KIND_ALIASES = {"", "default", "note"}
 
 
 @dataclass
@@ -58,6 +62,7 @@ class Note:
     date: str = "Undated"
     tags: list[str] = field(default_factory=list)
     aliases: list[str] = field(default_factory=list)
+    kind: str = DEFAULT_NOTE_KIND
     summary: str = ""
     search_text: str = ""
     refs: list[str] = field(default_factory=list)
@@ -136,6 +141,34 @@ def parse_meta_lines(raw: str, org_style: bool) -> dict[str, object]:
 
 def normalize_meta_string(value: object) -> str:
     return str(value).strip().strip('"').replace("\\_", "_")
+
+
+def normalize_note_kind(value: object) -> str:
+    if isinstance(value, list):
+        value = value[0] if value else ""
+    kind = normalize_meta_string(value).lower()
+    if kind in DEFAULT_NOTE_KIND_ALIASES:
+        return DEFAULT_NOTE_KIND
+    if not KIND_NAME_RE.fullmatch(kind):
+        return DEFAULT_NOTE_KIND
+    return kind
+
+
+def note_kind_from_metadata(metadata: dict[str, object]) -> str:
+    return normalize_note_kind(metadata.get("kind") or metadata.get("kinds") or DEFAULT_NOTE_KIND)
+
+
+def active_note_kind(note: Note) -> str:
+    return "" if note.kind == DEFAULT_NOTE_KIND else note.kind
+
+
+def script_json(value: object) -> str:
+    return (
+        json.dumps(value, ensure_ascii=False)
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
+    )
 
 
 def parse_yaml_scalar(value: str) -> object:
@@ -230,6 +263,7 @@ def parse_note(path: Path) -> Note | None:
         date=str(metadata.get("date") or "Undated"),
         tags=tags,
         aliases=aliases,
+        kind=note_kind_from_metadata(metadata),
         summary=search_text[:180],
         search_text=search_text,
         refs=refs,
@@ -265,6 +299,7 @@ def parse_note_for_export(path: Path) -> Note:
         date=str(metadata.get("date") or "Undated"),
         tags=tags,
         aliases=aliases,
+        kind=note_kind_from_metadata(metadata),
         summary=clean_markdown_text(text)[:180],
         search_text=clean_markdown_text(text),
         refs=sorted(set(MD_LINK_RE.findall(text))),
@@ -379,6 +414,7 @@ def deps_for_note(note: Note) -> set[str]:
     src_dir = ROOT / "Aaronnote" / "src"
     if src_dir.exists():
         deps.update(path.relative_to(ROOT).as_posix() for path in src_dir.glob("**/*.ts"))
+    deps.update(path.relative_to(ROOT).as_posix() for path in note_kind_asset_paths(note))
     return deps
 
 
@@ -456,6 +492,9 @@ def note_page_html(note: Note, content_html: str, *, include_private_content: bo
     body_class = "aaronnote-shell published-note-page"
     if note.private and not include_private_content:
         body_class += " hidden-note-page"
+    kind = active_note_kind(note)
+    if kind:
+        body_class += f" note-kind-{kind}"
     if note.private and not include_private_content:
         content_html = (
             '<p class="sealed-note-message">This note has been sealed by the administrator.</p>'
@@ -463,6 +502,8 @@ def note_page_html(note: Note, content_html: str, *, include_private_content: bo
     note_title = html.escape(note.title)
     note_group = html.escape(note.group_label)
     note_date = html.escape(note.date)
+    note_kind = html.escape(kind or DEFAULT_NOTE_KIND)
+    note_kind_assets = note_kind_assets_html(note, root)
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -473,8 +514,9 @@ def note_page_html(note: Note, content_html: str, *, include_private_content: bo
   <link rel="stylesheet" href="{root}Aaronnote/src/styles/widgets.css?v={NOTE_THEME_VERSION}" />
   <link rel="stylesheet" href="{root}Aaronnote/src/styles/theme-typora.css?v={NOTE_THEME_VERSION}" />
   <link rel="stylesheet" href="{root}css/aaronnote-published.css?v={NOTE_THEME_VERSION}" />
+{note_kind_assets}
 </head>
-<body class="{body_class}">
+<body class="{body_class}" data-note-kind="{note_kind}">
   <header class="aaronnote-toolbar">
     <div class="aaronnote-title">
       <strong>Aaronnote</strong>
@@ -490,7 +532,7 @@ def note_page_html(note: Note, content_html: str, *, include_private_content: bo
     <section class="aaronnote-editor">
       <div class="typora-web-wrap">
         <div class="typora-web-editor-host">
-          <article id="content" class="ProseMirror" data-note-title="{note_title}">
+          <article id="content" class="ProseMirror" data-note-title="{note_title}" data-note-kind="{note_kind}">
             <h1 class="title">{note_title}</h1>
             {content_html}
           </article>
@@ -635,6 +677,56 @@ def copy_note_static_assets(note: Note, output_root: Path) -> None:
         _copy_into_public(source, output_root / rel)
 
 
+def note_kind_asset_paths(note: Note) -> set[Path]:
+    kind = active_note_kind(note)
+    if not kind:
+        return set()
+    root = ROOT / "kinds" / kind
+    return {
+        path
+        for path in (root / "index.css", root / "index.js")
+        if path.exists() and path.is_file()
+    }
+
+
+def copy_note_kind_assets(note: Note, output_root: Path) -> None:
+    for source in note_kind_asset_paths(note):
+        _copy_into_public(source, output_root / source.relative_to(ROOT))
+
+
+def note_kind_assets_html(note: Note, root: str) -> str:
+    kind = active_note_kind(note)
+    if not kind:
+        return ""
+    asset_root = ROOT / "kinds" / kind
+    css = asset_root / "index.css"
+    js = asset_root / "index.js"
+    lines: list[str] = []
+    if css.exists():
+        lines.append(f'  <link rel="stylesheet" href="{root}kinds/{kind}/index.css?v={NOTE_THEME_VERSION}" />')
+    if js.exists():
+        context = {
+            "kind": kind,
+            "title": note.title,
+            "path": note.rel_path,
+            "articleId": "content",
+        }
+        lines.append(
+            "  <script type=\"module\">\n"
+            f"    const context = {{ ...{script_json(context)}, article: document.getElementById('content') }};\n"
+            f"    const mod = await import('{root}kinds/{kind}/index.js?v={NOTE_THEME_VERSION}');\n"
+            "    const setup = typeof mod.default === 'function' ? mod.default : typeof mod.setup === 'function' ? mod.setup : null;\n"
+            "    const cleanup = setup ? setup(context) : null;\n"
+            "    window.addEventListener('pagehide', () => {\n"
+            "      if (typeof cleanup === 'function') cleanup();\n"
+            "      else if (typeof mod.teardown === 'function') mod.teardown(context);\n"
+            "    }, { once: true });\n"
+            "    window.dispatchEvent(new CustomEvent('aaronnote:kind-ready', { detail: context }));\n"
+            "  </script>"
+        )
+    return "\n".join(lines)
+
+
 def copy_static(notes: list[Note]) -> None:
     private_assets = set()
     for note in notes:
@@ -755,6 +847,7 @@ def publish_single_note(args: list[str]) -> bool:
     output_root.mkdir(parents=True, exist_ok=True)
     copy_published_styles(output_root)
     copy_note_static_assets(note, output_root)
+    copy_note_kind_assets(note, output_root)
     status = render_note_html(
         note,
         output_root=output_root,

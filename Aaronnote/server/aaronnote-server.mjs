@@ -36,6 +36,9 @@ let noteRoot = resolve(String(args.root || process.env.AARONNOTE_ROOT || join(ap
 let noteScanRoot = noteRoot;
 const excludedDirs = new Set(["_typst", "public", "var", ".git", ".direnv", ".venv", "node_modules"]);
 const noteExts = new Set([".typ", ".md", ".markdown"]);
+const defaultNoteKind = "default";
+const defaultNoteKindAliases = new Set(["", "default", "note"]);
+const noteKindPattern = /^[a-z0-9_-]+$/;
 let noteCacheRoot = "";
 let noteCache = new Map();
 let snippetCache = { key: "", scannedAt: 0, snippets: [] };
@@ -122,6 +125,34 @@ async function serveStaticFile(req, res, staticDir) {
   } catch {
     if (pathname !== "/") return serveStaticFile({ ...req, url: "/" }, res, staticDir);
     return false;
+  }
+}
+
+async function serveKindAsset(req, res) {
+  if (req.method !== "GET") return false;
+  const url = new URL(req.url || "/", `http://${host}:${port}`);
+  if (!url.pathname.startsWith("/kinds/")) return false;
+  const root = resolve(workspaceRoot, "kinds");
+  const requested = decodeURIComponent(url.pathname.slice("/kinds/".length));
+  const file = resolve(root, requested);
+  if (!inside(file, root)) {
+    res.statusCode = 403;
+    res.end("Forbidden");
+    return true;
+  }
+  try {
+    const info = await stat(file);
+    if (!info.isFile()) {
+      res.statusCode = 404;
+      res.end("Not found");
+      return true;
+    }
+    await sendTextFile(res, file, fileContentType(file));
+    return true;
+  } catch {
+    res.statusCode = 404;
+    res.end("Not found");
+    return true;
   }
 }
 
@@ -479,27 +510,54 @@ function parseListValue(value) {
   return trimmed.split(/[, ]+/).map((item) => item.trim()).filter(Boolean);
 }
 
-function parseMetaBlock(content) {
-  const match = content.match(/^\s*#\+begin\s+meta\s*\r?\n([\s\S]*?)\r?\n\s*#\+end\s+meta\s*$/im);
-  if (!match) return {};
+function parseMetaScalar(value) {
+  let trimmed = String(value || "").trim();
+  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+    trimmed = trimmed.slice(1, -1);
+  }
+  if (trimmed === "true" || trimmed === "false") return trimmed === "true";
+  return trimmed.replace(/\\_/g, "_");
+}
+
+function parseMetaLines(raw) {
   const meta = {};
-  for (const rawLine of match[1].split(/\r?\n/)) {
+  let currentList = "";
+  for (const rawLine of raw.split(/\r?\n/)) {
+    const item = rawLine.match(/^\s*-\s*(.+?)\s*$/);
+    if (item && currentList) {
+      if (!Array.isArray(meta[currentList])) meta[currentList] = [];
+      meta[currentList].push(parseMetaScalar(item[1]));
+      continue;
+    }
     const line = rawLine.trim();
     if (!line || line.startsWith("#")) continue;
     const pair = line.match(/^([A-Za-z0-9_-]+)\s*:\s*(.*)$/);
     if (!pair) continue;
     const key = pair[1].toLowerCase();
-    let value = pair[2].trim();
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-      value = value.slice(1, -1);
+    const value = pair[2].trim();
+    if (!value) {
+      meta[key] = [];
+      currentList = key;
+      continue;
     }
     if (key === "tags" || key === "refs" || key === "aliases") {
       meta[key] = parseListValue(value);
     } else {
-      meta[key] = value;
+      meta[key] = parseMetaScalar(value);
     }
+    currentList = "";
   }
   return meta;
+}
+
+function parseFrontMatter(content) {
+  const match = String(content || "").match(/^\s*---\s*\r?\n([\s\S]*?)\r?\n---\s*(?:\r?\n|$)/);
+  return match ? parseMetaLines(match[1]) : {};
+}
+
+function parseMetaBlock(content) {
+  const match = content.match(/^\s*#\+begin\s+meta\s*\r?\n([\s\S]*?)\r?\n\s*#\+end\s+meta\s*$/im);
+  return match ? parseMetaLines(match[1]) : {};
 }
 
 function metaBlockRange(content) {
@@ -531,7 +589,7 @@ function buildMetaBlock(fields) {
     `id: ${fields.id}`,
     `title: ${fields.title}`,
     `date: ${ensureDate(fields.date)}`,
-    `kind: ${fields.kind || "note"}`,
+    `kind: ${fields.kind || defaultNoteKind}`,
     `tags: ${tags.join(", ")}`,
     `refs: ${refs.join(", ")}`,
   ];
@@ -552,7 +610,7 @@ function metaFieldsForFile(file, content, patch = {}) {
     id,
     title,
     date: ensureDate(patch.date || current.date),
-    kind: patch.kind || current.kind || "note",
+    kind: normalizeNoteKind(patch.kind || current.kind || defaultNoteKind),
     tags: normalizeTags(patch.tags ?? current.tags ?? []),
     refs: normalizeTags(patch.refs ?? current.refs ?? []),
     aliases: normalizeTags(patch.aliases ?? current.aliases ?? []),
@@ -610,6 +668,7 @@ function parseTypstMetadata(content) {
 
 function noteMetadata(content) {
   return {
+    ...parseFrontMatter(content),
     ...parseTypstMetadata(content),
     ...parseMetaBlock(content),
   };
@@ -916,9 +975,21 @@ function sourceFromContent(content) {
   return String(meta.source || "");
 }
 
-function kindFromContent(content) {
+function normalizeNoteKind(value) {
+  const item = Array.isArray(value) ? value[0] : value;
+  const kind = String(item || "").trim().replace(/\\_/g, "_").toLowerCase();
+  if (defaultNoteKindAliases.has(kind)) return defaultNoteKind;
+  return noteKindPattern.test(kind) ? kind : defaultNoteKind;
+}
+
+export function kindFromContent(content) {
   const meta = noteMetadata(content);
-  return String(meta.kind || "note");
+  return normalizeNoteKind(meta.kind ?? meta.kinds ?? defaultNoteKind);
+}
+
+export function activeKindFromContent(content) {
+  const kind = kindFromContent(content);
+  return kind === defaultNoteKind ? "" : kind;
 }
 
 function summaryFromContent(content) {
@@ -1227,6 +1298,7 @@ async function readNote(file) {
     title: titleFromContent(safe, content),
     mode: modeForFile(safe),
     content,
+    kind: kindFromContent(content),
     standalone,
     notes: await scanNotes(),
     snippets: await scanSnippets(),
@@ -1488,7 +1560,7 @@ async function updateCurrentNoteMeta(body, action) {
     next = upsertMetaBlock(file, content, {
       title: body.title,
       tags: body.tags || tagsFromContent(content),
-      kind: body.kind || "note",
+      kind: body.kind || defaultNoteKind,
     });
   }
   if (next !== content) await atomicWriteFile(file, next, "utf8");
@@ -1691,7 +1763,7 @@ async function routeApi(req, res) {
         return true;
       }
       if (standaloneFile(file)) {
-        sendJson(res, 200, { type: "saved", ok: true, file, message: "Saved", standalone: true });
+        sendJson(res, 200, { type: "saved", ok: true, file, kind: kindFromContent(String(body.content ?? "")), message: "Saved", standalone: true });
       } else {
         const notes = await scanNotes();
         scheduleRoamDbSync(notes);
@@ -1792,6 +1864,7 @@ export async function startAaronnoteServer(options = {}) {
   let vite;
   const server = createHttpServer(async (req, res) => {
     if ((req.url || "").startsWith("/api/") && await routeApi(req, res)) return;
+    if ((req.url || "").startsWith("/kinds/") && await serveKindAsset(req, res)) return;
     if ((req.url || "").startsWith("/roam-tools/") && await routeRoamTools(req, res)) return;
     if (staticDir && await serveStaticFile(req, res, resolve(String(staticDir)))) return;
     if (vite) {

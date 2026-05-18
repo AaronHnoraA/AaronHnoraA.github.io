@@ -1,6 +1,8 @@
-# typora-web
+# Aaronnote / typora-web
 
 > A Typora-style Markdown editor for the web.
+
+This README is package-focused. For workspace-level docs about project structure, publishing, and data maintenance, start from [../docs/README.md](/Users/hc/HC/Org/docs/README.md).
 
 Markdown looks like a finished document while you write it. Italic renders as *italic* the moment you close the asterisks. Headings appear at their final size as soon as you start typing. Source markers like `*` and `#` fade out when the cursor moves away and come back when you click in.
 
@@ -17,8 +19,8 @@ Task lists hold their state visually:
 - [x] inline marks (em, strong, code, strike, highlight, sub/sup)
 - [x] autolinks and reference-style links
 - [x] tables with per-column alignment
-- [ ] inline and block math (planned, KaTeX-based)
-- [ ] diagram fences like mermaid (planned, opt-in)
+- [x] inline and block math
+- [~] mermaid code-fence preview
 
 Lists nest, and exit on a triple-Enter staircase the way Typora does:
 
@@ -94,7 +96,7 @@ Legend: :white\_check\_mark: stable · :yellow\_circle: partial (note explains w
 | YAML front matter                        | :white_check_mark: |                                                                                             |
 | reference link def `[id]: url`           | :yellow_circle:    | live entry committed as block; reload drops the def node (markdown-it consumes it on parse) |
 | HTML block                               | :pause_button:     | needs sanitizer policy; planned as opt-in plugin                                            |
-| math block `$$…$$`                       | :pause_button:     | planned as opt-in KaTeX plugin                                                              |
+| math block `$$…$$`                       | :white_check_mark: | block node, source-preserving parse/serialize, rendered preview                             |
 
 ### Inline syntax
 
@@ -115,7 +117,7 @@ Legend: :white\_check\_mark: stable · :yellow\_circle: partial (note explains w
 | soft break (`\n` in para)        | :white_check_mark: |                                                                          |
 | backslash escape `\*`            | :yellow_circle:    | round-trip works; no input-time UX                                       |
 | inline HTML                      | :pause_button:     | paired with HTML block decision                                          |
-| inline math `$x$`                | :pause_button:     | planned with math block                                                  |
+| inline math `$x$`                | :white_check_mark: | raw TeX preserved; rendered inline preview                               |
 
 ### Typora extensions
 
@@ -127,7 +129,7 @@ Legend: :white\_check\_mark: stable · :yellow\_circle: partial (note explains w
 | `[toc]` block                     | :white_check_mark: |                                           |
 | emoji `:smile:`                   | :white_check_mark: |                                           |
 | HTML comment `<!-- -->`           | :white_check_mark: |                                           |
-| diagram fences (mermaid, flow, …) | :pause_button:     | planned as opt-in plugin (heavy renderer) |
+| diagram fences (mermaid, flow, …) | :yellow_circle:    | `mermaid` preview exists for fenced code blocks; broader diagram families are not implemented |
 
 ### Editor behaviors
 
@@ -136,6 +138,12 @@ Legend: :white\_check\_mark: stable · :yellow\_circle: partial (note explains w
 | cursor-aware delimiter hinting       | :white_check_mark: |       |
 | auto-pair brackets                   | :white_check_mark: |       |
 | lossless `parse → serialize → parse` | :white_check_mark: |       |
+
+## Current Notes
+
+- Math is no longer a planned feature. The repo already contains parser, serializer, render, and editor tests for inline and display math.
+- Mermaid is partially implemented through fenced-code preview and lazy rendering. The README used to describe it as future work; that is no longer accurate.
+- The main unresolved edge cases are still reference-definition reload, complex inline link parsing, triple-emphasis nesting, and indented-code shape preservation.
 
 ## Spec
 

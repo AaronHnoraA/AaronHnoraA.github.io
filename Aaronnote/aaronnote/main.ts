@@ -287,6 +287,9 @@ const saveClientId = (() => {
 let saveAbortController: AbortController | null = null;
 let pathSuggestions: string[] = [];
 let pendingEquationTag = params.get("eqTag") || "";
+let activeNoteKind = "";
+let noteKindCleanup: (() => void) | null = null;
+let noteKindLoadSeq = 0;
 
 const recentStorageKey = "aaronnote.recent";
 const writingModeStorageKey = "aaronnote.writingMode";
@@ -318,6 +321,22 @@ type UploadedAsset = {
   isImage?: boolean;
   markdownPath?: string;
   message?: string;
+};
+
+type NoteKindContext = {
+  kind: string;
+  file: string;
+  note?: NoteSummary;
+  content: string;
+  editor: unknown;
+  host: HTMLElement;
+  root: HTMLElement;
+};
+
+type NoteKindModule = {
+  default?: (context: NoteKindContext) => void | (() => void);
+  setup?: (context: NoteKindContext) => void | (() => void);
+  teardown?: (context: NoteKindContext) => void;
 };
 
 const demoSnippets: SnippetSummary[] = [
@@ -951,6 +970,7 @@ async function saveStandalone(): Promise<boolean> {
       if (!graphPage.hidden) renderGraph();
       updateFloatingToc();
     }
+    void applyNoteKindAssets(msg.kind ?? currentNote()?.kind ?? noteKindFromMarkdown(content));
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") return false;
     if (seq !== saveRequestSeq || file !== currentFile) return false;
@@ -1505,8 +1525,129 @@ function currentNote(): NoteSummary | undefined {
     file: currentFile,
     path: currentFile,
     title: fileNameFromPath(currentFile),
+    kind: noteKindFromMarkdown(editor.getMarkdown()),
     standalone: currentStandalone,
   };
+}
+
+function parseMetaScalar(value: string): string {
+  const trimmed = value.trim();
+  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed.replace(/\\_/g, "_");
+}
+
+function firstMetaValue(raw: string, keys: string[]): string {
+  const wanted = new Set(keys.map((key) => key.toLowerCase()));
+  for (const line of raw.split(/\r?\n/)) {
+    const pair = line.match(/^\s*([A-Za-z0-9_-]+)\s*:\s*(.*?)\s*$/);
+    if (!pair || !wanted.has(pair[1].toLowerCase())) continue;
+    return parseMetaScalar(pair[2]);
+  }
+  return "";
+}
+
+function noteKindFromMarkdown(markdown: string): string {
+  const text = String(markdown || "");
+  const org = text.match(/^\s*#\+begin\s+meta\s*\r?\n([\s\S]*?)\r?\n\s*#\+end\s+meta\s*$/im);
+  const yaml = text.match(/^\s*---\s*\r?\n([\s\S]*?)\r?\n---\s*(?:\r?\n|$)/);
+  return normalizeNoteKind(firstMetaValue(org?.[1] ?? yaml?.[1] ?? "", ["kind", "kinds"]));
+}
+
+function normalizeNoteKind(value: unknown): string {
+  const kind = String(Array.isArray(value) ? value[0] : value || "").trim().replace(/\\_/g, "_").toLowerCase();
+  if (!kind || kind === "default" || kind === "note") return "default";
+  return /^[a-z0-9_-]+$/.test(kind) ? kind : "default";
+}
+
+function activeKindName(value: unknown): string {
+  const kind = normalizeNoteKind(value);
+  return kind === "default" ? "" : kind;
+}
+
+function noteKindContext(kind: string): NoteKindContext {
+  return {
+    kind,
+    file: currentFile,
+    note: currentNote(),
+    content: editor.getMarkdown(),
+    editor,
+    host,
+    root,
+  };
+}
+
+function setKindDataset(kind: string): void {
+  const value = kind || "default";
+  root.dataset.noteKind = value;
+  host.dataset.noteKind = value;
+  document.body.dataset.noteKind = value;
+}
+
+function clearNoteKindAssets(): void {
+  const context = activeNoteKind ? noteKindContext(activeNoteKind) : null;
+  try {
+    noteKindCleanup?.();
+  } catch (err) {
+    console.warn("Aaronnote kind cleanup failed", err);
+  }
+  if (context) {
+    window.dispatchEvent(new CustomEvent("aaronnote:kind-leave", { detail: context }));
+  }
+  noteKindCleanup = null;
+  activeNoteKind = "";
+  document.querySelectorAll<HTMLLinkElement>("link[data-aaronnote-kind-asset]").forEach((link) => link.remove());
+}
+
+function dispatchNoteKindReady(kind: string): void {
+  window.dispatchEvent(new CustomEvent("aaronnote:kind-ready", { detail: noteKindContext(kind) }));
+}
+
+async function applyNoteKindAssets(kindValue: unknown): Promise<void> {
+  const kind = activeKindName(kindValue);
+  const seq = ++noteKindLoadSeq;
+  setKindDataset(kind);
+  if (!kind) {
+    clearNoteKindAssets();
+    return;
+  }
+  if (activeNoteKind === kind) {
+    dispatchNoteKindReady(kind);
+    return;
+  }
+
+  clearNoteKindAssets();
+  activeNoteKind = kind;
+
+  const css = document.createElement("link");
+  css.rel = "stylesheet";
+  css.href = `/kinds/${encodeURIComponent(kind)}/index.css`;
+  css.dataset.aaronnoteKindAsset = "style";
+  css.dataset.kind = kind;
+  document.head.appendChild(css);
+
+  try {
+    const mod = await import(/* @vite-ignore */ `/kinds/${encodeURIComponent(kind)}/index.js`) as NoteKindModule;
+    if (seq !== noteKindLoadSeq || activeNoteKind !== kind) {
+      const staleContext = noteKindContext(kind);
+      if (typeof mod.teardown === "function") mod.teardown(staleContext);
+      return;
+    }
+    const context = noteKindContext(kind);
+    const setup = typeof mod.default === "function" ? mod.default : typeof mod.setup === "function" ? mod.setup : null;
+    const cleanup = setup?.(context);
+    noteKindCleanup = typeof cleanup === "function"
+      ? cleanup
+      : typeof mod.teardown === "function"
+        ? () => mod.teardown?.(context)
+        : null;
+    dispatchNoteKindReady(kind);
+  } catch (err) {
+    if (seq === noteKindLoadSeq && activeNoteKind === kind) {
+      console.warn(`Aaronnote kind assets unavailable for ${kind}`, err);
+    }
+  }
 }
 
 function findLatexTagRange(tex: string, tag: string): { from: number; to: number } | null {
@@ -1715,7 +1856,7 @@ async function openTagManager(): Promise<void> {
   await updateNoteMeta("/api/meta/add", {
     title: note?.title || fileLabel.textContent || "Untitled",
     tags: parseTagPrompt(result.tags),
-    kind: note?.kind || "note",
+    kind: note?.kind || "default",
   }, "Tags updated");
 }
 
@@ -2914,6 +3055,7 @@ function applyOpen(msg: Extract<Inbound, { type: "open" }>): void {
   if (currentMode === "markdown" && editor.isSourceMode()) editor.toggleSource();
   syncSourceUi();
   editor.setMarkdown(msg.content ?? "");
+  void applyNoteKindAssets(msg.kind ?? currentNote()?.kind ?? noteKindFromMarkdown(msg.content ?? ""));
   const equationTag = normalizeEquationTag(pendingEquationTag);
   pendingEquationTag = "";
   const todoFocus = pendingTodoFocus && pendingTodoFocus.file === currentFile ? pendingTodoFocus : null;

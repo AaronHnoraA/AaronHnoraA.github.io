@@ -1,59 +1,49 @@
-# Aaron's Markdown Roam
+# Org / Aaronnote Workspace
 
-This directory is Aaron's personal knowledge base and published website source.
+这个仓库主要服务两件事：
 
-The canonical note format is Markdown. Note identity, tags, links, and publishing metadata live in `#+begin meta` blocks in `roam/**/*.md`.
+1. `Aaronnote/` 的开发、测试和打包。
+2. 基于 Markdown `roam/` 数据源的发布、索引和维护。
 
-## Layout
+这里的重点不是笔记内容本身，而是编辑器、发布链路、数据结构和维护流程。
 
-- `roam/`: long-lived Markdown notes, grouped by directory.
-- `CV/`: CV source and generated PDF. This is separate from the note publishing pipeline.
-- `public/`: generated website output.
-- `agent/`: AI-facing indexes, wiki summaries, and maintenance prompts generated from `roam/**/*.md`.
+## 文档入口
 
-## Note Metadata
+- [docs/README.md](/Users/hc/HC/Org/docs/README.md): 文档总览
+- [docs/project.md](/Users/hc/HC/Org/docs/project.md): 项目结构、职责边界、维护约定
+- [docs/codebase.md](/Users/hc/HC/Org/docs/codebase.md): 代码结构与关键模块
+- [docs/status.md](/Users/hc/HC/Org/docs/status.md): 当前开发进度、测试状态、已知问题
 
-Each published note declares an org-env meta block:
+## 仓库结构
 
-```md
-#+begin meta
-id: 20260511T120000-example
-title: Example
-date: 2026-05-11
-tags: math, draft
-#+end meta
-```
+- `Aaronnote/`: Typora 风格 Markdown 编辑器，含 Web/desktop/server 构建。
+- `roam/`: Markdown 数据源；这里是事实来源，不是派生输出。
+- `public/`: 发布后的站点产物。
+- `bin/publish-site`: 从 `roam/` 生成 `public/` 的发布脚本。
+- `agent/`: AI 检索和维护用的派生索引、压缩 wiki、维护脚本。
+- `CV/`: 简历源码与构建产物，和主编辑器/发布链路基本独立。
 
-Cross-note links use normal relative Markdown links:
+## 常用命令
 
-```md
-[Example](../math/example.md)
-```
-
-Block notes use the org-env syntax supported by Aaronnote:
-
-```md
-#+begin theorem Optional title
-Statement.
-#+end theorem
-```
-
-Run `make maintain` after note content changes when the AI-facing Markdown indexes under `agent/` should be refreshed.
-
-## Publishing
-
-Run:
+根目录：
 
 ```sh
 make publish
+make maintain
+make build
 ```
 
-`bin/publish-site` scans Markdown note metadata, renders notes to `public/roam/**/*.html`, writes `public/js/data.js` for the archive and graph UI, and copies static assets.
+`Aaronnote/` 目录：
 
-Private areas are sealed during publishing. `bin/publish-site` treats every note under `roam/daily/` and `roam/project/` as private by default; change `PRIVATE_PATH_PREFIXES` there to add or remove folder-level shields. A single note can also opt in with `private: true`, `hidden: true`, `publish: false`, `visibility: "private"`, or a tag such as `"private"` / `"no-export"`. Private notes are hidden from the public note list and search, but their titles and note links remain in graph data so relationships stay connected. The source body, summary, tags, and private note assets are not distributed.
+```sh
+npm install
+npm test
+npm run start
+npm run build
+```
 
-Note HTML rendering is incremental. Dependency snapshots live in `public/.deps/`; unchanged notes are skipped.
+## 当前状态
 
-After a successful publish, ignored state file `public/.publish-state.json` records the current git `HEAD`. If the relevant publishing inputs are clean and the same `HEAD` is published again, `make publish` skips the whole publish pass. `make all` refreshes that state after its site commit so the next run can skip immediately. Use `make force` to bypass the manifest and render outputs.
-
-`make all` publishes, syncs to the NAS target, commits changed output, and pushes.
+- `Aaronnote` 测试已在 2026-05-18 跑过一次：`39` 个测试文件、`550` 个测试全部通过。
+- 发布链路当前仍以文件系统和派生数据为中心，不是中心化数据库应用。
+- 已知限制和后续工作见 [docs/status.md](/Users/hc/HC/Org/docs/status.md)。
