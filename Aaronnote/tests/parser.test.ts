@@ -107,6 +107,61 @@ $$`;
     expect(serialize(parse(source)).trimEnd()).toBe(source);
   });
 
+  test("display math with standalone equals is not parsed as setext heading", () => {
+    const source = String.raw`$$
+\mathrm{GI}
+=
+\{(G,H) : G \cong H\}.
+$$`;
+    const doc = parse(source);
+    expect(doc.childCount).toBe(1);
+    expect(doc.child(0).type).toBe(schema.nodes.math_block);
+    expect(serialize(doc).trimEnd()).toBe(source);
+  });
+
+  test("display math with standalone equals works inside blockquote", () => {
+    const doc = parse(String.raw`> $$
+> \mathrm{GI}
+> =
+> \{(G,H) : G \cong H\}.
+> $$`);
+    const blockquote = doc.child(0);
+    expect(blockquote.type).toBe(schema.nodes.blockquote);
+    expect(blockquote.child(0).type).toBe(schema.nodes.math_block);
+    expect(blockquote.child(0).textContent).toBe(String.raw`\mathrm{GI}
+=
+\{(G,H) : G \cong H\}.`);
+  });
+
+  test("display math with standalone equals works as a list item block", () => {
+    const doc = parse(String.raw`-
+  $$
+  \mathrm{GI}
+  =
+  \{(G,H) : G \cong H\}.
+  $$`);
+    const item = doc.child(0).child(0);
+    const mathBlock = item.child(1);
+    expect(mathBlock.type).toBe(schema.nodes.math_block);
+    expect(mathBlock.textContent).toBe(String.raw`\mathrm{GI}
+=
+\{(G,H) : G \cong H\}.`);
+  });
+
+  test("compact list item display math is folded out of paragraph fallback", () => {
+    const doc = parse(String.raw`- $$
+  \mathrm{GI}
+  =
+  \{(G,H) : G \cong H\}.
+  $$`);
+    const item = doc.child(0).child(0);
+    const mathBlock = item.child(1);
+    expect(mathBlock.type).toBe(schema.nodes.math_block);
+    expect(mathBlock.textContent).toBe(String.raw`\mathrm{GI}
+=
+\{(G,H) : G \cong H\}.`);
+  });
+
   test("same-line double-dollar math source stays editable text", () => {
     const doc = parse("$$ E = mc^2 $$");
     const p = doc.child(0);
@@ -143,6 +198,16 @@ $$`;
     expect(block.child(0).textContent).toBe("quoted");
   });
 
+  test("org block content inside blockquote does not retain quote markers", () => {
+    const doc = parse("> #+begin summary\n> ## Inner\n> #+end summary");
+    const blockquote = doc.child(0);
+    expect(blockquote.type).toBe(schema.nodes.blockquote);
+    const block = blockquote.child(0);
+    expect(block.type).toBe(schema.nodes.org_env_block);
+    expect(block.child(0).type).toBe(schema.nodes.heading);
+    expect(block.child(0).textContent).toBe("Inner");
+  });
+
   test("org block display math preserves TeX backslashes", () => {
     const source = String.raw`$$
 \begin{array}{cc}
@@ -155,6 +220,18 @@ $$`;
     const mathBlock = block.child(0);
     expect(mathBlock.type).toBe(schema.nodes.math_block);
     expect(mathBlock.textContent).toBe(source.split("\n").slice(1, -1).join("\n"));
+  });
+
+  test("org block display math with standalone equals is not parsed as setext heading", () => {
+    const source = String.raw`$$
+\mathrm{GI}
+=
+\{(G,H) : G \cong H\}.
+$$`;
+    const doc = parse(`#+begin summary\n${source}\n#+end summary`);
+    const block = doc.child(0);
+    expect(block.child(0).type).toBe(schema.nodes.math_block);
+    expect(block.child(0).textContent).toBe(source.split("\n").slice(1, -1).join("\n"));
   });
 
   test("org comment block parses as a comment node", () => {
@@ -256,6 +333,11 @@ describe("parser: inline marks", () => {
 
   test("inline math preserves raw TeX escapes before markdown escape handling", () => {
     const source = String.raw`outside $\#\mathrm{GI}(G,H)$`;
+    expect(serialize(parse(source)).trimEnd()).toBe(source);
+  });
+
+  test("inline math preserves raw TeX escapes inside headings", () => {
+    const source = String.raw`## Inline $\#\mathrm{GI}(G,H)$`;
     expect(serialize(parse(source)).trimEnd()).toBe(source);
   });
 });

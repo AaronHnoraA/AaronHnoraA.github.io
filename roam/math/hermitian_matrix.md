@@ -5,104 +5,884 @@ date: 2026-01-27
 kind: note
 tags: concept, math, QC
 refs:
-source: roam/math/hermitian\_matrix.md
+source: roam/math/hermitian_matrix.md
 #+end meta
-
-# Hermitian Matrix
 
 # Hermitian Matrix 厄米矩阵
 
-埃尔米特矩阵（英语：Hermitian matrix，又译作厄米特矩阵，厄米矩阵），也称自伴随矩阵，是共轭对称的方阵。埃尔米特矩阵中每一个第 $i$ 行第 $j$ 列的元素都与第 $j$ 行第 $i$ 列的元素的复共轭。例如$mat(3, 2+i; 2-i, 1)$ 就是一个埃尔米特矩阵。
+#+begin summary
+A Hermitian matrix is a complex square matrix that equals its own conjugate transpose.
 
-显然，埃尔米特矩阵主对角线上的元素都是实数，其特征值也是实数。对于实矩阵，如果它是对称矩阵，则它也满足埃尔米特矩阵的定义，即，实对称矩阵是埃尔米特矩阵的特例.
+Equivalently, a matrix $A \in M_n(\mathbb{C})$ is Hermitian if
 
-# 性质
+$$
+A^\dagger = A.
+$$
 
-- 若 $A$质
-  $ 是埃尔米特矩阵，那么它们的和 $A+B$ 也是埃尔米特矩阵；而只有在 $A$ 和 $B$ 满足交换性（即 $A B=B A$）时，它们的积才是埃尔米特矩阵。
-- 可逆的埃尔米特矩阵 $A$ 的逆矩阵 $A^(-1)$ 仍然是埃尔米特矩阵。
-- 如果 $A$ 是埃尔米特矩阵，对于正整数 $n$，$A^(n)$ 是埃尔米特矩阵。
-- 方阵 $C$ 与其共轭转置的和 $C+C^(*)$ 是埃尔米特矩阵，方阵 $C$ 与其共轭转置的差 $C-C^(*)$ 是斜埃尔米特矩阵。
-- 任意方阵 $C$ 都可以用一个埃尔米特矩阵 $A$ 与一个斜埃尔米特矩阵 $B$ 的和表示：
-  $ C=A+B  quad  "with"  quad  A=(1)/(2)(C+C^(*))  quad  "and"  quad  B=(1)/(2)(C-C^(*)) $
-- 埃尔米特矩阵是正规矩阵，因此埃尔米特矩阵可被酉对角化，而且得到的对角阵的元素都是实数。这意味着埃尔米特矩阵的特征值都是实的，而且不同的特征值所对应的特征向量相互正交，因此可以在这些特征向量中找出一组 $bb(C)^n$ 的正交基。
-- $n$ -阶埃尔米特矩阵的元素构成维数为 $n^(2)$ 的实向量空间，因为主对角线上的元素有一个自由度，而主对角线之上的元素有两个自由度。
-- 如果埃尔米特矩阵的特征值都是正数，那么这个矩阵是正定矩阵；若它们是非负的，则这个矩阵是半正定矩阵.
+In coordinates, this means
 
-# Hermitian Operators 自伴算子|厄米算符
+$$
+A_{ij} = \overline{A_{ji}}
+$$
 
-在量子力学里，自伴算子，又称为自伴算符，或厄米算符（Hermitian operator），是一种等于自己的厄米共轭的算符。给予算符 $hat(O)$  和其伴随算符$hat(O)^(dagger)$，假设$\hat{O} = \hat{O}^\dagger$，则称 $\hat{O}$为厄米算符。厄米算符的期望可以表示量子力学中的物理量。
+for all $1 \le i,j \le n$.
 
-这是因为
+Hermitian matrices are the complex analogue of real symmetric matrices. They are central in linear algebra, spectral theory, and quantum mechanics because their eigenvalues are real and they can be diagonalised by unitary matrices.
+#+end summary
+
+# Definition 定义
+
+#+begin define
+Let $A \in M_n(\mathbb{C})$ be a complex square matrix. We say that $A$ is Hermitian if
+
+$$
+A^\dagger = A,
+$$
+
+where
+
+$$
+A^\dagger = \overline{A}^{\,T}
+$$
+
+is the conjugate transpose of $A$.
+#+end define
+
+Equivalently, $A$ is Hermitian if and only if
+
+$$
+A_{ij}
+=
+\overline{A_{ji}}
+$$
+
+for all $i,j$.
+
+For example,
+
+$$
+A
+=
+\begin{pmatrix}
+3 & 2+i \\
+2-i & 1
+\end{pmatrix}
+$$
+
+is Hermitian, because
+
+$$
+A^\dagger
+=
+\begin{pmatrix}
+3 & 2+i \\
+2-i & 1
+\end{pmatrix}
+=
+A.
+$$
+
+#+begin note
+For a real matrix, conjugation has no effect. Therefore, a real Hermitian matrix is exactly a real symmetric matrix.
+#+end note
+
+# Basic Consequences 基本结论
+
+## Diagonal entries are real 主对角线元素为实数
+
+If $A$ is Hermitian, then for every diagonal entry,
+
+$$
+A_{ii}
+=
+\overline{A_{ii}}.
+$$
+
+Hence
+
+$$
+A_{ii} \in \mathbb{R}.
+$$
+
+So every diagonal entry of a Hermitian matrix is real.
+
+## Eigenvalues are real 特征值为实数
+
+#+begin theorem
+Every eigenvalue of a Hermitian matrix is real.
+#+end theorem
 
 #+begin proof
-每一个物理量测出来都是实数, 因此我们有 $   lr(\angle.l O \angle.r)  =  lr(\angle.l O \angle.r) ^* $ 对于任意量子态 $ lr(|psi angle.r)  $，有 
+Let $A$ be Hermitian, and suppose
 
-$$ lr(angle.l psi | \\hat(O) | psi \\angle.r)  =  lr(\\angle.l psi | \\hat(O)^(\\dagger) | psi \\angle.r) $$
+$$
+Av = \lambda v
+$$
 
- 根据厄米共轭的定义，我们有:  $    lr(\angle.l psi | \hat(O) | psi \angle.r)  =  lr(\angle.l psi | \hat(O) | psi \angle.r)  ^(\dagger) $ Hence,   $hat(O) = hat(O)^{{dagger}} $.
+for some nonzero vector $v \in \mathbb{C}^n$.
+
+Then
+
+$$
+\langle Av,v\rangle
+=
+\langle \lambda v,v\rangle
+=
+\lambda \langle v,v\rangle,
+$$
+
+using the convention that the inner product is linear in the first variable.
+
+Since $A$ is Hermitian,
+
+$$
+\langle Av,v\rangle
+=
+\langle v,Av\rangle.
+$$
+
+But
+
+$$
+\langle v,Av\rangle
+=
+\langle v,\lambda v\rangle
+=
+\overline{\lambda}\langle v,v\rangle.
+$$
+
+Therefore,
+
+$$
+\lambda \langle v,v\rangle
+=
+\overline{\lambda}\langle v,v\rangle.
+$$
+
+Since $v \neq 0$,
+
+$$
+\langle v,v\rangle > 0.
+$$
+
+Hence
+
+$$
+\lambda = \overline{\lambda}.
+$$
+
+Therefore,
+
+$$
+\lambda \in \mathbb{R}.
+$$
 #+end proof
 
-这便是厄米算符的定义.
+# Properties 性质
 
-## 物理量的算符化表示
+Let $A,B \in M_n(\mathbb{C})$.
 
-在量子力学中，物理量（observable）并不再被视为系统在某一时刻所“具有”的确定数值，
-而是被建模为作用在态空间上的一个 *厄米算符* $hat(A)$。
+## 1. Sums are Hermitian 加法封闭
 
-这一建模选择的核心思想在于：
+If $A$ and $B$ are Hermitian, then
 
-- 厄米算符保证测量结果为实数；
-- 算符的谱结构（本征值）给出该物理量在测量中 *所有可能出现的结果集合*。
+$$
+A+B
+$$
 
-若 $hat(A)$ 的本征值与本征态满足
-$ hat(A)  lr(|a_n angle.r)  = a_n  lr(|a_n angle.r) , $
-则 ${a_n}$ 构成了对物理量 $A$ 的一次测量所能得到的全部可能结果。
+is Hermitian.
 
-在此意义下，算符 $hat(A)$ 并不直接等同于测量结果，
-而是作为一种 *结果空间的生成机制*。
+Indeed,
 
-## 统计意义下的期望值
+$$
+(A+B)^\dagger
+=
+A^\dagger+B^\dagger
+=
+A+B.
+$$
 
-从朴素的统计学角度出发，若测量结果 $a_n$ 出现的概率为 $p_n$，
-则物理量 $A$ 的实验平均值自然定义为
-$  lr(angle.l A angle.r)  =  sum _n a_n thin  p_n, $
-该量反映了在大量重复实验下测量结果的统计稳定值，
-而非单次实验中的确定结果。
+## 2. Scalar multiplication 标量乘法
 
-## 量子态与概率权重
+If $A$ is Hermitian and $\lambda \in \mathbb{R}$, then
 
-在量子力学中，系统的状态由态向量 $ lr(|psi angle.r) $ 描述。
-当对物理量 $A$ 进行测量时，态 $ lr(|psi angle.r) $ 并不指定某个确定的结果，
-而是为算符 $hat(A)$ 的谱提供一组概率权重。
+$$
+\lambda A
+$$
 
-具体而言，测得本征值 $a_n$ 的概率由
-$ p_n = | lr(angle.l a_n | psi angle.r) |^2 $
-给出。
+is Hermitian.
 
-由此，量子态的角色并非“物理量的真实取值”，
-而是 *对可能测量结果的统计分布规则*。
+Indeed,
 
-## 期望值的算符形式
+$$
+(\lambda A)^\dagger
+=
+\overline{\lambda}A^\dagger
+=
+\lambda A.
+$$
 
-将量子力学给出的概率 $p_n$ 代入统计平均的定义， 并利用本征态的完备性关系 $\sum_e^t {ss} $  $ 可以得到 $  lr(\\angle.l A \\angle.r)  =  lr(\\angle.l psi | \\hat(A) | psi \\angle.r) . $
+#+begin warning
+If $\lambda \in \mathbb{C}$ is not real, then $\lambda A$ is generally not Hermitian.
+#+end warning
 
-该公式并非新的物理假设，
-而是对“结果 × 概率”这一统计平均的紧凑线性代数表达。
+## 3. Products are Hermitian only under commutativity 乘积需要交换性
 
-## 量化建模的视角
+If $A$ and $B$ are Hermitian, then $AB$ is Hermitian if and only if
 
-从建模角度看，
-量子力学对物理量的处理并非试图刻画微观系统的“即时真实状态”，
-而是将原本连续、不可控的物理过程
-映射为一个谱问题与一个概率分布的组合：
+$$
+AB = BA.
+$$
 
-- 算符的谱刻画 *可观测结果的结构*；
-- 量子态刻画 *结果在统计意义下的权重分配*；
-- 期望值刻画 *实验上可复现的统计量*。
+Indeed,
 
-在这一意义下，
-将物理量表示为厄米算符并以其本征值作为测量结果，
-是一种对现实世界高度抽象但极为有效的量化方式，
-其目标并非还原“真实值”，
-而是实现可预测、可重复、可统计的实验描述。
+$$
+(AB)^\dagger
+=
+B^\dagger A^\dagger
+=
+BA.
+$$
+
+Thus $AB$ is Hermitian exactly when
+
+$$
+(AB)^\dagger = AB,
+$$
+
+i.e.
+
+$$
+BA = AB.
+$$
+
+## 4. Inverses are Hermitian 逆矩阵仍为 Hermitian
+
+If $A$ is Hermitian and invertible, then $A^{-1}$ is Hermitian.
+
+Indeed,
+
+$$
+(A^{-1})^\dagger
+=
+(A^\dagger)^{-1}
+=
+A^{-1}.
+$$
+
+## 5. Powers are Hermitian 幂仍为 Hermitian
+
+If $A$ is Hermitian, then for every positive integer $n$,
+
+$$
+A^n
+$$
+
+is Hermitian.
+
+This follows because $A$ commutes with itself, and
+
+$$
+(A^n)^\dagger
+=
+(A^\dagger)^n
+=
+A^n.
+$$
+
+## 6. Hermitian and skew-Hermitian parts Hermitian 与斜 Hermitian 分解
+
+For any square matrix $C \in M_n(\mathbb{C})$,
+
+$$
+C+C^\dagger
+$$
+
+is Hermitian, because
+
+$$
+(C+C^\dagger)^\dagger
+=
+C^\dagger + C
+=
+C+C^\dagger.
+$$
+
+Also,
+
+$$
+C-C^\dagger
+$$
+
+is skew-Hermitian, because
+
+$$
+(C-C^\dagger)^\dagger
+=
+C^\dagger-C
+=
+-(C-C^\dagger).
+$$
+
+Every square matrix $C$ can be decomposed as
+
+$$
+C = A+B,
+$$
+
+where $A$ is Hermitian and $B$ is skew-Hermitian:
+
+$$
+A
+=
+\frac{1}{2}(C+C^\dagger),
+$$
+
+and
+
+$$
+B
+=
+\frac{1}{2}(C-C^\dagger).
+$$
+
+#+begin note
+Here $B$ is skew-Hermitian because
+
+$$
+B^\dagger = -B.
+$$
+
+Sometimes one also writes
+
+$$
+C
+=
+\frac{C+C^\dagger}{2}
++
+i\frac{C-C^\dagger}{2i},
+$$
+
+where both
+
+$$
+\frac{C+C^\dagger}{2}
+$$
+
+and
+
+$$
+\frac{C-C^\dagger}{2i}
+$$
+
+are Hermitian.
+#+end note
+
+## 7. Hermitian matrices are normal Hermitian 矩阵是正规矩阵
+
+A matrix $A$ is normal if
+
+$$
+AA^\dagger = A^\dagger A.
+$$
+
+If $A$ is Hermitian, then $A^\dagger=A$, so
+
+$$
+AA^\dagger
+=
+AA
+=
+A^\dagger A.
+$$
+
+Therefore every Hermitian matrix is normal.
+
+## 8. Unitary diagonalisation 酉对角化
+
+#+begin theorem Spectral Theorem for Hermitian Matrices
+If $A \in M_n(\mathbb{C})$ is Hermitian, then there exists a unitary matrix $U$ and real numbers $\lambda_1,\dots,\lambda_n$ such that
+
+$$
+A
+=
+U
+\begin{pmatrix}
+\lambda_1 & & 0 \\
+& \ddots & \\
+0 & & \lambda_n
+\end{pmatrix}
+U^\dagger.
+$$
+
+Equivalently,
+
+$$
+U^\dagger A U
+=
+\operatorname{diag}(\lambda_1,\dots,\lambda_n).
+$$
+#+end theorem
+
+This means:
+
+- all eigenvalues of $A$ are real;
+- eigenvectors corresponding to distinct eigenvalues are orthogonal;
+- $\mathbb{C}^n$ has an orthonormal basis consisting of eigenvectors of $A$.
+
+## 9. Dimension as a real vector space 实向量空间维数
+
+The set of $n \times n$ Hermitian matrices forms a real vector space of dimension
+
+$$
+n^2.
+$$
+
+Reason:
+
+- diagonal entries are real, giving $n$ real degrees of freedom;
+- entries above the diagonal are arbitrary complex numbers, giving $2$ real degrees of freedom for each pair $i<j$;
+- there are $\frac{n(n-1)}{2}$ such pairs.
+
+Hence the total real dimension is
+
+$$
+n + 2\cdot \frac{n(n-1)}{2}
+=
+n+n(n-1)
+=
+n^2.
+$$
+
+#+begin warning
+The Hermitian matrices do not form a complex vector space under arbitrary complex scalar multiplication, because multiplying a Hermitian matrix by a non-real scalar usually destroys Hermiticity.
+
+They form a real vector space.
+#+end warning
+
+## 10. Positive definite and positive semidefinite matrices 正定与半正定
+
+If all eigenvalues of a Hermitian matrix $A$ are positive, then $A$ is positive definite.
+
+We write
+
+$$
+A > 0.
+$$
+
+Equivalently,
+
+$$
+\langle Av,v\rangle > 0
+$$
+
+for all nonzero $v \in \mathbb{C}^n$.
+
+If all eigenvalues are nonnegative, then $A$ is positive semidefinite.
+
+We write
+
+$$
+A \ge 0.
+$$
+
+Equivalently,
+
+$$
+\langle Av,v\rangle \ge 0
+$$
+
+for all $v \in \mathbb{C}^n$.
+
+# Hermitian Operators 自伴算子 / 厄米算符
+
+In quantum mechanics, an observable is represented by a Hermitian operator.
+
+In finite-dimensional quantum mechanics, this means a matrix $\hat{O}$ satisfying
+
+$$
+\hat{O}^\dagger = \hat{O}.
+$$
+
+More generally, on a Hilbert space, a Hermitian or self-adjoint operator is an operator equal to its adjoint.
+
+#+begin define
+An operator $\hat{O}$ on a Hilbert space is self-adjoint if
+
+$$
+\hat{O}^\dagger = \hat{O}.
+$$
+#+end define
+
+#+begin warning
+In finite dimensions, “Hermitian” and “self-adjoint” are essentially the same.
+
+In infinite-dimensional Hilbert spaces, one must be more careful: a symmetric operator and a self-adjoint operator are not always the same, because domain issues matter.
+#+end warning
+
+# Why Observables Are Hermitian 为什么物理量对应 Hermitian 算符
+
+The physical motivation is:
+
+1. measurement outcomes must be real numbers;
+2. Hermitian operators have real eigenvalues;
+3. by the spectral theorem, Hermitian operators admit an orthonormal eigenbasis or spectral decomposition;
+4. this allows measurement to be described probabilistically using projections onto eigenspaces.
+
+Therefore, Hermitian operators are the natural mathematical model for quantum observables.
+
+#+begin theorem
+Let $\hat{O}$ be a linear operator on a finite-dimensional complex Hilbert space. If
+
+$$
+\langle \psi|\hat{O}|\psi\rangle \in \mathbb{R}
+$$
+
+for every state vector $|\psi\rangle$, then
+
+$$
+\hat{O} = \hat{O}^\dagger.
+$$
+
+Thus $\hat{O}$ is Hermitian.
+#+end theorem
+
+#+begin proof
+Define
+
+$$
+B
+=
+\hat{O}-\hat{O}^\dagger.
+$$
+
+We want to prove $B=0$.
+
+For every vector $|\psi\rangle$, since
+
+$$
+\langle \psi|\hat{O}|\psi\rangle
+$$
+
+is real, we have
+
+$$
+\langle \psi|\hat{O}|\psi\rangle
+=
+\overline{\langle \psi|\hat{O}|\psi\rangle}.
+$$
+
+By the definition of adjoint,
+
+$$
+\overline{\langle \psi|\hat{O}|\psi\rangle}
+=
+\langle \psi|\hat{O}^\dagger|\psi\rangle.
+$$
+
+Therefore,
+
+$$
+\langle \psi|\hat{O}|\psi\rangle
+=
+\langle \psi|\hat{O}^\dagger|\psi\rangle.
+$$
+
+So
+
+$$
+\langle \psi|(\hat{O}-\hat{O}^\dagger)|\psi\rangle
+=
+0.
+$$
+
+That is,
+
+$$
+\langle \psi|B|\psi\rangle = 0
+$$
+
+for every $|\psi\rangle$.
+
+By the polarization identity, if a sesquilinear form has zero quadratic form for every vector, then the sesquilinear form itself is zero. Hence
+
+$$
+\langle \phi|B|\psi\rangle = 0
+$$
+
+for all $|\phi\rangle,|\psi\rangle$.
+
+Therefore $B=0$, so
+
+$$
+\hat{O}-\hat{O}^\dagger = 0.
+$$
+
+Thus
+
+$$
+\hat{O} = \hat{O}^\dagger.
+$$
+
+Hence $\hat{O}$ is Hermitian.
+#+end proof
+
+#+begin important
+The key point is not merely that one expectation value is real.
+
+The correct statement is:
+
+$$
+\langle \psi|\hat{O}|\psi\rangle \in \mathbb{R}
+\quad
+\text{for all } |\psi\rangle
+\Longrightarrow
+\hat{O} = \hat{O}^\dagger.
+$$
+
+This “for all states” condition is essential.
+#+end important
+
+# Operator Representation of Observables 物理量的算符化表示
+
+In quantum mechanics, an observable is not treated as a pre-existing definite value possessed by the system at each instant.
+
+Instead, an observable is modelled as a Hermitian operator
+
+$$
+\hat{A}
+$$
+
+acting on the state space.
+
+This modelling choice has two core consequences:
+
+1. Hermiticity guarantees that measurement outcomes are real.
+2. The spectrum of $\hat{A}$ gives all possible measurement outcomes.
+
+If
+
+$$
+\hat{A}|a_n\rangle
+=
+a_n |a_n\rangle,
+$$
+
+then the eigenvalues
+
+$$
+a_n
+$$
+
+are the possible outcomes of measuring the observable $A$.
+
+In this sense, the operator $\hat{A}$ is not itself a measurement result. Rather, it is a mathematical structure whose spectral decomposition generates the possible measurement results.
+
+# Expectation Value as a Statistical Average 统计意义下的期望值
+
+From elementary statistics, if a measurement outcome $a_n$ occurs with probability $p_n$, then the expected value of the observable $A$ is
+
+$$
+\langle A\rangle
+=
+\sum_n a_n p_n.
+$$
+
+This quantity describes the stable average value obtained after many repetitions of the same experiment.
+
+It is not, in general, the definite value obtained in a single measurement.
+
+# Quantum States and Probability Weights 量子态与概率权重
+
+In quantum mechanics, the system state is described by a state vector
+
+$$
+|\psi\rangle.
+$$
+
+When measuring the observable $A$, the state $|\psi\rangle$ does not usually determine a single definite outcome.
+
+Instead, it assigns probability weights to the spectral outcomes of $\hat{A}$.
+
+If
+
+$$
+\hat{A}|a_n\rangle
+=
+a_n|a_n\rangle,
+$$
+
+and the eigenvectors $|a_n\rangle$ form an orthonormal eigenbasis, then the probability of obtaining outcome $a_n$ is
+
+$$
+p_n
+=
+|\langle a_n|\psi\rangle|^2.
+$$
+
+Thus the role of the quantum state is not to specify a hidden definite value of the observable. Instead, it specifies a probability distribution over possible measurement outcomes.
+
+# Operator Formula for Expectation Values 期望值的算符形式
+
+Suppose $\hat{A}$ has an orthonormal eigenbasis
+
+$$
+\{|a_n\rangle\}_n
+$$
+
+with
+
+$$
+\hat{A}|a_n\rangle = a_n|a_n\rangle.
+$$
+
+The completeness relation is
+
+$$
+I
+=
+\sum_n |a_n\rangle\langle a_n|.
+$$
+
+The Born rule gives
+
+$$
+p_n
+=
+|\langle a_n|\psi\rangle|^2.
+$$
+
+Therefore the statistical expectation is
+
+$$
+\langle A\rangle
+=
+\sum_n a_n p_n.
+$$
+
+Substituting the Born probabilities,
+
+$$
+\langle A\rangle
+=
+\sum_n a_n |\langle a_n|\psi\rangle|^2.
+$$
+
+Since
+
+$$
+|\langle a_n|\psi\rangle|^2
+=
+\langle \psi|a_n\rangle \langle a_n|\psi\rangle,
+$$
+
+we get
+
+$$
+\langle A\rangle
+=
+\sum_n a_n
+\langle \psi|a_n\rangle
+\langle a_n|\psi\rangle.
+$$
+
+Rearranging,
+
+$$
+\langle A\rangle
+=
+\left\langle
+\psi
+\middle|
+\left(
+\sum_n a_n |a_n\rangle\langle a_n|
+\right)
+\middle|
+\psi
+\right\rangle.
+$$
+
+By the spectral decomposition,
+
+$$
+\hat{A}
+=
+\sum_n a_n |a_n\rangle\langle a_n|.
+$$
+
+Hence
+
+$$
+\langle A\rangle
+=
+\langle \psi|\hat{A}|\psi\rangle.
+$$
+
+#+begin important
+The formula
+
+$$
+\langle A\rangle
+=
+\langle \psi|\hat{A}|\psi\rangle
+$$
+
+is the linear-algebraic compression of the statistical average
+
+$$
+\sum_n a_n p_n.
+$$
+
+It is not saying that $\hat{A}$ itself is the measured number. The measured numbers are the eigenvalues of $\hat{A}$.
+#+end important
+
+# Modelling Perspective 量化建模的视角
+
+From a modelling perspective, quantum mechanics does not represent an observable simply as a definite value attached to the microscopic system.
+
+Instead, it represents an observable as a spectral structure together with a probability rule.
+
+The roles are:
+
+- the operator $\hat{A}$ encodes the structure of possible observable outcomes;
+- the eigenvalues of $\hat{A}$ are the possible measurement results;
+- the state $|\psi\rangle$ determines the probability weights of those results;
+- the expectation value $\langle A\rangle$ describes the experimentally reproducible statistical average.
+
+Thus, representing physical quantities by Hermitian operators is an abstract but highly effective mathematical model.
+
+It does not aim to assign a definite pre-existing value to every observable in every state. Rather, it gives a precise rule for predicting reproducible statistical outcomes of experiments.
+
+# Conceptual Summary 概念总结
+
+#+begin summary
+A Hermitian matrix is a complex square matrix satisfying
+
+$$
+A^\dagger = A.
+$$
+
+The main reasons Hermitian matrices are important are:
+
+1. their diagonal entries are real;
+2. their eigenvalues are real;
+3. eigenvectors for distinct eigenvalues are orthogonal;
+4. they are unitarily diagonalizable;
+5. they model quantum observables.
+
+In quantum mechanics, the chain is:
+
+$$
+\text{observable}
+\Longrightarrow
+\text{Hermitian operator}
+\Longrightarrow
+\text{real spectrum}
+\Longrightarrow
+\text{possible measurement outcomes}
+\Longrightarrow
+\text{Born probabilities}
+\Longrightarrow
+\text{expectation value}.
+$$
+#+end summary

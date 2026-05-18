@@ -482,13 +482,30 @@ export function createEditor(
     options.onChange(typeof md === "function" ? md() : md);
   }
 
+  function plainTextLooksLikeMarkdownSource(text: string): boolean {
+    const md = text.trim();
+    if (!md) return false;
+    return [
+      /^\s{0,3}#{1,6}\s+\S/m,
+      /^\s{0,3}\$\$\s*$/m,
+      /^\s{0,3}```/m,
+      /^\s{0,3}#\+begin\b/im,
+      /^\s{0,3}>\s+\S/m,
+      /^\s{0,3}(?:[-*+]\s+|\d+[.)]\s+)/m,
+      /\[[^\]\n]+\]\([^)]+\)/,
+      /\$[^$\n]+\$/,
+    ].some((re) => re.test(md));
+  }
+
   function markdownFromClipboard(data: DataTransfer): string {
+    const plain = normalizePastedSourceText(data.getData("text/plain"));
     const html = data.getData("text/html");
+    if (plainTextLooksLikeMarkdownSource(plain)) return plain;
     if (html && /<[A-Za-z][\s\S]*>/.test(html)) {
       const md = htmlToMarkdown(html);
       if (md) return normalizePastedSourceText(md);
     }
-    return normalizePastedSourceText(data.getData("text/plain"));
+    return plain;
   }
 
   function buildView(initialMd: string): EditorView {
@@ -529,14 +546,13 @@ export function createEditor(
           view.dispatch(view.state.tr.insertText(indent, from, to).scrollIntoView());
           return true;
         },
-        paste: (view, event) => {
+        paste: (_view, event) => {
           const data = event.clipboardData;
           if (!data || data.files.length > 0) return false;
           const text = markdownFromClipboard(data);
           if (!text) return false;
           event.preventDefault();
-          const { from, to } = view.state.selection;
-          view.dispatch(view.state.tr.insertText(text, from, to).scrollIntoView());
+          replaceMarkdownSelection(text);
           return true;
         },
       },

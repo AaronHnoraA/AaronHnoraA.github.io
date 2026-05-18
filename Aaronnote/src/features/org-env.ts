@@ -508,9 +508,7 @@ const orgEnvRule: RuleBlock = (state, startLine, endLine, silent) => {
   if (closeLine < 0) return false;
   if (silent) return true;
 
-  const content = state.src
-    .slice(state.bMarks[startLine + 1]!, state.bMarks[closeLine]!)
-    .replace(/\n$/, "");
+  const content = state.getLines(startLine + 1, closeLine, state.blkIndent, false);
   const token = state.push("org_env_block", "div", 0);
   token.block = true;
   token.content = content;

@@ -2,186 +2,570 @@
 id: 20260126T000000-hilbert-space
 title: Hilbert Space
 date: 2026-01-26
-tags: math, structure, concept, intuition, working, QC, algebra, linear\_algebra
-source: roam/math/hilbert\_space.md
+tags: math, structure, concept, intuition, working, QC, algebra, linear_algebra
+source: roam/math/hilbert_space.md
 #+end meta
-
-# Hilbert Space
 
 # Hilbert Space 希尔伯特空间
 
 #+begin attention Hilbert
-Hilbert space is a big space. ----- Carlton Caves
+"Hilbert space is a big space." --- Carlton Caves
 #+end attention
 
-## 1. 数学理解 (Mathematical Understanding)
+#+begin summary
+A Hilbert space is a complete inner product space.
 
-本质是将欧几里得空间 ($bb(R)^(n)$) 推广到*无限维*，并保留几何直观。
+Conceptually, it generalises Euclidean space while preserving the geometric notions of length, angle, orthogonality, projection, and convergence.
 
-- *核心定义*: 一个*完备 (Complete)* 的*内积空间 (Inner Product Space)*。
-
-  - *内积 ($ lr(angle.l u, v angle.r) $)*: 定义了“角度”和“投影”。若内积为 0，则两向量正交。
-  - *范数 ($||v||$)*: 由内积导出 ($||v|| = sqrt( lr(angle.l v, v angle.r) )$)，定义了向量的“长度”。
-  - *完备性*: 空间内的柯西序列收敛于空间内（保证极限存在，微积分可行）。
-- *常见例子*:
-
-  - $bb(R)^n$ (有限维希尔伯特空间)。
-  - $L^2$ 空间 (平方可积函数空间，量子力学中最常用)。  
-
-## 2. 量子应用 (Quant. 量子应p (Quaions)
-
-量子力学的公理化数学基础。
-
-- *态 (State)*: 物理系统的状态由希尔伯特空间中的*射线*（归一化向量 $ lr(|psi angle.r) $）描述。
-- *叠加原理*: 向量的线性组合仍然是空间中的一个有效向量。
-- *可观测量*: 对应于作用在空间上的*厄米算符 (Hermitian Operators)*。
-
-  - 算符的*本征值*是测量的可能结果。
-  - 算符的*本征态*构成空间的基底。
-- *概率 (Born Rule)*: 概率幅由内积给出，概率为内积的模方 ($P = | lr(angle.l phi | psi angle.r) |^2$)。
+The key chain is:
 
 $$
-d(v_i, v_j)^2 = sum_(k=1)^N |z_(i k) - z_(j k)|^2 < epsilon.alt^2 
+\text{inner product}
+\Longrightarrow
+\text{norm}
+\Longrightarrow
+\text{metric}
+\Longrightarrow
+\text{convergence}
+\Longrightarrow
+\text{completeness}.
 $$
 
-# ss
+If an inner product space is complete with respect to the metric induced by its norm, then it is a Hilbert space.
+#+end summary
 
-有限维必完备
+## 1. Mathematical Understanding 数学理解
+
+The essential idea is to generalise Euclidean space
+
+$$
+\mathbb{R}^n
+$$
+
+to possibly infinite-dimensional settings while preserving geometric intuition.
+
+#+begin define
+A Hilbert space is a complete inner product space.
+#+end define
+
+Equivalently, a Hilbert space is a vector space $H$ equipped with an inner product
+
+$$
+\langle \cdot,\cdot \rangle : H \times H \to F,
+$$
+
+where usually $F=\mathbb{R}$ or $F=\mathbb{C}$, such that every Cauchy sequence in $H$ converges to an element of $H$.
+
+### Core Components 核心组成
+
+- **Inner product 内积**
+
+  The inner product
+
+  $$
+  \langle u,v\rangle
+  $$
+
+  defines geometric notions such as angle, orthogonality, and projection.
+
+  If
+
+  $$
+  \langle u,v\rangle = 0,
+  $$
+
+  then $u$ and $v$ are orthogonal.
+
+- **Norm 范数**
+
+  The norm is induced by the inner product:
+
+  $$
+  \|v\|
+  =
+  \sqrt{\langle v,v\rangle}.
+  $$
+
+  It measures the length of a vector.
+
+- **Metric 距离**
+
+  The norm induces a distance function:
+
+  $$
+  d(u,v)
+  =
+  \|u-v\|.
+  $$
+
+- **Completeness 完备性**
+
+  Completeness means that every Cauchy sequence converges to an element inside the same space.
+
+  In symbols, if $(v_n)$ is Cauchy, then there exists $v \in H$ such that
+
+  $$
+  v_n \to v.
+  $$
+
+  中文直觉：完备性保证“应该存在的极限”不会跑到空间外面去。
+
+### Common Examples 常见例子
+
+1. Finite-dimensional Euclidean spaces:
+
+   $$
+   \mathbb{R}^n.
+   $$
+
+2. Finite-dimensional complex spaces:
+
+   $$
+   \mathbb{C}^n.
+   $$
+
+3. The space of square-integrable functions:
+
+   $$
+   L^2(X).
+   $$
+
+   This is one of the most important examples in quantum mechanics.
+
+## 2. Quantum Application 量子应用
+
+Hilbert spaces provide the mathematical foundation for the axiomatic formulation of quantum mechanics.
+
+### States 态
+
+A quantum state is represented by a ray in a Hilbert space.
+
+Equivalently, one often represents a state by a normalised vector
+
+$$
+|\psi\rangle \in H
+$$
+
+with
+
+$$
+\langle \psi \mid \psi \rangle = 1.
+$$
+
+Strictly speaking, two nonzero vectors that differ by a nonzero scalar represent the same physical ray. In ordinary quantum mechanics, global phase does not change the physical state:
+
+$$
+|\psi\rangle
+\sim
+e^{i\theta}|\psi\rangle.
+$$
+
+### Superposition 叠加原理
+
+If $|\psi\rangle$ and $|\phi\rangle$ are state vectors, then their linear combination
+
+$$
+\alpha |\psi\rangle + \beta |\phi\rangle
+$$
+
+is also a vector in the Hilbert space.
+
+After normalisation, it can represent another quantum state.
+
+### Observables 可观测量
+
+Physical observables are represented by Hermitian operators.
+
+An operator $A$ is Hermitian if
+
+$$
+A^\dagger = A.
+$$
+
+The eigenvalues of a Hermitian operator are possible measurement outcomes.
+
+The eigenvectors or eigenspaces describe the corresponding states after measurement.
+
+### Born Rule 玻恩规则
+
+The inner product gives probability amplitudes.
+
+If a system is in state $|\psi\rangle$ and we measure whether it is in state $|\phi\rangle$, then the probability is
+
+$$
+P
+=
+|\langle \phi \mid \psi\rangle|^2.
+$$
+
+This is one of the main reasons Hilbert spaces are central in quantum theory.
+
+## 3. Finite-Dimensional Inner Product Spaces Are Complete
+
+有限维内积空间必然完备。
 
 #+begin theorem
-在有限维内积空间中，所有柯西序列均收敛于该空间内的某个向量。因此，有限维内积空间([Inner Product Space](inner_product_space.md))天然是完备的，即有限维内积空间即为希尔伯特空间。
+Every finite-dimensional inner product space is complete.
+
+Equivalently, every finite-dimensional inner product space is a Hilbert space.
 #+end theorem
 
 #+begin proof
-# 证明思路
+Let $V$ be an $N$-dimensional inner product space over $\mathbb{C}$.
 
-```
-- 选取正交基
-- 将向量柯西列转化为坐标柯西列
-- 利用实数/复数的完备性
-- 再拼回向量极限
-```
+The real case is similar and slightly simpler.
 
-# 证明
+### Proof Idea 证明思路
 
-```
-设 $V$ 是 $N$ 维复内积空间。
-```
+We prove completeness by reducing vector convergence to coordinate convergence.
 
-## Step 1：选取正交基
+The steps are:
 
-```
-由 Gram–Schmidt 正交化，存在正交基：
-```
+1. choose an orthonormal basis;
+2. write each vector in coordinates;
+3. show that a Cauchy sequence of vectors gives Cauchy sequences of coordinates;
+4. use completeness of $\mathbb{C}$;
+5. reconstruct the limit vector.
 
-$$
+### Step 1: Choose an orthonormal basis
 
-     {e\_1,e\_2, dots ,e\_N} 
+Since $V$ is finite-dimensional, by the Gram--Schmidt process there exists an orthonormal basis
 
 $$
-
-## Step 2：设 ${v_i}$ 为柯西列
-
-```
-对任意 $ epsilon.alt >0$，存在 $n$，
-使得当 $i,j>n$ 时：
-```
-
+\{e_1,e_2,\dots,e_N\}.
 $$
 
-     d(v_i,v_j)< \epsilon.alt  
+Thus every vector $v \in V$ can be written uniquely as
 
 $$
-
-## Step 3：写成坐标形式
-
-```
-对每个 $i$，存在唯一的 $z_(i k) in bb(C)$，
-使得：
-```
-
-$$
-     v_i= sum _(k=1)^N z_(i k)e_k 
+v
+=
+\sum_{k=1}^N z_k e_k,
 $$
 
-## Step 4：距离的坐标表达
+where $z_k \in \mathbb{C}$.
 
-```
-由正交性：
-```
+### Step 2: Let $(v_i)$ be a Cauchy sequence
 
-$$
-sd(v_i, v_j)^2 = sum_(k=1)^N |z_(i k) - z_(j k)|^2 < epsilon.alt^2 
-$$
+Let $(v_i)_{i \in \mathbb{N}}$ be a Cauchy sequence in $V$.
 
-## Step 5：拆分为实部与虚部
-
-```
-记：
-```
+By definition, for every $\varepsilon > 0$, there exists $M \in \mathbb{N}$ such that for all $i,j \ge M$,
 
 $$
-     z_(i k)=x_(i k)+i y_(i k) 
+\|v_i-v_j\| < \varepsilon.
 $$
 
-```
-则：
-$$
-  sum _(k=1)^N |x_(i k)-x_(j k)|^2
-
-+ sum _(k=1)^N |y_(i k)-y_(j k)|^2
-<  epsilon.alt ^2 
-$$
-```
-
-## Step 6：坐标收敛
-
-```
-对每个 $k$，
-${x_(i k)}_i,{y_(i k)}_i$ 为实数柯西列。
-
-由 $bb(R)$ 的完备性，
-存在 $x_k,y_k in bb(R)$，
-使得：
-```
+Equivalently,
 
 $$
-     x_{i k} \to  x_k, \quad  y_{i k} \to y_{k} 
+d(v_i,v_j) < \varepsilon.
 $$
 
-## Step 7：构造极限向量
+### Step 3: Write each vector in coordinates
 
-```
-令：
-```
+For each $i$, write
 
-$     z\_k=x\_k+i y\_k, quad
-v= sum \_(k=1)^N z\_k e\_k $
+$$
+v_i
+=
+\sum_{k=1}^N z_{ik} e_k,
+$$
 
-```
-则：
-```
+where $z_{ik} \in \mathbb{C}$.
 
-$     d(v_i,v) ->  0 $
+Then
 
-```
-故：
-```
+$$
+v_i-v_j
+=
+\sum_{k=1}^N (z_{ik}-z_{jk})e_k.
+$$
 
-$     v_i  \to  v $
+### Step 4: Use the norm formula in an orthonormal basis
 
-# 结论
+Because $\{e_1,\dots,e_N\}$ is orthonormal,
 
-```
-有限维内积空间是完备的。
-```
+$$
+\|v_i-v_j\|^2
+=
+\sum_{k=1}^N |z_{ik}-z_{jk}|^2.
+$$
+
+Since $(v_i)$ is Cauchy, for all sufficiently large $i,j$,
+
+$$
+\sum_{k=1}^N |z_{ik}-z_{jk}|^2
+<
+\varepsilon^2.
+$$
+
+Therefore, for each fixed $k$,
+
+$$
+|z_{ik}-z_{jk}|^2
+\le
+\sum_{\ell=1}^N |z_{i\ell}-z_{j\ell}|^2
+<
+\varepsilon^2.
+$$
+
+Hence
+
+$$
+|z_{ik}-z_{jk}|
+<
+\varepsilon.
+$$
+
+So for each $k$, the coordinate sequence $(z_{ik})_{i \in \mathbb{N}}$ is Cauchy in $\mathbb{C}$.
+
+### Step 5: Use completeness of $\mathbb{C}$
+
+Since $\mathbb{C}$ is complete, for each $k$ there exists $z_k \in \mathbb{C}$ such that
+
+$$
+z_{ik} \to z_k
+$$
+
+as $i \to \infty$.
+
+### Step 6: Construct the candidate limit vector
+
+Define
+
+$$
+v
+=
+\sum_{k=1}^N z_k e_k.
+$$
+
+Since $V$ is a vector space and $e_1,\dots,e_N \in V$, we have
+
+$$
+v \in V.
+$$
+
+### Step 7: Show that $v_i \to v$
+
+We compute
+
+$$
+v_i-v
+=
+\sum_{k=1}^N (z_{ik}-z_k)e_k.
+$$
+
+Again using orthonormality,
+
+$$
+\|v_i-v\|^2
+=
+\sum_{k=1}^N |z_{ik}-z_k|^2.
+$$
+
+For each fixed $k$,
+
+$$
+z_{ik} \to z_k.
+$$
+
+Since the sum is finite,
+
+$$
+\sum_{k=1}^N |z_{ik}-z_k|^2
+\to 0.
+$$
+
+Therefore,
+
+$$
+\|v_i-v\| \to 0.
+$$
+
+So
+
+$$
+v_i \to v.
+$$
+
+Thus every Cauchy sequence in $V$ converges to an element of $V$.
+
+Therefore $V$ is complete.
+
+Hence every finite-dimensional inner product space is a Hilbert space.
 #+end proof
 
-# 希尔伯特空间的相互作用
+#+begin important
+The finite-dimensional assumption is essential.
 
-#+begin theorem
-希尔伯特空间的相互作用
-给定任意两个（或更多）希尔伯特空间，利用直和或张量积的方式，可以给出一个更大的希尔伯特空间。
-#+end theorem
+In infinite-dimensional spaces, an inner product space need not be complete. A Hilbert space is precisely an inner product space where this completeness condition has been imposed.
+#+end important
 
-这意味着 这为量子力学中张量积干涉两个量子系统提供了理论支撑.
+## 4. Interaction of Hilbert Spaces 希尔伯特空间之间的构造
+
+Hilbert spaces can be combined to form larger Hilbert spaces.
+
+There are two especially important operations:
+
+$$
+H_1 \oplus H_2
+$$
+
+and
+
+$$
+H_1 \otimes H_2.
+$$
+
+### Direct Sum 直和
+
+#+begin define
+Given two Hilbert spaces $H_1$ and $H_2$, their direct sum is
+
+$$
+H_1 \oplus H_2
+=
+\{(v_1,v_2) : v_1 \in H_1,\ v_2 \in H_2\}.
+$$
+
+The inner product is defined by
+
+$$
+\langle (v_1,v_2),(w_1,w_2)\rangle
+=
+\langle v_1,w_1\rangle_{H_1}
++
+\langle v_2,w_2\rangle_{H_2}.
+$$
+#+end define
+
+The direct sum describes a space where states or vectors are placed side by side.
+
+Intuitively:
+
+$$
+H_1 \oplus H_2
+\quad
+\text{means choosing between sectors/components.}
+$$
+
+### Tensor Product 张量积
+
+#+begin define
+Given two Hilbert spaces $H_1$ and $H_2$, their tensor product is a Hilbert space
+
+$$
+H_1 \otimes H_2
+$$
+
+generated by formal tensors
+
+$$
+v_1 \otimes v_2,
+$$
+
+where $v_1 \in H_1$ and $v_2 \in H_2$.
+#+end define
+
+The tensor product is the fundamental construction for combining quantum systems.
+
+If one system has Hilbert space $H_A$ and another has Hilbert space $H_B$, then the joint system has Hilbert space
+
+$$
+H_A \otimes H_B.
+$$
+
+For example, if
+
+$$
+|\psi\rangle \in H_A
+$$
+
+and
+
+$$
+|\phi\rangle \in H_B,
+$$
+
+then the product state is
+
+$$
+|\psi\rangle \otimes |\phi\rangle
+\in
+H_A \otimes H_B.
+$$
+
+But not every vector in $H_A \otimes H_B$ is a simple product vector. Some vectors are entangled states.
+
+For example,
+
+$$
+\frac{1}{\sqrt{2}}
+\left(
+|00\rangle + |11\rangle
+\right)
+$$
+
+is an entangled state in
+
+$$
+\mathbb{C}^2 \otimes \mathbb{C}^2.
+$$
+
+#+begin important
+For quantum mechanics, the tensor product is more fundamental than the direct sum for describing composite systems.
+
+If two systems are considered together, their joint state space is usually
+
+$$
+H_A \otimes H_B,
+$$
+
+not
+
+$$
+H_A \oplus H_B.
+$$
+#+end important
+
+## 5. Conceptual Summary 概念总结
+
+A Hilbert space is a vector space with enough structure to do both geometry and analysis.
+
+The structure can be viewed as the following chain:
+
+$$
+\text{vector space}
+\Longrightarrow
+\text{inner product space}
+\Longrightarrow
+\text{normed vector space}
+\Longrightarrow
+\text{metric space}
+\Longrightarrow
+\text{complete metric structure}.
+$$
+
+So:
+
+$$
+\text{Hilbert space}
+=
+\text{inner product space}
++
+\text{completeness}.
+$$
+
+In quantum computing, Hilbert spaces matter because:
+
+1. quantum states are vectors or rays in Hilbert spaces;
+2. amplitudes are computed using inner products;
+3. measurement probabilities are given by the Born rule;
+4. observables are represented by Hermitian operators;
+5. composite systems are represented by tensor products.
+
+#+begin summary
+A Hilbert space is the natural mathematical home for quantum theory.
+
+It is linear enough to support superposition, geometric enough to support orthogonality and projection, and complete enough to support limits, approximation, and analysis.
+#+end summary

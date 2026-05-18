@@ -36,6 +36,24 @@ function tableShape(editor: Editor): { rows: number; cols: number[] } {
   return { rows: table.childCount, cols };
 }
 
+function pasteClipboard(editor: Editor, text: string, html = ""): void {
+  const event = new Event("paste", { bubbles: true, cancelable: true }) as Event & {
+    clipboardData: Pick<DataTransfer, "files" | "getData">;
+  };
+  Object.defineProperty(event, "clipboardData", {
+    value: {
+      files: [],
+      getData: (type: string) => {
+        if (type === "text/plain") return text;
+        if (type === "text/html") return html;
+        return "";
+      },
+    },
+  });
+  editor.view.dom.dispatchEvent(event);
+  expect(event.defaultPrevented).toBe(true);
+}
+
 describe("editor api paste normalization", () => {
   test("preserves TeX source instead of command-specific repair", () => {
     const source = String.raw`$$
@@ -52,6 +70,83 @@ $$`;
     expect(normalizePastedSourceText(pasted)).toBe(String.raw`$$
 \beta + \frac{1}{2}
 $$`);
+  });
+});
+
+describe("editor api rendered paste", () => {
+  test("parses pasted markdown heading instead of escaping block-start hash", () => {
+    const source = "## 1. Graph-Side Definitions";
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const editor = createEditor(mount, { initialContent: "" });
+    try {
+      pasteClipboard(editor, source);
+      expect(editor.getMarkdown()).toBe(source);
+      const heading = editor.view.state.doc.child(0);
+      expect(heading.type.name).toBe("heading");
+      expect(heading.attrs.level).toBe(2);
+      expect(heading.textContent).toBe("1. Graph-Side Definitions");
+    } finally {
+      editor.destroy();
+      mount.remove();
+    }
+  });
+
+  test("prefers markdown-looking plain text over escaped clipboard html", () => {
+    const source = String.raw`## 1. Graph-Side Definitions
+
+For graphs $G$ and $H$, the graph isomorphism problem asks whether there exists a bijection between their vertex sets preserving adjacency. I write
+
+$$
+\mathrm{GI}
+=
+\{(G,H) : G \cong H\}.
+$$
+
+The automorphism group of a graph $G$ is
+
+$$
+\operatorname{Aut}(G)
+=
+\{\varphi \in S_n : \varphi(G) = G\}.
+$$`;
+    const html = `<div>${source.replaceAll("\n", "<br>")}</div>`;
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const editor = createEditor(mount, { initialContent: "" });
+    try {
+      pasteClipboard(editor, source, html);
+      expect(editor.getMarkdown()).toBe(source);
+      expect(editor.view.state.doc.child(0).type.name).toBe("heading");
+      const mathBlocks: PMNode[] = [];
+      editor.view.state.doc.descendants((node) => {
+        if (node.type.name === "math_block") mathBlocks.push(node);
+        return true;
+      });
+      expect(mathBlocks).toHaveLength(2);
+      expect(mathBlocks[0]!.textContent).toContain(String.raw`\mathrm{GI}`);
+      expect(mathBlocks[1]!.textContent).toContain(String.raw`\operatorname{Aut}`);
+      editor.setSelection(1 + "1. Graph-Side Definitions".length);
+      editor.insertText("!");
+      expect(editor.getMarkdown()).toBe(source.replace("1. Graph-Side Definitions", "1. Graph-Side Definitions!"));
+    } finally {
+      editor.destroy();
+      mount.remove();
+    }
+  });
+
+  test("uses clipboard html when plain text is not markdown source", () => {
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const editor = createEditor(mount, { initialContent: "" });
+    try {
+      pasteClipboard(editor, "Title\nPlain body", "<h2>Title</h2><p>Plain body</p>");
+      expect(editor.getMarkdown()).toBe("## Title\n\nPlain body");
+      expect(editor.view.state.doc.child(0).type.name).toBe("heading");
+    } finally {
+      editor.destroy();
+      mount.remove();
+    }
   });
 });
 
@@ -124,6 +219,40 @@ $$
       expect(editor.getMarkdown()).toBe(source.trimEnd());
       editor.toggleSource();
       expect(editor.getMarkdown()).toBe(source.trimEnd());
+    } finally {
+      editor.destroy();
+      mount.remove();
+    }
+  });
+
+  test("preview display math commit follows line fences before following text", () => {
+    const source = String.raw`intro
+$$
+\#\begin{array}{c}
+x
+\end{array}
+$$
+outro`;
+    const expected = String.raw`intro
+
+$$
+\#\begin{array}{c}
+x
+\end{array}
+$$
+
+outro`;
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const editor = createEditor(mount, { initialContent: "" });
+    try {
+      editor.insertText(source);
+      expect(editor.getMarkdown()).toBe(expected);
+      expect(editor.view.state.doc.childCount).toBe(3);
+      expect(editor.view.state.doc.child(0).type.name).toBe("paragraph");
+      expect(editor.view.state.doc.child(1).type.name).toBe("math_block");
+      expect(editor.view.state.doc.child(1).textContent).toBe(source.split("\n").slice(2, -2).join("\n"));
+      expect(editor.view.state.doc.child(2).type.name).toBe("paragraph");
     } finally {
       editor.destroy();
       mount.remove();

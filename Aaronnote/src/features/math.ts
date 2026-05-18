@@ -1,5 +1,5 @@
 import type { Node as PMNode, Schema } from "prosemirror-model";
-import { TextSelection, type Command, type EditorState, Plugin } from "prosemirror-state";
+import { TextSelection, type Command, type EditorState, Plugin, type Transaction } from "prosemirror-state";
 import { Decoration, DecorationSet, type EditorView, type NodeView, type ViewMutationRecord } from "prosemirror-view";
 import type { RuleBlock } from "markdown-it/lib/parser_block.mjs";
 import type StateInline from "markdown-it/lib/rules_inline/state_inline.mjs";
@@ -115,40 +115,53 @@ function mathInlineRule(state: StateInline, silent: boolean): boolean {
   return true;
 }
 
-type DisplayMathText = {
+const DISPLAY_MATH_FENCE_RE = /^[ \t]*\$\$[ \t]*$/;
+
+type DisplayMathDraft = {
   content: string;
+  before: string;
+  after: string;
+  openFrom: number;
   bodyFrom: number;
   bodyTo: number;
   closeTo: number;
+  afterFrom: number;
 };
 
-function parseDisplayMathText(text: string): DisplayMathText | null {
-  const openEnd = text.indexOf("\n");
-  if (openEnd < 0) return null;
-
-  let effectiveEnd = text.length;
-  while (effectiveEnd > openEnd && /[ \t]/.test(text[effectiveEnd - 1]!)) effectiveEnd--;
-  if (text[effectiveEnd - 1] === "\n") {
-    effectiveEnd -= 1;
-    while (effectiveEnd > openEnd && /[ \t]/.test(text[effectiveEnd - 1]!)) effectiveEnd--;
+function findDisplayMathDraft(text: string): DisplayMathDraft | null {
+  for (let lineFrom = 0; lineFrom < text.length;) {
+    const lineBreak = text.indexOf("\n", lineFrom);
+    const lineTo = lineBreak < 0 ? text.length : lineBreak;
+    if (lineBreak >= 0 && DISPLAY_MATH_FENCE_RE.test(text.slice(lineFrom, lineTo))) {
+      const bodyFrom = lineTo + 1;
+      for (let closeFrom = bodyFrom; closeFrom <= text.length;) {
+        const closeBreak = text.indexOf("\n", closeFrom);
+        const closeTo = closeBreak < 0 ? text.length : closeBreak;
+        if (DISPLAY_MATH_FENCE_RE.test(text.slice(closeFrom, closeTo))) {
+          const bodyTo = closeFrom === bodyFrom ? bodyFrom : closeFrom - 1;
+          const afterFrom = closeBreak < 0 ? closeTo : closeTo + 1;
+          const beforeTo = lineFrom > 0 && text[lineFrom - 1] === "\n"
+            ? lineFrom - 1
+            : lineFrom;
+          return {
+            content: text.slice(bodyFrom, bodyTo),
+            before: text.slice(0, beforeTo),
+            after: text.slice(afterFrom),
+            openFrom: lineFrom,
+            bodyFrom,
+            bodyTo,
+            closeTo,
+            afterFrom,
+          };
+        }
+        if (closeBreak < 0) break;
+        closeFrom = closeBreak + 1;
+      }
+    }
+    if (lineBreak < 0) break;
+    lineFrom = lineBreak + 1;
   }
-
-  const closeStart = text.lastIndexOf("\n", effectiveEnd - 1) + 1;
-  if (closeStart <= openEnd) return null;
-
-  const openLine = text.slice(0, openEnd);
-  const closeLine = text.slice(closeStart, effectiveEnd);
-  if (!/^[ \t]*\$\$[ \t]*$/.test(openLine)) return null;
-  if (!/^[ \t]*\$\$[ \t]*$/.test(closeLine)) return null;
-
-  const bodyFrom = openEnd + 1;
-  const bodyTo = closeStart === bodyFrom ? bodyFrom : closeStart - 1;
-  return {
-    content: text.slice(bodyFrom, bodyTo),
-    bodyFrom,
-    bodyTo,
-    closeTo: effectiveEnd,
-  };
+  return null;
 }
 
 const mathBlockRule: RuleBlock = (state, startLine, endLine, silent) => {
@@ -170,9 +183,7 @@ const mathBlockRule: RuleBlock = (state, startLine, endLine, silent) => {
   if (closeLine < 0) return false;
   if (silent) return true;
 
-  const content = state.src
-    .slice(state.bMarks[startLine + 1]!, state.bMarks[closeLine]!)
-    .replace(/\n$/, "");
+  const content = state.getLines(startLine + 1, closeLine, state.blkIndent, false);
   const token = state.push("math_block", "math-block", 0);
   token.block = true;
   token.content = content;
@@ -183,6 +194,39 @@ const mathBlockRule: RuleBlock = (state, startLine, endLine, silent) => {
 
 function textNode(schema: Schema, text: string): PMNode[] | null {
   return text ? [schema.text(text)] : null;
+}
+
+function paragraphFromText(schema: Schema, text: string): PMNode | null {
+  return text ? schema.nodes.paragraph.createChecked(null, textNode(schema, text)) : null;
+}
+
+function displayMathReplacement(schema: Schema, node: PMNode): PMNode[] | null {
+  if (node.type.name !== "paragraph") return null;
+  const parsed = findDisplayMathDraft(node.textContent);
+  if (!parsed) return null;
+  const before = paragraphFromText(schema, parsed.before);
+  const block = schema.nodes.math_block.createChecked(null, textNode(schema, parsed.content));
+  const after = paragraphFromText(schema, parsed.after);
+  return [before, block, after].filter((child): child is PMNode => child != null);
+}
+
+function foldDisplayMathParagraphs(node: PMNode): PMNode {
+  if (node.childCount === 0) return node;
+  const children: PMNode[] = [];
+  let changed = false;
+  node.forEach((child) => {
+    const replacement = displayMathReplacement(node.type.schema, child);
+    if (replacement) {
+      children.push(...replacement);
+      changed = true;
+      return;
+    }
+    const folded = foldDisplayMathParagraphs(child);
+    if (folded !== child) changed = true;
+    children.push(folded);
+  });
+  if (!changed) return node;
+  return node.type.createAndFill(node.attrs, children, node.marks) ?? node;
 }
 
 class MathBlockView implements NodeView {
@@ -327,33 +371,91 @@ function mathBlockViewPlugin(): Plugin {
   });
 }
 
+function changedParagraphs(
+  transactions: readonly Transaction[],
+  state: EditorState,
+): Array<{ node: PMNode; pos: number }> {
+  const hits: Array<{ node: PMNode; pos: number }> = [];
+  const seen = new Set<number>();
+  const docSize = state.doc.content.size;
+
+  const addParagraph = (node: PMNode, pos: number): void => {
+    if (seen.has(pos)) return;
+    seen.add(pos);
+    hits.push({ node, pos });
+  };
+
+  const scanRange = (from: number, to: number): void => {
+    const start = Math.max(0, Math.min(from, docSize));
+    const end = Math.max(start, Math.min(to, docSize));
+    state.doc.nodesBetween(
+      Math.max(0, start - 1),
+      Math.min(docSize, end + 1),
+      (node, pos) => {
+        if (node.type.name !== "paragraph") return true;
+        addParagraph(node, pos);
+        return false;
+      },
+    );
+  };
+
+  for (const tr of transactions) {
+    if (!tr.docChanged) continue;
+    for (const map of tr.mapping.maps) {
+      map.forEach((_oldStart, _oldEnd, newStart, newEnd) => {
+        scanRange(newStart, newEnd);
+      });
+    }
+  }
+
+  if (hits.length === 0 && state.selection.empty) {
+    const $from = state.selection.$from;
+    for (let depth = $from.depth; depth > 0; depth--) {
+      const node = $from.node(depth);
+      if (node.type.name !== "paragraph") continue;
+      addParagraph(node, $from.before(depth));
+      break;
+    }
+  }
+
+  return hits;
+}
+
 function mathBlockCommitPlugin(schema: Schema): Plugin {
   return new Plugin({
     appendTransaction(transactions, _oldState, newState) {
       if (!transactions.some((tr) => tr.docChanged)) return null;
       const mathBlockType = schema.nodes.math_block;
-      const found: Array<{ from: number; to: number; parsed: DisplayMathText }> = [];
-      newState.doc.descendants((node, pos) => {
-        if (found.length > 0) return false;
-        if (node.type.name !== "paragraph") return true;
-        const parsed = parseDisplayMathText(node.textContent);
-        if (!parsed) return true;
+      const found: Array<{ from: number; to: number; parsed: DisplayMathDraft }> = [];
+      for (const { node, pos } of changedParagraphs(transactions, newState)) {
+        const parsed = findDisplayMathDraft(node.textContent);
+        if (!parsed) continue;
         found.push({ from: pos, to: pos + node.nodeSize, parsed });
-        return false;
-      });
+        break;
+      }
       const hit = found[0];
       if (!hit) return null;
 
+      const before = paragraphFromText(schema, hit.parsed.before);
       const block = mathBlockType.createChecked(null, textNode(schema, hit.parsed.content));
-      const tr = newState.tr.replaceWith(hit.from, hit.to, block);
+      const after = paragraphFromText(schema, hit.parsed.after);
+      const replacement = [before, block, after].filter((node): node is PMNode => node != null);
+      const beforeSize = before?.nodeSize ?? 0;
+      const mathPos = hit.from + beforeSize;
+      const afterPos = mathPos + block.nodeSize;
+      const tr = newState.tr.replaceWith(hit.from, hit.to, replacement);
       const sel = newState.selection;
       if (sel.empty && sel.from >= hit.from + 1 && sel.from <= hit.to - 1) {
         const local = sel.from - (hit.from + 1);
-        let target = hit.from + 1;
+        let target = mathPos + 1;
         if (local >= hit.parsed.bodyFrom && local <= hit.parsed.bodyTo) {
-          target = hit.from + 1 + Math.min(local - hit.parsed.bodyFrom, block.content.size);
+          target = mathPos + 1 + Math.min(local - hit.parsed.bodyFrom, block.content.size);
+        } else if (after && local >= hit.parsed.afterFrom) {
+          target = afterPos + 1 + Math.min(local - hit.parsed.afterFrom, after.content.size);
+        } else if (before && local < hit.parsed.openFrom) {
+          target = hit.from + 1 + Math.min(local, before.content.size);
         } else if (local >= hit.parsed.closeTo) {
-          target = hit.from + block.nodeSize;
+          target = after ? afterPos + 1 : mathPos + block.nodeSize;
         }
         target = Math.max(0, Math.min(target, tr.doc.content.size));
         tr.setSelection(TextSelection.near(tr.doc.resolve(target), local >= hit.parsed.closeTo ? 1 : -1));
@@ -466,7 +568,7 @@ export const math: FeatureSpec = {
 
   mdItPlugins: [
     (md) => {
-      md.block.ruler.before("paragraph", "math_block", mathBlockRule, {
+      md.block.ruler.before("lheading", "math_block", mathBlockRule, {
         alt: ["paragraph", "reference", "blockquote", "list"],
       });
       md.inline.ruler.before("escape", "math_inline", mathInlineRule);
@@ -488,6 +590,8 @@ export const math: FeatureSpec = {
       state.addText(delimiter);
     },
   },
+
+  parserPostProcess: (doc) => foldDisplayMathParagraphs(doc),
 
   markDelims: {
     math: { open: "", close: "" },
