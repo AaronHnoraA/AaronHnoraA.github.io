@@ -11,6 +11,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const appDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 let workspaceRoot = resolve(process.env.AARONNOTE_WORKSPACE_ROOT || resolve(appDir, ".."));
 let publishJsDir = resolve(process.env.AARONNOTE_PUBLISH_JS_DIR || join(workspaceRoot, "js"));
+let pluginRoot = resolve(process.env.AARONNOTE_PLUGIN_ROOT || join(workspaceRoot, "plugin"));
 const execFileAsync = promisify(execFile);
 
 function parseArgs(argv) {
@@ -42,6 +43,7 @@ const noteKindPattern = /^[a-z0-9_-]+$/;
 let noteCacheRoot = "";
 let noteCache = new Map();
 let snippetCache = { key: "", scannedAt: 0, snippets: [] };
+let pluginCache = { key: "", scannedAt: 0, plugins: [] };
 let roamSyncTimer = null;
 let queuedRoamSyncNotes = null;
 let atomicWriteCounter = 0;
@@ -1137,7 +1139,7 @@ async function scanNotes() {
 
 const todoStatuses = new Set(["todo", "doing", "done", "blocked"]);
 
-function normalizeTodoStatus(raw = "") {
+export function normalizeTodoStatus(raw = "") {
   const value = String(raw || "").trim().toLowerCase();
   if (!value || value === " " || value === "open" || value === "unchecked") return "todo";
   if (value === "~" || value === "-" || value === "wip" || value === "active") return "doing";
@@ -1146,7 +1148,78 @@ function normalizeTodoStatus(raw = "") {
   return todoStatuses.has(value) ? value : "todo";
 }
 
-function extractTodos(content, note, updatedAt) {
+function cleanCommandArgValue(value = "") {
+  return String(value).trim().replace(/^["']|["']$/g, "");
+}
+
+export function parseCommandArgs(raw = "") {
+  const body = String(raw || "").trim().replace(/^\{/, "").replace(/\}$/, "").trim();
+  const args = {};
+  if (!body) return args;
+  for (const part of body.split(/[;,]/)) {
+    const split = part.trim().match(/^([A-Za-z][\w-]*)\s*:\s*(.+)$/);
+    if (!split) continue;
+    const key = split[1].trim().toLowerCase();
+    const value = cleanCommandArgValue(split[2]);
+    if (!key || !value) continue;
+    args[key] = value;
+  }
+  return args;
+}
+
+function findInlineCommandClose(text, open, closeChar) {
+  for (let i = open + 1; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === "\\" && i + 1 < text.length) {
+      i++;
+      continue;
+    }
+    if (ch === "\n" || ch === "\r") return -1;
+    if (ch === closeChar) return i;
+  }
+  return -1;
+}
+
+function inlineCommandMetaRange(text, closeBracket) {
+  let openBrace = closeBracket + 1;
+  while (openBrace < text.length && (text[openBrace] === " " || text[openBrace] === "\t")) openBrace++;
+  if (text[openBrace] !== "{") return { raw: "", fullTo: closeBracket + 1 };
+  const closeBrace = findInlineCommandClose(text, openBrace, "}");
+  if (closeBrace < 0) return { raw: "", fullTo: closeBracket + 1 };
+  return {
+    raw: text.slice(openBrace, closeBrace + 1),
+    fullTo: closeBrace + 1,
+  };
+}
+
+export function scanInlineCommands(text, name = "") {
+  const commands = [];
+  const re = /@@([A-Za-z][\w-]*)(?:\(([^)\n]*)\))?[ \t]+\[/g;
+  let match;
+  while ((match = re.exec(text))) {
+    const commandName = match[1].toLowerCase();
+    if (name && commandName !== String(name).toLowerCase()) continue;
+    const openBracket = re.lastIndex - 1;
+    const closeBracket = findInlineCommandClose(text, openBracket, "]");
+    if (closeBracket < 0) continue;
+    const meta = inlineCommandMetaRange(text, closeBracket);
+    commands.push({
+      name: commandName,
+      switchValue: String(match[2] || "").trim(),
+      context: text.slice(openBracket + 1, closeBracket),
+      argsRaw: meta.raw,
+      args: parseCommandArgs(meta.raw),
+      fullFrom: match.index,
+      fullTo: meta.fullTo,
+      contextFrom: openBracket + 1,
+      contextTo: closeBracket,
+    });
+    re.lastIndex = meta.fullTo;
+  }
+  return commands;
+}
+
+export function extractTodos(content, note, updatedAt) {
   const todos = [];
   const lineStarts = [0];
   for (let i = 0; i < content.length; i++) {
@@ -1162,24 +1235,26 @@ function extractTodos(content, note, updatedAt) {
     }
     return Math.max(0, hi) + 1;
   };
-  const re = /@@todo(?:\(([^)\n]*)\))?\s+\[((?:\\.|[^\]\\\n])*)\]/g;
-  let match;
-  while ((match = re.exec(content))) {
-    const source = match[0];
-    const text = String(match[2] || "").replace(/\\([\]\\])/g, "$1").trim();
-    const status = normalizeTodoStatus(match[1]);
-    const line = lineFor(match.index);
+  for (const command of scanInlineCommands(content, "todo")) {
+    const source = content.slice(command.fullFrom, command.fullTo);
+    const text = String(command.context || "").replace(/\\([\]\\])/g, "$1").trim();
+    const status = normalizeTodoStatus(command.switchValue);
+    const args = command.args;
+    const line = lineFor(command.fullFrom);
     const lineStart = lineStarts[line - 1] || 0;
     const lineEnd = content.indexOf("\n", lineStart);
     const rawLine = content.slice(lineStart, lineEnd < 0 ? content.length : lineEnd).trim();
     todos.push({
-      id: `${note.file}:${match.index}`,
+      id: `${note.file}:${command.fullFrom}`,
       status,
       text,
+      args,
+      meta: command.argsRaw,
+      ddl: args.ddl || "",
       source,
-      index: match.index,
+      index: command.fullFrom,
       line,
-      column: match.index - lineStart + 1,
+      column: command.fullFrom - lineStart + 1,
       context: rawLine,
       file: note.file,
       path: note.path,
@@ -1303,6 +1378,44 @@ export async function scanSnippets(options = {}) {
     snippets: snippets.sort((a, b) => `${a.kind}/${a.mode}/${a.key}`.localeCompare(`${b.kind}/${b.mode}/${b.key}`)),
   };
   return snippetCache.snippets;
+}
+
+export async function scanPlugins(options = {}) {
+  const root = resolve(pluginRoot);
+  const key = root;
+  const now = Date.now();
+  if (!options.force && pluginCache.key === key && now - pluginCache.scannedAt < 10_000) {
+    return pluginCache.plugins;
+  }
+  const plugins = [];
+  if (existsSync(root)) {
+    const entries = await readdir(root, { withFileTypes: true }).catch(() => []);
+    for (const entry of entries) {
+      if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+      const dir = resolve(root, entry.name);
+      const manifestFile = resolve(dir, "plugin.json");
+      try {
+        const manifest = JSON.parse(await readFile(manifestFile, "utf8"));
+        const id = String(manifest.id || entry.name).trim();
+        if (!id || !/^[a-z0-9_-]+$/i.test(id)) continue;
+        plugins.push({
+          id,
+          name: String(manifest.name || id),
+          version: String(manifest.version || ""),
+          entry: String(manifest.entry || ""),
+          path: relative(workspaceRoot, dir).replace(/\\/g, "/"),
+          commands: Array.isArray(manifest.commands) ? manifest.commands.map(String) : [],
+          blocks: Array.isArray(manifest.blocks) ? manifest.blocks.map(String) : [],
+        });
+      } catch {}
+    }
+  }
+  pluginCache = {
+    key,
+    scannedAt: now,
+    plugins: plugins.sort((a, b) => a.id.localeCompare(b.id)),
+  };
+  return pluginCache.plugins;
 }
 
 async function readNote(file) {
@@ -1682,6 +1795,12 @@ async function routeApi(req, res) {
       return true;
     }
 
+    if (req.method === "GET" && url.pathname === "/api/plugins") {
+      const force = url.searchParams.get("reload") === "1";
+      sendJson(res, 200, { type: "plugins", plugins: await scanPlugins({ force }), root: pluginRoot });
+      return true;
+    }
+
     if (req.method === "GET" && url.pathname === "/api/todos") {
       sendJson(res, 200, { type: "todos", todos: await scanTodos(), root: noteRoot });
       return true;
@@ -1882,6 +2001,7 @@ export async function startAaronnoteServer(options = {}) {
   noteScanRoot = noteRoot;
   workspaceRoot = resolve(String(options.workspaceRoot || process.env.AARONNOTE_WORKSPACE_ROOT || resolve(appDir, "..")));
   publishJsDir = resolve(String(options.publishJsDir || process.env.AARONNOTE_PUBLISH_JS_DIR || join(workspaceRoot, "js")));
+  pluginRoot = resolve(String(options.pluginRoot || process.env.AARONNOTE_PLUGIN_ROOT || join(workspaceRoot, "plugin")));
   const staticDir = options.staticDir || process.env.AARONNOTE_STATIC_DIR;
 
   let vite;
@@ -1924,6 +2044,7 @@ export async function startAaronnoteServer(options = {}) {
   console.log(`Aaronnote root: ${noteRoot}`);
   console.log(`Aaronnote notes: ${noteScanRoot}`);
   console.log(`Aaronnote snippets: ${snippetDirs().join(":") || "(none)"}`);
+  console.log(`Aaronnote plugins: ${pluginRoot}`);
   console.log(`Aaronnote URL: ${url}`);
   return {
     server,

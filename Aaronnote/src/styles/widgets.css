@@ -228,14 +228,14 @@
 }
 
 .ProseMirror .inline-todo-line {
-  position: fixed;
+  position: absolute;
   z-index: 7;
   border-top: 2px solid color-mix(in srgb, var(--inline-todo-accent), transparent 28%);
   pointer-events: none;
 }
 
 .ProseMirror .inline-todo-card {
-  position: fixed;
+  position: absolute;
   z-index: 8;
   box-sizing: border-box;
   padding: 7px 9px;

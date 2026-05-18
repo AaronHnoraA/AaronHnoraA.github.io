@@ -66,20 +66,22 @@ function layoutInlineTodoWidget(el: HTMLElement, view: EditorView): () => void {
       return;
     }
     const chipRect = chip.getBoundingClientRect();
+    const widgetRect = el.getBoundingClientRect();
     const editorHost = view.dom.closest(".aaronnote-editor") as HTMLElement | null;
     const rootRect = (editorHost ?? view.dom).getBoundingClientRect();
     const viewportRight = Math.min(window.innerWidth - 16, rootRect.right - 28);
     const cardWidth = Math.round(Math.min(320, Math.max(220, rootRect.width * 0.24)));
-    const cardLeft = Math.max(chipRect.right + 46, viewportRight - cardWidth);
-    const top = Math.max(12, chipRect.top - 8);
-    const lineLeft = chipRect.right + 6;
+    const cardLeft = Math.max(chipRect.right + 46, viewportRight - cardWidth) - widgetRect.left;
+    const lineLeft = chipRect.right - widgetRect.left - 1;
     const lineWidth = Math.max(0, cardLeft - lineLeft);
+    card.style.width = `${cardWidth}px`;
+    const lineTop = Math.round(chipRect.bottom - widgetRect.top - 1);
+    const cardHeight = Math.max(card.getBoundingClientRect().height, 34);
 
     card.style.left = `${cardLeft}px`;
-    card.style.top = `${top}px`;
-    card.style.width = `${cardWidth}px`;
+    card.style.top = `${Math.round(lineTop - cardHeight / 2)}px`;
     line.style.left = `${lineLeft}px`;
-    line.style.top = `${chipRect.top + chipRect.height / 2}px`;
+    line.style.top = `${lineTop}px`;
     line.style.width = `${lineWidth}px`;
     line.hidden = lineWidth < 18;
   };
@@ -275,18 +277,15 @@ function buildWidgetLazy(w: WidgetDecoration): (view: EditorView, getPos: () => 
         event.preventDefault();
         event.stopPropagation();
         const source = view.state.doc.textBetween(w.spanFrom, w.spanTo, "\n", "\n");
-        const match = source.match(/^@@todo(?:\(([^)\n]*)\))?(\s+\[)/);
+        const match = source.match(/^@@todo(?:\(([^)\n]*)\))?[ \t]+\[/);
         if (!match) return;
         const next = nextInlineTodoStatus(normalizeInlineTodoStatus(match[1]));
         const statusStart = w.spanFrom + "@@todo".length;
         const tr = view.state.tr;
         if (match[1] != null) {
-          const statusEnd = statusStart + match[1].length + 2;
-          tr.replaceWith(
-            statusStart,
-            statusEnd,
-            next === "todo" ? [] : view.state.schema.text(`(${next})`),
-          );
+          const statusEndLocal = "@@todo".length + match[1].length + 2;
+          const statusEnd = w.spanFrom + statusEndLocal;
+          tr.insertText(next === "todo" ? (source[statusEndLocal] === "[" ? " " : "") : `(${next})`, statusStart, statusEnd);
         } else if (next !== "todo") {
           tr.insertText(`(${next})`, statusStart);
         }

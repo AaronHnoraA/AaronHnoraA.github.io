@@ -78,6 +78,8 @@ $$
     roundTripStable("body @@todo [update statement] tail"));
   test("inline todo explicit status", () =>
     roundTripStable("body @@todo(doing) [update statement] tail"));
+  test("inline todo metadata", () =>
+    roundTripStable("body @@todo(doing) [update statement]{ddl: 2026-05-20} tail"));
   // Indented (4-space) code: md-it produces a `code_block` token with no
   // markup, same shape as a fenced block w/ no lang. Round-trip is at
   // doc level — md-text serialises to the fenced form (no `style` attr

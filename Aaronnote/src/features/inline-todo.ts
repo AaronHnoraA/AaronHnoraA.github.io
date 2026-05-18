@@ -1,4 +1,5 @@
 import { markConsumed, type InlineSpan } from "../inline-parse.ts";
+import { scanInlineCommands } from "../command-syntax.ts";
 import type { FeatureSpec, InlineFeatureSpec } from "./_types.ts";
 
 const TODO_STATUSES = ["todo", "doing", "done", "blocked"] as const;
@@ -20,41 +21,19 @@ type TodoMatch = {
   contentTo: number;
   status: TodoStatus;
   content: string;
+  meta: string;
 };
 
-function findTodoClose(text: string, openBracket: number): number {
-  for (let i = openBracket + 1; i < text.length; i++) {
-    const ch = text[i]!;
-    if (ch === "\\" && i + 1 < text.length) {
-      i++;
-      continue;
-    }
-    if (ch === "\n" || ch === "\r") return -1;
-    if (ch === "]") return i;
-  }
-  return -1;
-}
-
 function findTodos(text: string): TodoMatch[] {
-  const matches: TodoMatch[] = [];
-  const re = /@@todo(?:\(([^)\n]*)\))?\s+\[/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(text))) {
-    const fullFrom = m.index;
-    const openBracket = re.lastIndex - 1;
-    const close = findTodoClose(text, openBracket);
-    if (close < 0) continue;
-    matches.push({
-      fullFrom,
-      fullTo: close + 1,
-      contentFrom: openBracket + 1,
-      contentTo: close,
-      status: normalizeTodoStatus(m[1]),
-      content: text.slice(openBracket + 1, close),
-    });
-    re.lastIndex = close + 1;
-  }
-  return matches;
+  return scanInlineCommands(text, "todo").map((command) => ({
+    fullFrom: command.fullFrom,
+    fullTo: command.fullTo,
+    contentFrom: command.contextFrom,
+    contentTo: command.contextTo,
+    status: normalizeTodoStatus(command.switchValue),
+    content: command.context,
+    meta: command.argsRaw,
+  }));
 }
 
 const scan: InlineFeatureSpec["scan"] = (text, consumed) => {
@@ -80,6 +59,7 @@ const scan: InlineFeatureSpec["scan"] = (text, consumed) => {
       attrs: {
         status: match.status,
         content: match.content,
+        meta: match.meta,
       },
       delimRanges: [
         {
@@ -97,6 +77,7 @@ const scan: InlineFeatureSpec["scan"] = (text, consumed) => {
           attrs: {
             status: match.status,
             content: match.content,
+            meta: match.meta,
           },
           side: -1,
         },
@@ -114,6 +95,7 @@ export const inlineTodo: FeatureSpec = {
       attrs: {
         status: { default: "todo" },
         content: { default: "" },
+        meta: { default: "" },
       },
       inclusive: false,
       parseDOM: [
@@ -122,6 +104,7 @@ export const inlineTodo: FeatureSpec = {
           getAttrs: (el) => ({
             status: normalizeTodoStatus((el as HTMLElement).getAttribute("data-status")),
             content: (el as HTMLElement).getAttribute("data-content") ?? "",
+            meta: (el as HTMLElement).getAttribute("data-meta") ?? "",
           }),
         },
       ],
@@ -131,6 +114,7 @@ export const inlineTodo: FeatureSpec = {
           "data-inline-todo-mark": "",
           "data-status": mark.attrs.status,
           "data-content": mark.attrs.content,
+          "data-meta": mark.attrs.meta,
         },
         0,
       ],

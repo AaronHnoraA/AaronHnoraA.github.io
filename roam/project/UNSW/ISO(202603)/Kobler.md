@@ -21,7 +21,7 @@ $$
 \end{array}
 $$
 
-Here the graph-side chain @@todo [这里是我的任务]
+Here the graph-side chain @@todo [这里是我的任务] {ddl:2026-05-19} 
 
 $$
 d\mathrm{GA} \le_p \mathrm{GI} \le_p \mathrm{GA}

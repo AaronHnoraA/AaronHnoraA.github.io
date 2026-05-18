@@ -36,7 +36,7 @@ if (!hasSingleInstanceLock) app.exit(0);
 function shouldOwnShortcut(input) {
   if (input.alt || input.control) return false;
   if (!input.meta) return false;
-  return ["l", "w"].includes(input.key.toLowerCase());
+  return ["l", "r", "w"].includes(input.key.toLowerCase());
 }
 
 function inside(child, parent) {
@@ -153,6 +153,21 @@ function runInWindow(script) {
   const win = BrowserWindow.getFocusedWindow() || mainWindow;
   if (!win || win.isDestroyed()) return;
   void win.webContents.executeJavaScript(script, true);
+}
+
+async function reloadCurrentWindow() {
+  const win = BrowserWindow.getFocusedWindow() || mainWindow;
+  if (!win || win.isDestroyed()) return;
+  await flushRendererState(win);
+  const file = await win.webContents.executeJavaScript(
+    "window.AaronnoteCurrentFile?.() || new URL(window.location.href).searchParams.get('file') || ''",
+    true,
+  ).catch(() => "");
+  if (serverHandle?.url && file) {
+    await win.loadURL(urlForFile(serverHandle.url, String(file)));
+    return;
+  }
+  win.webContents.reload();
 }
 
 function createNewWindow() {
@@ -413,6 +428,10 @@ function buildMenu() {
         click: () => runInWindow(dispatchCommandScript("reload-snippets")),
       },
       {
+        label: "Plugin Manager",
+        click: () => runInWindow(dispatchCommandScript("open-plugin-manager")),
+      },
+      {
         label: "Enable Snippet Suggestions",
         click: () => runInWindow(dispatchCommandScript("enable-snippet-suggestions")),
       },
@@ -481,7 +500,11 @@ function buildMenu() {
         click: () => runInWindow("document.querySelector('.aaronnote-floating-toc > button')?.click()"),
       },
       { type: "separator" },
-      { role: "reload" },
+      {
+        label: "Reload Current Note",
+        accelerator: "CmdOrCtrl+R",
+        click: () => void reloadCurrentWindow(),
+      },
       { role: "toggleDevTools" },
       { role: "togglefullscreen" },
     ],

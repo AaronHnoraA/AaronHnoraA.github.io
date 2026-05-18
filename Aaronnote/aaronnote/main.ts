@@ -27,6 +27,7 @@ declare global {
     initKnowledgeGraph?: (options?: Record<string, unknown>) => { destroy?: () => void; setVisibleKeys?: (keys: string[]) => void } | null;
     buildKnowledgeData?: () => void;
     __GRAPH_NO_AUTO_INIT__?: boolean;
+    AaronnoteCurrentFile?: () => string;
     AaronnoteResolveAssetUrl?: (src: string) => string;
     AaronnoteDesktop?: {
       chooseNotePath?: (options?: { suggestedPath?: string; title?: string }) => Promise<string>;
@@ -82,8 +83,15 @@ root.innerHTML = `
               <input data-agenda-filter type="search" placeholder="Filter active todos" />
               <select data-agenda-sort aria-label="Sort todos">
                 <option value="status">Status</option>
+                <option value="ddl">DDL</option>
                 <option value="file">File</option>
                 <option value="time">Time</option>
+              </select>
+              <select data-agenda-group aria-label="Group todos">
+                <option value="status">Group: Status</option>
+                <option value="ddl">Group: DDL</option>
+                <option value="file">Group: File</option>
+                <option value="time">Group: Updated</option>
               </select>
               <label><input data-agenda-done type="checkbox" /> Done</label>
               <button type="button" data-action="agenda-refresh">Refresh</button>
@@ -132,6 +140,19 @@ root.innerHTML = `
           </div>
         </div>
       </section>
+      <section class="aaronnote-plugin-page" data-plugin-page hidden>
+        <div class="aaronnote-plugin-inner">
+          <header class="aaronnote-plugin-head">
+            <h1>Plugins</h1>
+            <button type="button" data-action="plugin-back">Back</button>
+          </header>
+          <div class="aaronnote-plugin-toolbar">
+            <span data-plugin-count>No plugins loaded</span>
+            <button type="button" data-action="plugin-refresh">Refresh</button>
+          </div>
+          <div class="aaronnote-plugin-list" data-plugin-list></div>
+        </div>
+      </section>
     </section>
     <aside class="aaronnote-floating-toc is-collapsed" data-floating-toc>
       <button type="button" data-toc-toggle aria-expanded="false">TOC</button>
@@ -149,6 +170,9 @@ const recentList = document.querySelector<HTMLElement>("[data-recent-list]")!;
 const noteFilter = document.querySelector<HTMLInputElement>("[data-note-filter]")!;
 const noteCount = document.querySelector<HTMLElement>("[data-note-count]")!;
 const notesPage = document.querySelector<HTMLElement>("[data-notes-page]")!;
+const pluginPage = document.querySelector<HTMLElement>("[data-plugin-page]")!;
+const pluginList = document.querySelector<HTMLElement>("[data-plugin-list]")!;
+const pluginCount = document.querySelector<HTMLElement>("[data-plugin-count]")!;
 const graphPage = document.querySelector<HTMLElement>("[data-graph-page]")!;
 const syncButton = document.querySelector<HTMLButtonElement>("[data-action='sync']")!;
 const notesCollapseAllButton = document.querySelector<HTMLButtonElement>("[data-action='notes-collapse-all']")!;
@@ -171,10 +195,13 @@ const agendaButton = document.querySelector<HTMLButtonElement>("[data-action='ag
 const sourceButton = document.querySelector<HTMLButtonElement>("[data-action='source']")!;
 const editorButton = document.querySelector<HTMLButtonElement>("[data-action='editor']")!;
 const editorInlineButton = document.querySelector<HTMLButtonElement>("[data-action='editor-inline']")!;
+const pluginBackButton = document.querySelector<HTMLButtonElement>("[data-action='plugin-back']")!;
+const pluginRefreshButton = document.querySelector<HTMLButtonElement>("[data-action='plugin-refresh']")!;
 const focusModeButton = document.querySelector<HTMLButtonElement>("[data-action='focus-mode']")!;
 const typewriterModeButton = document.querySelector<HTMLButtonElement>("[data-action='typewriter-mode']")!;
 const agendaFilter = document.querySelector<HTMLInputElement>("[data-agenda-filter]")!;
 const agendaSort = document.querySelector<HTMLSelectElement>("[data-agenda-sort]")!;
+const agendaGroup = document.querySelector<HTMLSelectElement>("[data-agenda-group]")!;
 const agendaDone = document.querySelector<HTMLInputElement>("[data-agenda-done]")!;
 const agendaRefresh = document.querySelector<HTMLButtonElement>("[data-action='agenda-refresh']")!;
 const agendaCount = document.querySelector<HTMLElement>("[data-agenda-count]")!;
@@ -247,11 +274,13 @@ document.body.appendChild(modal);
 const vimCursor = createVimCursor();
 
 let currentFile = "";
+window.AaronnoteCurrentFile = () => currentFile;
 let currentMode: "markdown" | "source" = "markdown";
 let currentStandalone = false;
 let saveTimer = 0;
 let notes: NoteSummary[] = [];
 let snippets: SnippetSummary[] = [];
+let plugins: PluginSummary[] = [];
 let pendingTodoFocus: { file: string; source: string; index?: number } | null = null;
 let assistFrame = 0;
 let assistTimer = 0;
@@ -294,8 +323,18 @@ let noteKindLoadSeq = 0;
 const recentStorageKey = "aaronnote.recent";
 const writingModeStorageKey = "aaronnote.writingMode";
 const snippetSuggestionsStorageKey = "aaronnote.snippetSuggestions.enabled";
+const pluginEnabledStorageKey = "aaronnote.plugins.enabled";
 type RecentNote = { file: string; openedAt: number };
 type OpenNoteOptions = { newWindow?: boolean; equationTag?: string };
+type PluginSummary = {
+  id: string;
+  name: string;
+  version?: string;
+  entry?: string;
+  path?: string;
+  commands?: string[];
+  blocks?: string[];
+};
 let recentNotes = loadRecentNotes();
 let writingMode = loadWritingMode();
 snippetSuggestionsEnabled = loadSnippetSuggestionsEnabled();
@@ -449,6 +488,7 @@ const filesystemBrowser = createFilesystemBrowser({
 const agendaManager = createAgendaManager({
   filter: agendaFilter,
   sort: agendaSort,
+  group: agendaGroup,
   done: agendaDone,
   count: agendaCount,
   list: agendaList,
@@ -802,6 +842,13 @@ function noteWindowUrl(note: NoteSummary, equationTag = ""): string {
   if (equationTag) url.searchParams.set("eqTag", equationTag);
   else url.searchParams.delete("eqTag");
   return url.toString();
+}
+
+function syncCurrentFileUrl(): void {
+  const url = new URL(window.location.href);
+  if (currentFile) url.searchParams.set("file", currentFile);
+  else url.searchParams.delete("file");
+  window.history.replaceState(null, "", url.toString());
 }
 
 function openExternalUrl(href: string, options: OpenNoteOptions = {}): void {
@@ -1903,6 +1950,7 @@ function showNotesPage(tab = "filesystem"): void {
   disposeGraph();
   host.hidden = true;
   notesPage.hidden = false;
+  pluginPage.hidden = true;
   toc.hidden = true;
   notesButton.hidden = true;
   agendaButton.hidden = true;
@@ -1910,6 +1958,102 @@ function showNotesPage(tab = "filesystem"): void {
   editorButton.hidden = false;
   showNotesTool(tab);
   if (tab === "filesystem") window.requestAnimationFrame(() => filesystemBrowser.focus());
+}
+
+function pluginEnabledSet(): Set<string> {
+  try {
+    const raw = JSON.parse(window.localStorage.getItem(pluginEnabledStorageKey) || "[]");
+    return new Set(Array.isArray(raw) ? raw.map(String) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function savePluginEnabledSet(enabled: Set<string>): void {
+  window.localStorage.setItem(pluginEnabledStorageKey, JSON.stringify([...enabled].sort()));
+}
+
+async function loadPlugins(force = false): Promise<void> {
+  if (plugins.length > 0 && !force) {
+    renderPlugins();
+    return;
+  }
+  pluginCount.textContent = "Loading";
+  try {
+    const res = await fetch("/api/plugins");
+    const msg = await res.json() as { plugins?: PluginSummary[]; message?: string };
+    if (!res.ok || !Array.isArray(msg.plugins)) throw new Error(msg.message || "Plugin scan failed");
+    plugins = msg.plugins;
+    renderPlugins();
+  } catch (err) {
+    const empty = document.createElement("div");
+    empty.className = "aaronnote-empty";
+    empty.textContent = err instanceof Error ? err.message : "Plugin scan failed";
+    pluginList.replaceChildren(empty);
+    pluginCount.textContent = "Failed";
+  }
+}
+
+function renderPlugins(): void {
+  const enabled = pluginEnabledSet();
+  pluginCount.textContent = `${plugins.length} plugin${plugins.length === 1 ? "" : "s"} · ${enabled.size} enabled`;
+  if (plugins.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "aaronnote-empty";
+    empty.textContent = "No plugins found in plugin/";
+    pluginList.replaceChildren(empty);
+    return;
+  }
+  const frag = document.createDocumentFragment();
+  for (const plugin of plugins) {
+    const item = document.createElement("article");
+    item.className = "aaronnote-plugin-item";
+    const main = document.createElement("div");
+    main.className = "aaronnote-plugin-main";
+    const title = document.createElement("strong");
+    title.textContent = plugin.name || plugin.id;
+    const meta = document.createElement("span");
+    const parts = [
+      plugin.id,
+      plugin.version ? `v${plugin.version}` : "",
+      plugin.commands?.length ? `commands: ${plugin.commands.join(", ")}` : "",
+      plugin.blocks?.length ? `blocks: ${plugin.blocks.join(", ")}` : "",
+    ].filter(Boolean);
+    meta.textContent = parts.join(" · ");
+    main.append(title, meta);
+    const toggle = document.createElement("label");
+    toggle.className = "aaronnote-plugin-toggle";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = enabled.has(plugin.id);
+    input.addEventListener("change", () => {
+      const next = pluginEnabledSet();
+      if (input.checked) next.add(plugin.id);
+      else next.delete(plugin.id);
+      savePluginEnabledSet(next);
+      renderPlugins();
+      setStatus(`${plugin.name || plugin.id} ${input.checked ? "enabled" : "disabled"}`);
+    });
+    toggle.append(input, document.createTextNode("Enabled"));
+    item.append(main, toggle);
+    frag.append(item);
+  }
+  pluginList.replaceChildren(frag);
+}
+
+function showPluginPage(): void {
+  saveCursorPositionNow({ force: true });
+  cleanupTransientUi();
+  disposeGraph();
+  host.hidden = true;
+  notesPage.hidden = true;
+  pluginPage.hidden = false;
+  toc.hidden = true;
+  notesButton.hidden = true;
+  agendaButton.hidden = true;
+  sourceButton.hidden = true;
+  editorButton.hidden = false;
+  void loadPlugins();
 }
 
 function openFilesystemPage(): void {
@@ -1940,6 +2084,7 @@ function showNotesTool(tab: string): void {
 function showEditorPage(): void {
   disposeGraph();
   notesPage.hidden = true;
+  pluginPage.hidden = true;
   host.hidden = false;
   toc.hidden = false;
   notesButton.hidden = currentStandalone;
@@ -3051,6 +3196,7 @@ function applyOpen(msg: Extract<Inbound, { type: "open" }>): void {
   const storedPosition = currentFile ? cursorPositions.get(currentFile) : undefined;
   currentMode = storedPosition?.mode ?? (msg.mode === "source" ? "source" : "markdown");
   fileLabel.textContent = currentFile || "Scratch";
+  syncCurrentFileUrl();
   notesButton.hidden = currentStandalone;
   agendaButton.hidden = currentStandalone;
   if (currentStandalone && !notesPage.hidden) showEditorPage();
@@ -3273,6 +3419,7 @@ window.addEventListener("aaronnote:command", (event) => {
   if (command === "disable-snippet-suggestions") setSnippetSuggestionsEnabled(false);
   if (command === "reset-snippet-suggestions") clearSnippetSuggestionState();
   if (command === "open-filesystem") openFilesystemPage();
+  if (command === "open-plugin-manager") showPluginPage();
   if (command === "open-block-menu") openBlockMenu();
   if (command === "toggle-source") toggleSourceMode();
   if (command === "save-now") save();
@@ -3292,6 +3439,8 @@ unusedAssetsSelectAll.addEventListener("change", unusedAssetsManager.toggleSelec
 sourceButton.addEventListener("click", toggleSourceMode);
 editorButton.addEventListener("click", showEditorPage);
 editorInlineButton.addEventListener("click", showEditorPage);
+pluginBackButton.addEventListener("click", showEditorPage);
+pluginRefreshButton.addEventListener("click", () => void loadPlugins(true));
 notesTabButtons.forEach((button) => {
   button.addEventListener("click", () => showNotesTool(button.dataset.notesTab || "filesystem"));
 });
@@ -3349,6 +3498,7 @@ findTool.addEventListener("click", (event) => {
 noteFilter.addEventListener("input", scheduleRenderNotes);
 agendaFilter.addEventListener("input", scheduleRenderAgenda);
 agendaSort.addEventListener("change", scheduleRenderAgenda);
+agendaGroup.addEventListener("change", scheduleRenderAgenda);
 agendaDone.addEventListener("change", scheduleRenderAgenda);
 agendaRefresh.addEventListener("click", () => void loadAgendaTodos(true));
 graphFilter.addEventListener("input", () => scheduleRenderGraph());

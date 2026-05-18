@@ -9,6 +9,11 @@ import {
   type ViewMutationRecord,
 } from "prosemirror-view";
 
+import {
+  isBlockCommandCloseLine,
+  parseBlockCommandOpenLine,
+  parseBlockCommandText,
+} from "../command-syntax.ts";
 import type { FeatureSpec } from "./_types.ts";
 
 const ENV_LABELS: Record<string, string> = {
@@ -38,20 +43,6 @@ function envLabel(kind: string): string {
   return ENV_LABELS[kind] ?? kind;
 }
 
-function parseOrgEnvText(text: string): { kind: string; title: string; content: string } | null {
-  const open = text.match(/^\s*#\+begin(?:_|\s+)([A-Za-z][\w-]*)(?:\s+([^\n]+?))?\s*\n/i);
-  if (!open) return null;
-  const kind = open[1].toLowerCase();
-  const closePattern = new RegExp(`\\n\\s*\\\\?#\\+end(?:_|\\s+)${kind}\\s*$`, "i");
-  const close = text.match(closePattern);
-  if (!close || close.index == null) return null;
-  return {
-    kind,
-    title: open[2]?.trim() ?? "",
-    content: text.slice(open[0].length, close.index).replace(/\n$/, ""),
-  };
-}
-
 function paragraphFromText(schema: Schema, text: string): PMNode | null {
   if (!text) return null;
   return schema.nodes.paragraph.createChecked(null, schema.text(text));
@@ -65,12 +56,14 @@ function orgEnvCommitPlugin(): Plugin {
       const found: Array<{ from: number; to: number; kind: string; title: string; content: string }> = [];
       newState.doc.descendants((node, pos) => {
         if (found.length > 0 || node.type.name !== "paragraph") return found.length === 0;
-        const parsed = parseOrgEnvText(node.textContent);
+        const parsed = parseBlockCommandText(node.textContent);
         if (!parsed) return true;
         found.push({
           from: pos,
           to: pos + node.nodeSize,
-          ...parsed,
+          kind: parsed.name,
+          title: parsed.title,
+          content: parsed.content,
         });
         return false;
       });
@@ -505,18 +498,17 @@ const orgEnvRule: RuleBlock = (state, startLine, endLine, silent) => {
   const start = state.bMarks[startLine]! + state.tShift[startLine]!;
   const lineEnd = state.eMarks[startLine]!;
   const line = state.src.slice(start, lineEnd);
-  const open = line.match(/^#\+begin(?:_|\s+)([A-Za-z][\w-]*)(?:\s+(.+?))?\s*$/i);
+  const open = parseBlockCommandOpenLine(line);
   if (!open) return false;
 
-  const kind = open[1].toLowerCase();
+  const kind = open.name;
   let closeLine = -1;
-  const closePattern = new RegExp(`^#\\+end(?:_|\\s+)${kind}\\s*$`, "i");
   for (let lineNo = startLine + 1; lineNo < endLine; lineNo++) {
     const bm = state.bMarks[lineNo]! + state.tShift[lineNo]!;
     const em = state.eMarks[lineNo]!;
     if (
       state.tShift[lineNo]! <= 3 &&
-      closePattern.test(state.src.slice(bm, em).replace(/^\\(?=#\+end)/i, ""))
+      isBlockCommandCloseLine(state.src.slice(bm, em), kind)
     ) {
       closeLine = lineNo;
       break;
@@ -532,7 +524,7 @@ const orgEnvRule: RuleBlock = (state, startLine, endLine, silent) => {
   token.children = state.md.parse(content, state.env);
   token.meta = {
     kind,
-    title: open[2]?.trim() ?? "",
+    title: open.title,
   };
   token.map = [startLine, closeLine + 1];
   state.line = closeLine + 1;

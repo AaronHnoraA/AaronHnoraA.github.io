@@ -129,6 +129,8 @@ Legend: :white\_check\_mark: stable · :yellow\_circle: partial (note explains w
 | `[toc]` block                     | :white_check_mark: |                                           |
 | emoji `:smile:`                   | :white_check_mark: |                                           |
 | HTML comment `<!-- -->`           | :white_check_mark: |                                           |
+| inline command `@@cmd(x) [y]{k: v}` | :white_check_mark: | TODO uses `@@todo(doing) [task]{ddl: 2026-05-20}`; `@@todo [task]` defaults to `todo` |
+| org command block `#+begin kind`   | :white_check_mark: | rendered through the org-env NodeView     |
 | diagram fences (mermaid, flow, …) | :yellow_circle:    | `mermaid` preview exists for fenced code blocks; broader diagram families are not implemented |
 
 ### Editor behaviors

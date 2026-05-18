@@ -38,6 +38,25 @@ describe("inline todo and org comment notes", () => {
     }
   });
 
+  test("inline todo explicit status and metadata use command syntax", () => {
+    const doc = parse("body @@todo(done) [update statement]{ddl: 2026-05-20} tail");
+    const base = createState(doc);
+    const state = base.apply(base.tr.setSelection(TextSelection.create(base.doc, 1)));
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const view = new EditorView(mount, { state });
+    try {
+      const widget = view.dom.querySelector<HTMLElement>(".inline-todo-widget");
+      expect(widget).not.toBeNull();
+      expect(widget!.dataset.status).toBe("done");
+      expect(widget!.querySelector(".inline-todo-text")?.textContent).toBe("update statement");
+      expect(view.state.doc.textContent).toContain("{ddl: 2026-05-20}");
+    } finally {
+      view.destroy();
+      mount.remove();
+    }
+  });
+
   test("cursor inside inline todo source hides the folded widget", () => {
     const source = "body @@todo [update statement] tail";
     const doc = parse(source);
