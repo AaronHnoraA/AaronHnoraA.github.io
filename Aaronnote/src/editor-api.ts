@@ -757,6 +757,86 @@ export function createEditor(
     });
   }
 
+  function hasRealTextAfterCursorOnLine(after: string): boolean {
+    if (!after) return false;
+    const lineEnd = after.indexOf("\n");
+    const activeLineTail = after.slice(0, lineEnd < 0 ? after.length : lineEnd);
+    return activeLineTail.trim().length > 0;
+  }
+
+  function normalizeVisibleCursorText(text: string): string {
+    return text
+      .replace(/[`*_~[\](){}#+!>|\\]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function cursorContextForRenderedPos(pos: number, maxChars = 500): { before: string; after: string } {
+    const target = Math.max(0, Math.min(pos, view.state.doc.content.size));
+    const $pos = view.state.doc.resolve(target);
+    const contextStart = Math.max(0, $pos.parentOffset - maxChars);
+    return {
+      before: $pos.parent.textBetween(contextStart, $pos.parentOffset, "\n", "\n"),
+      after: $pos.parent.textBetween(
+        $pos.parentOffset,
+        Math.min($pos.parent.content.size, $pos.parentOffset + maxChars),
+        "\n",
+        "\n",
+      ),
+    };
+  }
+
+  function currentMarkdownLineTail(md: string, offset: number): string {
+    const cursor = Math.max(0, Math.min(offset, md.length));
+    const lineEnd = md.indexOf("\n", cursor);
+    return md.slice(cursor, lineEnd < 0 ? md.length : lineEnd);
+  }
+
+  function isIgnorableMarkdownTail(tail: string): boolean {
+    return /^[\s)\]}>*_~`'".,;:!?-]*$/.test(tail);
+  }
+
+  function refineMdOffsetWithRenderedContext(
+    md: string,
+    approximateOffset: number,
+    before: string,
+    after: string,
+  ): number {
+    const approximate = Math.max(0, Math.min(approximateOffset, md.length));
+    const beforeAnchor = normalizeVisibleCursorText(before).slice(-48);
+    const afterAnchor = normalizeVisibleCursorText(after).slice(0, 48);
+    if (!beforeAnchor && !afterAnchor) return approximate;
+
+    const searchRadius = 256;
+    const start = Math.max(0, approximate - searchRadius);
+    const end = Math.min(md.length, approximate + searchRadius);
+    let bestOffset = approximate;
+    let bestScore = Number.NEGATIVE_INFINITY;
+
+    for (let candidate = start; candidate <= end; candidate++) {
+      let score = 0;
+
+      if (beforeAnchor) {
+        const snippet = normalizeVisibleCursorText(md.slice(Math.max(0, candidate - beforeAnchor.length - 24), candidate));
+        if (snippet.endsWith(beforeAnchor)) score += beforeAnchor.length * 4;
+      }
+
+      if (afterAnchor) {
+        const snippet = normalizeVisibleCursorText(md.slice(candidate, Math.min(md.length, candidate + afterAnchor.length + 24)));
+        if (snippet.startsWith(afterAnchor)) score += afterAnchor.length * 5;
+      }
+
+      if (score <= 0) continue;
+      score -= Math.abs(candidate - approximate);
+      if (score > bestScore) {
+        bestScore = score;
+        bestOffset = candidate;
+      }
+    }
+
+    return bestOffset;
+  }
+
   // Best-effort cursor mapping between rendered and source. Both
   // directions cut/parse a prefix and use its length / content.size as
   // the position. Mid-syntax cursors (e.g. between `*` and `bold` in
@@ -773,7 +853,15 @@ export function createEditor(
         if (mdOffsetToRenderedPos(md, mid) < target) lo = mid + 1;
         else hi = mid;
       }
-      return lo;
+      const context = cursorContextForRenderedPos(target);
+      const nearby = md.slice(Math.max(0, lo - 12), Math.min(md.length, lo + 12));
+      const suspicious = !hasRealTextAfterCursorOnLine(context.after) || /[`*_~[\](){}#+!>|\\]/.test(nearby);
+      if (!suspicious) return lo;
+      const refined = refineMdOffsetWithRenderedContext(md, lo, context.before, context.after);
+      if (hasRealTextAfterCursorOnLine(context.after)) return refined;
+      const tail = currentMarkdownLineTail(md, refined);
+      if (!tail || !isIgnorableMarkdownTail(tail)) return refined;
+      return refined + tail.length;
     } catch {
       return markdownFromDoc(view.state.doc).length;
     }

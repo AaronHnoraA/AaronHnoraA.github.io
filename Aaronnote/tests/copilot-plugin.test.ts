@@ -6,6 +6,7 @@ import { setup } from "../../plugin/copilot/index.ts";
 class FakeEditor {
   markdown: string;
   selection: { from: number; to: number };
+  cursorBefore = "";
   cursorAfter = "";
   insertions: string[] = [];
 
@@ -32,7 +33,7 @@ class FakeEditor {
   }
 
   cursorContext(): { before: string; after: string; rect: { left: number; top: number; bottom: number } } {
-    return { before: "", after: this.cursorAfter, rect: { left: 0, top: 0, bottom: 20 } };
+    return { before: this.cursorBefore, after: this.cursorAfter, rect: { left: 0, top: 0, bottom: 20 } };
   }
 
   revealCursor(): void {}
@@ -196,4 +197,5 @@ describe("copilot plugin insertion", () => {
       host.remove();
     }
   });
+
 });

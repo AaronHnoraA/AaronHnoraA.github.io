@@ -162,6 +162,11 @@ function currentLinePrefix(markdown: string, offset: number): string {
   return markdown.slice(lineStart, cursor);
 }
 
+function completionOffset(editor: EditorLike): number {
+  const selection = editor.getMarkdownSelection();
+  return selection.to;
+}
+
 function trimmedCompletionInsertText(
   choice: InlineChoice,
   markdown: string,
@@ -256,7 +261,7 @@ export function setup(context: Context): () => void {
 
   function requestKey(): string {
     const selection = context.editor.getMarkdownSelection();
-    return `${context.currentFile()}\0${selection.from}\0${selection.to}\0${context.editor.getMarkdown().length}`;
+    return `${context.currentFile()}\0${selection.from}\0${completionOffset(context.editor)}\0${context.editor.getMarkdown().length}`;
   }
 
   function eligible(): boolean {
@@ -281,14 +286,14 @@ export function setup(context: Context): () => void {
   async function requestCompletion(): Promise<void> {
     if (!eligible()) return;
     const markdown = context.editor.getMarkdown();
-    const selection = context.editor.getMarkdownSelection();
+    const offset = completionOffset(context.editor);
     const key = requestKey();
     const currentSeq = ++seq;
     try {
       const response = await postJson<InlineResponse>("/api/copilot/inline", {
         file: context.currentFile(),
         content: markdown,
-        offset: selection.to,
+        offset,
       });
       if (currentSeq !== seq || key !== requestKey()) return;
       const choice = response.items?.[0];
@@ -303,7 +308,7 @@ export function setup(context: Context): () => void {
         clearCompletion();
         return;
       }
-      const trimmed = trimmedCompletionInsertText(choice, markdown, selection.to);
+      const trimmed = trimmedCompletionInsertText(choice, markdown, offset);
       if (!trimmed.insertText) {
         clearCompletion();
         return;

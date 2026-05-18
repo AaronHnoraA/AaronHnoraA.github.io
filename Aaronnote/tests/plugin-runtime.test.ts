@@ -10,13 +10,13 @@ describe("plugin runtime", () => {
   test("autoloads only when no explicit override exists", () => {
     expect(pluginShouldRun({ id: "copilot", autoload: true })).toBe(true);
     expect(pluginShouldRun({ id: "copilot", autoload: true }, { copilot: "on" })).toBe(true);
-    expect(pluginShouldRun({ id: "example", autoload: false })).toBe(false);
+    expect(pluginShouldRun({ id: "sample", autoload: false })).toBe(false);
   });
 
   test("normalizes persisted plugin overrides", () => {
-    expect(normalizePluginOverrideMap({ copilot: "off", example: "on", bad: true })).toEqual({
+    expect(normalizePluginOverrideMap({ copilot: "off", sample: "on", bad: true })).toEqual({
       copilot: "off",
-      example: "on",
+      sample: "on",
     });
     expect(normalizePluginOverrideMap(null)).toEqual({});
   });

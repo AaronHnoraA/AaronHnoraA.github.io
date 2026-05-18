@@ -17,5 +17,3 @@ This note is about [Strassen, 1969](zotero://select/items/1_C4ULFN2X).
 # Reading Note
 
 ## Degeneration of tensors
-
-# Self Understanding

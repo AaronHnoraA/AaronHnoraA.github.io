@@ -1,7 +1,7 @@
 import { describe, expect, test } from "@voidzero-dev/vite-plus-test";
 
 // @ts-ignore The server is a Node ESM module outside the TS app graph.
-import { offsetToPosition, positionToOffset, scanPlugins } from "../server/aaronnote-server.mjs";
+import { codexEnvPath, offsetToPosition, positionToOffset, scanPlugins } from "../server/aaronnote-server.mjs";
 
 describe("copilot server helpers", () => {
   test("maps markdown offsets to LSP positions and back", () => {
@@ -17,6 +17,7 @@ describe("copilot server helpers", () => {
     const copilot = plugins.find((plugin: { id?: string }) => plugin.id === "copilot");
     expect(copilot).toMatchObject({
       id: "copilot",
+      path: "plugin/copilot",
       entry: "index.ts",
       autoload: true,
     });
@@ -26,9 +27,17 @@ describe("copilot server helpers", () => {
     const roamLookup = plugins.find((plugin: { id?: string }) => plugin.id === "roamlookup");
     expect(roamLookup).toMatchObject({
       id: "roamlookup",
+      path: "plugin/roamlookup",
       entry: "index.ts",
       autoload: true,
     });
     expect(roamLookup.actions.map((action: { id: string }) => action.id)).toContain("open");
+  });
+
+  test("adds common binary directories to Codex PATH", () => {
+    const path = codexEnvPath("/tmp/bin:/usr/bin");
+    expect(path).toContain("/opt/homebrew/bin");
+    expect(path).toContain("/usr/local/bin");
+    expect(path.split(":").filter((entry: string) => entry === "/usr/bin")).toHaveLength(1);
   });
 });

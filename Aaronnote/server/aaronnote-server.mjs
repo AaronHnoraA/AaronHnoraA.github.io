@@ -2078,8 +2078,46 @@ async function handleCopilotRequest(action, body = {}) {
   return { ok: false, message: "Unknown Copilot action" };
 }
 
-function codexCommand() {
-  return String(process.env.AARONNOTE_CODEX || process.env.CODEX || "codex");
+const defaultCodexSearchPaths = [
+  "/opt/homebrew/bin/codex",
+  "/usr/local/bin/codex",
+  "/usr/bin/codex",
+  "/bin/codex",
+];
+
+export function codexEnvPath(basePath = process.env.PATH || "") {
+  const extras = [
+    "/opt/homebrew/bin",
+    "/opt/homebrew/sbin",
+    "/usr/local/bin",
+    "/usr/local/sbin",
+    "/usr/bin",
+    "/bin",
+  ];
+  const parts = String(basePath || "").split(":").filter(Boolean);
+  for (const entry of extras) {
+    if (!parts.includes(entry)) parts.push(entry);
+  }
+  return parts.join(":");
+}
+
+export function codexCommand() {
+  const configured = String(process.env.AARONNOTE_CODEX || process.env.CODEX || "").trim();
+  if (configured) return configured;
+  for (const candidate of defaultCodexSearchPaths) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return "codex";
+}
+
+function codexSpawnError(err) {
+  if (err && typeof err === "object" && err.code === "ENOENT") {
+    const command = codexCommand();
+    return new Error(
+      `Codex executable not found: ${command}. Set AARONNOTE_CODEX or CODEX to the full path, for example /opt/homebrew/bin/codex.`,
+    );
+  }
+  return err;
 }
 
 function roamLookupPromptFile() {
@@ -2230,7 +2268,7 @@ class RoamLookupSession {
       const result = await new Promise((resolveRun, rejectRun) => {
         const proc = spawn(codexCommand(), args, {
           cwd: workspaceRoot,
-          env: process.env,
+          env: { ...process.env, PATH: codexEnvPath(process.env.PATH) },
           stdio: ["pipe", "pipe", "pipe"],
         });
         this.proc = proc;
@@ -2246,7 +2284,7 @@ class RoamLookupSession {
         });
         proc.once("error", (err) => {
           clearTimeout(timer);
-          rejectRun(err);
+          rejectRun(codexSpawnError(err));
         });
         proc.once("exit", (code, signal) => {
           clearTimeout(timer);
