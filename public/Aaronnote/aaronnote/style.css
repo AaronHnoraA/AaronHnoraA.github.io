@@ -123,6 +123,13 @@ input {
   cursor: pointer;
 }
 
+.aaronnote-actions button.is-active,
+.aaronnote-actions button[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--aaron-red), transparent 18%);
+  background: color-mix(in srgb, var(--aaron-red), var(--aaron-paper) 86%);
+  color: var(--aaron-red-dark);
+}
+
 .aaronnote-actions button {
   height: 30px;
   padding: 0 10px;
@@ -187,11 +194,15 @@ input {
 .aaronnote-note-group {
   grid-column: 1 / -1;
   margin-top: 10px;
+  border: 0;
   border-bottom: 1px solid var(--aaron-paper-line);
-  padding-bottom: 4px;
+  padding: 0 0 4px;
+  background: transparent;
   color: var(--aaron-muted);
   font: 800 11px/1.2 var(--aaron-font-sans);
   text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
 }
 
 .aaronnote-snippet {
@@ -206,6 +217,16 @@ input {
   overflow: hidden;
   display: grid;
   gap: 3px;
+}
+
+.aaronnote-note.is-active {
+  border-color: var(--aaron-red);
+  box-shadow: inset 3px 0 0 var(--aaron-red);
+}
+
+.aaronnote-note-ext {
+  color: var(--aaron-red-dark);
+  font: 750 10px/1 var(--aaron-font-sans);
 }
 
 .aaronnote-note strong,
@@ -271,6 +292,12 @@ input {
   box-shadow: none;
 }
 
+.aaronnote-editor.is-typewriter-mode .ProseMirror,
+.aaronnote-editor.is-typewriter-mode .typora-web-source {
+  padding-top: max(18px, 28vh);
+  padding-bottom: max(72px, 42vh);
+}
+
 .aaronnote-editor.is-source-mode .typora-web-source {
   min-height: calc(100vh - 138px);
   padding: 28px 30px 72px;
@@ -331,6 +358,147 @@ input {
   padding: 0 10px;
   background: var(--aaron-paper);
   color: var(--aaron-ink);
+}
+
+.aaronnote-files-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(360px, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 0 0 10px;
+  background: var(--aaron-paper);
+}
+
+.aaronnote-files-toolbar input {
+  margin-bottom: 0;
+}
+
+.aaronnote-files-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.aaronnote-files-actions button {
+  height: 32px;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 3px;
+  padding: 0 10px;
+  background: var(--aaron-paper);
+  color: var(--aaron-ink);
+  cursor: pointer;
+}
+
+.aaronnote-files-actions span {
+  color: var(--aaron-muted);
+  font-size: 12px;
+}
+
+.aaronnote-files-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1px;
+}
+
+.aaronnote-files-list .aaronnote-note-group {
+  min-height: 28px;
+  margin: 7px 0 1px;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 3px;
+  padding: 0 8px;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  background: color-mix(in srgb, var(--aaron-paper-soft), white 16%);
+  contain: layout paint;
+  text-transform: none;
+}
+
+.aaronnote-files-list .aaronnote-note-group:hover {
+  border-color: var(--aaron-red);
+}
+
+.aaronnote-note-group-marker {
+  color: var(--aaron-red-dark);
+  font: 800 11px/1 var(--aaron-font-mono);
+  text-align: center;
+}
+
+.aaronnote-files-list .aaronnote-note-group strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--aaron-ink);
+}
+
+.aaronnote-files-list .aaronnote-note-group span:last-child {
+  color: var(--aaron-muted);
+  font-weight: 700;
+}
+
+.aaronnote-files-list .aaronnote-note {
+  min-height: 31px;
+  border-radius: 2px;
+  grid-template-columns: 46px minmax(180px, 360px) minmax(220px, 1fr) minmax(120px, 240px);
+  align-items: center;
+  gap: 12px;
+  padding: 4px 9px;
+  background: transparent;
+  contain: layout paint;
+}
+
+.aaronnote-files-list .aaronnote-note:hover {
+  background: var(--aaron-paper-soft);
+}
+
+.aaronnote-files-list .aaronnote-note.is-active {
+  background: color-mix(in srgb, var(--aaron-paper-soft), white 18%);
+}
+
+.aaronnote-files-list .aaronnote-note-ext {
+  width: 38px;
+  box-sizing: border-box;
+  border: 1px solid color-mix(in srgb, var(--aaron-paper-line), transparent 15%);
+  border-radius: 2px;
+  padding: 2px 4px;
+  background: color-mix(in srgb, var(--aaron-paper-soft), white 22%);
+  text-align: center;
+}
+
+.aaronnote-files-list .aaronnote-note strong,
+.aaronnote-files-list .aaronnote-note span {
+  white-space: nowrap;
+}
+
+.aaronnote-files-list .aaronnote-note strong {
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.aaronnote-files-list .aaronnote-note > span:not(.aaronnote-note-ext) {
+  font-size: 12px;
+}
+
+.aaronnote-files-list .aaronnote-note-extra {
+  display: block;
+  color: var(--aaron-link);
+  font-size: 11px;
+  text-align: right;
+}
+
+.aaronnote-files-limit {
+  margin-top: 10px;
+  border: 1px dashed var(--aaron-paper-line);
+  padding: 10px;
+  color: var(--aaron-muted);
+  font-size: 12px;
 }
 
 .aaronnote-graph-toolbar {
@@ -549,6 +717,142 @@ input {
   font-weight: 700;
 }
 
+.aaronnote-agenda-toolbar {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) 150px auto auto auto;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.aaronnote-agenda-toolbar input {
+  margin-bottom: 0;
+}
+
+.aaronnote-agenda-toolbar select {
+  height: 38px;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 3px;
+  background: var(--aaron-paper);
+  color: var(--aaron-ink);
+}
+
+.aaronnote-agenda-toolbar label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--aaron-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.aaronnote-agenda-toolbar label input {
+  width: auto;
+  height: auto;
+  margin: 0;
+}
+
+.aaronnote-agenda-toolbar button {
+  height: 38px;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 3px;
+  background: var(--aaron-paper);
+  color: var(--aaron-ink);
+  cursor: pointer;
+}
+
+.aaronnote-agenda-toolbar span {
+  color: var(--aaron-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.aaronnote-agenda-list {
+  display: grid;
+  gap: 8px;
+}
+
+.aaronnote-agenda-group {
+  margin-top: 8px;
+  border-bottom: 1px solid var(--aaron-paper-line);
+  padding-bottom: 4px;
+  color: var(--aaron-muted);
+  font: 800 11px/1.2 var(--aaron-font-sans);
+  text-transform: uppercase;
+}
+
+.aaronnote-agenda-item {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--aaron-paper-line);
+  border-left: 3px solid #2563eb;
+  background: color-mix(in srgb, var(--aaron-paper-soft), white 20%);
+}
+
+.aaronnote-agenda-item[data-status="doing"] { border-left-color: #a16207; }
+.aaronnote-agenda-item[data-status="done"] { border-left-color: #15803d; opacity: 0.72; }
+.aaronnote-agenda-item[data-status="blocked"] { border-left-color: #b91c1c; }
+
+.aaronnote-agenda-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 3px;
+  background: var(--aaron-paper);
+  color: var(--aaron-red-dark);
+  font: 800 11px/1 var(--aaron-font-sans);
+}
+
+.aaronnote-agenda-main {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.aaronnote-agenda-title {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--aaron-ink);
+  cursor: pointer;
+  font: 750 15px/1.25 var(--aaron-font-sans);
+  text-align: left;
+}
+
+.aaronnote-agenda-title:hover {
+  color: var(--aaron-red-dark);
+  text-decoration: underline;
+}
+
+.aaronnote-agenda-meta,
+.aaronnote-agenda-context {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--aaron-muted);
+  font-size: 12px;
+}
+
+.aaronnote-agenda-context {
+  color: color-mix(in srgb, var(--aaron-muted), var(--aaron-ink) 24%);
+  font-family: var(--aaron-font-mono);
+}
+
+.aaronnote-agenda-actions button {
+  height: 28px;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 3px;
+  background: var(--aaron-paper);
+  color: var(--aaron-ink);
+  cursor: pointer;
+}
+
 .aaronnote-management-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -575,6 +879,92 @@ input {
 .aaronnote-management-status strong {
   color: var(--aaron-red-dark);
   font-size: 24px;
+}
+
+.aaronnote-unused-assets {
+  margin-top: 16px;
+  border: 1px solid var(--aaron-paper-line);
+  background: var(--aaron-paper-soft);
+}
+
+.aaronnote-unused-assets[hidden] {
+  display: none;
+}
+
+.aaronnote-unused-assets header {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--aaron-paper-line);
+}
+
+.aaronnote-unused-assets header strong {
+  color: var(--aaron-red-dark);
+  font-size: 13px;
+}
+
+.aaronnote-unused-assets header label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--aaron-muted);
+  font-size: 12px;
+}
+
+.aaronnote-unused-assets-list {
+  max-height: 420px;
+  overflow: auto;
+  display: grid;
+  gap: 1px;
+  padding: 8px;
+}
+
+.aaronnote-unused-asset {
+  min-height: 38px;
+  display: grid;
+  grid-template-columns: auto 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: var(--aaron-paper);
+}
+
+.aaronnote-unused-asset:hover {
+  border-color: var(--aaron-paper-line);
+}
+
+.aaronnote-unused-asset-kind {
+  color: var(--aaron-red-dark);
+  font: 750 10px/1 var(--aaron-font-sans);
+}
+
+.aaronnote-unused-asset-body {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.aaronnote-unused-asset-body strong,
+.aaronnote-unused-asset-body span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aaronnote-unused-asset-body strong {
+  color: var(--aaron-ink);
+  font-size: 12px;
+}
+
+.aaronnote-unused-asset-body span {
+  color: var(--aaron-muted);
+  font-size: 11px;
 }
 
 .aaronnote-modal {
@@ -745,6 +1135,7 @@ input {
 }
 
 .aaronnote-snippet-popup,
+.aaronnote-quick-popup,
 .aaronnote-math-preview {
   position: fixed;
   z-index: 50;
@@ -755,13 +1146,15 @@ input {
   box-shadow: var(--aaron-shadow);
 }
 
-.aaronnote-snippet-popup {
+.aaronnote-snippet-popup,
+.aaronnote-quick-popup {
   max-height: 240px;
   overflow: auto;
   padding: 4px;
 }
 
-.aaronnote-snippet-option {
+.aaronnote-snippet-option,
+.aaronnote-quick-option {
   width: 100%;
   min-height: 32px;
   border: 0;
@@ -778,11 +1171,13 @@ input {
   text-align: left;
 }
 
-.aaronnote-snippet-option:hover {
+.aaronnote-snippet-option:hover,
+.aaronnote-quick-option:hover {
   background: var(--aaron-paper-soft);
 }
 
-.aaronnote-snippet-option.is-active {
+.aaronnote-snippet-option.is-active,
+.aaronnote-quick-option.is-active {
   border-left-color: var(--aaron-red);
   background: color-mix(in srgb, var(--aaron-paper-soft), var(--aaron-red) 7%);
   box-shadow:
@@ -790,20 +1185,23 @@ input {
     0 1px 0 rgb(255 255 255 / 48%) inset;
 }
 
-.aaronnote-snippet-option.is-active::after {
+.aaronnote-snippet-option.is-active::after,
+.aaronnote-quick-option.is-active::after {
   content: "↵";
   color: var(--aaron-red-dark);
   font: 800 12px/1 var(--aaron-font-sans);
   text-align: center;
 }
 
-.aaronnote-snippet-option-number {
+.aaronnote-snippet-option-number,
+.aaronnote-quick-option-icon {
   color: var(--aaron-muted);
   font: 700 11px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   text-align: right;
 }
 
-.aaronnote-snippet-option-key {
+.aaronnote-snippet-option-key,
+.aaronnote-quick-option-label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -811,11 +1209,14 @@ input {
 }
 
 .aaronnote-snippet-option.is-active .aaronnote-snippet-option-number,
-.aaronnote-snippet-option.is-active .aaronnote-snippet-option-key {
+.aaronnote-snippet-option.is-active .aaronnote-snippet-option-key,
+.aaronnote-quick-option.is-active .aaronnote-quick-option-icon,
+.aaronnote-quick-option.is-active .aaronnote-quick-option-label {
   color: var(--aaron-red-dark);
 }
 
-.aaronnote-snippet-option-detail {
+.aaronnote-snippet-option-detail,
+.aaronnote-quick-option-detail {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -836,22 +1237,75 @@ input {
   padding: 12px 16px;
 }
 
+.aaronnote-block-menu-trigger {
+  position: fixed;
+  z-index: 48;
+  width: 26px;
+  height: 26px;
+  border: 1px solid color-mix(in srgb, var(--aaron-paper-line), var(--aaron-red) 18%);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--aaron-paper), white 12%);
+  color: var(--aaron-muted);
+  cursor: pointer;
+  font: 700 18px/22px "Avenir Next", Inter, ui-sans-serif, system-ui, sans-serif;
+  text-align: center;
+  box-shadow: 0 8px 20px rgb(67 39 25 / 12%);
+}
+
+.aaronnote-block-menu-trigger[hidden] {
+  display: none;
+}
+
+.aaronnote-block-menu-trigger:hover,
+.aaronnote-block-menu-trigger:focus-visible {
+  border-color: color-mix(in srgb, var(--aaron-red), transparent 18%);
+  color: var(--aaron-red-dark);
+  background: color-mix(in srgb, var(--aaron-paper-soft), white 18%);
+  outline: none;
+}
+
 .aaronnote-selection-tool {
   position: fixed;
   z-index: 60;
-  height: 30px;
-  border: 1px solid var(--aaron-red);
-  border-radius: 3px;
-  background: var(--aaron-red);
-  color: #ffffff;
-  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, var(--aaron-red), transparent 24%);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--aaron-paper), white 18%);
+  color: var(--aaron-ink);
   font: 700 12px/1 "Avenir Next", Inter, ui-sans-serif, system-ui, sans-serif;
   box-shadow: 0 10px 26px rgb(67 39 25 / 18%);
 }
 
-.aaronnote-selection-tool:hover {
-  background: var(--aaron-red-dark);
-  border-color: var(--aaron-red-dark);
+.aaronnote-selection-tool[hidden] {
+  display: none;
+}
+
+.aaronnote-selection-tool button {
+  height: 26px;
+  min-width: 28px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 0 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.aaronnote-selection-tool button:hover {
+  border-color: var(--aaron-paper-line);
+  background: var(--aaron-paper-soft);
+  color: var(--aaron-red-dark);
+}
+
+.aaronnote-selection-tool span {
+  width: 1px;
+  height: 18px;
+  margin: 0 2px;
+  background: var(--aaron-paper-line);
 }
 
 .aaronnote-floating-toc {
@@ -859,52 +1313,81 @@ input {
   right: 18px;
   top: 78px;
   z-index: 45;
-  width: 300px;
+  width: clamp(280px, 24vw, 380px);
+  min-width: 260px;
   max-height: min(520px, calc(100vh - 120px));
   overflow: hidden;
   border: 1px solid var(--aaron-paper-line);
+  border-radius: 4px;
   background: color-mix(in srgb, var(--aaron-paper), transparent 7%);
   box-shadow: var(--aaron-shadow);
   backdrop-filter: blur(8px);
+  resize: horizontal;
 }
 
 .aaronnote-floating-toc > button {
   width: 100%;
-  height: 36px;
+  height: 34px;
   border: 0;
   border-bottom: 1px solid var(--aaron-paper-line);
   background: var(--aaron-paper-soft);
   color: var(--aaron-red-dark);
   cursor: pointer;
-  font: 750 12px/1 "Avenir Next", Inter, ui-sans-serif, system-ui, sans-serif;
-  letter-spacing: 0.08em;
+  font: 750 12px/1 var(--aaron-font-sans);
+  letter-spacing: 0;
+  text-align: left;
+  padding: 0 10px;
 }
 
 .aaronnote-floating-toc nav {
-  max-height: 480px;
+  max-height: min(480px, calc(100vh - 160px));
   overflow: auto;
-  padding: 8px;
+  padding: 6px;
+  scrollbar-gutter: stable;
 }
 
 .aaronnote-floating-toc.is-collapsed {
   width: 56px;
+  min-width: 56px;
+  resize: none;
+}
+
+.aaronnote-floating-toc.is-collapsed > button {
+  height: 40px;
+  padding: 0;
+  text-align: center;
 }
 
 .aaronnote-floating-toc.is-collapsed nav {
   display: none;
 }
 
+.aaronnote-toc-status {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: -6px -6px 4px;
+  border-bottom: 1px solid var(--aaron-paper-line);
+  padding: 7px 10px;
+  background: color-mix(in srgb, var(--aaron-paper), transparent 4%);
+  color: var(--aaron-muted);
+  font: 700 11px/1 var(--aaron-font-sans);
+}
+
 .aaronnote-toc-item {
   width: 100%;
-  min-height: 28px;
+  min-height: 27px;
   border: 0;
   border-radius: 2px;
-  padding: 6px 8px 6px calc(8px + var(--toc-depth) * 12px);
+  padding: 5px 8px 5px calc(9px + var(--toc-depth) * 13px);
   background: transparent;
   color: var(--aaron-muted);
   cursor: pointer;
   text-align: left;
-  font: 12px/1.28 "Avenir Next", Inter, ui-sans-serif, system-ui, sans-serif;
+  font: 12px/1.28 var(--aaron-font-sans);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .aaronnote-toc-item:hover,
@@ -915,14 +1398,15 @@ input {
 
 .aaronnote-toc-item.is-active {
   box-shadow: inset 3px 0 0 var(--aaron-red);
+  font-weight: 750;
 }
 
 .aaronnote-toc-section {
-  margin: 14px 0 6px;
-  padding: 10px 8px 0;
+  margin: 12px 0 4px;
+  padding: 9px 8px 0;
   border-top: 1px solid var(--aaron-paper-line);
   color: var(--aaron-muted);
-  font: 800 11px/1.2 "Avenir Next", Inter, ui-sans-serif, system-ui, sans-serif;
+  font: 800 11px/1.2 var(--aaron-font-sans);
   text-transform: uppercase;
 }
 
@@ -931,7 +1415,7 @@ input {
 }
 
 .aaronnote-toc-empty {
-  padding: 8px;
+  padding: 8px 10px;
   color: var(--aaron-muted);
   font-size: 12px;
 }
@@ -973,6 +1457,28 @@ input {
     padding: 22px 18px;
   }
 
+  .aaronnote-files-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .aaronnote-files-actions {
+    overflow-x: auto;
+  }
+
+  .aaronnote-files-list .aaronnote-note {
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 2px 8px;
+    min-height: 44px;
+  }
+
+  .aaronnote-files-list .aaronnote-note-ext {
+    grid-row: 1 / 3;
+  }
+
+  .aaronnote-files-list .aaronnote-note-extra {
+    display: none;
+  }
+
   .aaronnote-graph-toolbar,
   .aaronnote-graph-grid {
     grid-template-columns: 1fr;
@@ -992,5 +1498,7 @@ input {
     right: 12px;
     top: auto;
     bottom: 12px;
+    width: min(360px, calc(100vw - 24px));
+    min-width: 56px;
   }
 }

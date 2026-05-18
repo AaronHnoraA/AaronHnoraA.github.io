@@ -68,6 +68,17 @@
   min-height: 168px;
 }
 .ProseMirror[contenteditable="true"]:focus { outline: none; }
+.typora-web-focus-mode .ProseMirror > * {
+  opacity: 0.42;
+  transition: opacity 120ms ease;
+}
+.typora-web-focus-mode .ProseMirror > .typora-web-focus-block {
+  opacity: 1;
+}
+.typora-web-typewriter-mode .ProseMirror,
+.typora-web-typewriter-mode .typora-web-source {
+  scroll-margin-block: 34vh;
+}
 
 /* ─── method-B syntax hints ──────────────────────────────────────── */
 .ProseMirror .syntax-hint {
@@ -163,6 +174,95 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
+/* ─── Inline TODO anchor ─────────────────────────────────────────── */
+.ProseMirror .todo-source-hidden {
+  display: none;
+}
+
+.ProseMirror .inline-todo-widget {
+  --inline-todo-accent: #2563eb;
+  --inline-todo-bg: #eff6ff;
+  --inline-todo-border: #93c5fd;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: 0.06em;
+  margin: 0 0.12em;
+  white-space: normal;
+}
+
+.ProseMirror .inline-todo-widget[data-status="doing"] {
+  --inline-todo-accent: #a16207;
+  --inline-todo-bg: #fefce8;
+  --inline-todo-border: #fde047;
+}
+
+.ProseMirror .inline-todo-widget[data-status="done"] {
+  --inline-todo-accent: #15803d;
+  --inline-todo-bg: #f0fdf4;
+  --inline-todo-border: #86efac;
+}
+
+.ProseMirror .inline-todo-widget[data-status="blocked"] {
+  --inline-todo-accent: #b91c1c;
+  --inline-todo-bg: #fef2f2;
+  --inline-todo-border: #fca5a5;
+}
+
+.ProseMirror .inline-todo-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 20px;
+  box-sizing: border-box;
+  padding: 0 7px;
+  border: 1px solid color-mix(in srgb, var(--inline-todo-accent), transparent 24%);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--inline-todo-bg), white 24%);
+  color: var(--inline-todo-accent);
+  cursor: pointer;
+  font: 800 10px/1 var(--aaron-font-sans, system-ui, sans-serif);
+  letter-spacing: 0;
+  user-select: none;
+}
+
+.ProseMirror .inline-todo-line {
+  position: fixed;
+  z-index: 7;
+  border-top: 2px solid color-mix(in srgb, var(--inline-todo-accent), transparent 28%);
+  pointer-events: none;
+}
+
+.ProseMirror .inline-todo-card {
+  position: fixed;
+  z-index: 8;
+  box-sizing: border-box;
+  padding: 7px 9px;
+  border: 1px solid var(--inline-todo-border);
+  border-left: 3px solid var(--inline-todo-accent);
+  border-radius: 6px;
+  background: var(--inline-todo-bg);
+  color: #1f2937;
+  box-shadow: 0 6px 18px rgb(25 38 64 / 12%);
+  font: 13px/1.35 var(--aaron-font-sans, system-ui, sans-serif);
+  overflow-wrap: anywhere;
+}
+
+.ProseMirror .inline-todo-text {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+@media (max-width: 900px) {
+  .ProseMirror .inline-todo-line,
+  .ProseMirror .inline-todo-card {
+    display: none;
+  }
+}
+
 /* Heading-draft contour: while the cursor is inside a paragraph that
  * starts with `# ` (etc), the whole paragraph reads as bold so the
  * user sees the heading-to-be. The `# ` itself has .syntax-hint and
@@ -248,23 +348,36 @@
 
 /* ─── TOC NodeView ───────────────────────────────────────────────── */
 .ProseMirror .toc {
-  border: 1px solid #e3e3e3;
-  border-radius: 6px;
-  padding: 8px 14px;
-  margin: 8px 0;
-  background: #fafafa;
+  border: 1px solid var(--aaron-paper-line, #e0d8ca);
+  border-radius: 4px;
+  padding: 8px;
+  margin: 10px 0;
+  background: color-mix(in srgb, var(--aaron-paper-soft, #fafafa), white 12%);
   font-size: 0.95em;
 }
-.ProseMirror .toc-empty { color: #999; font-style: italic; }
+.ProseMirror .toc-empty { color: var(--aaron-muted, #777); font-style: italic; }
 .ProseMirror .toc-list { list-style: none; padding: 0; margin: 0; }
-.ProseMirror .toc-item { cursor: pointer; padding: 2px 0; color: #555; }
-.ProseMirror .toc-item:hover { color: #1f1f1f; text-decoration: underline; }
-.ProseMirror .toc-h1 { padding-left: 0; font-weight: 600; }
-.ProseMirror .toc-h2 { padding-left: 1.2em; }
-.ProseMirror .toc-h3 { padding-left: 2.4em; }
-.ProseMirror .toc-h4 { padding-left: 3.6em; }
-.ProseMirror .toc-h5 { padding-left: 4.8em; }
-.ProseMirror .toc-h6 { padding-left: 6em; }
+.ProseMirror .toc-item {
+  min-height: 26px;
+  box-sizing: border-box;
+  border-radius: 3px;
+  cursor: pointer;
+  padding: 4px 8px 4px calc(8px + var(--toc-depth, 0) * 1.15rem);
+  color: var(--aaron-muted, #555);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ProseMirror .toc-item:hover {
+  background: var(--aaron-paper, #fff);
+  color: var(--aaron-red-dark, #1f1f1f);
+}
+.ProseMirror .toc-h1 { font-weight: 700; }
+.ProseMirror .toc-h2 { font-weight: 650; }
+.ProseMirror .toc-h3,
+.ProseMirror .toc-h4,
+.ProseMirror .toc-h5,
+.ProseMirror .toc-h6 { font-size: 0.95em; }
 
 /* ─── Emoji autocomplete (fixed-position popup) ──────────────────── */
 .ProseMirror .emoji-completion {
@@ -375,9 +488,14 @@
   position: absolute;
   right: 8px;
   bottom: 6px;
+  align-items: center;
+  gap: 6px;
   user-select: none;
 }
-.ProseMirror pre.cb-active .cb-chrome { display: block; }
+.ProseMirror pre.cb-active .cb-chrome,
+.ProseMirror pre:hover .cb-chrome {
+  display: flex;
+}
 .ProseMirror pre .cb-lang-input {
   width: 80px;
   padding: 2px 6px;
@@ -389,7 +507,69 @@
   outline: none;
 }
 .ProseMirror pre .cb-lang-input:focus { border-color: #1f1f1f; }
+.ProseMirror pre .cb-copy-button {
+  min-width: 46px;
+  padding: 2px 7px;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  background: #fff;
+  color: #333;
+  cursor: pointer;
+  font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.ProseMirror pre .cb-copy-button:hover {
+  border-color: #999;
+}
 .ProseMirror pre.cb-lang-focus .play-caret { display: none; }
+.ProseMirror pre .code-token-comment { color: #7a7f87; font-style: italic; }
+.ProseMirror pre .code-token-string { color: #0f766e; }
+.ProseMirror pre .code-token-keyword { color: #9f1239; font-weight: 650; }
+.ProseMirror pre .code-token-number { color: #8b5cf6; }
+.ProseMirror pre .code-token-function { color: #1d4ed8; }
+.ProseMirror pre .code-token-property,
+.ProseMirror pre .code-token-attr { color: #b45309; }
+.ProseMirror pre .code-token-tag { color: #be123c; }
+.ProseMirror pre .code-token-variable { color: #0369a1; }
+.ProseMirror pre .code-token-operator,
+.ProseMirror pre .code-token-punctuation { color: #64748b; }
+.ProseMirror pre .cb-diagram-preview {
+  display: none;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 120px;
+  padding: 16px;
+  border: 1px solid var(--aaron-paper-line, #ddd);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--aaron-paper, #fff), white 38%);
+  color: var(--aaron-muted, #666);
+  overflow: auto;
+  text-align: center;
+  white-space: normal;
+}
+.ProseMirror pre.cb-diagram-rendered > code {
+  display: none;
+}
+.ProseMirror pre.cb-diagram-rendered .cb-diagram-preview {
+  display: block;
+}
+.ProseMirror pre.cb-active .cb-diagram-preview,
+.ProseMirror pre.cb-diagram-error > code {
+  display: block;
+}
+.ProseMirror pre.cb-active.cb-diagram-rendered > code {
+  display: block;
+}
+.ProseMirror pre.cb-active .cb-diagram-preview {
+  display: none;
+}
+.ProseMirror pre.cb-diagram-error .cb-diagram-preview {
+  margin-top: 10px;
+  min-height: 0;
+  border-color: #fecdd3;
+  background: #fff1f2;
+  color: #9f1239;
+  text-align: left;
+}
 
 /* ─── Table layout (structural — always on; theme styles cells) ──── */
 /* Tables default to full editor width with a fixed layout so columns
