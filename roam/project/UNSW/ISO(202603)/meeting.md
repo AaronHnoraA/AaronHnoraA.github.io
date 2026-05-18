@@ -623,7 +623,7 @@ $$
 The analogous statements hold for $V_{\min}(T)$ and $W_{\min}(T)$.
 #+end lemma
 
-#+begin proof
+#+begin proof asda
 We prove the statement for the first tensor factor.
 
 Suppose
