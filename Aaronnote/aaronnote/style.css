@@ -123,6 +123,13 @@ input {
   cursor: pointer;
 }
 
+.aaronnote-actions button.is-active,
+.aaronnote-actions button[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--aaron-red), transparent 18%);
+  background: color-mix(in srgb, var(--aaron-red), var(--aaron-paper) 86%);
+  color: var(--aaron-red-dark);
+}
+
 .aaronnote-actions button {
   height: 30px;
   padding: 0 10px;
@@ -283,6 +290,12 @@ input {
   background: transparent;
   border: 0;
   box-shadow: none;
+}
+
+.aaronnote-editor.is-typewriter-mode .ProseMirror,
+.aaronnote-editor.is-typewriter-mode .typora-web-source {
+  padding-top: max(18px, 28vh);
+  padding-bottom: max(72px, 42vh);
 }
 
 .aaronnote-editor.is-source-mode .typora-web-source {
@@ -1216,19 +1229,45 @@ input {
 .aaronnote-selection-tool {
   position: fixed;
   z-index: 60;
-  height: 30px;
-  border: 1px solid var(--aaron-red);
-  border-radius: 3px;
-  background: var(--aaron-red);
-  color: #ffffff;
-  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, var(--aaron-red), transparent 24%);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--aaron-paper), white 18%);
+  color: var(--aaron-ink);
   font: 700 12px/1 "Avenir Next", Inter, ui-sans-serif, system-ui, sans-serif;
   box-shadow: 0 10px 26px rgb(67 39 25 / 18%);
 }
 
-.aaronnote-selection-tool:hover {
-  background: var(--aaron-red-dark);
-  border-color: var(--aaron-red-dark);
+.aaronnote-selection-tool[hidden] {
+  display: none;
+}
+
+.aaronnote-selection-tool button {
+  height: 26px;
+  min-width: 28px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 0 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.aaronnote-selection-tool button:hover {
+  border-color: var(--aaron-paper-line);
+  background: var(--aaron-paper-soft);
+  color: var(--aaron-red-dark);
+}
+
+.aaronnote-selection-tool span {
+  width: 1px;
+  height: 18px;
+  margin: 0 2px;
+  background: var(--aaron-paper-line);
 }
 
 .aaronnote-floating-toc {

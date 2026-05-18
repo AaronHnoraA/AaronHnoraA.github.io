@@ -3,8 +3,9 @@ import "../src/styles/widgets.css";
 import "../src/styles/theme-typora.css";
 import "./style.css";
 
-import { createEditor } from "../src/lib.ts";
+import { createEditor, type EditorCommand } from "../src/lib.ts";
 import { renderMathLazy } from "../src/math-render.ts";
+import { safeHref } from "../src/url-safety.ts";
 import { createAgendaManager } from "./agenda.ts";
 import { createUnusedAssetsManager } from "./asset-cleanup.ts";
 import { createFilesystemBrowser } from "./filesystem.ts";
@@ -50,6 +51,8 @@ root.innerHTML = `
       <div class="aaronnote-actions">
         <button type="button" data-action="notes">Notes</button>
         <button type="button" data-action="agenda">Agenda</button>
+        <button type="button" data-action="focus-mode">Focus</button>
+        <button type="button" data-action="typewriter-mode">Typewriter</button>
         <button type="button" data-action="source">Source</button>
         <button type="button" data-action="editor" hidden>Editor</button>
       </div>
@@ -168,6 +171,8 @@ const agendaButton = document.querySelector<HTMLButtonElement>("[data-action='ag
 const sourceButton = document.querySelector<HTMLButtonElement>("[data-action='source']")!;
 const editorButton = document.querySelector<HTMLButtonElement>("[data-action='editor']")!;
 const editorInlineButton = document.querySelector<HTMLButtonElement>("[data-action='editor-inline']")!;
+const focusModeButton = document.querySelector<HTMLButtonElement>("[data-action='focus-mode']")!;
+const typewriterModeButton = document.querySelector<HTMLButtonElement>("[data-action='typewriter-mode']")!;
 const agendaFilter = document.querySelector<HTMLInputElement>("[data-agenda-filter]")!;
 const agendaSort = document.querySelector<HTMLSelectElement>("[data-agenda-sort]")!;
 const agendaDone = document.querySelector<HTMLInputElement>("[data-agenda-done]")!;
@@ -187,10 +192,16 @@ mathPreview.className = "aaronnote-math-preview";
 mathPreview.hidden = true;
 document.body.appendChild(mathPreview);
 
-const selectionTool = document.createElement("button");
-selectionTool.type = "button";
+const selectionTool = document.createElement("div");
 selectionTool.className = "aaronnote-selection-tool";
-selectionTool.textContent = "Copy";
+selectionTool.innerHTML = `
+  <button type="button" data-selection-command="bold" title="Bold">B</button>
+  <button type="button" data-selection-command="italic" title="Italic">I</button>
+  <button type="button" data-selection-command="code" title="Code">Code</button>
+  <button type="button" data-selection-command="link" title="Link">Link</button>
+  <span aria-hidden="true"></span>
+  <button type="button" data-selection-command="copy" title="Copy">Copy</button>
+`;
 selectionTool.hidden = true;
 document.body.appendChild(selectionTool);
 
@@ -232,9 +243,11 @@ let pathSuggestions: string[] = [];
 let pendingEquationTag = params.get("eqTag") || "";
 
 const recentStorageKey = "aaronnote.recent";
+const writingModeStorageKey = "aaronnote.writingMode";
 type RecentNote = { file: string; openedAt: number };
 type OpenNoteOptions = { newWindow?: boolean; equationTag?: string };
 let recentNotes = loadRecentNotes();
+let writingMode = loadWritingMode();
 
 const cursorStorageKey = "aaronnote.cursorPositions";
 type CursorPosition = {
@@ -329,6 +342,7 @@ const editor = createEditor(host, {
   },
 });
 snippetSession = new SnippetSession(editor);
+applyWritingMode();
 
 const vim = createVimLite(editor, host, {
   onUndo: () => editor.undo(),
@@ -609,6 +623,10 @@ function noteWindowUrl(note: NoteSummary, equationTag = ""): string {
 }
 
 function openExternalUrl(href: string, options: OpenNoteOptions = {}): void {
+  if (!safeHref(href)) {
+    setStatus("Blocked unsafe link");
+    return;
+  }
   const equationTag = options.equationTag || equationTagFromHref(href) || "";
   if (equationTag && String(href || "").trim().startsWith("#")) {
     if (!jumpToEquationTag(equationTag)) setStatus(`Equation tag not found: ${equationTag}`);
@@ -838,8 +856,34 @@ function printableDocument(): string {
 </html>`;
 }
 
+function waitAnimationFrame(): Promise<void> {
+  return new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
+}
+
+async function waitForEditorExportAssets(timeoutMs = 2500): Promise<void> {
+  await waitAnimationFrame();
+  await waitAnimationFrame();
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const rendering = Array.from(host.querySelectorAll<HTMLElement>(".cb-diagram-preview:not([hidden])"))
+      .some((el) => el.textContent?.trim() === "Rendering diagram...");
+    if (!rendering) break;
+    await new Promise((resolve) => window.setTimeout(resolve, 80));
+  }
+  const images = Array.from(host.querySelectorAll<HTMLImageElement>("img"));
+  await Promise.race([
+    Promise.all(images.map((img) => img.complete ? true : new Promise((resolve) => {
+      img.addEventListener("load", resolve, { once: true });
+      img.addEventListener("error", resolve, { once: true });
+    }))),
+    new Promise((resolve) => window.setTimeout(resolve, Math.max(0, deadline - Date.now()))),
+  ]);
+  await document.fonts?.ready?.catch(() => {});
+}
+
 async function exportPdf(): Promise<void> {
   setStatus("Exporting PDF");
+  await waitForEditorExportAssets();
   const desktopExport = window.AaronnoteDesktop?.exportPdf;
   if (desktopExport) {
     try {
@@ -2012,15 +2056,14 @@ function updateSelectionTool(): void {
     return;
   }
   const margin = 8;
-  const width = 76;
+  const width = Math.min(360, Math.max(280, selectionTool.offsetWidth || 316));
   const left = Math.min(
     Math.max(margin, active.rect.left + active.rect.width / 2 - width / 2),
     Math.max(margin, window.innerWidth - width - margin),
   );
-  const top = Math.max(margin, active.rect.top - 38);
+  const top = Math.max(margin, active.rect.top - 42);
   selectionTool.style.left = `${left}px`;
   selectionTool.style.top = `${top}px`;
-  selectionTool.style.width = `${width}px`;
   selectionTool.hidden = false;
 }
 
@@ -2040,6 +2083,16 @@ async function copyActiveSelection(): Promise<void> {
     fallback.remove();
   }
   setStatus("Selection copied");
+  selectionTool.hidden = true;
+}
+
+function runSelectionCommand(command: string): void {
+  if (command === "copy") {
+    void copyActiveSelection();
+    return;
+  }
+  if (!["bold", "italic", "code", "link"].includes(command)) return;
+  runEditorCommand(command as EditorCommand);
   selectionTool.hidden = true;
 }
 
@@ -2107,6 +2160,48 @@ function saveRecentNotes(): void {
   } catch {
     // Recent notes are a local convenience; ignore storage failures.
   }
+}
+
+function loadWritingMode(): { focusMode: boolean; typewriterMode: boolean } {
+  try {
+    const raw = window.localStorage.getItem(writingModeStorageKey);
+    const parsed = raw ? JSON.parse(raw) as { focusMode?: unknown; typewriterMode?: unknown } : {};
+    return {
+      focusMode: parsed.focusMode === true,
+      typewriterMode: parsed.typewriterMode === true,
+    };
+  } catch {
+    return { focusMode: false, typewriterMode: false };
+  }
+}
+
+function saveWritingMode(): void {
+  try {
+    window.localStorage.setItem(writingModeStorageKey, JSON.stringify(writingMode));
+  } catch {
+    // Writing mode is a local preference; ignore storage failures.
+  }
+}
+
+function applyWritingMode(): void {
+  editor.setWritingMode(writingMode);
+  host.classList.toggle("is-focus-mode", writingMode.focusMode);
+  host.classList.toggle("is-typewriter-mode", writingMode.typewriterMode);
+  root.dataset.focusMode = writingMode.focusMode ? "true" : "false";
+  root.dataset.typewriterMode = writingMode.typewriterMode ? "true" : "false";
+  focusModeButton.setAttribute("aria-pressed", writingMode.focusMode ? "true" : "false");
+  typewriterModeButton.setAttribute("aria-pressed", writingMode.typewriterMode ? "true" : "false");
+  focusModeButton.classList.toggle("is-active", writingMode.focusMode);
+  typewriterModeButton.classList.toggle("is-active", writingMode.typewriterMode);
+  saveWritingMode();
+}
+
+function toggleWritingMode(key: keyof typeof writingMode): void {
+  writingMode = { ...writingMode, [key]: !writingMode[key] };
+  applyWritingMode();
+  setStatus(key === "focusMode"
+    ? writingMode.focusMode ? "Focus mode" : "Focus off"
+    : writingMode.typewriterMode ? "Typewriter mode" : "Typewriter off");
 }
 
 function mergeRecentNotes(entries: unknown): void {
@@ -2437,6 +2532,18 @@ async function bootstrapStandalone(): Promise<void> {
   }
 }
 
+function editorOwnsEventTarget(event: Event): boolean {
+  const target = event.target as Node | null;
+  return !!target && host.contains(target);
+}
+
+function runEditorCommand(command: EditorCommand, value = ""): void {
+  if (!editor.runCommand(command, value)) return;
+  scheduleAssistUpdate();
+  scheduleCursorPositionSave();
+  setStatus(command.replace(/-/g, " "));
+}
+
 document.addEventListener("keydown", (event) => {
   if (event.key === "/" && !event.shiftKey && !event.altKey) {
     const isMac = /Mac/.test(navigator.platform);
@@ -2456,6 +2563,27 @@ document.addEventListener("keydown", (event) => {
   if (handleSnippetPopupKey(event)) {
     event.stopPropagation();
     return;
+  }
+  if (editorOwnsEventTarget(event)) {
+    const key = event.key.toLowerCase();
+    const primaryMod = /Mac/.test(navigator.platform)
+      ? event.metaKey && !event.ctrlKey
+      : event.ctrlKey && !event.metaKey;
+    if (primaryMod && !event.altKey && !event.shiftKey) {
+      const command = key === "b"
+        ? "bold"
+        : key === "i"
+          ? "italic"
+          : key === "k"
+            ? "link"
+            : null;
+      if (command) {
+        event.preventDefault();
+        event.stopPropagation();
+        runEditorCommand(command);
+        return;
+      }
+    }
   }
   if (event.metaKey && !event.shiftKey && !event.altKey && !event.ctrlKey && event.key.toLowerCase() === "t") {
     event.preventDefault();
@@ -2520,6 +2648,8 @@ window.addEventListener("aaronnote:command", (event) => {
 
 notesButton.addEventListener("click", () => showNotesPage());
 agendaButton.addEventListener("click", () => showNotesPage("agenda"));
+focusModeButton.addEventListener("click", () => toggleWritingMode("focusMode"));
+typewriterModeButton.addEventListener("click", () => toggleWritingMode("typewriterMode"));
 syncButton.addEventListener("click", () => void syncRoamDb());
 notesCollapseAllButton.addEventListener("click", collapseFilesystemGroups);
 notesExpandAllButton.addEventListener("click", expandFilesystemGroups);
@@ -2536,7 +2666,13 @@ tocToggle.addEventListener("click", () => {
   floatingTocPanel.toggle();
 });
 selectionTool.addEventListener("mousedown", (event) => event.preventDefault());
-selectionTool.addEventListener("click", () => void copyActiveSelection());
+selectionTool.addEventListener("click", (event) => {
+  const button = (event.target as Element | null)?.closest<HTMLButtonElement>("[data-selection-command]");
+  if (!button) return;
+  event.preventDefault();
+  event.stopPropagation();
+  runSelectionCommand(button.dataset.selectionCommand || "");
+});
 noteFilter.addEventListener("input", scheduleRenderNotes);
 agendaFilter.addEventListener("input", scheduleRenderAgenda);
 agendaSort.addEventListener("change", scheduleRenderAgenda);

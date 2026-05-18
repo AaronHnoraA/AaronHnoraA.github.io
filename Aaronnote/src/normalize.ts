@@ -62,9 +62,31 @@ export type NormalizeState = {
 
 type BlockPlan = { blockStart: number; spans: InlineSpan[] };
 type ManagedMarkType = NonNullable<typeof schema.marks[string]>;
+const blockSpanCache = new WeakMap<PMNode, Map<string, InlineSpan[]>>();
+
+function parentCacheKey(parent: PMNode | null | undefined): string {
+  return parent?.type.name ?? "";
+}
+
+function parseInlineCached(node: PMNode, parent: PMNode | null | undefined, bypassCache: boolean): InlineSpan[] {
+  const key = parentCacheKey(parent);
+  if (!bypassCache) {
+    const cachedByParent = blockSpanCache.get(node);
+    const cached = cachedByParent?.get(key);
+    if (cached) return cached;
+  }
+  const spans = parseInline(node.textContent, parent ?? null);
+  let byParent = blockSpanCache.get(node);
+  if (!byParent) {
+    byParent = new Map();
+    blockSpanCache.set(node, byParent);
+  }
+  byParent.set(key, spans);
+  return spans;
+}
 
 // Walk the doc, return per-textblock parse plan + absolute-pos delim list.
-function computePlan(doc: PMNode): {
+function computePlan(doc: PMNode, options: { bypassCache?: boolean } = {}): {
   blocks: Array<{ blockPos: number; plan: BlockPlan }>;
   delims: DelimRange[];
   extras: ExtraDecoration[];
@@ -76,8 +98,7 @@ function computePlan(doc: PMNode): {
   const widgets: WidgetDecoration[] = [];
   doc.descendants((node, pos, parent) => {
     if (!node.isTextblock) return true;
-    const text = node.textContent;
-    const spans = parseInline(text, parent);
+    const spans = parseInlineCached(node, parent, options.bypassCache === true);
     const blockStart = pos + 1;
     blocks.push({ blockPos: pos, plan: { blockStart, spans } });
     for (const s of spans) {
@@ -147,7 +168,11 @@ export function normalizeInlinePlugin(): Plugin<NormalizeState> {
         // Skip the doc walk when nothing in the doc changed — selection-
         // only transactions are very common (every keystroke that moves
         // the cursor) and the cached plan stays valid for them.
-        tr.docChanged ? computePlan(newState.doc) : prev,
+        tr.docChanged
+          ? computePlan(newState.doc)
+          : tr.getMeta("image-load-status-changed") || tr.getMeta("normalize-inline-recompute")
+            ? computePlan(newState.doc, { bypassCache: true })
+            : prev,
     },
 
     appendTransaction(_transactions, _oldState, newState) {

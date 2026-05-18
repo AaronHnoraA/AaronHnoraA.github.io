@@ -13,12 +13,14 @@
 // `⌘/` (Mac) or `Ctrl+/` (other) is wired automatically; consumers
 // can also call `editor.toggleSource()` directly.
 
-import { EditorState, TextSelection } from "prosemirror-state";
-import { EditorView } from "prosemirror-view";
+import { EditorState, Plugin, PluginKey, TextSelection } from "prosemirror-state";
+import { Decoration, DecorationSet, EditorView } from "prosemirror-view";
 import { redo, undo } from "prosemirror-history";
 import { DOMSerializer, type Node as PMNode } from "prosemirror-model";
 
 import { defaultPlugins } from "./editor.ts";
+import { cleanEditorHTML } from "./export-html.ts";
+import { htmlToMarkdown } from "./paste-html.ts";
 import { parse } from "./parser.ts";
 import { schema } from "./schema.ts";
 import { serialize } from "./serializer.ts";
@@ -40,6 +42,57 @@ export interface EditorOptions {
   onFocus?: () => void;
   /** Fired when the editor surface loses focus. */
   onBlur?: () => void;
+}
+
+export type EditorCommand =
+  | "bold"
+  | "italic"
+  | "code"
+  | "link"
+  | "blockquote"
+  | "bullet-list"
+  | "ordered-list"
+  | "task-list"
+  | "code-block"
+  | "heading-1"
+  | "heading-2"
+  | "heading-3"
+  | "heading-4"
+  | "heading-5"
+  | "heading-6"
+  | "copy-code";
+
+export type WritingModeOptions = {
+  focusMode?: boolean;
+  typewriterMode?: boolean;
+};
+
+const writingModeKey = new PluginKey<Required<WritingModeOptions>>("typoraWebWritingMode");
+
+function writingModePlugin(): Plugin<Required<WritingModeOptions>> {
+  return new Plugin<Required<WritingModeOptions>>({
+    key: writingModeKey,
+    state: {
+      init: () => ({ focusMode: false, typewriterMode: false }),
+      apply: (tr, value) => tr.getMeta(writingModeKey) ?? value,
+    },
+    props: {
+      decorations(state) {
+        const mode = writingModeKey.getState(state);
+        if (!mode?.focusMode || !state.selection.empty) return DecorationSet.empty;
+        const $from = state.selection.$from;
+        for (let depth = 1; depth <= $from.depth; depth++) {
+          const node = $from.node(depth);
+          if (!node.isBlock) continue;
+          const from = $from.before(depth);
+          return DecorationSet.create(state.doc, [
+            Decoration.node(from, from + node.nodeSize, { class: "typora-web-focus-block" }),
+          ]);
+        }
+        return DecorationSet.empty;
+      },
+    },
+  });
 }
 
 export interface Editor {
@@ -65,6 +118,10 @@ export interface Editor {
   undo(): boolean;
   /** Redo the active surface if possible. */
   redo(): boolean;
+  /** Run a built-in MarkText-style editing command against the active surface. */
+  runCommand(command: EditorCommand, value?: string): boolean;
+  /** Toggle writing affordances without changing markdown. */
+  setWritingMode(options: WritingModeOptions): void;
   /** Text and viewport rect around the active cursor, for completions/previews. */
   cursorContext(maxChars?: number): {
     before: string;
@@ -108,6 +165,12 @@ export function createEditor(
   let caretFlashTimer = 0;
   let cachedDoc: PMNode | null = null;
   let cachedMarkdown: string | null = null;
+  let markdownPrewarmHandle = 0;
+  let markdownPrewarmIdle = false;
+  let writingMode: Required<WritingModeOptions> = {
+    focusMode: false,
+    typewriterMode: false,
+  };
 
   function markdownFromDoc(doc: PMNode): string {
     if (cachedDoc === doc && cachedMarkdown != null) return cachedMarkdown;
@@ -115,6 +178,32 @@ export function createEditor(
     cachedDoc = doc;
     cachedMarkdown = md;
     return md;
+  }
+
+  function cancelMarkdownPrewarm(): void {
+    if (!markdownPrewarmHandle) return;
+    if (markdownPrewarmIdle && window.cancelIdleCallback) {
+      window.cancelIdleCallback(markdownPrewarmHandle);
+    } else {
+      window.clearTimeout(markdownPrewarmHandle);
+    }
+    markdownPrewarmHandle = 0;
+    markdownPrewarmIdle = false;
+  }
+
+  function scheduleMarkdownPrewarm(doc: PMNode): void {
+    cancelMarkdownPrewarm();
+    const run = (): void => {
+      markdownPrewarmHandle = 0;
+      markdownPrewarmIdle = false;
+      if (cachedDoc !== doc || cachedMarkdown == null) markdownFromDoc(doc);
+    };
+    if (window.requestIdleCallback) {
+      markdownPrewarmIdle = true;
+      markdownPrewarmHandle = window.requestIdleCallback(run, { timeout: 700 });
+    } else {
+      markdownPrewarmHandle = window.setTimeout(run, 160);
+    }
   }
 
   function emitChange(md: string | (() => string)): void {
@@ -126,12 +215,21 @@ export function createEditor(
     options.onChange(typeof md === "function" ? md() : md);
   }
 
+  function markdownFromClipboard(data: DataTransfer): string {
+    const html = data.getData("text/html");
+    if (html && /<[A-Za-z][\s\S]*>/.test(html)) {
+      const md = htmlToMarkdown(html);
+      if (md) return normalizePastedSourceText(md);
+    }
+    return normalizePastedSourceText(data.getData("text/plain"));
+  }
+
   function buildView(initialMd: string): EditorView {
     const doc = initialMd ? parse(initialMd) : schema.nodes.doc.createAndFill()!;
     const base = EditorState.create({
       schema,
       doc,
-      plugins: defaultPlugins({ cursorWidget: false }),
+      plugins: [...defaultPlugins({ cursorWidget: false }), writingModePlugin()],
     });
     // Fire one no-op transaction so normalize's appendTransaction runs
     // and method-B marks (em, strong, autolink, etc.) apply on first
@@ -143,7 +241,13 @@ export function createEditor(
       dispatchTransaction(tr) {
         const next = v.state.apply(tr);
         v.updateState(next);
-        if (tr.docChanged) emitChange(() => markdownFromDoc(next.doc));
+        if (tr.docChanged) {
+          scheduleMarkdownPrewarm(next.doc);
+          emitChange(() => markdownFromDoc(next.doc));
+        }
+        if (writingMode.typewriterMode && (tr.docChanged || tr.selectionSet)) {
+          window.requestAnimationFrame(() => revealRenderedCursor(true));
+        }
       },
       handleDOMEvents: {
         focus: () => { options.onFocus?.(); return false; },
@@ -160,15 +264,11 @@ export function createEditor(
         paste: (view, event) => {
           const data = event.clipboardData;
           if (!data || data.files.length > 0) return false;
-          const text = data.getData("text/plain");
+          const text = markdownFromClipboard(data);
           if (!text) return false;
           event.preventDefault();
           const { from, to } = view.state.selection;
-          view.dispatch(
-            view.state.tr
-              .insertText(normalizePastedSourceText(text), from, to)
-              .scrollIntoView(),
-          );
+          view.dispatch(view.state.tr.insertText(text, from, to).scrollIntoView());
           return true;
         },
       },
@@ -181,7 +281,12 @@ export function createEditor(
     editorHost.innerHTML = "";
     cachedDoc = null;
     cachedMarkdown = null;
+    cancelMarkdownPrewarm();
     view = buildView(md);
+    scheduleMarkdownPrewarm(view.state.doc);
+    if (writingMode.focusMode || writingMode.typewriterMode) {
+      view.dispatch(view.state.tr.setMeta(writingModeKey, writingMode));
+    }
   }
 
   // Resize the source textarea to its content height. Called on every
@@ -426,6 +531,20 @@ export function createEditor(
   sourceTextarea.addEventListener("input", () => {
     autoSizeSource();
     emitChange(sourceTextarea.value);
+    if (writingMode.typewriterMode) window.requestAnimationFrame(scrollTextareaCursorIntoView);
+  });
+  sourceTextarea.addEventListener("paste", (event) => {
+    const data = event.clipboardData;
+    if (!data || data.files.length > 0) return;
+    const text = markdownFromClipboard(data);
+    if (!text) return;
+    event.preventDefault();
+    const start = sourceTextarea.selectionStart ?? sourceTextarea.value.length;
+    const end = sourceTextarea.selectionEnd ?? start;
+    sourceTextarea.setRangeText(text, start, end, "end");
+    autoSizeSource();
+    emitChange(sourceTextarea.value);
+    if (writingMode.typewriterMode) window.requestAnimationFrame(scrollTextareaCursorIntoView);
   });
   sourceTextarea.addEventListener("keydown", (event) => {
     if (event.key !== "Tab" || event.metaKey || event.ctrlKey || event.altKey) return;
@@ -454,12 +573,139 @@ export function createEditor(
 
   view = buildView(options.initialContent ?? "");
 
+  function activeRangeText(): string {
+    if (inSource) {
+      const start = sourceTextarea.selectionStart ?? 0;
+      const end = sourceTextarea.selectionEnd ?? start;
+      return sourceTextarea.value.slice(start, end);
+    }
+    const { from, to } = view.state.selection;
+    return view.state.doc.textBetween(from, to, "\n", "\n");
+  }
+
+  function replaceActiveText(text: string, select: "start" | "end" | "all" = "end"): void {
+    if (inSource) {
+      const start = sourceTextarea.selectionStart ?? sourceTextarea.value.length;
+      const end = sourceTextarea.selectionEnd ?? start;
+      sourceTextarea.setRangeText(text, start, end, select === "all" ? "select" : select);
+      autoSizeSource();
+      emitChange(sourceTextarea.value);
+      sourceTextarea.focus();
+      return;
+    }
+    const { from, to } = view.state.selection;
+    let tr = view.state.tr.insertText(text, from, to).scrollIntoView();
+    const insertedTo = from + text.length;
+    if (select === "all") {
+      tr = tr.setSelection(TextSelection.create(tr.doc, from, insertedTo));
+    } else if (select === "start") {
+      tr = tr.setSelection(TextSelection.near(tr.doc.resolve(from)));
+    } else {
+      tr = tr.setSelection(TextSelection.near(tr.doc.resolve(insertedTo)));
+    }
+    view.dispatch(tr);
+    view.focus();
+  }
+
+  function wrapActiveText(open: string, close: string, placeholder: string): boolean {
+    const selected = activeRangeText();
+    const body = selected || placeholder;
+    replaceActiveText(`${open}${body}${close}`, selected ? "end" : "all");
+    if (!selected) {
+      const selection = inSource ? sourceTextarea.selectionStart ?? 0 : view.state.selection.from;
+      const from = Math.max(0, selection + open.length);
+      const to = from + body.length;
+      if (inSource) sourceTextarea.setSelectionRange(from, to);
+      else view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, from, to)));
+    }
+    return true;
+  }
+
+  function mutateCurrentMarkdownLine(f: (line: string) => string): boolean {
+    const md = inSource ? sourceTextarea.value : markdownFromDoc(view.state.doc);
+    const offset = inSource
+      ? sourceTextarea.selectionStart ?? md.length
+      : renderedCursorToMdOffset();
+    const lineStart = md.lastIndexOf("\n", Math.max(0, offset - 1)) + 1;
+    const nextNewline = md.indexOf("\n", offset);
+    const lineEnd = nextNewline < 0 ? md.length : nextNewline;
+    const line = md.slice(lineStart, lineEnd);
+    const nextLine = f(line);
+    if (nextLine === line) return true;
+    const nextMd = `${md.slice(0, lineStart)}${nextLine}${md.slice(lineEnd)}`;
+    const nextOffset = offset + (nextLine.length - line.length);
+    if (inSource) {
+      sourceTextarea.value = nextMd;
+      autoSizeSource();
+      const clamped = Math.max(0, Math.min(nextOffset, nextMd.length));
+      sourceTextarea.setSelectionRange(clamped, clamped);
+      emitChange(sourceTextarea.value);
+      sourceTextarea.focus();
+      return true;
+    }
+    rebuild(nextMd);
+    const target = Math.min(mdOffsetToRenderedPos(nextMd, Math.max(0, nextOffset)), view.state.doc.content.size);
+    try {
+      view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(target))).scrollIntoView());
+    } catch {}
+    view.focus();
+    emitChange(() => markdownFromDoc(view.state.doc));
+    return true;
+  }
+
+  function runLineCommand(command: EditorCommand): boolean {
+    const heading = command.match(/^heading-([1-6])$/);
+    if (heading) {
+      const level = Number(heading[1]);
+      return mutateCurrentMarkdownLine((line) => {
+        const body = line.replace(/^\s{0,3}#{1,6}\s+/, "");
+        return `${"#".repeat(level)} ${body}`;
+      });
+    }
+    if (command === "blockquote") {
+      return mutateCurrentMarkdownLine((line) => line.startsWith("> ") ? line : `> ${line}`);
+    }
+    if (command === "bullet-list") {
+      return mutateCurrentMarkdownLine((line) => `- ${line.replace(/^\s*(?:[-*+]\s+|\d+[.)]\s+|- \[[ xX]\]\s+)/, "")}`);
+    }
+    if (command === "ordered-list") {
+      return mutateCurrentMarkdownLine((line) => `1. ${line.replace(/^\s*(?:[-*+]\s+|\d+[.)]\s+|- \[[ xX]\]\s+)/, "")}`);
+    }
+    if (command === "task-list") {
+      return mutateCurrentMarkdownLine((line) => `- [ ] ${line.replace(/^\s*(?:[-*+]\s+|\d+[.)]\s+|- \[[ xX]\]\s+)/, "")}`);
+    }
+    return false;
+  }
+
+  function codeBlockAtSelection(): string | null {
+    if (inSource) return null;
+    const pos = view.state.selection.from;
+    const $pos = view.state.doc.resolve(pos);
+    for (let depth = $pos.depth; depth >= 0; depth--) {
+      const node = $pos.node(depth);
+      if (node.type.name === "code_block") return node.textContent;
+    }
+    return null;
+  }
+
+  function applyWritingMode(): void {
+    wrap.classList.toggle("typora-web-focus-mode", writingMode.focusMode);
+    wrap.classList.toggle("typora-web-typewriter-mode", writingMode.typewriterMode);
+    view.dispatch(view.state.tr.setMeta(writingModeKey, writingMode));
+    host.dispatchEvent(
+      new CustomEvent("typora-web:writing-mode", {
+        bubbles: true,
+        detail: { ...writingMode },
+      }),
+    );
+  }
+
   return {
     getMarkdown(): string {
       return inSource ? sourceTextarea.value : markdownFromDoc(view.state.doc);
     },
     getHTML(): string {
-      return inSource ? markdownToHTML(sourceTextarea.value) : view.dom.innerHTML;
+      return inSource ? markdownToHTML(sourceTextarea.value) : cleanEditorHTML(view.dom);
     },
     setMarkdown(md: string): void {
       if (inSource) {
@@ -590,6 +836,40 @@ export function createEditor(
       }
       return redo(view.state, view.dispatch, view);
     },
+    runCommand(command: EditorCommand, value = ""): boolean {
+      if (command === "bold") return wrapActiveText("**", "**", "bold");
+      if (command === "italic") return wrapActiveText("*", "*", "italic");
+      if (command === "code") return wrapActiveText("`", "`", "code");
+      if (command === "link") {
+        const selected = activeRangeText() || "link";
+        const href = value || "https://";
+        replaceActiveText(`[${selected}](${href})`, "end");
+        return true;
+      }
+      if (command === "code-block") {
+        const selected = activeRangeText();
+        replaceActiveText(`\`\`\`${value || ""}\n${selected}\n\`\`\``, selected ? "end" : "all");
+        return true;
+      }
+      if (command === "copy-code") {
+        const text = codeBlockAtSelection();
+        if (text == null) return false;
+        if (navigator.clipboard?.writeText) {
+          void navigator.clipboard.writeText(text);
+          return true;
+        }
+        return false;
+      }
+      return runLineCommand(command);
+    },
+    setWritingMode(options: WritingModeOptions): void {
+      writingMode = {
+        focusMode: options.focusMode ?? writingMode.focusMode,
+        typewriterMode: options.typewriterMode ?? writingMode.typewriterMode,
+      };
+      applyWritingMode();
+      if (writingMode.typewriterMode) revealAndFlashActiveCursor();
+    },
     cursorContext(maxChars = 500) {
       if (inSource) {
         const pos = sourceTextarea.selectionStart ?? sourceTextarea.value.length;
@@ -654,6 +934,7 @@ export function createEditor(
     destroy(): void {
       window.removeEventListener("keydown", onKey);
       window.clearTimeout(caretFlashTimer);
+      cancelMarkdownPrewarm();
       view.destroy();
       caretFlash.remove();
       wrap.remove();

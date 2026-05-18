@@ -13,6 +13,8 @@ import {
 } from "prosemirror-view";
 
 import { leaveLineDraft } from "../block-draft.ts";
+import { highlightCode } from "../code-highlight.ts";
+import { renderMermaidLazy, supportedDiagramLang } from "../diagram-render.ts";
 import type { FeatureSpec } from "./_types.ts";
 
 // Fenced code block feature.
@@ -90,10 +92,17 @@ function codeBlockPosAt(state: EditorState, pos: number): number | null {
 class CodeBlockView implements NodeView {
   dom: HTMLElement;
   contentDOM: HTMLElement;
+  private node: PMNode;
   private chromeEl: HTMLElement;
   private inputEl: HTMLInputElement;
+  private copyButton: HTMLButtonElement;
+  private previewEl: HTMLElement;
   private view: EditorView;
   private getPos: () => number | undefined;
+  private previewKey = "";
+  private previewObserver: IntersectionObserver | null = null;
+  private pendingPreview: { key: string; source: string } | null = null;
+  private copyTimer = 0;
 
   constructor(
     node: PMNode,
@@ -101,6 +110,7 @@ class CodeBlockView implements NodeView {
     getPos: () => number | undefined,
     decorations: readonly Decoration[] = [],
   ) {
+    this.node = node;
     this.view = view;
     this.getPos = getPos;
     const pre = document.createElement("pre");
@@ -117,17 +127,32 @@ class CodeBlockView implements NodeView {
     input.placeholder = "lang";
     input.value = lang;
     input.spellcheck = false;
-    chrome.appendChild(input);
+    const copy = document.createElement("button");
+    copy.type = "button";
+    copy.className = "cb-copy-button";
+    copy.textContent = "Copy";
+    chrome.append(input, copy);
     pre.appendChild(chrome);
+
+    const preview = document.createElement("div");
+    preview.className = "cb-diagram-preview";
+    preview.setAttribute("contenteditable", "false");
+    preview.hidden = true;
+    preview.addEventListener("mousedown", this.onPreviewMouseDown);
+    preview.addEventListener("click", this.onPreviewClick);
+    pre.appendChild(preview);
 
     this.dom = pre;
     this.contentDOM = code;
     this.chromeEl = chrome;
     this.inputEl = input;
+    this.copyButton = copy;
+    this.previewEl = preview;
 
     input.addEventListener("input", this.onInput);
     input.addEventListener("keydown", this.onInputKeyDown);
     input.addEventListener("mousedown", (e) => e.stopPropagation());
+    copy.addEventListener("click", this.onCopy);
     // Apply initial decorations (PM doesn't call update() right after
     // construction with the starting deco set — do it manually).
     this.applyDecorations(decorations);
@@ -148,6 +173,57 @@ class CodeBlockView implements NodeView {
     if (langFocus && typeof this.inputEl.focus === "function") {
       try { this.inputEl.focus(); } catch { /* ignore */ }
     }
+    this.updateDiagramPreview(active || langFocus);
+  }
+
+  private clearPendingPreview(): void {
+    this.pendingPreview = null;
+    this.previewObserver?.disconnect();
+    this.previewObserver = null;
+  }
+
+  private requestDiagramPreview(key: string, source: string): void {
+    this.clearPendingPreview();
+    this.pendingPreview = { key, source };
+    this.previewEl.textContent = "Diagram queued";
+    const render = (): void => {
+      const pending = this.pendingPreview;
+      if (!pending || pending.key !== key) return;
+      this.clearPendingPreview();
+      renderMermaidLazy(source, this.previewEl, (message) => {
+        if (this.previewKey !== key) return;
+        this.dom.classList.add("cb-diagram-error");
+        this.previewEl.textContent = message || "Diagram render failed";
+      });
+    };
+    if (!("IntersectionObserver" in window)) {
+      render();
+      return;
+    }
+    this.previewObserver = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0)) render();
+    }, { rootMargin: "420px 0px" });
+    this.previewObserver.observe(this.previewEl);
+  }
+
+  private updateDiagramPreview(active: boolean): void {
+    const lang = String(this.node.attrs.lang ?? "");
+    const diagram = supportedDiagramLang(lang);
+    const source = this.node.textContent;
+    this.dom.classList.toggle("cb-diagram", diagram);
+    if (!diagram || active || !source.trim()) {
+      this.clearPendingPreview();
+      this.previewEl.hidden = true;
+      this.dom.classList.remove("cb-diagram-rendered", "cb-diagram-error");
+      return;
+    }
+    const key = `${lang}\n${source}`;
+    this.previewEl.hidden = false;
+    this.dom.classList.add("cb-diagram-rendered");
+    if (this.previewKey === key) return;
+    this.previewKey = key;
+    this.dom.classList.remove("cb-diagram-error");
+    this.requestDiagramPreview(key, source);
   }
 
   private onInput = (): void => {
@@ -200,8 +276,56 @@ class CodeBlockView implements NodeView {
     }
   };
 
+  private onCopy = (e: MouseEvent): void => {
+    e.preventDefault();
+    e.stopPropagation();
+    const text = this.node.textContent;
+    const finish = (ok: boolean): void => {
+      window.clearTimeout(this.copyTimer);
+      this.copyButton.textContent = ok ? "Copied" : "Copy failed";
+      this.copyTimer = window.setTimeout(() => {
+        this.copyButton.textContent = "Copy";
+      }, 900);
+    };
+    if (navigator.clipboard?.writeText) {
+      void navigator.clipboard.writeText(text).then(() => finish(true), () => finish(false));
+      return;
+    }
+    const handled = !this.dom.dispatchEvent(
+      new CustomEvent("aaronnote:copy-code", {
+        bubbles: true,
+        cancelable: true,
+        detail: { text },
+      }),
+    );
+    finish(handled);
+  };
+
+  private selectInside(): void {
+    const pos = this.getPos();
+    if (pos == null) return;
+    this.view.dispatch(
+      this.view.state.tr
+        .setSelection(TextSelection.create(this.view.state.doc, pos + 1))
+        .scrollIntoView(),
+    );
+    this.view.focus();
+  }
+
+  private onPreviewMouseDown = (e: MouseEvent): void => {
+    e.preventDefault();
+    e.stopPropagation();
+    this.selectInside();
+  };
+
+  private onPreviewClick = (e: MouseEvent): void => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
   update(node: PMNode, decorations: readonly Decoration[]): boolean {
     if (node.type.name !== "code_block") return false;
+    this.node = node;
     const lang = (node.attrs.lang as string) ?? "";
     if (lang) this.dom.setAttribute("data-lang", lang);
     else this.dom.removeAttribute("data-lang");
@@ -212,16 +336,21 @@ class CodeBlockView implements NodeView {
 
   // The input is non-PM DOM; PM should not process clicks/keys inside it.
   stopEvent(e: Event): boolean {
-    return this.chromeEl.contains(e.target as Node);
+    return this.chromeEl.contains(e.target as Node) || this.previewEl.contains(e.target as Node);
   }
 
   ignoreMutation(m: { target: Node }): boolean {
-    return this.chromeEl.contains(m.target);
+    return this.chromeEl.contains(m.target) || this.previewEl.contains(m.target);
   }
 
   destroy(): void {
+    window.clearTimeout(this.copyTimer);
+    this.clearPendingPreview();
     this.inputEl.removeEventListener("input", this.onInput);
     this.inputEl.removeEventListener("keydown", this.onInputKeyDown);
+    this.copyButton.removeEventListener("click", this.onCopy);
+    this.previewEl.removeEventListener("mousedown", this.onPreviewMouseDown);
+    this.previewEl.removeEventListener("click", this.onPreviewClick);
   }
 }
 
@@ -254,6 +383,18 @@ function fencedCodeChromePlugin(): Plugin<LangFocus> {
       },
       decorations(state) {
         const decos: Decoration[] = [];
+        state.doc.descendants((node, pos) => {
+          if (node.type.name !== "code_block") return true;
+          const lang = String(node.attrs.lang ?? "");
+          for (const token of highlightCode(lang, node.textContent)) {
+            decos.push(
+              Decoration.inline(pos + 1 + token.from, pos + 1 + token.to, {
+                class: token.className,
+              }),
+            );
+          }
+          return false;
+        });
         // Active = cursor sits inside a code_block.
         const sel = state.selection;
         if (sel.empty) {

@@ -10,6 +10,7 @@ import { collectKeymaps, collectPlugins } from "./features/index.ts";
 import { markdownInputRules, spaceBreaksStoredMarks } from "./input-rules.ts";
 import { normalizeInlinePlugin } from "./normalize.ts";
 import { schema } from "./schema.ts";
+import { safeHref } from "./url-safety.ts";
 
 declare global {
   interface Window {
@@ -48,6 +49,7 @@ function followsOnPlainClick(href: string): boolean {
 }
 
 function openExternalHref(href: string, options: { newWindow?: boolean } = {}): void {
+  if (!safeHref(href)) return;
   const appHref = /^roam:\/\//i.test(href) || localEquationHref(href) || internalNoteHref(href) || externalProtocolHref(href);
   const resolvedHref = appHref ? href : window.AaronnoteResolveAssetUrl?.(href) ?? href;
   const event = new CustomEvent("aaronnote:open-url", {
@@ -75,6 +77,10 @@ function openLinkOnModClickPlugin(): Plugin {
         if (!a) return false;
         const href = a.getAttribute("href");
         if (!href) return false;
+        if (!safeHref(href)) {
+          event.preventDefault();
+          return true;
+        }
         const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
         const mod = isMac ? event.metaKey : event.ctrlKey;
         if (!followsOnPlainClick(href) && !mod) return false;

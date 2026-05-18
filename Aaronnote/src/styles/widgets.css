@@ -68,6 +68,17 @@
   min-height: 168px;
 }
 .ProseMirror[contenteditable="true"]:focus { outline: none; }
+.typora-web-focus-mode .ProseMirror > * {
+  opacity: 0.42;
+  transition: opacity 120ms ease;
+}
+.typora-web-focus-mode .ProseMirror > .typora-web-focus-block {
+  opacity: 1;
+}
+.typora-web-typewriter-mode .ProseMirror,
+.typora-web-typewriter-mode .typora-web-source {
+  scroll-margin-block: 34vh;
+}
 
 /* ─── method-B syntax hints ──────────────────────────────────────── */
 .ProseMirror .syntax-hint {
@@ -477,9 +488,14 @@
   position: absolute;
   right: 8px;
   bottom: 6px;
+  align-items: center;
+  gap: 6px;
   user-select: none;
 }
-.ProseMirror pre.cb-active .cb-chrome { display: block; }
+.ProseMirror pre.cb-active .cb-chrome,
+.ProseMirror pre:hover .cb-chrome {
+  display: flex;
+}
 .ProseMirror pre .cb-lang-input {
   width: 80px;
   padding: 2px 6px;
@@ -491,7 +507,69 @@
   outline: none;
 }
 .ProseMirror pre .cb-lang-input:focus { border-color: #1f1f1f; }
+.ProseMirror pre .cb-copy-button {
+  min-width: 46px;
+  padding: 2px 7px;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  background: #fff;
+  color: #333;
+  cursor: pointer;
+  font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.ProseMirror pre .cb-copy-button:hover {
+  border-color: #999;
+}
 .ProseMirror pre.cb-lang-focus .play-caret { display: none; }
+.ProseMirror pre .code-token-comment { color: #7a7f87; font-style: italic; }
+.ProseMirror pre .code-token-string { color: #0f766e; }
+.ProseMirror pre .code-token-keyword { color: #9f1239; font-weight: 650; }
+.ProseMirror pre .code-token-number { color: #8b5cf6; }
+.ProseMirror pre .code-token-function { color: #1d4ed8; }
+.ProseMirror pre .code-token-property,
+.ProseMirror pre .code-token-attr { color: #b45309; }
+.ProseMirror pre .code-token-tag { color: #be123c; }
+.ProseMirror pre .code-token-variable { color: #0369a1; }
+.ProseMirror pre .code-token-operator,
+.ProseMirror pre .code-token-punctuation { color: #64748b; }
+.ProseMirror pre .cb-diagram-preview {
+  display: none;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 120px;
+  padding: 16px;
+  border: 1px solid var(--aaron-paper-line, #ddd);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--aaron-paper, #fff), white 38%);
+  color: var(--aaron-muted, #666);
+  overflow: auto;
+  text-align: center;
+  white-space: normal;
+}
+.ProseMirror pre.cb-diagram-rendered > code {
+  display: none;
+}
+.ProseMirror pre.cb-diagram-rendered .cb-diagram-preview {
+  display: block;
+}
+.ProseMirror pre.cb-active .cb-diagram-preview,
+.ProseMirror pre.cb-diagram-error > code {
+  display: block;
+}
+.ProseMirror pre.cb-active.cb-diagram-rendered > code {
+  display: block;
+}
+.ProseMirror pre.cb-active .cb-diagram-preview {
+  display: none;
+}
+.ProseMirror pre.cb-diagram-error .cb-diagram-preview {
+  margin-top: 10px;
+  min-height: 0;
+  border-color: #fecdd3;
+  background: #fff1f2;
+  color: #9f1239;
+  text-align: left;
+}
 
 /* ─── Table layout (structural — always on; theme styles cells) ──── */
 /* Tables default to full editor width with a fixed layout so columns

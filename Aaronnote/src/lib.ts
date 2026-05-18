@@ -6,4 +6,9 @@
 // hatch for advanced cases).
 
 export { createEditor } from "./editor-api.ts";
-export type { Editor, EditorOptions } from "./editor-api.ts";
+export type {
+  Editor,
+  EditorCommand,
+  EditorOptions,
+  WritingModeOptions,
+} from "./editor-api.ts";

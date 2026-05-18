@@ -1,0 +1,35 @@
+import { describe, expect, test } from "@voidzero-dev/vite-plus-test";
+
+import { htmlToMarkdown } from "../src/paste-html.ts";
+
+describe("HTML paste conversion", () => {
+  test("sanitizes scripts and keeps common markdown structures", () => {
+    const md = htmlToMarkdown(`
+      <h2>Title</h2>
+      <script>alert(1)</script>
+      <p>Hello <strong>world</strong> and <a href="https://example.com">site</a>.</p>
+      <ul><li>one</li><li>two</li></ul>
+      <table><thead><tr><th>A</th></tr></thead><tbody><tr><td>B</td></tr></tbody></table>
+    `);
+    expect(md).toContain("## Title");
+    expect(md).toContain("Hello **world** and [site](https://example.com).");
+    expect(md).toContain("-   one");
+    expect(md).toContain("| A |");
+    expect(md).not.toContain("script");
+  });
+
+  test("drops unsafe pasted links", () => {
+    const md = htmlToMarkdown(`<a href="javascript:alert(1)">bad</a>`);
+    expect(md).toBe("bad");
+  });
+
+  test("keeps Typora-style inline extensions where possible", () => {
+    expect(htmlToMarkdown("<p><mark>hot</mark> H<sub>2</sub> E<sup>2</sup></p>"))
+      .toBe("==hot== H~2~ E^2^");
+  });
+
+  test("degrades very large HTML paste to plain text", () => {
+    const huge = `<p>${"x".repeat(910_000)}</p>`;
+    expect(htmlToMarkdown(huge)).toBe("x".repeat(910_000));
+  });
+});

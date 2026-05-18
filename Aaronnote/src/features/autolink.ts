@@ -1,4 +1,5 @@
 import { markConsumed, type InlineSpan } from "../inline-parse.ts";
+import { domHref } from "../url-safety.ts";
 import type { FeatureSpec, InlineFeatureSpec } from "./_types.ts";
 
 // CommonMark autolink: `<scheme:rest>` and `<email>`. Method-B mode —
@@ -72,7 +73,12 @@ export const autolink: FeatureSpec = {
       ],
       toDOM: (mark) => [
         "a",
-        { href: mark.attrs.href as string, "data-autolink": "" },
+        {
+          ...(domHref(mark.attrs.href as string)
+            ? { href: domHref(mark.attrs.href as string) as string }
+            : { "data-unsafe-href": mark.attrs.href as string }),
+          "data-autolink": "",
+        },
         0,
       ],
     },

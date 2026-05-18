@@ -1,6 +1,7 @@
 import type { Mark } from "prosemirror-model";
 
 import { markConsumed, type InlineSpan } from "../inline-parse.ts";
+import { domHref } from "../url-safety.ts";
 import type { FeatureSpec, InlineFeatureSpec } from "./_types.ts";
 
 // link in Typora-pilot (method B) mode.
@@ -209,14 +210,17 @@ const scan: InlineFeatureSpec["scan"] = (text, consumed) => {
         // link-styled visible text (mirrors autolink form).
         const hrefStart = closeFrom + 2; // after `](`
         const hrefEnd = closeTo - 1;     // before `)`
+        const safeHref = domHref(href);
         span.delimRanges = [
           { from: openFrom, to: openTo, forceVisible: true },
           { from: closeFrom, to: hrefStart, forceVisible: true },
           { from: hrefEnd, to: closeTo, forceVisible: true },
         ];
-        span.extraDecorations = [
-          { from: hrefStart, to: hrefEnd, nodeName: "a", attrs: { href } },
-        ];
+        if (safeHref) {
+          span.extraDecorations = [
+            { from: hrefStart, to: hrefEnd, nodeName: "a", attrs: { href: safeHref } },
+          ];
+        }
       }
     }
     out.push(span);
@@ -253,7 +257,12 @@ export const link: FeatureSpec = {
       ],
       toDOM: (mark) => {
         const { href, title } = mark.attrs as { href: string; title: string | null };
-        return ["a", title ? { href, title } : { href }, 0];
+        const safeHref = domHref(href);
+        const attrs: Record<string, string> = {};
+        if (safeHref) attrs.href = safeHref;
+        else attrs["data-unsafe-href"] = href;
+        if (title) attrs.title = title;
+        return ["a", attrs, 0];
       },
     },
   },

@@ -95,6 +95,9 @@ function layoutInlineTodoWidget(el: HTMLElement, view: EditorView): () => void {
 }
 
 const widgetDisposers = new WeakMap<Node, () => void>();
+const LARGE_DOC_DECORATION_SIZE = 220_000;
+const LARGE_DECORATION_COUNT = 7_500;
+const LARGE_DECORATION_WINDOW = 48_000;
 
 // Widget builders — keyed by `kind`. A widget renders as a DOM element
 // at a specific position; decorations.ts decides whether to emit it based
@@ -297,7 +300,20 @@ function buildWidgetLazy(w: WidgetDecoration): (view: EditorView, getPos: () => 
 function buildDecorationSet(state: EditorState): DecorationSet {
   const decos: Decoration[] = [];
   const cursor = state.selection.empty ? state.selection.from : null;
-  for (const d of getDelims(state)) {
+  const delims = getDelims(state);
+  const extras = getExtras(state);
+  const widgets = getWidgets(state);
+  const totalDecorations = delims.length + extras.length + widgets.length;
+  const largeMode = state.doc.content.size > LARGE_DOC_DECORATION_SIZE || totalDecorations > LARGE_DECORATION_COUNT;
+  const selectionFrom = state.selection.from;
+  const selectionTo = state.selection.to;
+  const windowFrom = largeMode ? Math.max(0, selectionFrom - LARGE_DECORATION_WINDOW) : 0;
+  const windowTo = largeMode ? Math.min(state.doc.content.size, selectionTo + LARGE_DECORATION_WINDOW) : state.doc.content.size;
+  const overlapsWindow = (from: number, to: number): boolean => !largeMode || (to >= windowFrom && from <= windowTo);
+
+  for (const d of delims) {
+    if (largeMode && d.from > windowTo) break;
+    if (!overlapsWindow(d.from, d.to)) continue;
     const cursorInside =
       cursor !== null && cursor >= d.spanFrom && cursor <= d.spanTo;
     const cursorInsideMath =
@@ -323,12 +339,16 @@ function buildDecorationSet(state: EditorState): DecorationSet {
     const cls = visible ? "syntax-hint" : "syntax-hidden";
     decos.push(Decoration.inline(d.from, d.to, { class: cls }));
   }
-  for (const ex of getExtras(state)) {
+  for (const ex of extras) {
+    if (largeMode && ex.from > windowTo) break;
+    if (!overlapsWindow(ex.from, ex.to)) continue;
     decos.push(
       Decoration.inline(ex.from, ex.to, { nodeName: ex.nodeName, ...(ex.attrs ?? {}) }),
     );
   }
-  for (const w of getWidgets(state)) {
+  for (const w of widgets) {
+    if (largeMode && w.pos > windowTo) break;
+    if (!overlapsWindow(w.pos, w.pos)) continue;
     const cursorInsideSpan =
       cursor !== null && cursor >= w.spanFrom && cursor <= w.spanTo;
     const cursorInsideMathSpan =
