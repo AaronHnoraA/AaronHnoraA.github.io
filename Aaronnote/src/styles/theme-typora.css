@@ -200,7 +200,7 @@
   padding: 0;
   background: transparent;
   color: color-mix(in srgb, var(--block-c), black 44%);
-  font-family: var(--aaron-font-english), var(--aaron-font-chinese);
+  font-family: var(--aaron-font-title, var(--aaron-font-heading, serif));
   font-weight: 700;
   letter-spacing: 0;
 }
@@ -215,6 +215,7 @@
   background: transparent;
   color: color-mix(in srgb, var(--block-c), black 48%);
   font: inherit;
+  font-family: var(--aaron-font-title, var(--aaron-font-heading, serif));
   font-weight: 650;
   outline: none;
   cursor: text;

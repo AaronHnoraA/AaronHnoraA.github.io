@@ -9,6 +9,32 @@ type KatexRenderOptions = {
 };
 
 const mathHtmlCache = new Map<string, { html: string; error?: string }>();
+const MATH_HTML_CACHE_LIMIT = 320;
+
+function cachedMathHtml(key: string): { html: string; error?: string } | undefined {
+  const cached = mathHtmlCache.get(key);
+  if (!cached) return undefined;
+  mathHtmlCache.delete(key);
+  mathHtmlCache.set(key, cached);
+  return cached;
+}
+
+function rememberMathHtml(key: string, value: { html: string; error?: string }): void {
+  mathHtmlCache.set(key, value);
+  while (mathHtmlCache.size > MATH_HTML_CACHE_LIMIT) {
+    const oldest = mathHtmlCache.keys().next().value as string | undefined;
+    if (oldest == null) break;
+    mathHtmlCache.delete(oldest);
+  }
+}
+
+export function clearMathRenderCache(): void {
+  mathHtmlCache.clear();
+}
+
+export function mathRenderCacheSize(): number {
+  return mathHtmlCache.size;
+}
 
 export function renderMathLazy(
   tex: string,
@@ -18,7 +44,7 @@ export function renderMathLazy(
 ): void {
   const key = `${options.displayMode ? "display" : "inline"}\n${tex}`;
   element.setAttribute("data-math-render-key", key);
-  const cached = mathHtmlCache.get(key);
+  const cached = cachedMathHtml(key);
   if (cached) {
     element.innerHTML = cached.html;
     if (cached.error) element.setAttribute("data-temml-error", cached.error);
@@ -28,7 +54,7 @@ export function renderMathLazy(
 
   try {
     temml.render(tex, element, temmlOptions(options));
-    mathHtmlCache.set(key, { html: element.innerHTML });
+    rememberMathHtml(key, { html: element.innerHTML });
     fitRenderedMath(element);
   } catch (temmlError) {
     if (element.getAttribute("data-math-render-key") !== key) return;
@@ -61,13 +87,13 @@ async function renderKatexFallback(
     if (element.getAttribute("data-math-render-key") !== key) return;
     ensureKatexCss(katexCssUrl);
     katex.render(tex, element, { ...options, throwOnError: true });
-    mathHtmlCache.set(key, { html: element.innerHTML });
+    rememberMathHtml(key, { html: element.innerHTML });
     fitRenderedMath(element);
   } catch {
     if (element.getAttribute("data-math-render-key") !== key) return;
     if (temmlError instanceof Error) element.setAttribute("data-temml-error", temmlError.message);
     onError();
-    mathHtmlCache.set(key, {
+    rememberMathHtml(key, {
       html: element.innerHTML,
       error: temmlError instanceof Error ? temmlError.message : String(temmlError),
     });
@@ -89,6 +115,7 @@ function ensureKatexCss(href: string): void {
 function fitRenderedMath(element: HTMLElement): void {
   const schedule = window.requestAnimationFrame?.bind(window) ?? ((callback: FrameRequestCallback) => window.setTimeout(() => callback(performance.now()), 0));
   schedule(() => {
+    if (!element.isConnected) return;
     const child = firstRenderableChild(element);
     if (!child) return;
     child.style.transform = "";

@@ -337,23 +337,36 @@
 
 /* ─── TOC NodeView ───────────────────────────────────────────────── */
 .ProseMirror .toc {
-  border: 1px solid #e3e3e3;
-  border-radius: 6px;
-  padding: 8px 14px;
-  margin: 8px 0;
-  background: #fafafa;
+  border: 1px solid var(--aaron-paper-line, #e0d8ca);
+  border-radius: 4px;
+  padding: 8px;
+  margin: 10px 0;
+  background: color-mix(in srgb, var(--aaron-paper-soft, #fafafa), white 12%);
   font-size: 0.95em;
 }
-.ProseMirror .toc-empty { color: #999; font-style: italic; }
+.ProseMirror .toc-empty { color: var(--aaron-muted, #777); font-style: italic; }
 .ProseMirror .toc-list { list-style: none; padding: 0; margin: 0; }
-.ProseMirror .toc-item { cursor: pointer; padding: 2px 0; color: #555; }
-.ProseMirror .toc-item:hover { color: #1f1f1f; text-decoration: underline; }
-.ProseMirror .toc-h1 { padding-left: 0; font-weight: 600; }
-.ProseMirror .toc-h2 { padding-left: 1.2em; }
-.ProseMirror .toc-h3 { padding-left: 2.4em; }
-.ProseMirror .toc-h4 { padding-left: 3.6em; }
-.ProseMirror .toc-h5 { padding-left: 4.8em; }
-.ProseMirror .toc-h6 { padding-left: 6em; }
+.ProseMirror .toc-item {
+  min-height: 26px;
+  box-sizing: border-box;
+  border-radius: 3px;
+  cursor: pointer;
+  padding: 4px 8px 4px calc(8px + var(--toc-depth, 0) * 1.15rem);
+  color: var(--aaron-muted, #555);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ProseMirror .toc-item:hover {
+  background: var(--aaron-paper, #fff);
+  color: var(--aaron-red-dark, #1f1f1f);
+}
+.ProseMirror .toc-h1 { font-weight: 700; }
+.ProseMirror .toc-h2 { font-weight: 650; }
+.ProseMirror .toc-h3,
+.ProseMirror .toc-h4,
+.ProseMirror .toc-h5,
+.ProseMirror .toc-h6 { font-size: 0.95em; }
 
 /* ─── Emoji autocomplete (fixed-position popup) ──────────────────── */
 .ProseMirror .emoji-completion {

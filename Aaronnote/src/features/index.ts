@@ -120,9 +120,11 @@ export function collectPlugins(schema: Schema): Plugin[] {
 // Inline features, priority-sorted. Consumed by inline-parse orchestration,
 // normalize (mark sync), decorations (which marks use the inline path),
 // and serializer (per-feature no-escape extRanges).
+const INLINE_FEATURES: InlineFeatureSpec[] = ALL_FEATURES
+  .map((f) => f.inline)
+  .filter((x): x is InlineFeatureSpec => x !== undefined)
+  .sort((a, b) => a.priority - b.priority);
+
 export function collectInlineFeatures(): InlineFeatureSpec[] {
-  return ALL_FEATURES
-    .map((f) => f.inline)
-    .filter((x): x is InlineFeatureSpec => x !== undefined)
-    .sort((a, b) => a.priority - b.priority);
+  return INLINE_FEATURES;
 }

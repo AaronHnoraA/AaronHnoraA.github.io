@@ -16,7 +16,7 @@
 import { EditorState, TextSelection } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { redo, undo } from "prosemirror-history";
-import { DOMSerializer } from "prosemirror-model";
+import { DOMSerializer, type Node as PMNode } from "prosemirror-model";
 
 import { defaultPlugins } from "./editor.ts";
 import { parse } from "./parser.ts";
@@ -106,6 +106,16 @@ export function createEditor(
   let inSource = false;
   let sourceValueOnEnter = "";
   let caretFlashTimer = 0;
+  let cachedDoc: PMNode | null = null;
+  let cachedMarkdown: string | null = null;
+
+  function markdownFromDoc(doc: PMNode): string {
+    if (cachedDoc === doc && cachedMarkdown != null) return cachedMarkdown;
+    const md = serialize(doc);
+    cachedDoc = doc;
+    cachedMarkdown = md;
+    return md;
+  }
 
   function emitChange(md: string | (() => string)): void {
     if (!options.onChange) return;
@@ -133,7 +143,7 @@ export function createEditor(
       dispatchTransaction(tr) {
         const next = v.state.apply(tr);
         v.updateState(next);
-        if (tr.docChanged) emitChange(() => serialize(next.doc));
+        if (tr.docChanged) emitChange(() => markdownFromDoc(next.doc));
       },
       handleDOMEvents: {
         focus: () => { options.onFocus?.(); return false; },
@@ -169,6 +179,8 @@ export function createEditor(
   function rebuild(md: string): void {
     view.destroy();
     editorHost.innerHTML = "";
+    cachedDoc = null;
+    cachedMarkdown = null;
     view = buildView(md);
   }
 
@@ -330,7 +342,7 @@ export function createEditor(
     try {
       return serialize(view.state.doc.cut(0, sel.from)).length;
     } catch {
-      return serialize(view.state.doc).length;
+      return markdownFromDoc(view.state.doc).length;
     }
   }
   function mdOffsetToRenderedPos(md: string, offset: number): number {
@@ -349,7 +361,7 @@ export function createEditor(
   }
 
   function enterSource(): void {
-    const md = serialize(view.state.doc);
+    const md = markdownFromDoc(view.state.doc);
     const mdCursor = renderedCursorToMdOffset();
     sourceValueOnEnter = md;
     sourceTextarea.value = md;
@@ -381,7 +393,7 @@ export function createEditor(
     view.focus();
     inSource = false;
     revealAndFlashActiveCursor();
-    if (md !== sourceValueOnEnter) emitChange(() => serialize(view.state.doc));
+    if (md !== sourceValueOnEnter) emitChange(() => markdownFromDoc(view.state.doc));
   }
 
   // ⌘/ on Mac, Ctrl+/ elsewhere. Window-level keydown so it works
@@ -444,7 +456,7 @@ export function createEditor(
 
   return {
     getMarkdown(): string {
-      return inSource ? sourceTextarea.value : serialize(view.state.doc);
+      return inSource ? sourceTextarea.value : markdownFromDoc(view.state.doc);
     },
     getHTML(): string {
       return inSource ? markdownToHTML(sourceTextarea.value) : view.dom.innerHTML;

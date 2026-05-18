@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { createServer as createHttpServer } from "node:http";
 import { mkdir, mkdtemp, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { createReadStream, existsSync } from "node:fs";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { homedir, tmpdir } from "node:os";
 import { execFile } from "node:child_process";
@@ -41,6 +41,11 @@ let noteCache = new Map();
 let snippetCache = { key: "", scannedAt: 0, snippets: [] };
 let roamSyncTimer = null;
 let queuedRoamSyncNotes = null;
+let atomicWriteCounter = 0;
+const scanConcurrency = Math.max(1, Math.min(64, Number(process.env.AARONNOTE_SCAN_CONCURRENCY) || 16));
+const maxJsonBodyBytes = Math.max(1024 * 1024, Number(process.env.AARONNOTE_MAX_JSON_BYTES) || 64 * 1024 * 1024);
+const saveRequestVersions = new Map();
+const saveWriteQueues = new Map();
 const contentTypes = new Map([
   [".html", "text/html; charset=utf-8"],
   [".js", "application/javascript; charset=utf-8"],
@@ -76,12 +81,24 @@ function sendJson(res, statusCode, value) {
 }
 
 async function sendTextFile(res, file, contentType) {
-  const data = await readFile(file);
+  const info = await stat(file);
   res.writeHead(200, {
     "content-type": contentType,
-    "content-length": data.length,
+    "content-length": info.size,
   });
-  res.end(data);
+  createReadStream(file).on("error", (err) => res.destroy(err)).pipe(res);
+}
+
+async function atomicWriteFile(file, data, options) {
+  await mkdir(dirname(file), { recursive: true });
+  const tmp = join(dirname(file), `.${basename(file)}.${process.pid}.${Date.now()}.${++atomicWriteCounter}.tmp`);
+  try {
+    await writeFile(tmp, data, options);
+    await rename(tmp, file);
+  } catch (err) {
+    await rm(tmp, { force: true }).catch(() => {});
+    throw err;
+  }
 }
 
 async function serveStaticFile(req, res, staticDir) {
@@ -264,6 +281,92 @@ async function pathSuggestionsForFile(file) {
   return [...out].sort((a, b) => a.localeCompare(b)).slice(0, 2000);
 }
 
+function assetCandidateFile(file) {
+  const relParts = relative(noteRoot, file).split(sep).map((part) => part.toLowerCase());
+  if (!relParts.includes("images") && !relParts.includes("attachments")) return false;
+  const ext = extname(file).toLowerCase();
+  return !noteExts.has(ext) && basename(file) !== ".aaronnote-keep";
+}
+
+function resolveReferencedAsset(href, noteFile) {
+  const protocol = hrefProtocol(href);
+  if (protocol && protocol !== "file") return "";
+  const rawPath = hrefPath(href);
+  if (!rawPath || rawPath.startsWith("#")) return "";
+  const file = isAbsolute(rawPath) ? resolve(rawPath) : resolve(dirname(noteFile), rawPath);
+  return inside(file, noteRoot) ? file : "";
+}
+
+export function assetRefsFromContent(content, noteFile) {
+  const refs = new Set();
+  for (const href of markdownLinkHrefs(content)) {
+    const file = resolveReferencedAsset(href, noteFile);
+    if (file) refs.add(file);
+  }
+  for (const match of content.matchAll(/\b(?:src|href)\s*=\s*["']([^"']+)["']/gi)) {
+    const file = resolveReferencedAsset(match[1], noteFile);
+    if (file) refs.add(file);
+  }
+  return [...refs];
+}
+
+async function scanUnusedAssets() {
+  const noteFiles = await walkFiles(noteScanRoot, (file) => {
+    const dot = file.lastIndexOf(".");
+    return dot >= 0 && noteExts.has(file.slice(dot).toLowerCase());
+  });
+  const referenced = new Set();
+  await mapLimit(noteFiles, scanConcurrency, async (file) => {
+    try {
+      const content = await readFile(file, "utf8");
+      for (const ref of assetRefsFromContent(content, file)) referenced.add(ref);
+    } catch {}
+  });
+  const files = await walkFiles(noteRoot, assetCandidateFile);
+  const assets = await mapLimit(files, scanConcurrency, async (file) => {
+    try {
+      const info = await stat(file);
+      if (!info.isFile() || referenced.has(file)) return null;
+      const rel = relative(noteRoot, file).split(sep).join("/");
+      return {
+        file,
+        path: rel,
+        name: basename(file),
+        type: fileContentType(file),
+        size: info.size,
+        mtimeMs: info.mtimeMs,
+        isImage: imageAssetP(file),
+      };
+    } catch {}
+    return null;
+  });
+  return assets
+    .filter(Boolean)
+    .sort((a, b) => String(a.path).localeCompare(String(b.path)));
+}
+
+async function trashUnusedAssets(body) {
+  const requested = Array.isArray(body.files) ? body.files.map((file) => resolve(String(file || ""))) : [];
+  if (requested.length === 0) return { type: "unused-assets-trash", ok: true, trashed: [], skipped: [], assets: await scanUnusedAssets() };
+  const assets = await scanUnusedAssets();
+  const byFile = new Map(assets.map((asset) => [asset.file, asset]));
+  const trashed = [];
+  const skipped = [];
+  for (const file of requested) {
+    const asset = byFile.get(file);
+    if (!asset) {
+      skipped.push(file);
+      continue;
+    }
+    try {
+      trashed.push({ ...asset, trashedTo: await moveToTrash(asset.file) });
+    } catch {
+      skipped.push(file);
+    }
+  }
+  return { type: "unused-assets-trash", ok: true, trashed, skipped, assets: await scanUnusedAssets() };
+}
+
 function recentStoreFile() {
   return join(workspaceRoot, "var", "Aaronnote", "recent.json");
 }
@@ -298,8 +401,7 @@ async function readRecentNotes() {
 
 async function writeRecentNotes(entries) {
   const file = recentStoreFile();
-  await mkdir(dirname(file), { recursive: true });
-  await writeFile(file, `${JSON.stringify(normalizeRecentNotes(entries), null, 2)}\n`, "utf8");
+  await atomicWriteFile(file, `${JSON.stringify(normalizeRecentNotes(entries), null, 2)}\n`, "utf8");
 }
 
 async function touchRecentNote(file, openedAt = Date.now()) {
@@ -350,8 +452,7 @@ async function readCursorPositions() {
 
 async function writeCursorPositions(entries) {
   const file = positionStoreFile();
-  await mkdir(dirname(file), { recursive: true });
-  await writeFile(file, `${JSON.stringify(normalizeCursorPositions(entries), null, 2)}\n`, "utf8");
+  await atomicWriteFile(file, `${JSON.stringify(normalizeCursorPositions(entries), null, 2)}\n`, "utf8");
 }
 
 async function touchCursorPosition(body) {
@@ -875,6 +976,19 @@ async function walkFiles(root, accept) {
   return files;
 }
 
+async function mapLimit(items, limit, mapper) {
+  const out = new Array(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const index = next++;
+      out[index] = await mapper(items[index], index);
+    }
+  });
+  await Promise.all(workers);
+  return out;
+}
+
 async function scanNotes() {
   if (noteCacheRoot !== noteScanRoot) {
     noteCacheRoot = noteScanRoot;
@@ -886,13 +1000,12 @@ async function scanNotes() {
   });
   const notes = [];
   const seen = new Set(files);
-  for (const file of files) {
+  const scanned = await mapLimit(files, scanConcurrency, async (file) => {
     try {
       const info = await stat(file);
       const cached = noteCache.get(file);
       if (cached && cached.mtimeMs === info.mtimeMs && cached.size === info.size) {
-        notes.push({ ...cached.note, backlinks: [] });
-        continue;
+        return { ...cached.note, backlinks: [] };
       }
       const content = await readFile(file, "utf8");
       const relPath = relative(noteScanRoot, file);
@@ -921,9 +1034,11 @@ async function scanNotes() {
         roam,
       };
       noteCache.set(file, { mtimeMs: info.mtimeMs, size: info.size, note });
-      notes.push({ ...note });
+      return { ...note };
     } catch {}
-  }
+    return null;
+  });
+  for (const note of scanned) if (note) notes.push(note);
   for (const file of noteCache.keys()) {
     if (!seen.has(file)) noteCache.delete(file);
   }
@@ -1011,14 +1126,15 @@ function extractTodos(content, note, updatedAt) {
 
 async function scanTodos() {
   const scanned = await scanNotes();
-  const todos = [];
-  for (const note of scanned) {
+  const todoGroups = await mapLimit(scanned, scanConcurrency, async (note) => {
     try {
       const info = await stat(note.file);
       const content = await readFile(note.file, "utf8");
-      todos.push(...extractTodos(content, note, info.mtimeMs));
+      return extractTodos(content, note, info.mtimeMs);
     } catch {}
-  }
+    return [];
+  });
+  const todos = todoGroups.flat();
   return todos.sort((a, b) => {
     const statusRank = { blocked: 0, doing: 1, todo: 2, done: 3 };
     return (statusRank[a.status] ?? 9) - (statusRank[b.status] ?? 9)
@@ -1353,7 +1469,7 @@ async function updateCurrentNoteMeta(body, action) {
       kind: body.kind || "note",
     });
   }
-  if (next !== content) await writeFile(file, next, "utf8");
+  if (next !== content) await atomicWriteFile(file, next, "utf8");
   const opened = await readNote(file);
   await syncRoamDb(opened.notes);
   return opened;
@@ -1361,8 +1477,51 @@ async function updateCurrentNoteMeta(body, action) {
 
 async function readRequestJson(req) {
   const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
-  return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+  let total = 0;
+  for await (const chunk of req) {
+    total += chunk.length;
+    if (total > maxJsonBodyBytes) {
+      const err = new Error(`JSON request body exceeds ${maxJsonBodyBytes} bytes`);
+      err.statusCode = 413;
+      throw err;
+    }
+    chunks.push(chunk);
+  }
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+  } catch {
+    const err = new Error("Invalid JSON request body");
+    err.statusCode = 400;
+    throw err;
+  }
+}
+
+function acceptSaveRequest(file, body) {
+  const clientId = typeof body.clientId === "string" ? body.clientId : "";
+  const seq = Number(body.seq);
+  if (!clientId || !Number.isSafeInteger(seq) || seq <= 0) return true;
+  const key = `${clientId}\0${file}`;
+  const previous = saveRequestVersions.get(key) ?? 0;
+  if (seq < previous) return false;
+  saveRequestVersions.set(key, seq);
+  if (saveRequestVersions.size > 2000) {
+    for (const oldKey of saveRequestVersions.keys()) {
+      saveRequestVersions.delete(oldKey);
+      if (saveRequestVersions.size <= 1000) break;
+    }
+  }
+  return true;
+}
+
+async function enqueueSaveWrite(file, task) {
+  const previous = saveWriteQueues.get(file) ?? Promise.resolve();
+  const current = previous.catch(() => {}).then(task);
+  saveWriteQueues.set(file, current);
+  try {
+    return await current;
+  } finally {
+    if (saveWriteQueues.get(file) === current) saveWriteQueues.delete(file);
+  }
 }
 
 async function routeApi(req, res) {
@@ -1429,6 +1588,15 @@ async function routeApi(req, res) {
       return true;
     }
 
+    if (req.method === "GET" && url.pathname === "/api/assets/orphans") {
+      sendJson(res, 200, {
+        type: "unused-assets",
+        assets: await scanUnusedAssets(),
+        root: noteRoot,
+      });
+      return true;
+    }
+
     if (req.method === "POST" && url.pathname === "/api/recent") {
       const body = await readRequestJson(req);
       sendJson(res, 200, {
@@ -1457,6 +1625,11 @@ async function routeApi(req, res) {
       return true;
     }
 
+    if (req.method === "POST" && url.pathname === "/api/assets/orphans/trash") {
+      sendJson(res, 200, await trashUnusedAssets(await readRequestJson(req)));
+      return true;
+    }
+
     if (req.method === "POST" && url.pathname === "/api/meta/add") {
       sendJson(res, 200, await updateCurrentNoteMeta(await readRequestJson(req), "add"));
       return true;
@@ -1475,7 +1648,15 @@ async function routeApi(req, res) {
     if (req.method === "POST" && url.pathname === "/api/save") {
       const body = await readRequestJson(req);
       const file = safeOpenFile(body.file);
-      await writeFile(file, String(body.content ?? ""));
+      const wrote = await enqueueSaveWrite(file, async () => {
+        if (!acceptSaveRequest(file, body)) return false;
+        await atomicWriteFile(file, String(body.content ?? ""), "utf8");
+        return true;
+      });
+      if (!wrote) {
+        sendJson(res, 200, { type: "saved", ok: true, file, stale: true, message: "Skipped stale save" });
+        return true;
+      }
       if (standaloneFile(file)) {
         sendJson(res, 200, { type: "saved", ok: true, file, message: "Saved", standalone: true });
       } else {

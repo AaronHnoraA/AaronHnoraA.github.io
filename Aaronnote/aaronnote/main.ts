@@ -5,6 +5,11 @@ import "./style.css";
 
 import { createEditor } from "../src/lib.ts";
 import { renderMathLazy } from "../src/math-render.ts";
+import { createAgendaManager } from "./agenda.ts";
+import { createUnusedAssetsManager } from "./asset-cleanup.ts";
+import { createFilesystemBrowser } from "./filesystem.ts";
+import { createFloatingTocPanel } from "./floating-toc.ts";
+import { createGraphPanel } from "./graph-panel.ts";
 import { SnippetSession, snippetDetail, snippetLabel, snippetScore } from "./snippets.ts";
 import type { Inbound, NoteSummary, SnippetSummary } from "./types.ts";
 import { createVimLite, type VimLiteMode } from "./vim-lite.ts";
@@ -84,8 +89,15 @@ root.innerHTML = `
             <div data-agenda-list class="aaronnote-agenda-list"></div>
           </div>
           <div data-notes-panel="filesystem">
-            <input data-note-filter type="search" placeholder="Filter notes by path, title, tag, or id" />
-            <div data-note-list class="aaronnote-note-list"></div>
+            <div class="aaronnote-files-toolbar">
+              <input data-note-filter type="search" placeholder="Filter notes by path, title, tag, or id" />
+              <div class="aaronnote-files-actions">
+                <button type="button" data-action="notes-collapse-all">Collapse all</button>
+                <button type="button" data-action="notes-expand-all">Expand all</button>
+                <span data-note-count></span>
+              </div>
+            </div>
+            <div data-note-list class="aaronnote-note-list aaronnote-files-list"></div>
           </div>
           <div data-notes-panel="graph" data-graph-page hidden>
             <div class="aaronnote-graph-toolbar">
@@ -100,18 +112,27 @@ root.innerHTML = `
           <div data-notes-panel="management" hidden>
             <div class="aaronnote-management-grid">
               <button type="button" data-action="sync">Sync roamdb</button>
+              <button type="button" data-action="scan-unused-assets">Scan unused assets</button>
+              <button type="button" data-action="trash-unused-assets" disabled>Move selected to Trash</button>
             </div>
             <div class="aaronnote-management-status">
               <strong data-management-count>0</strong>
               <span>nodes indexed from the current root</span>
             </div>
+            <section class="aaronnote-unused-assets" data-unused-assets-section hidden>
+              <header>
+                <strong data-unused-assets-count>0 unused assets</strong>
+                <label><input data-unused-assets-select-all type="checkbox" /> Select all</label>
+              </header>
+              <div data-unused-assets-list class="aaronnote-unused-assets-list"></div>
+            </section>
           </div>
         </div>
       </section>
     </section>
     <aside class="aaronnote-floating-toc is-collapsed" data-floating-toc>
-      <button type="button" data-toc-toggle>TOC</button>
-      <nav data-toc-list></nav>
+      <button type="button" data-toc-toggle aria-expanded="false">TOC</button>
+      <nav data-toc-list aria-label="Table of contents"></nav>
     </aside>
   </main>
 `;
@@ -123,9 +144,18 @@ const fileLabel = document.querySelector<HTMLElement>("[data-file-label]")!;
 const noteList = document.querySelector<HTMLElement>("[data-note-list]")!;
 const recentList = document.querySelector<HTMLElement>("[data-recent-list]")!;
 const noteFilter = document.querySelector<HTMLInputElement>("[data-note-filter]")!;
+const noteCount = document.querySelector<HTMLElement>("[data-note-count]")!;
 const notesPage = document.querySelector<HTMLElement>("[data-notes-page]")!;
 const graphPage = document.querySelector<HTMLElement>("[data-graph-page]")!;
 const syncButton = document.querySelector<HTMLButtonElement>("[data-action='sync']")!;
+const notesCollapseAllButton = document.querySelector<HTMLButtonElement>("[data-action='notes-collapse-all']")!;
+const notesExpandAllButton = document.querySelector<HTMLButtonElement>("[data-action='notes-expand-all']")!;
+const scanUnusedAssetsButton = document.querySelector<HTMLButtonElement>("[data-action='scan-unused-assets']")!;
+const trashUnusedAssetsButton = document.querySelector<HTMLButtonElement>("[data-action='trash-unused-assets']")!;
+const unusedAssetsSection = document.querySelector<HTMLElement>("[data-unused-assets-section]")!;
+const unusedAssetsCount = document.querySelector<HTMLElement>("[data-unused-assets-count]")!;
+const unusedAssetsSelectAll = document.querySelector<HTMLInputElement>("[data-unused-assets-select-all]")!;
+const unusedAssetsList = document.querySelector<HTMLElement>("[data-unused-assets-list]")!;
 const notesTabButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-notes-tab]"));
 const notesPanels = Array.from(document.querySelectorAll<HTMLElement>("[data-notes-panel]"));
 const managementCount = document.querySelector<HTMLElement>("[data-management-count]")!;
@@ -177,28 +207,6 @@ let currentStandalone = false;
 let saveTimer = 0;
 let notes: NoteSummary[] = [];
 let snippets: SnippetSummary[] = [];
-type AgendaTodo = {
-  id: string;
-  status: "todo" | "doing" | "done" | "blocked";
-  text: string;
-  source: string;
-  index: number;
-  line: number;
-  column: number;
-  context: string;
-  file: string;
-  path?: string;
-  noteKey?: string;
-  noteId?: string;
-  noteTitle?: string;
-  noteDate?: string;
-  groupKey?: string;
-  groupLabel?: string;
-  updatedAt: number;
-};
-let agendaTodos: AgendaTodo[] = [];
-let agendaLoading = false;
-let agendaRenderFrame = 0;
 let pendingTodoFocus: { file: string; source: string; index?: number } | null = null;
 let assistFrame = 0;
 let assistTimer = 0;
@@ -210,15 +218,16 @@ let snippetSuppressedPrefix = "";
 let snippetRenderKey = "";
 let snippetSession: SnippetSession;
 let mathPreviewKey = "";
-let tocRenderKey = "";
 let snippetScanRequested = false;
-let selectedGraphNote = "";
-let graphApi: { destroy?: () => void; setVisibleKeys?: (keys: string[]) => void } | null = null;
-let graphScriptsReady: Promise<void> | null = null;
-let graphRenderTimer = 0;
-let notesRenderFrame = 0;
 let saveRequestSeq = 0;
-let graphDataKey = "";
+const saveClientId = (() => {
+  try {
+    return window.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  } catch {
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+})();
+let saveAbortController: AbortController | null = null;
 let pathSuggestions: string[] = [];
 let pendingEquationTag = params.get("eqTag") || "";
 
@@ -338,6 +347,67 @@ const vim = createVimLite(editor, host, {
       scheduleAssistUpdate();
     }
   },
+});
+
+const filesystemBrowser = createFilesystemBrowser({
+  noteList,
+  recentList,
+  noteFilter,
+  noteCount,
+  managementCount,
+  getNotes: () => notes,
+  getRecentNotes: () => recentNotes,
+  getCurrentFile: () => currentFile,
+  openNote,
+});
+
+const agendaManager = createAgendaManager({
+  filter: agendaFilter,
+  sort: agendaSort,
+  done: agendaDone,
+  count: agendaCount,
+  list: agendaList,
+  getNotes: () => notes,
+  getCurrentFile: () => currentFile,
+  setStatus,
+  setPendingTodoFocus: (focus) => {
+    pendingTodoFocus = focus;
+  },
+  showEditorPage,
+  jumpToTodoSource,
+  openNote,
+});
+
+const unusedAssetsManager = createUnusedAssetsManager({
+  section: unusedAssetsSection,
+  count: unusedAssetsCount,
+  list: unusedAssetsList,
+  selectAll: unusedAssetsSelectAll,
+  scanButton: scanUnusedAssetsButton,
+  trashButton: trashUnusedAssetsButton,
+  setStatus,
+  openFormModal,
+});
+
+const floatingTocPanel = createFloatingTocPanel({
+  toc,
+  toggleButton: tocToggle,
+  list: tocList,
+  editor,
+  getNotes: () => notes,
+  getCurrentFile: () => currentFile,
+  resolveNoteRef,
+  openNote,
+});
+
+const graphPanel = createGraphPanel({
+  page: graphPage,
+  filter: graphFilter,
+  stats: graphStats,
+  canvas: graphCanvas,
+  focusPanel: graphFocus,
+  getNotes: () => notes,
+  openNote,
 });
 
 host.addEventListener("aaronnote:insert-files", (event) => {
@@ -673,12 +743,16 @@ async function saveStandalone(): Promise<void> {
   const file = currentFile;
   const content = editor.getMarkdown();
   const mode = editor.isSourceMode() ? "source" : "markdown";
+  saveAbortController?.abort();
+  const controller = new AbortController();
+  saveAbortController = controller;
   setStatus("Saving");
   try {
     const res = await fetch("/api/save", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ file, content, mode }),
+      body: JSON.stringify({ file, content, mode, clientId: saveClientId, seq }),
+      signal: controller.signal,
     });
     const msg = await res.json() as Extract<Inbound, { type: "saved" }>;
     if (seq !== saveRequestSeq || file !== currentFile) return;
@@ -691,8 +765,11 @@ async function saveStandalone(): Promise<void> {
       updateFloatingToc();
     }
   } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") return;
     if (seq !== saveRequestSeq || file !== currentFile) return;
     setStatus(err instanceof Error ? err.message : "Save failed");
+  } finally {
+    if (saveAbortController === controller) saveAbortController = null;
   }
 }
 
@@ -1461,12 +1538,7 @@ function cleanupTransientUi(): void {
 }
 
 function disposeGraph(): void {
-  window.clearTimeout(graphRenderTimer);
-  graphApi?.destroy?.();
-  graphApi = null;
-  graphDataKey = "";
-  graphCanvas.innerHTML = "";
-  graphFocus.innerHTML = "";
+  graphPanel.dispose();
 }
 
 function showNotesPage(tab = "filesystem"): void {
@@ -1522,48 +1594,8 @@ function showEditorPage(): void {
   scheduleAssistUpdate();
 }
 
-function editorHeadings(): Array<{ level: number; text: string; pos: number }> {
-  const headings: Array<{ level: number; text: string; pos: number }> = [];
-  editor.view.state.doc.descendants((node, pos) => {
-    if (node.type.name !== "heading") return true;
-    const level = Number(node.attrs.level || 1);
-    headings.push({
-      level: Number.isFinite(level) ? level : 1,
-      text: node.textContent.trim() || "Untitled",
-      pos: pos + 1,
-    });
-    return false;
-  });
-  return headings;
-}
-
 function updateFloatingToc(): void {
-  const headings = editorHeadings();
-  const selectionPos = editor.view.state.selection.from;
-  const activeIndex = headings.reduce((active, heading, index) => heading.pos <= selectionPos ? index : active, -1);
-  const currentNote = notes.find((note) => note.file === currentFile);
-  const relatedIds = [...(currentNote?.refs ?? []), ...(currentNote?.backlinks ?? [])];
-  const key = `${activeIndex}\n${currentNote?.id ?? ""}\n${relatedIds.join(",")}\n${headings.map((h) => `${h.level}:${h.pos}:${h.text}`).join("\n")}`;
-  if (key === tocRenderKey) return;
-  tocRenderKey = key;
-  tocList.innerHTML = "";
-  if (headings.length === 0 && relatedIds.length === 0) {
-    tocList.innerHTML = `<div class="aaronnote-toc-empty">No headings</div>`;
-    return;
-  }
-  headings.forEach((heading, index) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = index === activeIndex ? "aaronnote-toc-item is-active" : "aaronnote-toc-item";
-    button.style.setProperty("--toc-depth", String(Math.max(0, heading.level - 1)));
-    button.textContent = heading.text;
-    button.addEventListener("click", () => {
-      editor.setSelection(heading.pos);
-      editor.focus();
-    });
-    tocList.appendChild(button);
-  });
-  renderRelatedNotes(currentNote);
+  floatingTocPanel.update();
 }
 
 function openNote(note: NoteSummary, options: OpenNoteOptions = {}): void {
@@ -1584,34 +1616,6 @@ function openNote(note: NoteSummary, options: OpenNoteOptions = {}): void {
   pendingEquationTag = equationTag;
   void openStandaloneFile(note.file);
   showEditorPage();
-}
-
-function renderRelatedNotes(currentNote: NoteSummary | undefined): void {
-  if (!currentNote) return;
-  const byId = new Map(notes.map((note) => [note.id, note]));
-  const sections: Array<[string, string[]]> = [
-    ["Links", currentNote.refs ?? []],
-    ["Backlinks", currentNote.backlinks ?? []],
-  ];
-  for (const [label, ids] of sections) {
-    const resolved = ids
-      .map((id) => byId.get(id) || resolveNoteRef(id))
-      .filter((note): note is NoteSummary => Boolean(note?.file));
-    if (resolved.length === 0) continue;
-    const head = document.createElement("div");
-    head.className = "aaronnote-toc-section";
-    head.textContent = label;
-    tocList.appendChild(head);
-    for (const note of resolved) {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "aaronnote-toc-item aaronnote-toc-related";
-      button.style.setProperty("--toc-depth", "0");
-      button.textContent = note.title || note.id || note.file || "Untitled";
-      button.addEventListener("click", (event) => openNote(note, { newWindow: event.altKey || event.metaKey }));
-      tocList.appendChild(button);
-    }
-  }
 }
 
 function insertSnippet(snippet: SnippetSummary, deleteBefore = 0): void {
@@ -2273,10 +2277,15 @@ function restoreCursorPosition(file: string): boolean {
 
 function flushSaveKeepalive(): void {
   if (!currentFile) return;
+  saveAbortController?.abort();
+  saveAbortController = null;
+  const seq = ++saveRequestSeq;
   const payload = {
     file: currentFile,
     content: editor.getMarkdown(),
     mode: editor.isSourceMode() ? "source" : "markdown",
+    clientId: saveClientId,
+    seq,
   };
   if (sendBeaconJson("/api/save", payload)) return;
   void fetch("/api/save", {
@@ -2293,251 +2302,36 @@ function flushState(options: { keepalive?: boolean } = {}): void {
   flushSaveKeepalive();
 }
 
-function formatRecentTime(openedAt: number): string {
-  if (!Number.isFinite(openedAt)) return "";
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(openedAt));
-}
-
-function renderNoteButton(note: NoteSummary, detail: string, extra?: string): HTMLButtonElement {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "aaronnote-note";
-  button.innerHTML = `<strong>${escapeHtml(note.title || note.id || note.file || "Untitled")}</strong><span>${escapeHtml(detail)}</span>${extra ? `<span class="aaronnote-note-extra">${escapeHtml(extra)}</span>` : ""}`;
-  button.title = note.file || "";
-  button.addEventListener("click", (event) => {
-    openNote(note, { newWindow: event.altKey || event.metaKey });
-  });
-  return button;
-}
-
 function renderRecentNotes(): void {
-  const byFile = new Map(notes.map((note) => [note.file, note]));
-  const entries = recentNotes
-    .map((entry) => ({
-      entry,
-      note: byFile.get(entry.file) || {
-        file: entry.file,
-        path: entry.file,
-        title: fileNameFromPath(entry.file),
-        standalone: true,
-      },
-    }))
-    .filter((item): item is { entry: RecentNote; note: NoteSummary } => Boolean(item.note?.file));
-
-  recentList.innerHTML = "";
-  if (entries.length === 0) {
-    recentList.innerHTML = `<div class="aaronnote-empty">No recent notes</div>`;
-    return;
-  }
-  for (const { entry, note } of entries) {
-    recentList.appendChild(renderNoteButton(note, note.standalone ? "Standalone Markdown" : note.path || note.id || "", formatRecentTime(entry.openedAt)));
-  }
+  filesystemBrowser.renderRecent();
 }
 
 function roamNotes(): NoteSummary[] {
   return notes.filter((note) => note.roam);
 }
 
+function collapseFilesystemGroups(): void {
+  filesystemBrowser.collapseAll();
+}
+
+function expandFilesystemGroups(): void {
+  filesystemBrowser.expandAll();
+}
+
 function renderNotes(): void {
-  managementCount.textContent = `${roamNotes().length} / ${notes.length}`;
-  renderRecentNotes();
-  const query = noteFilter.value.trim().toLowerCase();
-  const shown = notes
-    .filter((note) => {
-      const haystack = `${note.title ?? ""} ${note.id ?? ""} ${note.file ?? ""} ${(note.tags ?? []).join(" ")}`.toLowerCase();
-      return !query || haystack.includes(query);
-    })
-    .slice(0, 80);
-
-  noteList.innerHTML = "";
-  if (shown.length === 0) {
-    noteList.innerHTML = `<div class="aaronnote-empty">No notes</div>`;
-    return;
-  }
-  const groups = new Map<string, NoteSummary[]>();
-  for (const note of shown) {
-    const group = note.groupKey || (note.path || "").split(/[\\/]/).slice(0, -1).join("/") || "Root";
-    if (!groups.has(group)) groups.set(group, []);
-    groups.get(group)!.push(note);
-  }
-  for (const [group, items] of [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
-    const heading = document.createElement("div");
-    heading.className = "aaronnote-note-group";
-    heading.textContent = group.replace(/^\.\/?/, "") || "Root";
-    noteList.appendChild(heading);
-    for (const note of items.sort((a, b) => String(a.title).localeCompare(String(b.title)))) {
-      noteList.appendChild(renderNoteButton(note, note.path || note.id || ""));
-    }
-  }
-}
-
-function formatAgendaTime(value: number): string {
-  if (!Number.isFinite(value) || value <= 0) return "";
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
-
-function agendaStatusRank(status: AgendaTodo["status"]): number {
-  return ({ blocked: 0, doing: 1, todo: 2, done: 3 } as Record<AgendaTodo["status"], number>)[status] ?? 9;
-}
-
-function shownAgendaTodos(): AgendaTodo[] {
-  const query = agendaFilter.value.trim().toLowerCase();
-  const includeDone = agendaDone.checked;
-  const shown = agendaTodos.filter((todo) => {
-    if (!includeDone && todo.status === "done") return false;
-    const haystack = [
-      todo.status,
-      todo.text,
-      todo.context,
-      todo.noteTitle,
-      todo.path,
-      todo.file,
-      todo.groupLabel,
-    ].join(" ").toLowerCase();
-    return !query || haystack.includes(query);
-  });
-  const sort = agendaSort.value;
-  return shown.sort((a, b) => {
-    if (sort === "file") {
-      return String(a.path || a.file).localeCompare(String(b.path || b.file))
-        || a.line - b.line
-        || agendaStatusRank(a.status) - agendaStatusRank(b.status);
-    }
-    if (sort === "time") {
-      return b.updatedAt - a.updatedAt
-        || agendaStatusRank(a.status) - agendaStatusRank(b.status)
-        || String(a.noteTitle).localeCompare(String(b.noteTitle));
-    }
-    return agendaStatusRank(a.status) - agendaStatusRank(b.status)
-      || b.updatedAt - a.updatedAt
-      || String(a.noteTitle).localeCompare(String(b.noteTitle));
-  });
+  filesystemBrowser.render();
 }
 
 async function loadAgendaTodos(force = false): Promise<void> {
-  if (agendaLoading) return;
-  if (!force && agendaTodos.length > 0) {
-    renderAgenda();
-    return;
-  }
-  agendaLoading = true;
-  agendaCount.textContent = "Loading";
-  try {
-    const res = await fetch("/api/todos");
-    const msg = await res.json() as { todos?: AgendaTodo[]; message?: string };
-    if (!res.ok || !Array.isArray(msg.todos)) throw new Error(msg.message || "Todo scan failed");
-    agendaTodos = msg.todos;
-    renderAgenda();
-  } catch (err) {
-    agendaList.innerHTML = `<div class="aaronnote-empty">${escapeHtml(err instanceof Error ? err.message : "Todo scan failed")}</div>`;
-    agendaCount.textContent = "Failed";
-  } finally {
-    agendaLoading = false;
-  }
+  await agendaManager.load(force);
 }
 
 function scheduleRenderAgenda(): void {
-  window.cancelAnimationFrame(agendaRenderFrame);
-  agendaRenderFrame = window.requestAnimationFrame(renderAgenda);
+  agendaManager.scheduleRender();
 }
 
 function renderAgenda(): void {
-  const shown = shownAgendaTodos();
-  const active = shown.filter((todo) => todo.status !== "done").length;
-  const done = agendaTodos.filter((todo) => todo.status === "done").length;
-  agendaCount.textContent = `${shown.length} shown · ${active} active${done ? ` · ${done} done` : ""}`;
-  agendaList.innerHTML = "";
-  if (shown.length === 0) {
-    agendaList.innerHTML = `<div class="aaronnote-empty">${agendaTodos.length === 0 ? "No todos indexed" : "No todos match the current filters"}</div>`;
-    return;
-  }
-
-  let currentGroup = "";
-  const groupFor = (todo: AgendaTodo): string => {
-    if (agendaSort.value === "file") return todo.path || todo.file || "Scratch";
-    if (agendaSort.value === "time") return formatAgendaTime(todo.updatedAt).split(",")[0] || "Undated";
-    return todo.status.toUpperCase();
-  };
-  for (const todo of shown) {
-    const group = groupFor(todo);
-    if (group !== currentGroup) {
-      currentGroup = group;
-      const heading = document.createElement("div");
-      heading.className = "aaronnote-agenda-group";
-      heading.textContent = group;
-      agendaList.appendChild(heading);
-    }
-    agendaList.appendChild(renderAgendaTodo(todo));
-  }
-}
-
-function renderAgendaTodo(todo: AgendaTodo): HTMLElement {
-  const item = document.createElement("article");
-  item.className = "aaronnote-agenda-item";
-  item.dataset.status = todo.status;
-
-  const status = document.createElement("span");
-  status.className = "aaronnote-agenda-status";
-  status.textContent = todo.status.toUpperCase();
-
-  const main = document.createElement("div");
-  main.className = "aaronnote-agenda-main";
-  const title = document.createElement("button");
-  title.type = "button";
-  title.className = "aaronnote-agenda-title";
-  title.textContent = todo.text || "(empty todo)";
-  title.addEventListener("click", (event) => focusAgendaTodo(todo, { newWindow: event.altKey || event.metaKey }));
-
-  const meta = document.createElement("div");
-  meta.className = "aaronnote-agenda-meta";
-  meta.textContent = `${todo.noteTitle || fileNameFromPath(todo.file)} · ${todo.path || todo.file}:${todo.line}${todo.updatedAt ? ` · ${formatAgendaTime(todo.updatedAt)}` : ""}`;
-
-  const context = document.createElement("div");
-  context.className = "aaronnote-agenda-context";
-  context.textContent = todo.context || todo.source;
-  main.append(title, meta, context);
-
-  const actions = document.createElement("div");
-  actions.className = "aaronnote-agenda-actions";
-  const focus = document.createElement("button");
-  focus.type = "button";
-  focus.textContent = "Focus";
-  focus.addEventListener("click", () => focusAgendaTodo(todo));
-  actions.append(focus);
-
-  item.append(status, main, actions);
-  return item;
-}
-
-function focusAgendaTodo(todo: AgendaTodo, options: { newWindow?: boolean } = {}): void {
-  if (!todo.file) return;
-  const note = notes.find((item) => item.file === todo.file) || {
-    file: todo.file,
-    path: todo.path || todo.file,
-    title: todo.noteTitle || fileNameFromPath(todo.file),
-    standalone: true,
-  };
-  pendingTodoFocus = { file: todo.file, source: todo.source, index: todo.index };
-  if (todo.file === currentFile && !options.newWindow) {
-    showEditorPage();
-    if (!jumpToTodoSource(todo.source, todo.index)) setStatus("Todo source not found");
-    return;
-  }
-  openNote(note, options);
-}
-
-function noteKey(note: NoteSummary): string {
-  return note.key || note.id || note.path || note.file || "";
+  agendaManager.render();
 }
 
 function escapeHtml(value: unknown): string {
@@ -2549,128 +2343,16 @@ function escapeHtml(value: unknown): string {
     .replace(/'/g, "&#39;");
 }
 
-function publishGraphVisibleNotes(): NoteSummary[] {
-  const query = graphFilter.value.trim().toLowerCase();
-  return roamNotes().filter((note) => {
-    const haystack = [
-      note.title,
-      note.id,
-      note.path,
-      note.groupLabel,
-      note.summary,
-      ...(note.tags ?? []),
-      ...(note.aliases ?? []),
-    ].join(" ").toLowerCase();
-    return !query || haystack.includes(query);
-  });
-}
-
-function loadScriptOnce(src: string): Promise<void> {
-  const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
-  if (existing?.dataset.loaded === "true") return Promise.resolve();
-  return new Promise((resolve, reject) => {
-    const script = existing || document.createElement("script");
-    script.src = src;
-    script.async = false;
-    script.addEventListener("load", () => {
-      script.dataset.loaded = "true";
-      resolve();
-    }, { once: true });
-    script.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)), { once: true });
-    if (!existing) document.head.appendChild(script);
-  });
-}
-
-async function ensurePublishGraphScripts(): Promise<void> {
-  if (graphScriptsReady) return graphScriptsReady;
-  graphScriptsReady = (async () => {
-    await loadScriptOnce("https://d3js.org/d3.v7.min.js");
-    await loadScriptOnce("/roam-tools/knowledge.js");
-    await loadScriptOnce("/roam-tools/graph.js");
-  })();
-  return graphScriptsReady;
-}
-
-function updatePublishGraphData(): void {
-  const graphNotes = roamNotes();
-  window.SITE_DATA = {
-    meta: {
-      generatedAt: new Date().toISOString(),
-      noteCount: graphNotes.length,
-      tagCount: new Set(graphNotes.flatMap((note) => note.tags ?? [])).size,
-    },
-    notes: graphNotes.map((note) => ({
-      ...note,
-      key: noteKey(note),
-      link: note.link || note.path || "#",
-      refs: note.refs ?? [],
-      backlinks: note.backlinks ?? [],
-      tags: note.tags ?? [],
-      aliases: note.aliases ?? [],
-    })),
-  };
-}
-
-function currentGraphDataKey(): string {
-  return roamNotes()
-    .map((note) => [
-      noteKey(note),
-      note.title ?? "",
-      note.path ?? "",
-      (note.refs ?? []).join(","),
-      (note.backlinks ?? []).join(","),
-      (note.tags ?? []).join(","),
-      (note.aliases ?? []).join(","),
-    ].join("\t"))
-    .join("\n");
-}
-
 function renderGraph(): void {
-  window.clearTimeout(graphRenderTimer);
-  const dataKey = currentGraphDataKey();
-  updatePublishGraphData();
-  const shown = publishGraphVisibleNotes();
-  const visibleKeys = shown.map(noteKey);
-  graphStats.textContent = `${shown.length} nodes`;
-  if (graphApi?.setVisibleKeys && graphDataKey === dataKey) {
-    graphApi.setVisibleKeys(visibleKeys);
-    return;
-  }
-  void ensurePublishGraphScripts()
-    .then(() => {
-      if (graphPage.hidden) return;
-      if (!window.initKnowledgeGraph) throw new Error("Publish graph is unavailable");
-      window.buildKnowledgeData?.();
-      graphApi?.destroy?.();
-      graphDataKey = dataKey;
-      graphApi = window.initKnowledgeGraph({
-        knowledge: window.KNOWLEDGE_DATA,
-        container: graphCanvas,
-        focusPanel: graphFocus,
-        toolbar: true,
-        emptyMessage: "Select a node.",
-        listenForGlobalFilters: false,
-        dispatchTagEvents: false,
-        onNoteOpen(note: NoteSummary) {
-          const target = notes.find((item) => noteKey(item) === noteKey(note) || item.id === note.id);
-          if (target) openNote(target);
-        },
-        initialVisibleKeys: visibleKeys,
-      });
-    })
-    .catch((err) => {
-      graphCanvas.innerHTML = `<div class="aaronnote-empty">${escapeHtml(err instanceof Error ? err.message : "Graph failed")}</div>`;
-    });
+  graphPanel.render();
 }
 
 function scheduleRenderGraph(delay = 120): void {
-  window.clearTimeout(graphRenderTimer);
-  graphRenderTimer = window.setTimeout(renderGraph, delay);
+  graphPanel.scheduleRender(delay);
 }
 
 function scheduleRenderNotes(): void {
-  window.cancelAnimationFrame(notesRenderFrame);
-  notesRenderFrame = window.requestAnimationFrame(renderNotes);
+  filesystemBrowser.scheduleRender();
 }
 
 async function openStandaloneFile(file: string): Promise<void> {
@@ -2839,6 +2521,11 @@ window.addEventListener("aaronnote:command", (event) => {
 notesButton.addEventListener("click", () => showNotesPage());
 agendaButton.addEventListener("click", () => showNotesPage("agenda"));
 syncButton.addEventListener("click", () => void syncRoamDb());
+notesCollapseAllButton.addEventListener("click", collapseFilesystemGroups);
+notesExpandAllButton.addEventListener("click", expandFilesystemGroups);
+scanUnusedAssetsButton.addEventListener("click", () => void unusedAssetsManager.scan());
+trashUnusedAssetsButton.addEventListener("click", () => void unusedAssetsManager.trashSelected());
+unusedAssetsSelectAll.addEventListener("change", unusedAssetsManager.toggleSelectAll);
 sourceButton.addEventListener("click", toggleSourceMode);
 editorButton.addEventListener("click", showEditorPage);
 editorInlineButton.addEventListener("click", showEditorPage);
@@ -2846,7 +2533,7 @@ notesTabButtons.forEach((button) => {
   button.addEventListener("click", () => showNotesTool(button.dataset.notesTab || "filesystem"));
 });
 tocToggle.addEventListener("click", () => {
-  toc.classList.toggle("is-collapsed");
+  floatingTocPanel.toggle();
 });
 selectionTool.addEventListener("mousedown", (event) => event.preventDefault());
 selectionTool.addEventListener("click", () => void copyActiveSelection());

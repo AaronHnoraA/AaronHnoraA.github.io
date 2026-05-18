@@ -44,20 +44,23 @@ function nextInlineTodoStatus(status: InlineTodoStatus): InlineTodoStatus {
   return INLINE_TODO_STATUSES[(idx + 1) % INLINE_TODO_STATUSES.length]!;
 }
 
-function layoutInlineTodoWidget(el: HTMLElement, view: EditorView): void {
+function layoutInlineTodoWidget(el: HTMLElement, view: EditorView): () => void {
   const chip = el.querySelector<HTMLElement>(".inline-todo-chip");
   const line = el.querySelector<HTMLElement>(".inline-todo-line");
   const card = el.querySelector<HTMLElement>(".inline-todo-card");
-  if (!chip || !line || !card) return;
+  if (!chip || !line || !card) return () => {};
 
   let disposed = false;
+  let frame = 0;
   const dispose = (): void => {
     if (disposed) return;
     disposed = true;
-    window.removeEventListener("resize", update);
-    window.removeEventListener("scroll", update, true);
+    if (frame) window.cancelAnimationFrame(frame);
+    window.removeEventListener("resize", requestUpdate);
+    window.removeEventListener("scroll", requestUpdate, true);
   };
   const update = (): void => {
+    frame = 0;
     if (!el.isConnected) {
       dispose();
       return;
@@ -80,11 +83,18 @@ function layoutInlineTodoWidget(el: HTMLElement, view: EditorView): void {
     line.style.width = `${lineWidth}px`;
     line.hidden = lineWidth < 18;
   };
+  const requestUpdate = (): void => {
+    if (disposed || frame) return;
+    frame = window.requestAnimationFrame(update);
+  };
 
-  window.addEventListener("resize", update);
-  window.addEventListener("scroll", update, true);
-  window.requestAnimationFrame(update);
+  window.addEventListener("resize", requestUpdate);
+  window.addEventListener("scroll", requestUpdate, true);
+  requestUpdate();
+  return dispose;
 }
+
+const widgetDisposers = new WeakMap<Node, () => void>();
 
 // Widget builders — keyed by `kind`. A widget renders as a DOM element
 // at a specific position; decorations.ts decides whether to emit it based
@@ -167,6 +177,9 @@ const widgetBuilders: Record<string, (attrs: Record<string, string>) => HTMLElem
       input.type = "file";
       if (attrs.accept) input.accept = attrs.accept;
       input.style.display = "none";
+      const cleanup = () => {
+        if (input.isConnected) input.remove();
+      };
       input.addEventListener("change", () => {
         // Bubble up via a synthetic CustomEvent on the trigger so the
         // image plugin (which delegates from the editor root) can pick
@@ -177,10 +190,12 @@ const widgetBuilders: Record<string, (attrs: Record<string, string>) => HTMLElem
             detail: { files: input.files },
           }),
         );
-        document.body.removeChild(input);
-      });
+        cleanup();
+      }, { once: true });
+      input.addEventListener("cancel", cleanup, { once: true });
       document.body.appendChild(input);
       input.click();
+      window.setTimeout(cleanup, 60_000);
     });
     return el;
   },
@@ -248,7 +263,7 @@ function buildWidgetLazy(w: WidgetDecoration): (view: EditorView, getPos: () => 
       });
     }
     if (w.kind === "inline-todo") {
-      layoutInlineTodoWidget(el, view);
+      widgetDisposers.set(el, layoutInlineTodoWidget(el, view));
       el.addEventListener("mousedown", (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -337,6 +352,10 @@ function buildDecorationSet(state: EditorState): DecorationSet {
           if (w.kind === "math-render" && (e.type === "mousedown" || e.type === "click")) return true;
           if (w.kind === "inline-todo" && (e.type === "mousedown" || e.type === "click")) return true;
           return e.type !== "click";
+        },
+        destroy: (node: Node) => {
+          widgetDisposers.get(node)?.();
+          widgetDisposers.delete(node);
         },
       }),
     );

@@ -66,13 +66,14 @@ class TocNodeView implements NodeView {
     this.lastDoc = doc;
     this.lastSig = sig;
 
-    this.dom.innerHTML = "";
+    const frag = document.createDocumentFragment();
 
     if (items.length === 0) {
       const empty = document.createElement("div");
       empty.className = "toc-empty";
       empty.textContent = "(no headings yet)";
-      this.dom.appendChild(empty);
+      frag.appendChild(empty);
+      this.dom.replaceChildren(frag);
       return;
     }
 
@@ -81,7 +82,10 @@ class TocNodeView implements NodeView {
     for (const it of items) {
       const li = document.createElement("li");
       li.className = `toc-item toc-h${it.level}`;
+      li.style.setProperty("--toc-depth", String(Math.max(0, it.level - 1)));
+      li.dataset.level = String(it.level);
       li.textContent = it.text || "(empty heading)";
+      li.title = it.text || "(empty heading)";
       li.addEventListener("mousedown", (e) => {
         // Prevent PM from grabbing focus before our click runs.
         e.preventDefault();
@@ -89,7 +93,8 @@ class TocNodeView implements NodeView {
       li.addEventListener("click", () => this.jumpTo(it.pos));
       ul.appendChild(li);
     }
-    this.dom.appendChild(ul);
+    frag.appendChild(ul);
+    this.dom.replaceChildren(frag);
   }
 
   private jumpTo(headingPos: number): void {

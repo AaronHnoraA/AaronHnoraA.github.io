@@ -187,11 +187,15 @@ input {
 .aaronnote-note-group {
   grid-column: 1 / -1;
   margin-top: 10px;
+  border: 0;
   border-bottom: 1px solid var(--aaron-paper-line);
-  padding-bottom: 4px;
+  padding: 0 0 4px;
+  background: transparent;
   color: var(--aaron-muted);
   font: 800 11px/1.2 var(--aaron-font-sans);
   text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
 }
 
 .aaronnote-snippet {
@@ -206,6 +210,16 @@ input {
   overflow: hidden;
   display: grid;
   gap: 3px;
+}
+
+.aaronnote-note.is-active {
+  border-color: var(--aaron-red);
+  box-shadow: inset 3px 0 0 var(--aaron-red);
+}
+
+.aaronnote-note-ext {
+  color: var(--aaron-red-dark);
+  font: 750 10px/1 var(--aaron-font-sans);
 }
 
 .aaronnote-note strong,
@@ -331,6 +345,147 @@ input {
   padding: 0 10px;
   background: var(--aaron-paper);
   color: var(--aaron-ink);
+}
+
+.aaronnote-files-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(360px, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 0 0 10px;
+  background: var(--aaron-paper);
+}
+
+.aaronnote-files-toolbar input {
+  margin-bottom: 0;
+}
+
+.aaronnote-files-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.aaronnote-files-actions button {
+  height: 32px;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 3px;
+  padding: 0 10px;
+  background: var(--aaron-paper);
+  color: var(--aaron-ink);
+  cursor: pointer;
+}
+
+.aaronnote-files-actions span {
+  color: var(--aaron-muted);
+  font-size: 12px;
+}
+
+.aaronnote-files-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1px;
+}
+
+.aaronnote-files-list .aaronnote-note-group {
+  min-height: 28px;
+  margin: 7px 0 1px;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 3px;
+  padding: 0 8px;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  background: color-mix(in srgb, var(--aaron-paper-soft), white 16%);
+  contain: layout paint;
+  text-transform: none;
+}
+
+.aaronnote-files-list .aaronnote-note-group:hover {
+  border-color: var(--aaron-red);
+}
+
+.aaronnote-note-group-marker {
+  color: var(--aaron-red-dark);
+  font: 800 11px/1 var(--aaron-font-mono);
+  text-align: center;
+}
+
+.aaronnote-files-list .aaronnote-note-group strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--aaron-ink);
+}
+
+.aaronnote-files-list .aaronnote-note-group span:last-child {
+  color: var(--aaron-muted);
+  font-weight: 700;
+}
+
+.aaronnote-files-list .aaronnote-note {
+  min-height: 31px;
+  border-radius: 2px;
+  grid-template-columns: 46px minmax(180px, 360px) minmax(220px, 1fr) minmax(120px, 240px);
+  align-items: center;
+  gap: 12px;
+  padding: 4px 9px;
+  background: transparent;
+  contain: layout paint;
+}
+
+.aaronnote-files-list .aaronnote-note:hover {
+  background: var(--aaron-paper-soft);
+}
+
+.aaronnote-files-list .aaronnote-note.is-active {
+  background: color-mix(in srgb, var(--aaron-paper-soft), white 18%);
+}
+
+.aaronnote-files-list .aaronnote-note-ext {
+  width: 38px;
+  box-sizing: border-box;
+  border: 1px solid color-mix(in srgb, var(--aaron-paper-line), transparent 15%);
+  border-radius: 2px;
+  padding: 2px 4px;
+  background: color-mix(in srgb, var(--aaron-paper-soft), white 22%);
+  text-align: center;
+}
+
+.aaronnote-files-list .aaronnote-note strong,
+.aaronnote-files-list .aaronnote-note span {
+  white-space: nowrap;
+}
+
+.aaronnote-files-list .aaronnote-note strong {
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.aaronnote-files-list .aaronnote-note > span:not(.aaronnote-note-ext) {
+  font-size: 12px;
+}
+
+.aaronnote-files-list .aaronnote-note-extra {
+  display: block;
+  color: var(--aaron-link);
+  font-size: 11px;
+  text-align: right;
+}
+
+.aaronnote-files-limit {
+  margin-top: 10px;
+  border: 1px dashed var(--aaron-paper-line);
+  padding: 10px;
+  color: var(--aaron-muted);
+  font-size: 12px;
 }
 
 .aaronnote-graph-toolbar {
@@ -713,6 +868,92 @@ input {
   font-size: 24px;
 }
 
+.aaronnote-unused-assets {
+  margin-top: 16px;
+  border: 1px solid var(--aaron-paper-line);
+  background: var(--aaron-paper-soft);
+}
+
+.aaronnote-unused-assets[hidden] {
+  display: none;
+}
+
+.aaronnote-unused-assets header {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--aaron-paper-line);
+}
+
+.aaronnote-unused-assets header strong {
+  color: var(--aaron-red-dark);
+  font-size: 13px;
+}
+
+.aaronnote-unused-assets header label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--aaron-muted);
+  font-size: 12px;
+}
+
+.aaronnote-unused-assets-list {
+  max-height: 420px;
+  overflow: auto;
+  display: grid;
+  gap: 1px;
+  padding: 8px;
+}
+
+.aaronnote-unused-asset {
+  min-height: 38px;
+  display: grid;
+  grid-template-columns: auto 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: var(--aaron-paper);
+}
+
+.aaronnote-unused-asset:hover {
+  border-color: var(--aaron-paper-line);
+}
+
+.aaronnote-unused-asset-kind {
+  color: var(--aaron-red-dark);
+  font: 750 10px/1 var(--aaron-font-sans);
+}
+
+.aaronnote-unused-asset-body {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.aaronnote-unused-asset-body strong,
+.aaronnote-unused-asset-body span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aaronnote-unused-asset-body strong {
+  color: var(--aaron-ink);
+  font-size: 12px;
+}
+
+.aaronnote-unused-asset-body span {
+  color: var(--aaron-muted);
+  font-size: 11px;
+}
+
 .aaronnote-modal {
   position: fixed;
   inset: 0;
@@ -995,52 +1236,81 @@ input {
   right: 18px;
   top: 78px;
   z-index: 45;
-  width: 300px;
+  width: clamp(280px, 24vw, 380px);
+  min-width: 260px;
   max-height: min(520px, calc(100vh - 120px));
   overflow: hidden;
   border: 1px solid var(--aaron-paper-line);
+  border-radius: 4px;
   background: color-mix(in srgb, var(--aaron-paper), transparent 7%);
   box-shadow: var(--aaron-shadow);
   backdrop-filter: blur(8px);
+  resize: horizontal;
 }
 
 .aaronnote-floating-toc > button {
   width: 100%;
-  height: 36px;
+  height: 34px;
   border: 0;
   border-bottom: 1px solid var(--aaron-paper-line);
   background: var(--aaron-paper-soft);
   color: var(--aaron-red-dark);
   cursor: pointer;
-  font: 750 12px/1 "Avenir Next", Inter, ui-sans-serif, system-ui, sans-serif;
-  letter-spacing: 0.08em;
+  font: 750 12px/1 var(--aaron-font-sans);
+  letter-spacing: 0;
+  text-align: left;
+  padding: 0 10px;
 }
 
 .aaronnote-floating-toc nav {
-  max-height: 480px;
+  max-height: min(480px, calc(100vh - 160px));
   overflow: auto;
-  padding: 8px;
+  padding: 6px;
+  scrollbar-gutter: stable;
 }
 
 .aaronnote-floating-toc.is-collapsed {
   width: 56px;
+  min-width: 56px;
+  resize: none;
+}
+
+.aaronnote-floating-toc.is-collapsed > button {
+  height: 40px;
+  padding: 0;
+  text-align: center;
 }
 
 .aaronnote-floating-toc.is-collapsed nav {
   display: none;
 }
 
+.aaronnote-toc-status {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: -6px -6px 4px;
+  border-bottom: 1px solid var(--aaron-paper-line);
+  padding: 7px 10px;
+  background: color-mix(in srgb, var(--aaron-paper), transparent 4%);
+  color: var(--aaron-muted);
+  font: 700 11px/1 var(--aaron-font-sans);
+}
+
 .aaronnote-toc-item {
   width: 100%;
-  min-height: 28px;
+  min-height: 27px;
   border: 0;
   border-radius: 2px;
-  padding: 6px 8px 6px calc(8px + var(--toc-depth) * 12px);
+  padding: 5px 8px 5px calc(9px + var(--toc-depth) * 13px);
   background: transparent;
   color: var(--aaron-muted);
   cursor: pointer;
   text-align: left;
-  font: 12px/1.28 "Avenir Next", Inter, ui-sans-serif, system-ui, sans-serif;
+  font: 12px/1.28 var(--aaron-font-sans);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .aaronnote-toc-item:hover,
@@ -1051,14 +1321,15 @@ input {
 
 .aaronnote-toc-item.is-active {
   box-shadow: inset 3px 0 0 var(--aaron-red);
+  font-weight: 750;
 }
 
 .aaronnote-toc-section {
-  margin: 14px 0 6px;
-  padding: 10px 8px 0;
+  margin: 12px 0 4px;
+  padding: 9px 8px 0;
   border-top: 1px solid var(--aaron-paper-line);
   color: var(--aaron-muted);
-  font: 800 11px/1.2 "Avenir Next", Inter, ui-sans-serif, system-ui, sans-serif;
+  font: 800 11px/1.2 var(--aaron-font-sans);
   text-transform: uppercase;
 }
 
@@ -1067,7 +1338,7 @@ input {
 }
 
 .aaronnote-toc-empty {
-  padding: 8px;
+  padding: 8px 10px;
   color: var(--aaron-muted);
   font-size: 12px;
 }
@@ -1109,6 +1380,28 @@ input {
     padding: 22px 18px;
   }
 
+  .aaronnote-files-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .aaronnote-files-actions {
+    overflow-x: auto;
+  }
+
+  .aaronnote-files-list .aaronnote-note {
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 2px 8px;
+    min-height: 44px;
+  }
+
+  .aaronnote-files-list .aaronnote-note-ext {
+    grid-row: 1 / 3;
+  }
+
+  .aaronnote-files-list .aaronnote-note-extra {
+    display: none;
+  }
+
   .aaronnote-graph-toolbar,
   .aaronnote-graph-grid {
     grid-template-columns: 1fr;
@@ -1128,5 +1421,7 @@ input {
     right: 12px;
     top: auto;
     bottom: 12px;
+    width: min(360px, calc(100vw - 24px));
+    min-width: 56px;
   }
 }

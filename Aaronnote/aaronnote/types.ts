@@ -30,6 +30,16 @@ export type SnippetSummary = {
   source?: string;
 };
 
+export type UnusedAsset = {
+  file: string;
+  path: string;
+  name: string;
+  type: string;
+  size: number;
+  mtimeMs: number;
+  isImage: boolean;
+};
+
 export type Inbound =
   | { type: "open"; file?: string; title?: string; content?: string; mode?: "markdown" | "source"; standalone?: boolean; notes?: NoteSummary[]; snippets?: SnippetSummary[] }
   | { type: "saved"; ok?: boolean; message?: string; file?: string; standalone?: boolean; notes?: NoteSummary[] }

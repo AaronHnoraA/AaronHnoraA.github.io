@@ -73,7 +73,7 @@ $$
 
 Complexity Theory
 
-# Reductions
+#       Reductions
 
 ## Basic Reductions
 

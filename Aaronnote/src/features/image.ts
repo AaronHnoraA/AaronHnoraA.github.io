@@ -44,6 +44,17 @@ const IMAGE_RE = /!\[([^\]]*?)\]\(([^\s)]*)(?:\s+"([^"]*)")?\)/g;
 type LoadStatus = "loading" | "ok" | "error";
 const imageLoadStatus = new Map<string, LoadStatus>();
 const IMAGE_LOAD_META = "image-load-status-changed";
+const IMAGE_LOAD_STATUS_LIMIT = 1024;
+
+function rememberImageLoadStatus(src: string, status: LoadStatus): void {
+  imageLoadStatus.delete(src);
+  imageLoadStatus.set(src, status);
+  while (imageLoadStatus.size > IMAGE_LOAD_STATUS_LIMIT) {
+    const oldest = imageLoadStatus.keys().next().value as string | undefined;
+    if (oldest == null) break;
+    imageLoadStatus.delete(oldest);
+  }
+}
 
 const scan: InlineFeatureSpec["scan"] = (text, consumed) => {
   const out: InlineSpan[] = [];
@@ -143,10 +154,10 @@ function imageLoadProbePlugin(): Plugin {
     view(editorView) {
       const probe = (src: string): void => {
         if (imageLoadStatus.has(src)) return;
-        imageLoadStatus.set(src, "loading");
+        rememberImageLoadStatus(src, "loading");
         const probeImg = new Image();
         const finish = (status: LoadStatus): void => {
-          imageLoadStatus.set(src, status);
+          rememberImageLoadStatus(src, status);
           // setMeta-only tx: nothing in doc changes, but state.apply runs
           // for normalize+decorations and the per-span editMode flag re-
           // evaluates with the new status.
@@ -171,7 +182,9 @@ function imageLoadProbePlugin(): Plugin {
       };
       scanDoc();
       return {
-        update: () => scanDoc(),
+        update: (_view, prevState) => {
+          if (prevState.doc !== editorView.state.doc) scanDoc();
+        },
         destroy: () => {},
       };
     },
