@@ -313,6 +313,10 @@ class OrgEnvNodeView implements NodeView {
     ) {
       return;
     }
+    // Let ProseMirror/browser handle normal text clicks and drag
+    // selections inside the block. We only synthesize a selection when
+    // the user clicks the empty content chrome itself.
+    if (target !== this.contentDOM) return;
     const pos = this.getPos();
     if (typeof pos !== "number") return;
 

@@ -77,10 +77,16 @@ export type InlineSpan = {
 
 export type Run = { pos: number; len: number; canOpen: boolean; canClose: boolean };
 
+export function isEscaped(text: string, pos: number): boolean {
+  let slashes = 0;
+  for (let i = pos - 1; i >= 0 && text[i] === "\\"; i--) slashes++;
+  return slashes % 2 === 1;
+}
+
 export function scanRuns(text: string, delim: string, consumed: Uint8Array): Run[] {
   const runs: Run[] = [];
   for (let i = 0; i < text.length; ) {
-    if (text[i] !== delim || consumed[i]) {
+    if (text[i] !== delim || consumed[i] || isEscaped(text, i)) {
       i++;
       continue;
     }

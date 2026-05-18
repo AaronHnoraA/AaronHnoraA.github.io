@@ -1,5 +1,8 @@
 import { describe, expect, test } from "@voidzero-dev/vite-plus-test";
+import { EditorView } from "prosemirror-view";
 
+import { createState } from "../src/editor.ts";
+import { parse } from "../src/parser.ts";
 import { serialize } from "../src/serializer.ts";
 import { apply, setup } from "./utils.ts";
 
@@ -38,5 +41,27 @@ describe("org-env keymap", () => {
     expect(state.doc.child(0).textContent).toBe("foo");
     expect(state.doc.child(1).type.name).toBe("paragraph");
     expect(state.doc.child(1).textContent).toBe(" bar");
+  });
+
+  test("mouse down on existing block content does not block native text selection", () => {
+    const state = createState(parse("#+begin summary\nfoo bar\n#+end summary"));
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const view = new EditorView(mount, { state });
+    try {
+      const paragraph = view.dom.querySelector<HTMLElement>(".org-env-content p");
+      expect(paragraph).not.toBeNull();
+      const event = new MouseEvent("mousedown", {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+      });
+      const allowed = paragraph!.dispatchEvent(event);
+      expect(allowed).toBe(true);
+      expect(event.defaultPrevented).toBe(false);
+    } finally {
+      view.destroy();
+      mount.remove();
+    }
   });
 });

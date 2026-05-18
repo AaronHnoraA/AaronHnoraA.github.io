@@ -61,6 +61,10 @@ describe("parseInline", () => {
     ]);
   });
 
+  test("escaped emphasis delimiter stays literal", () => {
+    expect(parseInline(String.raw`\*literal*`)).toEqual([]);
+  });
+
   test("** — just delim chars, no pair", () => {
     expect(parseInline("**")).toEqual([]);
   });
@@ -77,10 +81,20 @@ describe("parseInline", () => {
     ]);
   });
 
+  test("escaped code delimiter stays literal", () => {
+    expect(parseInline("\\`literal`")).toEqual([]);
+  });
+
   test("~~1~~ — strike", () => {
     expect(parseInline("~~1~~")).toEqual([
       { type: "strike", from: 2, to: 3, openFrom: 0, openTo: 2, closeFrom: 3, closeTo: 5 },
     ]);
+  });
+
+  test("escaped fixed delimiters stay literal", () => {
+    expect(parseInline(String.raw`\~~literal~~`)).toEqual([]);
+    expect(parseInline(String.raw`\==literal==`)).toEqual([]);
+    expect(parseInline(String.raw`\^literal^`)).toEqual([]);
   });
 
   test("~1~ — single tilde is subscript (Typora extension)", () => {

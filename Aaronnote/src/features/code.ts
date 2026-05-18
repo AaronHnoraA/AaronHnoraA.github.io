@@ -1,4 +1,4 @@
-import { markConsumed, markExtRanges, type InlineSpan } from "../inline-parse.ts";
+import { isEscaped, markConsumed, markExtRanges, type InlineSpan } from "../inline-parse.ts";
 import type { FeatureSpec } from "./_types.ts";
 
 // Variable-length backtick fence scanner.
@@ -18,7 +18,7 @@ function scanCodeRuns(text: string, consumed: Uint8Array): InlineSpan[] {
   type Run = { pos: number; len: number };
   const runs: Run[] = [];
   for (let i = 0; i < text.length; ) {
-    if (text[i] !== "`" || consumed[i]) {
+    if (text[i] !== "`" || consumed[i] || isEscaped(text, i)) {
       i++;
       continue;
     }

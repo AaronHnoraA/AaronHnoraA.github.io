@@ -1135,6 +1135,7 @@ input {
 }
 
 .aaronnote-snippet-popup,
+.aaronnote-quick-popup,
 .aaronnote-math-preview {
   position: fixed;
   z-index: 50;
@@ -1145,13 +1146,15 @@ input {
   box-shadow: var(--aaron-shadow);
 }
 
-.aaronnote-snippet-popup {
+.aaronnote-snippet-popup,
+.aaronnote-quick-popup {
   max-height: 240px;
   overflow: auto;
   padding: 4px;
 }
 
-.aaronnote-snippet-option {
+.aaronnote-snippet-option,
+.aaronnote-quick-option {
   width: 100%;
   min-height: 32px;
   border: 0;
@@ -1168,11 +1171,13 @@ input {
   text-align: left;
 }
 
-.aaronnote-snippet-option:hover {
+.aaronnote-snippet-option:hover,
+.aaronnote-quick-option:hover {
   background: var(--aaron-paper-soft);
 }
 
-.aaronnote-snippet-option.is-active {
+.aaronnote-snippet-option.is-active,
+.aaronnote-quick-option.is-active {
   border-left-color: var(--aaron-red);
   background: color-mix(in srgb, var(--aaron-paper-soft), var(--aaron-red) 7%);
   box-shadow:
@@ -1180,20 +1185,23 @@ input {
     0 1px 0 rgb(255 255 255 / 48%) inset;
 }
 
-.aaronnote-snippet-option.is-active::after {
+.aaronnote-snippet-option.is-active::after,
+.aaronnote-quick-option.is-active::after {
   content: "↵";
   color: var(--aaron-red-dark);
   font: 800 12px/1 var(--aaron-font-sans);
   text-align: center;
 }
 
-.aaronnote-snippet-option-number {
+.aaronnote-snippet-option-number,
+.aaronnote-quick-option-icon {
   color: var(--aaron-muted);
   font: 700 11px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   text-align: right;
 }
 
-.aaronnote-snippet-option-key {
+.aaronnote-snippet-option-key,
+.aaronnote-quick-option-label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1201,11 +1209,14 @@ input {
 }
 
 .aaronnote-snippet-option.is-active .aaronnote-snippet-option-number,
-.aaronnote-snippet-option.is-active .aaronnote-snippet-option-key {
+.aaronnote-snippet-option.is-active .aaronnote-snippet-option-key,
+.aaronnote-quick-option.is-active .aaronnote-quick-option-icon,
+.aaronnote-quick-option.is-active .aaronnote-quick-option-label {
   color: var(--aaron-red-dark);
 }
 
-.aaronnote-snippet-option-detail {
+.aaronnote-snippet-option-detail,
+.aaronnote-quick-option-detail {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;

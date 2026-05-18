@@ -83,4 +83,66 @@ describe("editor api commands and writing modes", () => {
       mount.remove();
     }
   });
+
+  test("reports current block context for block menus", () => {
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const editor = createEditor(mount, { initialContent: "# Title\n\nbody" });
+    try {
+      editor.setSelection(3);
+      const heading = editor.getBlockContext();
+      expect(heading.type).toBe("heading");
+      expect(heading.text).toBe("Title");
+      expect(heading.commands).toContain("insert-table");
+
+      editor.setSelection(editor.view.state.doc.content.size);
+      const paragraph = editor.getBlockContext();
+      expect(paragraph.type).toBe("paragraph");
+      expect(paragraph.text).toBe("body");
+    } finally {
+      editor.destroy();
+      mount.remove();
+    }
+  });
+
+  test("resolves and runs built-in quick insert items", () => {
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const editor = createEditor(mount, { initialContent: "" });
+    try {
+      const table = editor.getQuickInsertItems("table").find((item) => item.command === "insert-table");
+      expect(table).toBeTruthy();
+      expect(editor.runQuickInsert(table!)).toBe(true);
+      expect(editor.getMarkdown()).toContain("| Column 1 | Column 2 |");
+    } finally {
+      editor.destroy();
+      mount.remove();
+    }
+  });
+
+  test("supports app-provided quick insert items", () => {
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const editor = createEditor(mount, { initialContent: "" });
+    try {
+      const unregister = editor.registerQuickInsertProvider(({ query }) =>
+        query === "lemma"
+          ? [{
+              id: "lemma",
+              label: "Lemma block",
+              markdown: "#+begin lemma\n\n#+end lemma",
+            }]
+          : [],
+      );
+      const item = editor.getQuickInsertItems("lemma").find((candidate) => candidate.id === "lemma");
+      expect(item).toBeTruthy();
+      expect(editor.runQuickInsert(item!)).toBe(true);
+      expect(editor.getMarkdown()).toContain("#+begin lemma");
+      unregister();
+      expect(editor.getQuickInsertItems("lemma").some((candidate) => candidate.id === "lemma")).toBe(false);
+    } finally {
+      editor.destroy();
+      mount.remove();
+    }
+  });
 });

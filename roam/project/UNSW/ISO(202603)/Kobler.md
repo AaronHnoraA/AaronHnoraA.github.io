@@ -11,7 +11,7 @@ source: roam/project/UNSW/ISO(202603)/Kobler.md
 #+begin summary Reading Note
 This is a note for [Köbler, 2020, "ISO(2026-03)"](zotero://select/items/1_54IJ8DAF).
 
-My current task is to skim Köbler's book and identify possible correspondences between the known graph-side reductions and the analogous tensor-side reductions:
+My current task is to skim Köbler's book and identify possible correspondences between the known graph-side reductions and the analogous tensor-side reductions: 
 
 $$
 \begin{array}{ccccc} d\mathrm{GA} & 
@@ -73,7 +73,7 @@ $$
 
 Complexity Theory
 
-#       Reductions
+# Reductions
 
 ## Basic Reductions
 

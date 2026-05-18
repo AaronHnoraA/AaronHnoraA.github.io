@@ -54,6 +54,16 @@ export type EditorCommand =
   | "ordered-list"
   | "task-list"
   | "code-block"
+  | "paragraph-menu"
+  | "insert-table"
+  | "insert-math-block"
+  | "insert-toc"
+  | "insert-org-env"
+  | "image-edit"
+  | "table-insert-row"
+  | "table-insert-column"
+  | "table-delete-row"
+  | "table-delete-column"
   | "heading-1"
   | "heading-2"
   | "heading-3"
@@ -66,6 +76,47 @@ export type WritingModeOptions = {
   focusMode?: boolean;
   typewriterMode?: boolean;
 };
+
+type Rect = { left: number; top: number; bottom: number };
+type SelectionMode = "start" | "end" | "all";
+
+export type EditorBlockContext = {
+  type: string;
+  from: number;
+  to: number;
+  contentFrom: number;
+  contentTo: number;
+  text: string;
+  empty: boolean;
+  depth: number;
+  parentType: string | null;
+  sourceMode: boolean;
+  commands: EditorCommand[];
+  rect: Rect | null;
+};
+
+export type QuickInsertItem = {
+  id: string;
+  label: string;
+  detail?: string;
+  keywords?: readonly string[];
+  command?: EditorCommand;
+  value?: string;
+  markdown?: string;
+  select?: SelectionMode;
+};
+
+export type QuickInsertContext = {
+  query: string;
+  block: EditorBlockContext;
+  before: string;
+  after: string;
+  sourceMode: boolean;
+};
+
+export type QuickInsertProvider = (
+  context: QuickInsertContext,
+) => readonly QuickInsertItem[];
 
 const writingModeKey = new PluginKey<Required<WritingModeOptions>>("typoraWebWritingMode");
 
@@ -95,6 +146,177 @@ function writingModePlugin(): Plugin<Required<WritingModeOptions>> {
   });
 }
 
+function blockCommands(type: string): EditorCommand[] {
+  if (type === "table_cell") {
+    return [
+      "table-insert-row",
+      "table-insert-column",
+      "table-delete-row",
+      "table-delete-column",
+    ];
+  }
+  if (type === "code_block") return ["copy-code", "code-block"];
+  return [
+    "heading-1",
+    "heading-2",
+    "heading-3",
+    "blockquote",
+    "bullet-list",
+    "ordered-list",
+    "task-list",
+    "code-block",
+    "insert-table",
+    "insert-math-block",
+    "insert-toc",
+    "insert-org-env",
+  ];
+}
+
+function sourceLineType(line: string): string {
+  if (/^\s{0,3}#{1,6}\s+/.test(line)) return "heading";
+  if (/^\s{0,3}>\s?/.test(line)) return "blockquote";
+  if (/^\s*(?:[-*+]\s+|\d+[.)]\s+)/.test(line)) return "list_item";
+  if (/^\s*-\s+\[[ xX]\]\s+/.test(line)) return "task_item";
+  if (/^\s*```/.test(line)) return "code_block";
+  if (/^\s*\|.*\|\s*$/.test(line)) return "table";
+  if (/^\s*\$\$\s*$/.test(line)) return "math_block";
+  if (/^\s*\[toc\]\s*$/i.test(line)) return "toc";
+  if (/^\s*#\+begin\s+/i.test(line)) return "org_env_block";
+  return "paragraph";
+}
+
+function quickMatches(item: QuickInsertItem, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const haystack = [
+    item.id,
+    item.label,
+    item.detail ?? "",
+    item.command ?? "",
+    item.value ?? "",
+    ...(item.keywords ?? []),
+  ].join(" ").toLowerCase();
+  return haystack.includes(q);
+}
+
+const builtInQuickInsertItems: QuickInsertItem[] = [
+  {
+    id: "heading-1",
+    label: "Heading 1",
+    detail: "#",
+    command: "heading-1",
+    keywords: ["title", "h1"],
+  },
+  {
+    id: "heading-2",
+    label: "Heading 2",
+    detail: "##",
+    command: "heading-2",
+    keywords: ["section", "h2"],
+  },
+  {
+    id: "heading-3",
+    label: "Heading 3",
+    detail: "###",
+    command: "heading-3",
+    keywords: ["subsection", "h3"],
+  },
+  {
+    id: "bullet-list",
+    label: "Bullet list",
+    detail: "- item",
+    command: "bullet-list",
+    keywords: ["ul", "list"],
+  },
+  {
+    id: "ordered-list",
+    label: "Ordered list",
+    detail: "1. item",
+    command: "ordered-list",
+    keywords: ["ol", "numbered"],
+  },
+  {
+    id: "task-list",
+    label: "Task list",
+    detail: "- [ ] item",
+    command: "task-list",
+    keywords: ["todo", "checkbox"],
+  },
+  {
+    id: "blockquote",
+    label: "Blockquote",
+    detail: "> quote",
+    command: "blockquote",
+    keywords: ["quote"],
+  },
+  {
+    id: "code-block",
+    label: "Code block",
+    detail: "```",
+    command: "code-block",
+    keywords: ["fence", "source"],
+  },
+  {
+    id: "table",
+    label: "Table",
+    detail: "2 x 2",
+    command: "insert-table",
+    keywords: ["gfm", "grid"],
+  },
+  {
+    id: "math-block",
+    label: "Math block",
+    detail: "$$",
+    command: "insert-math-block",
+    keywords: ["latex", "tex", "equation"],
+  },
+  {
+    id: "toc",
+    label: "Table of contents",
+    detail: "[toc]",
+    command: "insert-toc",
+    keywords: ["outline"],
+  },
+  {
+    id: "org-env-proof",
+    label: "Proof block",
+    detail: "#+begin proof",
+    command: "insert-org-env",
+    value: "proof",
+    keywords: ["org", "env"],
+  },
+  {
+    id: "org-env-theorem",
+    label: "Theorem block",
+    detail: "#+begin theorem",
+    command: "insert-org-env",
+    value: "theorem",
+    keywords: ["org", "env"],
+  },
+  {
+    id: "org-env-note",
+    label: "Note block",
+    detail: "#+begin note",
+    command: "insert-org-env",
+    value: "note",
+    keywords: ["org", "env"],
+  },
+  {
+    id: "image",
+    label: "Image",
+    detail: "![alt](src)",
+    command: "image-edit",
+    keywords: ["picture", "asset", "file"],
+  },
+];
+
+function builtInQuickInsertProvider(context: QuickInsertContext): QuickInsertItem[] {
+  const allowed = new Set(context.block.commands);
+  return builtInQuickInsertItems
+    .filter((item) => !item.command || allowed.has(item.command))
+    .filter((item) => quickMatches(item, context.query));
+}
+
 export interface Editor {
   /** Current markdown — renders source from the live PM doc, or returns the textarea contents in source mode. */
   getMarkdown(): string;
@@ -120,6 +342,14 @@ export interface Editor {
   redo(): boolean;
   /** Run a built-in MarkText-style editing command against the active surface. */
   runCommand(command: EditorCommand, value?: string): boolean;
+  /** Current block around the active cursor, for block menus and slash insert. */
+  getBlockContext(): EditorBlockContext;
+  /** Register app-specific slash/quick-insert items. Returns an unregister function. */
+  registerQuickInsertProvider(provider: QuickInsertProvider): () => void;
+  /** Resolve quick-insert candidates for the active cursor. */
+  getQuickInsertItems(query?: string): QuickInsertItem[];
+  /** Apply a quick-insert item returned by `getQuickInsertItems()`. */
+  runQuickInsert(item: QuickInsertItem): boolean;
   /** Toggle writing affordances without changing markdown. */
   setWritingMode(options: WritingModeOptions): void;
   /** Text and viewport rect around the active cursor, for completions/previews. */
@@ -167,6 +397,7 @@ export function createEditor(
   let cachedMarkdown: string | null = null;
   let markdownPrewarmHandle = 0;
   let markdownPrewarmIdle = false;
+  const quickInsertProviders = new Set<QuickInsertProvider>();
   let writingMode: Required<WritingModeOptions> = {
     focusMode: false,
     typewriterMode: false,
@@ -442,14 +673,18 @@ export function createEditor(
   // the position. Mid-syntax cursors (e.g. between `*` and `bold` in
   // an unclosed `*bold`) may land a few chars off, but plain prose and
   // line boundaries are spot-on.
-  function renderedCursorToMdOffset(): number {
-    const sel = view.state.selection;
+  function renderedPosToMdOffset(pos: number): number {
     try {
-      return serialize(view.state.doc.cut(0, sel.from)).length;
+      return serialize(view.state.doc.cut(0, pos)).length;
     } catch {
       return markdownFromDoc(view.state.doc).length;
     }
   }
+
+  function renderedCursorToMdOffset(): number {
+    return renderedPosToMdOffset(view.state.selection.from);
+  }
+
   function mdOffsetToRenderedPos(md: string, offset: number): number {
     try {
       return parse(md.slice(0, Math.max(0, offset))).content.size;
@@ -463,6 +698,81 @@ export function createEditor(
     const container = document.createElement("div");
     container.appendChild(DOMSerializer.fromSchema(schema).serializeFragment(doc.content, { document }));
     return container.innerHTML;
+  }
+
+  function activeMarkdownSelection(): { md: string; from: number; to: number } {
+    if (inSource) {
+      const from = sourceTextarea.selectionStart ?? sourceTextarea.value.length;
+      const to = sourceTextarea.selectionEnd ?? from;
+      return { md: sourceTextarea.value, from, to };
+    }
+    const sel = view.state.selection;
+    return {
+      md: markdownFromDoc(view.state.doc),
+      from: renderedPosToMdOffset(sel.from),
+      to: renderedPosToMdOffset(sel.to),
+    };
+  }
+
+  function selectMarkdownOffset(md: string, offset: number): void {
+    const clamped = Math.max(0, Math.min(offset, md.length));
+    if (inSource) {
+      sourceTextarea.setSelectionRange(clamped, clamped);
+      sourceTextarea.focus();
+      return;
+    }
+    const target = Math.min(mdOffsetToRenderedPos(md, clamped), view.state.doc.content.size);
+    try {
+      view.dispatch(
+        view.state.tr
+          .setSelection(TextSelection.near(view.state.doc.resolve(target)))
+          .scrollIntoView(),
+      );
+    } catch {}
+    view.focus();
+  }
+
+  function replaceMarkdownSelection(
+    text: string,
+    selectionOffset = text.length,
+  ): { from: number; to: number } {
+    const current = activeMarkdownSelection();
+    const nextMd = `${current.md.slice(0, current.from)}${text}${current.md.slice(current.to)}`;
+    const selectedOffset = current.from + Math.max(0, Math.min(selectionOffset, text.length));
+    if (inSource) {
+      sourceTextarea.value = nextMd;
+      autoSizeSource();
+      emitChange(sourceTextarea.value);
+      selectMarkdownOffset(nextMd, selectedOffset);
+    } else {
+      rebuild(nextMd);
+      emitChange(() => markdownFromDoc(view.state.doc));
+      selectMarkdownOffset(nextMd, selectedOffset);
+    }
+    return { from: current.from, to: current.from + text.length };
+  }
+
+  function insertMarkdownBlock(
+    markdown: string,
+    selectionOffset = markdown.length,
+  ): { from: number; to: number } {
+    const current = activeMarkdownSelection();
+    const before = current.md.slice(0, current.from);
+    const after = current.md.slice(current.to);
+    const leading = before.length === 0 || before.endsWith("\n\n")
+      ? ""
+      : before.endsWith("\n")
+        ? "\n"
+        : "\n\n";
+    const trailing = after.length === 0 || after.startsWith("\n\n")
+      ? ""
+      : after.startsWith("\n")
+        ? "\n"
+        : "\n\n";
+    return replaceMarkdownSelection(
+      `${leading}${markdown}${trailing}`,
+      leading.length + selectionOffset,
+    );
   }
 
   function enterSource(): void {
@@ -688,6 +998,270 @@ export function createEditor(
     return null;
   }
 
+  function currentBlockContext(): EditorBlockContext {
+    if (inSource) {
+      const md = sourceTextarea.value;
+      const offset = sourceTextarea.selectionStart ?? md.length;
+      const from = md.lastIndexOf("\n", Math.max(0, offset - 1)) + 1;
+      const nextNewline = md.indexOf("\n", offset);
+      const to = nextNewline < 0 ? md.length : nextNewline;
+      const text = md.slice(from, to);
+      const type = sourceLineType(text);
+      return {
+        type,
+        from,
+        to,
+        contentFrom: from,
+        contentTo: to,
+        text,
+        empty: text.trim().length === 0,
+        depth: 0,
+        parentType: null,
+        sourceMode: true,
+        commands: blockCommands(type),
+        rect: caretRectInTextarea(offset),
+      };
+    }
+
+    const sel = view.state.selection;
+    const $from = sel.$from;
+    if ($from.depth === 0 && sel.from === view.state.doc.content.size && view.state.doc.childCount > 0) {
+      let childFrom = 0;
+      let child = view.state.doc.child(0);
+      for (let i = 0; i < view.state.doc.childCount; i++) {
+        child = view.state.doc.child(i);
+        if (i === view.state.doc.childCount - 1) break;
+        childFrom += child.nodeSize;
+      }
+      const childTo = childFrom + child.nodeSize;
+      const dom = view.nodeDOM(childFrom);
+      const rect = dom instanceof HTMLElement
+        ? (() => {
+            const r = dom.getBoundingClientRect();
+            return { left: r.left, top: r.top, bottom: r.bottom };
+          })()
+        : renderedCursorRect();
+      return {
+        type: child.type.name,
+        from: childFrom,
+        to: childTo,
+        contentFrom: childFrom + 1,
+        contentTo: childTo - 1,
+        text: child.textContent,
+        empty: child.textContent.trim().length === 0,
+        depth: 1,
+        parentType: "doc",
+        sourceMode: false,
+        commands: blockCommands(child.type.name),
+        rect,
+      };
+    }
+    let depth = $from.depth;
+    while (depth > 0 && !$from.node(depth).isBlock) depth--;
+    const node = $from.node(depth);
+    const from = depth === 0 ? 0 : $from.before(depth);
+    const to = depth === 0 ? view.state.doc.content.size : $from.after(depth);
+    const dom = depth === 0 ? view.dom : view.nodeDOM(from);
+    const rect = (() => {
+      if (dom instanceof HTMLElement) {
+        const r = dom.getBoundingClientRect();
+        if (r.width > 0 || r.height > 0) return { left: r.left, top: r.top, bottom: r.bottom };
+      }
+      return renderedCursorRect();
+    })();
+    return {
+      type: node.type.name,
+      from,
+      to,
+      contentFrom: depth === 0 ? 0 : from + 1,
+      contentTo: depth === 0 ? view.state.doc.content.size : to - 1,
+      text: node.textContent,
+      empty: node.textContent.trim().length === 0,
+      depth,
+      parentType: depth > 0 ? $from.node(depth - 1).type.name : null,
+      sourceMode: false,
+      commands: blockCommands(node.type.name),
+      rect,
+    };
+  }
+
+  function activeCursorContext(maxChars = 500): {
+    before: string;
+    after: string;
+    rect: Rect | null;
+    rectAtOffset: (offset: number) => Rect | null;
+  } {
+    if (inSource) {
+      const pos = sourceTextarea.selectionStart ?? sourceTextarea.value.length;
+      const rect = caretRectInTextarea(pos);
+      const contextStart = Math.max(0, pos - maxChars);
+      return {
+        before: sourceTextarea.value.slice(contextStart, pos),
+        after: sourceTextarea.value.slice(pos, pos + maxChars),
+        rect,
+        rectAtOffset: (offset: number) => caretRectInTextarea(contextStart + offset),
+      };
+    }
+    const sel = view.state.selection;
+    const rect = (() => {
+      try {
+        const r = view.coordsAtPos(sel.from);
+        return { left: r.left, top: r.top, bottom: r.bottom };
+      } catch {
+        return null;
+      }
+    })();
+    const $from = sel.$from;
+    const contextStart = Math.max(0, $from.parentOffset - maxChars);
+    const parentStart = sel.from - $from.parentOffset;
+    const before = $from.parent.textBetween(
+      contextStart,
+      $from.parentOffset,
+      "\n",
+      "\n",
+    );
+    const after = $from.parent.textBetween(
+      $from.parentOffset,
+      Math.min($from.parent.content.size, $from.parentOffset + maxChars),
+      "\n",
+      "\n",
+    );
+    return {
+      before,
+      after,
+      rect,
+      rectAtOffset: (offset: number) => {
+        try {
+          const r = view.coordsAtPos(parentStart + contextStart + offset);
+          return { left: r.left, top: r.top, bottom: r.bottom };
+        } catch {
+          return null;
+        }
+      },
+    };
+  }
+
+  function quickInsertContext(query: string): QuickInsertContext {
+    const ctx = activeCursorContext(1200);
+    return {
+      query,
+      block: currentBlockContext(),
+      before: ctx.before,
+      after: ctx.after,
+      sourceMode: inSource,
+    };
+  }
+
+  function currentTableInfo(): {
+    tableDepth: number;
+    tablePos: number;
+    tableNode: PMNode;
+    rowIdx: number;
+    cellIdx: number;
+  } | null {
+    if (inSource) return null;
+    const $from = view.state.selection.$from;
+    let cellDepth = -1;
+    for (let depth = $from.depth; depth >= 0; depth--) {
+      if ($from.node(depth).type.name === "table_cell") {
+        cellDepth = depth;
+        break;
+      }
+    }
+    if (cellDepth < 0) return null;
+    const tableDepth = cellDepth - 2;
+    if (tableDepth < 0) return null;
+    return {
+      tableDepth,
+      tablePos: $from.before(tableDepth),
+      tableNode: $from.node(tableDepth),
+      rowIdx: $from.index(tableDepth),
+      cellIdx: $from.index(cellDepth - 1),
+    };
+  }
+
+  function runTableCommand(command: EditorCommand): boolean {
+    const info = currentTableInfo();
+    if (!info) return false;
+    const { tablePos, tableNode, rowIdx, cellIdx } = info;
+    const table = schema.nodes.table;
+    const rowType = schema.nodes.table_row;
+    const cellType = schema.nodes.table_cell;
+    if (!table || !rowType || !cellType) return false;
+
+    const rows: PMNode[] = [];
+    tableNode.forEach((row) => rows.push(row));
+    if (rows.length === 0) return false;
+    const colCount = Math.max(...rows.map((row) => row.childCount));
+    const headerRow = rows[0]!;
+    const alignFor = (col: number): string | null =>
+      col < headerRow.childCount
+        ? (headerRow.child(col).attrs.align as string | null | undefined) ?? null
+        : null;
+    const emptyCell = (row: number, col: number): PMNode =>
+      cellType.create({ header: row === 0, align: alignFor(col) }, null);
+    const replaceTable = (nextRows: PMNode[], nextRow: number, nextCol: number): void => {
+      const nextTable = table.create(null, nextRows);
+      const tr = view.state.tr.replaceWith(tablePos, tablePos + tableNode.nodeSize, nextTable);
+      let cursor = tablePos + 1;
+      for (let r = 0; r < Math.min(nextRow, nextRows.length - 1); r++) cursor += nextRows[r]!.nodeSize;
+      cursor += 1;
+      const targetRow = nextRows[Math.min(nextRow, nextRows.length - 1)]!;
+      const targetCol = Math.min(nextCol, targetRow.childCount - 1);
+      for (let c = 0; c < targetCol; c++) cursor += targetRow.child(c).nodeSize;
+      cursor += 1;
+      tr.setSelection(TextSelection.create(tr.doc, cursor));
+      view.dispatch(tr.scrollIntoView());
+      view.focus();
+    };
+
+    if (command === "table-insert-row") {
+      const newCells: PMNode[] = [];
+      for (let col = 0; col < colCount; col++) newCells.push(emptyCell(rowIdx + 1, col));
+      const nextRows = rows.slice();
+      nextRows.splice(rowIdx + 1, 0, rowType.create(null, newCells));
+      replaceTable(nextRows, rowIdx + 1, cellIdx);
+      return true;
+    }
+
+    if (command === "table-delete-row") {
+      if (rows.length <= 1) return true;
+      const nextRows = rows.slice();
+      nextRows.splice(rowIdx, 1);
+      replaceTable(nextRows, Math.max(0, Math.min(rowIdx, nextRows.length - 1)), cellIdx);
+      return true;
+    }
+
+    if (command === "table-insert-column") {
+      const nextRows = rows.map((row, rowIndex) => {
+        const cells: PMNode[] = [];
+        row.forEach((cell, _offset, col) => {
+          cells.push(cell);
+          if (col === cellIdx) cells.push(emptyCell(rowIndex, col + 1));
+        });
+        if (cellIdx >= row.childCount) cells.push(emptyCell(rowIndex, row.childCount));
+        return rowType.create(null, cells);
+      });
+      replaceTable(nextRows, rowIdx, cellIdx + 1);
+      return true;
+    }
+
+    if (command === "table-delete-column") {
+      const nextRows = rows.map((row) => {
+        if (row.childCount <= 1) return row;
+        const cells: PMNode[] = [];
+        row.forEach((cell, _offset, col) => {
+          if (col !== cellIdx) cells.push(cell);
+        });
+        return rowType.create(null, cells);
+      });
+      replaceTable(nextRows, rowIdx, Math.max(0, cellIdx - 1));
+      return true;
+    }
+
+    return false;
+  }
+
   function applyWritingMode(): void {
     wrap.classList.toggle("typora-web-focus-mode", writingMode.focusMode);
     wrap.classList.toggle("typora-web-typewriter-mode", writingMode.typewriterMode);
@@ -848,9 +1422,44 @@ export function createEditor(
       }
       if (command === "code-block") {
         const selected = activeRangeText();
-        replaceActiveText(`\`\`\`${value || ""}\n${selected}\n\`\`\``, selected ? "end" : "all");
+        const lang = value || "";
+        const body = selected || "";
+        const template = `\`\`\`${lang}\n${body}\n\`\`\``;
+        insertMarkdownBlock(template, lang.length + 4 + body.length);
         return true;
       }
+      if (command === "insert-table") {
+        const table = "| Column 1 | Column 2 |\n| --- | --- |\n|  |  |";
+        insertMarkdownBlock(table, 2);
+        return true;
+      }
+      if (command === "insert-math-block") {
+        insertMarkdownBlock("$$\n\n$$", 3);
+        return true;
+      }
+      if (command === "insert-toc") {
+        insertMarkdownBlock("[toc]", 5);
+        return true;
+      }
+      if (command === "insert-org-env") {
+        const kind = (value || "note").trim() || "note";
+        const open = `#+begin ${kind}`;
+        insertMarkdownBlock(`${open}\n\n#+end ${kind}`, open.length + 1);
+        return true;
+      }
+      if (command === "image-edit") {
+        const selected = activeRangeText() || "alt";
+        const src = value || "src";
+        replaceActiveText(`![${selected}](${src})`, selected ? "end" : "all");
+        return true;
+      }
+      if (
+        command === "table-insert-row" ||
+        command === "table-insert-column" ||
+        command === "table-delete-row" ||
+        command === "table-delete-column"
+      ) return runTableCommand(command);
+      if (command === "paragraph-menu") return false;
       if (command === "copy-code") {
         const text = codeBlockAtSelection();
         if (text == null) return false;
@@ -862,6 +1471,41 @@ export function createEditor(
       }
       return runLineCommand(command);
     },
+    getBlockContext(): EditorBlockContext {
+      return currentBlockContext();
+    },
+    registerQuickInsertProvider(provider: QuickInsertProvider): () => void {
+      quickInsertProviders.add(provider);
+      return () => {
+        quickInsertProviders.delete(provider);
+      };
+    },
+    getQuickInsertItems(query = ""): QuickInsertItem[] {
+      const context = quickInsertContext(query);
+      const items = [
+        ...builtInQuickInsertProvider(context),
+        ...Array.from(quickInsertProviders).flatMap((provider) => {
+          try {
+            return Array.from(provider(context)).filter((item) => quickMatches(item, query));
+          } catch {
+            return [];
+          }
+        }),
+      ];
+      const byId = new Map<string, QuickInsertItem>();
+      for (const item of items) {
+        if (!byId.has(item.id)) byId.set(item.id, item);
+      }
+      return [...byId.values()].slice(0, 18);
+    },
+    runQuickInsert(item: QuickInsertItem): boolean {
+      if (item.markdown != null) {
+        replaceMarkdownSelection(item.markdown, item.select === "start" ? 0 : item.markdown.length);
+        return true;
+      }
+      if (item.command) return this.runCommand(item.command, item.value);
+      return false;
+    },
     setWritingMode(options: WritingModeOptions): void {
       writingMode = {
         focusMode: options.focusMode ?? writingMode.focusMode,
@@ -871,54 +1515,7 @@ export function createEditor(
       if (writingMode.typewriterMode) revealAndFlashActiveCursor();
     },
     cursorContext(maxChars = 500) {
-      if (inSource) {
-        const pos = sourceTextarea.selectionStart ?? sourceTextarea.value.length;
-        const rect = caretRectInTextarea(pos);
-        const contextStart = Math.max(0, pos - maxChars);
-        return {
-          before: sourceTextarea.value.slice(contextStart, pos),
-          after: sourceTextarea.value.slice(pos, pos + maxChars),
-          rect,
-          rectAtOffset: (offset: number) => caretRectInTextarea(contextStart + offset),
-        };
-      }
-      const sel = view.state.selection;
-      const rect = (() => {
-        try {
-          const r = view.coordsAtPos(sel.from);
-          return { left: r.left, top: r.top, bottom: r.bottom };
-        } catch {
-          return null;
-        }
-      })();
-      const $from = sel.$from;
-      const contextStart = Math.max(0, $from.parentOffset - maxChars);
-      const parentStart = sel.from - $from.parentOffset;
-      const before = $from.parent.textBetween(
-        contextStart,
-        $from.parentOffset,
-        "\n",
-        "\n",
-      );
-      const after = $from.parent.textBetween(
-        $from.parentOffset,
-        Math.min($from.parent.content.size, $from.parentOffset + maxChars),
-        "\n",
-        "\n",
-      );
-      return {
-        before,
-        after,
-        rect,
-        rectAtOffset: (offset: number) => {
-          try {
-            const r = view.coordsAtPos(parentStart + contextStart + offset);
-            return { left: r.left, top: r.top, bottom: r.bottom };
-          } catch {
-            return null;
-          }
-        },
-      };
+      return activeCursorContext(maxChars);
     },
     toggleSource(): void {
       if (inSource) exitSource();

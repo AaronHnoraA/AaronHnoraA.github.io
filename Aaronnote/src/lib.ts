@@ -8,7 +8,11 @@
 export { createEditor } from "./editor-api.ts";
 export type {
   Editor,
+  EditorBlockContext,
   EditorCommand,
   EditorOptions,
+  QuickInsertContext,
+  QuickInsertItem,
+  QuickInsertProvider,
   WritingModeOptions,
 } from "./editor-api.ts";

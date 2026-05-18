@@ -3,7 +3,7 @@ import "../src/styles/widgets.css";
 import "../src/styles/theme-typora.css";
 import "./style.css";
 
-import { createEditor, type EditorCommand } from "../src/lib.ts";
+import { createEditor, type EditorCommand, type QuickInsertItem } from "../src/lib.ts";
 import { renderMathLazy } from "../src/math-render.ts";
 import { safeHref } from "../src/url-safety.ts";
 import { createAgendaManager } from "./agenda.ts";
@@ -205,6 +205,11 @@ selectionTool.innerHTML = `
 selectionTool.hidden = true;
 document.body.appendChild(selectionTool);
 
+const quickInsertPopup = document.createElement("div");
+quickInsertPopup.className = "aaronnote-quick-popup";
+quickInsertPopup.hidden = true;
+document.body.appendChild(quickInsertPopup);
+
 const modal = document.createElement("div");
 modal.className = "aaronnote-modal";
 modal.hidden = true;
@@ -227,6 +232,11 @@ let snippetPopupIndex = 0;
 let snippetDeleteBefore = 0;
 let snippetSuppressedPrefix = "";
 let snippetRenderKey = "";
+let quickInsertItems: QuickInsertItem[] = [];
+let quickInsertIndex = 0;
+let quickInsertDeleteBefore = 0;
+let quickInsertRenderKey = "";
+let quickInsertSuppressedPrefix = "";
 let snippetSession: SnippetSession;
 let mathPreviewKey = "";
 let snippetScanRequested = false;
@@ -1719,6 +1729,12 @@ function hideSnippetPopup(): void {
   snippetRenderKey = "";
 }
 
+function hideQuickInsertPopup(): void {
+  quickInsertPopup.hidden = true;
+  quickInsertItems = [];
+  quickInsertRenderKey = "";
+}
+
 function placeFloating(el: HTMLElement, rect: { left: number; top: number; bottom: number } | null, width = 320): void {
   if (!rect) {
     el.hidden = true;
@@ -1731,6 +1747,134 @@ function placeFloating(el: HTMLElement, rect: { left: number; top: number; botto
   el.style.left = `${left}px`;
   el.style.top = `${top}px`;
   el.style.width = `${Math.min(width, window.innerWidth - margin * 2)}px`;
+}
+
+function quickInsertPrefix(before: string): { query: string; deleteBefore: number } | null {
+  const line = before.slice(before.lastIndexOf("\n") + 1);
+  const match = line.match(/^[ \t]*\/([A-Za-z0-9_-]{0,32})$/);
+  if (!match) return null;
+  const query = match[1] ?? "";
+  if (query === quickInsertSuppressedPrefix) return null;
+  return { query, deleteBefore: query.length + 1 };
+}
+
+function renderQuickInsertPopup(query: string, rect: { left: number; top: number; bottom: number } | null): void {
+  const nextKey = `${query}\n${quickInsertIndex}\n${quickInsertItems.map((item) => `${item.id}:${item.label}`).join("\n")}`;
+  if (!quickInsertPopup.hidden && quickInsertRenderKey === nextKey) {
+    placeFloating(quickInsertPopup, rect, 360);
+    quickInsertPopup.querySelector(".aaronnote-quick-option.is-active")?.scrollIntoView({ block: "nearest" });
+    return;
+  }
+  quickInsertRenderKey = nextKey;
+  quickInsertPopup.innerHTML = "";
+  quickInsertItems.forEach((item, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.id = `aaronnote-quick-option-${index}`;
+    button.setAttribute("role", "option");
+    button.setAttribute("aria-selected", index === quickInsertIndex ? "true" : "false");
+    button.className = index === quickInsertIndex
+      ? "aaronnote-quick-option is-active"
+      : "aaronnote-quick-option";
+    const icon = document.createElement("span");
+    icon.className = "aaronnote-quick-option-icon";
+    icon.textContent = item.label.slice(0, 1).toUpperCase();
+    const label = document.createElement("span");
+    label.className = "aaronnote-quick-option-label";
+    label.textContent = item.label;
+    const detail = document.createElement("span");
+    detail.className = "aaronnote-quick-option-detail";
+    detail.textContent = item.detail ?? item.command ?? "";
+    button.append(icon, label, detail);
+    button.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+      quickInsertIndex = index;
+      chooseQuickInsertItem();
+    });
+    quickInsertPopup.appendChild(button);
+  });
+  quickInsertPopup.dataset.query = query;
+  quickInsertPopup.setAttribute("role", "listbox");
+  quickInsertPopup.setAttribute("aria-activedescendant", `aaronnote-quick-option-${quickInsertIndex}`);
+  quickInsertPopup.hidden = false;
+  placeFloating(quickInsertPopup, rect, 360);
+  quickInsertPopup.querySelector(".aaronnote-quick-option.is-active")?.scrollIntoView({ block: "nearest" });
+}
+
+function updateQuickInsertPopup(ctx: ReturnType<typeof editor.cursorContext>): boolean {
+  const active = document.activeElement;
+  if (!active || !host.contains(active)) {
+    hideQuickInsertPopup();
+    return false;
+  }
+  const prefix = quickInsertPrefix(ctx.before);
+  if (!prefix) {
+    hideQuickInsertPopup();
+    return false;
+  }
+  const items = editor.getQuickInsertItems(prefix.query);
+  if (items.length === 0) {
+    hideQuickInsertPopup();
+    return false;
+  }
+  quickInsertDeleteBefore = prefix.deleteBefore;
+  quickInsertIndex = Math.min(quickInsertIndex, items.length - 1);
+  quickInsertItems = items;
+  renderQuickInsertPopup(prefix.query, ctx.rect);
+  return true;
+}
+
+function chooseQuickInsertItem(): void {
+  const item = quickInsertItems[quickInsertIndex];
+  if (!item) return;
+  const deleteBefore = quickInsertDeleteBefore;
+  hideQuickInsertPopup();
+  quickInsertSuppressedPrefix = "";
+  editor.insertText("", deleteBefore);
+  if (editor.runQuickInsert(item)) {
+    setStatus(item.label);
+    scheduleAssistUpdate({ snippets: true });
+    scheduleCursorPositionSave();
+  }
+}
+
+function handleQuickInsertKey(event: KeyboardEvent): boolean {
+  if (quickInsertPopup.hidden) return false;
+  if (event.isComposing) return false;
+  const active = document.activeElement;
+  const target = event.target as Node | null;
+  if ((!active || !host.contains(active)) && (!target || !host.contains(target))) {
+    hideQuickInsertPopup();
+    return false;
+  }
+  if (quickInsertItems.length === 0) {
+    hideQuickInsertPopup();
+    return false;
+  }
+  if (event.key === "ArrowDown") {
+    event.preventDefault();
+    quickInsertIndex = (quickInsertIndex + 1) % quickInsertItems.length;
+    renderQuickInsertPopup(quickInsertPopup.dataset.query ?? "", editor.cursorContext().rect);
+    return true;
+  }
+  if (event.key === "ArrowUp") {
+    event.preventDefault();
+    quickInsertIndex = (quickInsertIndex + quickInsertItems.length - 1) % quickInsertItems.length;
+    renderQuickInsertPopup(quickInsertPopup.dataset.query ?? "", editor.cursorContext().rect);
+    return true;
+  }
+  if (event.key === "Enter" || (event.key === "Tab" && !event.shiftKey)) {
+    event.preventDefault();
+    chooseQuickInsertItem();
+    return true;
+  }
+  if (event.key === "Escape") {
+    event.preventDefault();
+    quickInsertSuppressedPrefix = quickInsertPopup.dataset.query ?? "";
+    hideQuickInsertPopup();
+    return true;
+  }
+  return false;
 }
 
 function placeFloatingAbove(el: HTMLElement, rect: { left: number; top: number; bottom: number } | null, width = 320): void {
@@ -2108,11 +2252,14 @@ function scheduleAssistUpdate(options: { snippets?: boolean } = {}): void {
       updateVimCursor(vimCursor, editor, vimMode, ctx);
       if (vimMode !== "insert") {
         hideSnippetPopup();
+        hideQuickInsertPopup();
         mathPreview.hidden = true;
         selectionTool.hidden = true;
         return;
       }
-      if (shouldScanSnippets) updateSnippetPopup(ctx);
+      const quickOpen = updateQuickInsertPopup(ctx);
+      if (quickOpen) hideSnippetPopup();
+      else if (shouldScanSnippets) updateSnippetPopup(ctx);
       updateMathPreview(ctx);
       updateFloatingToc();
       updateSelectionTool();
@@ -2560,6 +2707,10 @@ document.addEventListener("keydown", (event) => {
     toc.classList.toggle("is-collapsed");
     return;
   }
+  if (handleQuickInsertKey(event)) {
+    event.stopPropagation();
+    return;
+  }
   if (handleSnippetPopupKey(event)) {
     event.stopPropagation();
     return;
@@ -2681,6 +2832,7 @@ agendaRefresh.addEventListener("click", () => void loadAgendaTodos(true));
 graphFilter.addEventListener("input", () => scheduleRenderGraph());
 document.addEventListener("keyup", (event) => {
   if (event.key !== "Escape") snippetSuppressedPrefix = "";
+  if (event.key !== "Escape") quickInsertSuppressedPrefix = "";
   scheduleCursorPositionSave();
   scheduleAssistUpdate();
 });
