@@ -1397,6 +1397,28 @@ async function createNode(body) {
   return opened;
 }
 
+async function createFolder(body) {
+  const rawPath = String(body.path || body.dir || body.folder || "").trim();
+  if (!rawPath) {
+    const err = new Error("Missing folder path");
+    err.statusCode = 400;
+    throw err;
+  }
+  const dir = resolve(noteRoot, rawPath);
+  if (!inside(dir, noteRoot)) {
+    const err = new Error(`Folder is outside note root: ${dir}`);
+    err.statusCode = 403;
+    throw err;
+  }
+  await mkdir(dir, { recursive: true });
+  await writeFile(join(dir, ".aaronnote-keep"), "", { flag: "a" }).catch(() => {});
+  return {
+    ok: true,
+    path: relative(noteRoot, dir).split(sep).join("/"),
+    notes: await scanNotes(),
+  };
+}
+
 async function uniqueTrashPath(file) {
   const trashDir = join(homedir(), ".Trash");
   await mkdir(trashDir, { recursive: true });
@@ -1623,6 +1645,11 @@ async function routeApi(req, res) {
 
     if (req.method === "POST" && (url.pathname === "/api/node" || url.pathname === "/api/create-node")) {
       sendJson(res, 200, await createNode(await readRequestJson(req)));
+      return true;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/folder") {
+      sendJson(res, 200, await createFolder(await readRequestJson(req)));
       return true;
     }
 

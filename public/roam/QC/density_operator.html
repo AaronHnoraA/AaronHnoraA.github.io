@@ -27,43 +27,330 @@
         <div class="typora-web-editor-host">
           <article id="content" class="ProseMirror" data-note-title="Density Operator">
             <h1 class="title">Density Operator</h1>
-            <h1 id="1-为什么要引入密度算符">1. 为什么要引入密度算符</h1>
-<p>并不是所有状态(<a href="quantum_state.html">Quantum
-State</a>)都能用一个 |ψ⟩ 描述。</p>
-<p>例如：</p>
+            <h1 id="density-operator-密度算符">Density Operator 密度算符</h1>
+<p><org-env-block data-kind="summary" data-title="A density operator is the most general mathematical representation of a quantum state." data-label="Summary"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="false">A
+density operator is the most general mathematical representation of a
+quantum state.</span></span><div class="org-env-content"><p>It includes
+both:</p></p>
 <ul>
-<li>我们只知道系统以概率 p_i 处于 |ψ_i⟩</li>
-<li>但不知道“到底是哪一个”</li>
+<li>pure states, which can be represented by a single state vector <span
+class="math inline">|<em>ψ</em>⟩</span>;</li>
+<li>mixed states, which describe probabilistic uncertainty over possible
+pure states.</li>
 </ul>
-<p>这时，用“态矢”已经不够了。</p>
-<h1 id="2-密度算符的定义">2. 密度算符的定义</h1>
-<p>一个量子态可以用算符 ρ 表示，满足：</p>
+<p>The density-operator formalism unifies the expectation-value formula
+as</p>
+<h1 id="-langle-arangle">$$ \langle A\rangle</h1>
+<p>\operatorname{tr}(\rho A). $$</p></div></org-env-block>
+
+<h1 id="1-why-density-operators-are-needed-为什么要引入密度算符">1. Why
+Density Operators Are Needed 为什么要引入密度算符</h1>
+<p>Not every quantum state is best described by a single vector <span
+class="math inline">|<em>ψ</em>⟩</span>.</p>
+<p>A state vector describes a <strong>pure state</strong>. However, in
+many situations we only know that the system is in one of several
+possible pure states with certain classical probabilities.</p>
+<p>For example, suppose we know that the system is in state</p>
+<p><span
+class="math display">|<em>ψ</em><sub><em>i</em></sub>⟩</span></p>
+<p>with probability</p>
+<p><span
+class="math display"><em>p</em><sub><em>i</em></sub>,</span></p>
+<p>where</p>
+<p><span
+class="math display"><em>p</em><sub><em>i</em></sub> ≥ 0,   ∑<sub><em>i</em></sub><em>p</em><sub><em>i</em></sub> = 1.</span></p>
+<p>But we do not know which <span
+class="math inline">|<em>ψ</em><sub><em>i</em></sub>⟩</span> was
+actually prepared.</p>
+<p>In this situation, a single state vector is not enough. We need an
+object that can encode both:</p>
+<ol type="1">
+<li>quantum superposition inside each <span
+class="math inline">|<em>ψ</em><sub><em>i</em></sub>⟩</span>;</li>
+<li>classical uncertainty over which <span
+class="math inline">|<em>ψ</em><sub><em>i</em></sub>⟩</span> was
+prepared.</li>
+</ol>
+<p>This object is the density operator.</p>
+<p>中文直觉：</p>
 <ul>
-<li>ρ ≥ 0（非负）</li>
-<li>ρ = ρ†（自共轭）</li>
-<li>tr(ρ) = 1（归一化）</li>
+<li><span class="math inline">|<em>ψ</em>⟩</span>
+描述“系统就在这个纯量子态里”；</li>
+<li><span class="math inline"><em>ρ</em></span>
+描述“系统可能以不同概率处于不同量子态里”。</li>
 </ul>
-<p>期望值公式统一为：</p>
-<p>⟨A⟩ = tr(A ρ)</p>
-<h1 id="3-纯态是特殊的密度算符">3. 纯态是特殊的密度算符</h1>
-<p>若系统处于纯态 |ψ⟩， 定义：</p>
-<p>ρ_ψ = |ψ⟩⟨ψ|</p>
-<p>这是一个：</p>
+<h1 id="2-definition-of-density-operator-密度算符的定义">2. Definition
+of Density Operator 密度算符的定义</h1>
+<p><org-env-block data-kind="define" data-title="Let $H$ be a Hilbert space. A density operator on $H$ is a linear operator" data-label="Define"><span class="org-env-heading"><span class="org-env-heading-label">Define</span><span class="org-env-heading-title" data-empty="false">Let
+<span class="math inline"><em>H</em></span> be a Hilbert space. A
+density operator on <span class="math inline"><em>H</em></span> is a
+linear operator</span></span><div class="org-env-content"><p><span
+class="math display"><em>ρ</em> : <em>H</em> → <em>H</em></span></p></p>
+<p>satisfying:</p>
+<ol type="1">
+<li><p>positivity:</p>
+<p><span class="math display"><em>ρ</em> ≥ 0,</span></p>
+<p>meaning</p>
+<p><span
+class="math display">⟨<em>ψ</em>|<em>ρ</em>|<em>ψ</em>⟩ ≥ 0</span></p>
+<p>for all <span
+class="math inline">|<em>ψ</em>⟩ ∈ <em>H</em></span>;</p></li>
+<li><p>self-adjointness:</p>
+<p><span
+class="math display"><em>ρ</em><sup>†</sup> = <em>ρ</em>;</span></p></li>
+<li><p>trace normalization:</p>
+<p><span class="math display">tr (<em>ρ</em>) = 1.</span></p></li>
+</ol></div></org-env-block>
+
+<p><org-env-block data-kind="note" data-title="Actually, positivity already implies self-adjointness in the standard finite-dimensional setting. But it is common and pedagogically useful to list both conditions." data-label="Note"><span class="org-env-heading"><span class="org-env-heading-label">Note</span><span class="org-env-heading-title" data-empty="false">Actually,
+positivity already implies self-adjointness in the standard
+finite-dimensional setting. But it is common and pedagogically useful to
+list both
+conditions.</span></span><div class="org-env-content"></div></org-env-block></p>
+<p>The expectation value of an observable <span
+class="math inline"><em>A</em></span> in state <span
+class="math inline"><em>ρ</em></span> is</p>
+<h1 id="-langle-arangle">$$ \langle A\rangle</h1>
+<p>\operatorname{tr}(\rho A). $$</p>
+<p>Equivalently, using cyclicity of trace,</p>
+<h1 id="-operatornametrrho-a">$$ \operatorname{tr}(\rho A)</h1>
+<p>\operatorname{tr}(A\rho). $$</p>
+<p>So both conventions are common:</p>
+<h1 id="-langle-arangle-1">$$ \langle A\rangle</h1>
+<h1 id="operatornametrrho-a">\operatorname{tr}(\rho A)</h1>
+<p>\operatorname{tr}(A\rho). $$</p>
+<h1 id="3-density-operator-from-an-ensemble-从系综得到密度算符">3.
+Density Operator from an Ensemble 从系综得到密度算符</h1>
+<p>Suppose the system is prepared as follows:</p>
 <ul>
-<li>一维正交投影</li>
-<li>秩为 1</li>
-<li>ρ² = ρ</li>
+<li><p>with probability <span
+class="math inline"><em>p</em><sub><em>i</em></sub></span>, prepare the
+pure state <span
+class="math inline">|<em>ψ</em><sub><em>i</em></sub>⟩</span>;</p></li>
+<li><p>the probabilities satisfy</p>
+<p><span
+class="math display"><em>p</em><sub><em>i</em></sub> ≥ 0,   ∑<sub><em>i</em></sub><em>p</em><sub><em>i</em></sub> = 1.</span></p></li>
 </ul>
-<p>此时： tr(A ρ_ψ) = ⟨ψ|A|ψ⟩</p>
-<p>与态矢公式完全一致。</p>
-<h1 id="4-纯态与混合态的几何结构">4. 纯态与混合态的几何结构</h1>
+<p>Then the corresponding density operator is</p>
+<h1 id="-rho">$$ \rho</h1>
+<p>\sum_i p_i |\psi_i\rangle\langle \psi_i|. $$</p>
+<p>This is called a mixed-state ensemble representation.</p>
+<p><org-env-block data-kind="important" data-title="The same density operator can have many different ensemble decompositions." data-label="Important"><span class="org-env-heading"><span class="org-env-heading-label">Important</span><span class="org-env-heading-title" data-empty="false">The
+same density operator can have many different ensemble
+decompositions.</span></span><div class="org-env-content"><p>That
+is,</p></p>
+<h1 id="-rho">$$ \rho</h1>
+<p>\sum_i p_i |\psi_i\rangle\langle \psi_i| $$</p>
+<p>does not uniquely determine the ensemble <span
+class="math inline">{<em>p</em><sub><em>i</em></sub>, |<em>ψ</em><sub><em>i</em></sub>⟩}<sub><em>i</em></sub></span>.</p>
+<p>Physically, the density operator <span
+class="math inline"><em>ρ</em></span> is what determines all measurement
+statistics, not a particular ensemble decomposition.</p></div></org-env-block>
+
+<h1 id="4-pure-states-as-density-operators-纯态是特殊的密度算符">4. Pure
+States as Density Operators 纯态是特殊的密度算符</h1>
+<p>If the system is in a pure state <span
+class="math inline">|<em>ψ</em>⟩</span>, where</p>
+<p><span class="math display">⟨<em>ψ</em>|<em>ψ</em>⟩ = 1,</span></p>
+<p>then its density operator is</p>
+<h1 id="-rho_psi">$$ \rho_\psi</h1>
+<p>|\psi\rangle\langle \psi|. $$</p>
+<p>This operator is:</p>
+<ol type="1">
+<li><p>a rank-one orthogonal projection;</p></li>
+<li><p>positive semidefinite;</p></li>
+<li><p>trace-one;</p></li>
+<li><p>idempotent:</p>
+<p><span
+class="math display"><em>ρ</em><sub><em>ψ</em></sub><sup>2</sup> = <em>ρ</em><sub><em>ψ</em></sub>.</span></p></li>
+</ol>
+<p>Indeed,</p>
+<h1 id="-rho_psi2">$$ \rho_\psi^2</h1>
+<h1 id="psiranglelangle-psipsiranglelangle-psi">|\psi\rangle\langle
+\psi|\psi\rangle\langle \psi|</h1>
+<h1 id="psirangle-langle-psipsirangle-langle-psi">|\psi\rangle \langle
+\psi|\psi\rangle \langle \psi|</h1>
+<h1 id="psiranglelangle-psi">|\psi\rangle\langle \psi|</h1>
+<p>\rho_\psi. $$</p>
+<p>Here we used</p>
+<p><span class="math display">⟨<em>ψ</em>|<em>ψ</em>⟩ = 1.</span></p>
+<h1 id="5-expectation-value-for-pure-states-纯态期望值公式">5.
+Expectation Value for Pure States 纯态期望值公式</h1>
+<p>For a pure state</p>
+<h1 id="-rho_psi-1">$$ \rho_\psi</h1>
+<p>|\psi\rangle\langle \psi|, $$</p>
+<p>the density-operator expectation formula becomes</p>
+<h1 id="-langle-arangle-2">$$ \langle A\rangle</h1>
+<p>\operatorname{tr}(\rho_\psi A). $$</p>
+<p>Substituting <span
+class="math inline"><em>ρ</em><sub><em>ψ</em></sub></span>,</p>
+<h1 id="-langle-arangle-3">$$ \langle A\rangle</h1>
+<p>\operatorname{tr}(|\psi\rangle\langle \psi|A). $$</p>
+<p>Using cyclicity of trace,</p>
+<h1 id="-operatornametrpsiranglelangle-psia">$$
+\operatorname{tr}(|\psi\rangle\langle \psi|A)</h1>
+<p>\operatorname{tr}(\langle \psi|A|\psi\rangle). $$</p>
+<p>Since <span
+class="math inline">⟨<em>ψ</em>|<em>A</em>|<em>ψ</em>⟩</span> is a
+scalar,</p>
+<h1 id="-operatornametrlangle-psiapsirangle">$$
+\operatorname{tr}(\langle \psi|A|\psi\rangle)</h1>
+<p>\langle \psi|A|\psi\rangle. $$</p>
+<p>Therefore,</p>
+<h1 id="-operatornametrrho_psi-a">$$ \operatorname{tr}(\rho_\psi A)</h1>
+<p>\langle \psi|A|\psi\rangle. $$</p>
+<p>So the density-operator formula agrees with the usual state-vector
+formula.</p>
+<p><org-env-block data-kind="summary" data-title="For a pure state," data-label="Summary"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="false">For
+a pure state,</span></span><div class="org-env-content"><p><span
+class="math display"><em>ρ</em><sub><em>ψ</em></sub> = |<em>ψ</em>⟩⟨<em>ψ</em>|,</span></p></p>
+<p>and</p>
+<h1 id="-operatornametrrho_psi-a">$$ \operatorname{tr}(\rho_\psi A)</h1>
+<p>\langle \psi|A|\psi\rangle. $$</p></div></org-env-block>
+
+<h1 id="6-pure-states-and-mixed-states-纯态与混合态">6. Pure States and
+Mixed States 纯态与混合态</h1>
+<p><org-env-block data-kind="define" data-title="A density operator $\rho$ is called a pure state if there exists a unit vector $|\psi\rangle$ such that" data-label="Define"><span class="org-env-heading"><span class="org-env-heading-label">Define</span><span class="org-env-heading-title" data-empty="false">A
+density operator <span class="math inline"><em>ρ</em></span> is called a
+pure state if there exists a unit vector <span
+class="math inline">|<em>ψ</em>⟩</span> such
+that</span></span><div class="org-env-content"><h1 id="-rho">$$
+\rho</h1></p>
+<p>|\psi\rangle\langle \psi|. $$</p></div></org-env-block>
+
+<p><org-env-block data-kind="define" data-title="A density operator $\rho$ is called a mixed state if it is not pure." data-label="Define"><span class="org-env-heading"><span class="org-env-heading-label">Define</span><span class="org-env-heading-title" data-empty="false">A
+density operator <span class="math inline"><em>ρ</em></span> is called a
+mixed state if it is not
+pure.</span></span><div class="org-env-content"></div></org-env-block></p>
+<p>Equivalently, in finite dimensions:</p>
+<p><span class="math display"><em>ρ</em> is
+pure ⇔ <em>ρ</em><sup>2</sup> = <em>ρ</em> ⇔ tr (<em>ρ</em><sup>2</sup>) = 1.</span></p>
+<p>A mixed state satisfies</p>
+<p><span
+class="math display">tr (<em>ρ</em><sup>2</sup>) &lt; 1.</span></p>
+<p>The quantity</p>
+<p><span class="math display">tr (<em>ρ</em><sup>2</sup>)</span></p>
+<p>is called the purity of <span
+class="math inline"><em>ρ</em></span>.</p>
+<h1 id="7-geometric-structure-几何结构">7. Geometric Structure
+几何结构</h1>
+<p>The set of all density operators on a Hilbert space forms a convex
+set.</p>
+<p>That means if <span class="math inline"><em>ρ</em><sub>1</sub></span>
+and <span class="math inline"><em>ρ</em><sub>2</sub></span> are density
+operators, and</p>
+<p><span class="math display">0 ≤ <em>λ</em> ≤ 1,</span></p>
+<p>then</p>
+<h1 id="-rho-1">$$ \rho</h1>
+<p>\lambda \rho_1 + (1-\lambda)\rho_2 $$</p>
+<p>is also a density operator.</p>
+<p>The interpretation is:</p>
 <ul>
-<li>所有密度算符构成一个 <em>凸集</em></li>
-<li>纯态 = 极端点（不可再分）</li>
-<li>混合态 = 纯态的凸组合</li>
+<li>with probability <span class="math inline"><em>λ</em></span>,
+prepare <span class="math inline"><em>ρ</em><sub>1</sub></span>;</li>
+<li>with probability <span class="math inline">1 − <em>λ</em></span>,
+prepare <span class="math inline"><em>ρ</em><sub>2</sub></span>.</li>
 </ul>
-<p>可以理解为： 纯态是“信息最完整的状态”， 混合态是“经典不确定性 +
-量子不确定性”的叠加。</p>
+<p>Thus classical probabilistic mixing corresponds exactly to convex
+combination of density operators.</p>
+<p><org-env-block data-kind="summary" data-title="The geometry is:" data-label="Summary"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="false">The
+geometry
+is:</span></span><div class="org-env-content"><h1 id="-textall-density-operators">$$
+\text{all density operators}</h1></p>
+<p>\text{a convex set}. $$</p>
+<p>Inside this convex set:</p>
+<h1 id="-textpure-states">$$ \text{pure states}</h1>
+<p>\text{extreme points}, $$</p>
+<p>and</p>
+<h1 id="-textmixed-states">$$ \text{mixed states}</h1>
+<p>\text{non-extreme points}. $$</p></div></org-env-block>
+
+<h1 id="8-pure-states-as-extreme-points-纯态作为极端点">8. Pure States
+as Extreme Points 纯态作为极端点</h1>
+<p>A pure state cannot be written as a nontrivial convex combination of
+two different density operators.</p>
+<p>That is, if</p>
+<h1 id="-psiranglelangle-psi">$$ |\psi\rangle\langle \psi|</h1>
+<p>\lambda \rho_1 + (1-\lambda)\rho_2 $$</p>
+<p>with</p>
+<p><span class="math display">0 &lt; <em>λ</em> &lt; 1,</span></p>
+<p>then necessarily</p>
+<p><span
+class="math display"><em>ρ</em><sub>1</sub> = <em>ρ</em><sub>2</sub> = |<em>ψ</em>⟩⟨<em>ψ</em>|.</span></p>
+<p>So pure states are extreme points of the convex set of density
+operators.</p>
+<p>Mixed states, by contrast, can be decomposed as nontrivial convex
+combinations of other density operators.</p>
+<p>中文直觉：</p>
+<ul>
+<li>纯态是凸集合的“顶点”；</li>
+<li>混合态在凸集合的“内部”或“边上”；</li>
+<li>混合态可以被看成多个状态的概率混合。</li>
+</ul>
+<h1
+id="9-classical-and-quantum-uncertainty-经典不确定性与量子不确定性">9.
+Classical and Quantum Uncertainty 经典不确定性与量子不确定性</h1>
+<p>A pure state can still have quantum uncertainty.</p>
+<p>For example, even if the system is exactly in state <span
+class="math inline">|<em>ψ</em>⟩</span>, measuring an observable <span
+class="math inline"><em>A</em></span> may still produce random outcomes
+unless <span class="math inline">|<em>ψ</em>⟩</span> is an eigenstate of
+<span class="math inline"><em>A</em></span>.</p>
+<p>A mixed state contains an additional layer of uncertainty: classical
+uncertainty about which state was prepared.</p>
+<p>Thus:</p>
+<h1 id="-textpure-state">$$ \text{pure state}</h1>
+<p>\text{quantum uncertainty only}, $$</p>
+<p>whereas</p>
+<h1 id="-textmixed-state">$$ \text{mixed state}</h1>
+<p>\text{classical uncertainty} + \text{quantum uncertainty}. $$</p>
+<p><org-env-block data-kind="important" data-title="A pure state does not mean measurement outcomes are deterministic for every observable." data-label="Important"><span class="org-env-heading"><span class="org-env-heading-label">Important</span><span class="org-env-heading-title" data-empty="false">A
+pure state does not mean measurement outcomes are deterministic for
+every observable.</span></span><div class="org-env-content"><p>It means
+the quantum state is maximally specified.</p></p>
+<p>测量是否随机，取决于被测 observable
+与当前态的关系；不是由“纯态/混合态”单独决定。</p></div></org-env-block>
+
+<h1 id="10-spectral-decomposition-谱分解">10. Spectral Decomposition
+谱分解</h1>
+<p>Since every density operator is positive semidefinite and Hermitian,
+it has a spectral decomposition</p>
+<h1 id="-rho-2">$$ \rho</h1>
+<p>\sum_i \lambda_i |i\rangle\langle i|, $$</p>
+<p>where</p>
+<p><span
+class="math display"><em>λ</em><sub><em>i</em></sub> ≥ 0,   ∑<sub><em>i</em></sub><em>λ</em><sub><em>i</em></sub> = 1,</span></p>
+<p>and <span
+class="math inline">{|<em>i</em>⟩}<sub><em>i</em></sub></span> is an
+orthonormal basis of eigenvectors.</p>
+<p>This looks like an ensemble decomposition, but it has a special
+status: it is the eigen-decomposition of <span
+class="math inline"><em>ρ</em></span>.</p>
+<p>The eigenvalues <span
+class="math inline"><em>λ</em><sub><em>i</em></sub></span> behave like
+probabilities.</p>
+<h1 id="conceptual-summary-概念总结">Conceptual Summary 概念总结</h1>
+<p><org-env-block data-kind="summary" data-title="A density operator is a positive semidefinite trace-one operator:" data-label="Summary"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="false">A
+density operator is a positive semidefinite trace-one
+operator:</span></span><div class="org-env-content"><p><span
+class="math display"><em>ρ</em> ≥ 0,   <em>ρ</em><sup>†</sup> = <em>ρ</em>,   tr (<em>ρ</em>) = 1.</span></p></p>
+<p>It generalises state vectors:</p>
+<p><span
+class="math display">|<em>ψ</em>⟩  ⤳  <em>ρ</em><sub><em>ψ</em></sub> = |<em>ψ</em>⟩⟨<em>ψ</em>|.</span></p>
+<p>The expectation-value formula becomes:</p>
+<h1 id="-langle-arangle">$$ \langle A\rangle</h1>
+<p>\operatorname{tr}(\rho A). $$</p>
+<p>The conceptual hierarchy is:</p>
+<p><span class="math display">state vector ⊂ pure density
+operators ⊂ all density operators.</span></p>
+<p>Geometrically:</p>
+<p><span class="math display">density operators form a convex
+set,</span></p>
+<p>with</p>
+<p><span class="math display">pure states as extreme points</span></p>
+<p>and</p>
+<p><span class="math display">mixed states as convex
+combinations.</span></p></div></org-env-block>
           </article>
         </div>
       </div>

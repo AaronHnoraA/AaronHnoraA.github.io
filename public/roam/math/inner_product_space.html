@@ -28,72 +28,355 @@
           <article id="content" class="ProseMirror" data-note-title="Inner Product Space">
             <h1 class="title">Inner Product Space</h1>
             <h1 id="inner-product-space-内积空间">Inner Product Space 内积空间</h1>
+<p><org-env-block data-kind="summary" data-title="An inner product space is a vector space equipped with an additional operation called an inner product. The inner product allows us to define geometric notions such as length, angle, orthogonality, norm, distance, convergence, and completeness." data-label="Summary"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="false">An
+inner product space is a vector space equipped with an additional
+operation called an inner product. The inner product allows us to define
+geometric notions such as length, angle, orthogonality, norm, distance,
+convergence, and
+completeness.</span></span><div class="org-env-content"><p>The
+conceptual chain is:</p></p>
+<p><span class="math display">inner
+product ⇒ norm ⇒ metric ⇒ convergence ⇒ completeness.</span></p></div></org-env-block>
+
+<h1 id="basic-setup-基本设定">Basic Setup 基本设定</h1>
+<p>Let <span class="math inline"><em>F</em></span> be a scalar field.
+Usually,</p>
+<p><span class="math display"><em>F</em> = ℝ</span></p>
+<p>or</p>
+<p><span class="math display"><em>F</em> = ℂ.</span></p>
+<p>Let <span class="math inline"><em>V</em></span> be a vector space
+over <span class="math inline"><em>F</em></span>.</p>
+<p>That is, <span class="math inline"><em>V</em></span> is equipped
+with:</p>
 <ul>
-<li><p>标量域 <span class="math inline"><em>F</em></span>：</p>
+<li><p>vector addition</p>
+<p>$$</p>
 <ul>
-<li><span
-class="math inline"><em>b</em><em>b</em>(<em>R</em>)</span>（实数）</li>
-<li><span
-class="math inline"><em>b</em><em>b</em>(<em>C</em>)</span>（复数）</li>
+<li>: V \times V \to V, $$</li>
 </ul></li>
-<li><p><span class="math inline"><em>V</em></span> 是定义在域 <span
-class="math inline">(<em>F</em>, +, <em>t</em><em>i</em><em>m</em><em>e</em><em>s</em>)</span>
-上的向量空间</p>
-<ul>
-<li>向量加法：$ plus.circle $</li>
-<li>标量乘法：$ dot.op $</li>
-</ul></li>
-<li><p>给定一个二元函数 $ f: V times V -&gt; F $ 通常记作： $ f(v,w) =
-lr(angle.l v,w angle.r) $</p></li>
+<li><p>scalar multiplication</p>
+<p><span
+class="math display">⋅ : <em>F</em> × <em>V</em> → <em>V</em>.</span></p></li>
 </ul>
-<h1 id="内积的公理化定义">内积的公理化定义</h1>
-<p>若 $ lr(angle.l dot.op , dot.op angle.r) $
-满足下表中的全部条件，则称其为 <span
-class="math inline"><em>V</em></span> 上的一个 <em>内积</em>。</p>
-<div class="sourceCode" id="cb1"><pre
-class="sourceCode typst"><code class="sourceCode typst"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">#</span>table<span class="op">(</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  columns<span class="op">:</span> <span class="dv">3</span><span class="op">,</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="op">[</span>性质名称<span class="op">],</span> <span class="op">[</span>前提条件<span class="op">],</span> <span class="op">[</span>数学表述<span class="op">],</span> <span class="op">[</span>共轭对称<span class="op">],</span> <span class="op">[</span><span class="ss">$ forall  v,w in  V$</span><span class="op">],</span> <span class="op">[</span><span class="ss">$ lr(angle.l v,w angle.r)  = overline( lr(angle.l w,v angle.r) )$</span><span class="op">],</span> <span class="op">[</span>加法线性<span class="op">],</span> <span class="op">[</span><span class="ss">$ forall  v,w,a in  V$</span><span class="op">],</span> <span class="op">[</span><span class="ss">$ lr(angle.l v plus.circle  w, a angle.r)  =  lr(angle.l v,a angle.r)  +  lr(angle.l w,a angle.r) $</span><span class="op">],</span> <span class="op">[</span>齐次线性<span class="op">],</span> <span class="op">[</span><span class="ss">$ forall  v,w in  V,\  forall   lambda  in  F$</span><span class="op">],</span> <span class="op">[</span><span class="ss">$ lr(angle.l lambda  dot.op  v, w angle.r)  =  lambda  thin  lr(angle.l v,w angle.r) $</span><span class="op">],</span> <span class="op">[</span>非负性<span class="op">],</span> <span class="op">[</span><span class="ss">$ forall  v in  V$</span><span class="op">],</span> <span class="op">[</span><span class="ss">$ lr(angle.l v,v angle.r)   &gt;=  0$</span><span class="op">],</span> <span class="op">[</span>非退化性<span class="op">],</span> <span class="op">[</span><span class="ss">$ forall  v in  V$</span><span class="op">],</span> <span class="op">[</span><span class="ss">$ lr(angle.l v,v angle.r)  = 0  &lt;==&gt;  v=0_V$</span><span class="op">],</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">)</span></span></code></pre></div>
-<p>📌 以上线性条件是指 <em>对第一个变量线性</em>。</p>
-<h1 id="实内积空间与复内积空间">实内积空间与复内积空间</h1>
-<ul>
-<li>若 <span
-class="math inline"><em>F</em> = <em>b</em><em>b</em>(<em>R</em>)</span>，称
-<span class="math inline"><em>V</em></span> 为 <em>实内积空间</em></li>
-<li>若 <span
-class="math inline"><em>F</em> = <em>b</em><em>b</em>(<em>C</em>)</span>，称
-<span class="math inline"><em>V</em></span> 为 <em>复内积空间</em></li>
-</ul>
-<h1 id="正交的定义">正交的定义</h1>
-<p>若 $ lr(angle.l v,w angle.r) = 0 $ 则记为 $ v perp w $</p>
-<p>称 <span class="math inline"><em>v</em></span> 与 <span
-class="math inline"><em>w</em></span> <em>正交（orthogonal /
-perpendicular）</em></p>
-<h1 id="定义顺序的分歧数学-vs-物理">定义顺序的分歧（数学 vs 物理）</h1>
-<h2 id="数学上的约定">数学上的约定</h2>
-<ul>
-<li>内积对 <em>第一个变量线性</em></li>
-<li>对第二个变量共轭线性</li>
-</ul>
-<p>这是线性代数、泛函分析中的主流约定。</p>
-<h2 id="物理学狄拉克符号的约定">物理学（狄拉克符号）的约定</h2>
-<p>为配合 $ lr(angle.l psi | phi angle.r) $
-的书写顺序，物理学家常采用相反的线性约定：</p>
-<div class="sourceCode" id="cb2"><pre
-class="sourceCode typst"><code class="sourceCode typst"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">#</span>table<span class="op">(</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  columns<span class="op">:</span> <span class="dv">2</span><span class="op">,</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="op">[</span>性质<span class="op">],</span> <span class="op">[</span>数学表述<span class="op">],</span> <span class="op">[</span>加法线性<span class="op">],</span> <span class="op">[</span><span class="ss">$ lr(angle.l a, v plus.circle  w angle.r)  =  lr(angle.l a,v angle.r)  +  lr(angle.l a,w angle.r) $</span><span class="op">],</span> <span class="op">[</span>齐次线性<span class="op">],</span> <span class="op">[</span><span class="ss">$ lr(angle.l v,  lambda  dot.op  w angle.r)  =  lambda  thin  lr(angle.l v,w angle.r) $</span><span class="op">],</span></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="op">)</span></span></code></pre></div>
-<p>即：<em>对第二个变量线性</em>。</p>
-<h2 id="重要说明">重要说明</h2>
-<ul>
-<li>真正影响定理形式的是“线性作用在哪个变量”</li>
-<li>两种定义在数学上是等价的</li>
-<li>但使用公式和定理时，必须保持顺序一致</li>
-</ul>
-<p>1 现有内积 2 内积又到长度 3 长度诱导的范数 4 范数诱导的距离 5
-距离看极限 6 内积空间的完备性</p>
+<p>An inner product is a function</p>
+<p><span
+class="math display">⟨⋅, ⋅⟩ : <em>V</em> × <em>V</em> → <em>F</em>.</span></p>
+<p>For <span
+class="math inline"><em>v</em>, <em>w</em> ∈ <em>V</em></span>, we
+usually write</p>
+<p><span
+class="math display">⟨<em>v</em>, <em>w</em>⟩ ∈ <em>F</em>.</span></p>
+<h1
+id="axiomatic-definition-of-an-inner-product-内积的公理化定义">Axiomatic
+Definition of an Inner Product 内积的公理化定义</h1>
+<p><org-env-block data-kind="define" data-title="Let $V$ be a vector space over $F$, where $F = \mathbb{R}$ or $F = \mathbb{C}$." data-label="Define"><span class="org-env-heading"><span class="org-env-heading-label">Define</span><span class="org-env-heading-title" data-empty="false">Let
+<span class="math inline"><em>V</em></span> be a vector space over <span
+class="math inline"><em>F</em></span>, where <span
+class="math inline"><em>F</em> = ℝ</span> or <span
+class="math inline"><em>F</em> = ℂ</span>.</span></span><div class="org-env-content"><p>An
+inner product on <span class="math inline"><em>V</em></span> is a
+function</p></p>
+<p><span
+class="math display">⟨⋅, ⋅⟩ : <em>V</em> × <em>V</em> → <em>F</em></span></p>
+<p>satisfying the following axioms.</p>
+<ol type="1">
+<li><p>Conjugate symmetry 共轭对称性:</p>
+<h1 id="-langle-vw-rangle">$$ \langle v,w \rangle</h1>
+<p>\overline{\langle w,v \rangle} $$</p>
+<p>for all <span
+class="math inline"><em>v</em>, <em>w</em> ∈ <em>V</em></span>.</p></li>
+<li><p>Additivity in the first variable 第一变量加法线性:</p>
+<h1 id="-langle-v_1--v_2-w-rangle">$$ \langle v_1 + v_2, w \rangle</h1>
+<p>\langle v_1,w \rangle + \langle v_2,w \rangle $$</p>
+<p>for all <span
+class="math inline"><em>v</em><sub>1</sub>, <em>v</em><sub>2</sub>, <em>w</em> ∈ <em>V</em></span>.</p></li>
+<li><p>Homogeneity in the first variable 第一变量齐次线性:</p>
+<h1 id="-langle-lambda-vw-rangle">$$ \langle \lambda v,w \rangle</h1>
+<p>\lambda \langle v,w \rangle $$</p>
+<p>for all <span class="math inline"><em>λ</em> ∈ <em>F</em></span> and
+all <span
+class="math inline"><em>v</em>, <em>w</em> ∈ <em>V</em></span>.</p></li>
+<li><p>Positive-definiteness 正定性:</p>
+<p><span class="math display">⟨<em>v</em>, <em>v</em>⟩ ≥ 0</span></p>
+<p>for all <span class="math inline"><em>v</em> ∈ <em>V</em></span>,
+and</p>
+<p><span
+class="math display">⟨<em>v</em>, <em>v</em>⟩ = 0 ⇔ <em>v</em> = 0.</span></p></li>
+</ol>
+<p>If such a function is given, then <span
+class="math inline"><em>V</em></span> is called an inner product
+space.</p></div></org-env-block>
+
+<p><org-env-block data-kind="note" data-title="Here we use the mathematical convention: the inner product is linear in the first variable and conjugate-linear in the second variable." data-label="Note"><span class="org-env-heading"><span class="org-env-heading-label">Note</span><span class="org-env-heading-title" data-empty="false">Here
+we use the mathematical convention: the inner product is linear in the
+first variable and conjugate-linear in the second
+variable.</span></span><div class="org-env-content"><p>也就是说，这里采用数学约定：第一变量线性，第二变量共轭线性。</p></div></org-env-block></p>
+<h1
+id="consequence-conjugate-linearity-in-the-second-variable">Consequence:
+Conjugate Linearity in the Second Variable</h1>
+<p>Because of conjugate symmetry and linearity in the first variable,
+the inner product is conjugate-linear in the second variable.</p>
+<p>For example,</p>
+<h1 id="-langle-v-w_1--w_2-rangle">$$ \langle v, w_1 + w_2 \rangle</h1>
+<p>\langle v,w_1 \rangle + \langle v,w_2 \rangle, $$</p>
+<p>and</p>
+<h1 id="-langle-v-lambda-w-rangle">$$ \langle v, \lambda w \rangle</h1>
+<p>\overline{\lambda}\langle v,w \rangle. $$</p>
+<p><org-env-block data-kind="proof" data-title="Using conjugate symmetry," data-label="Proof"><span class="org-env-heading"><span class="org-env-heading-label">Proof</span><span class="org-env-heading-title" data-empty="false">Using
+conjugate
+symmetry,</span></span><div class="org-env-content"><h1 id="-langle-vlambda-w-rangle">$$
+\langle v,\lambda w \rangle</h1></p>
+<p>\overline{\langle \lambda w,v \rangle}. $$</p>
+<p>By linearity in the first variable,</p>
+<h1 id="-langle-lambda-wv-rangle">$$ \langle \lambda w,v \rangle</h1>
+<p>\lambda \langle w,v \rangle. $$</p>
+<p>Therefore,</p>
+<h1 id="-langle-vlambda-w-rangle-1">$$ \langle v,\lambda w \rangle</h1>
+<h1 id="overlinelambda-langle-wv-rangle">\overline{\lambda \langle w,v
+\rangle}</h1>
+<p>\overline{\lambda},\overline{\langle w,v \rangle}. $$</p>
+<p>Again using conjugate symmetry,</p>
+<h1 id="-overlinelangle-wv-rangle">$$ \overline{\langle w,v
+\rangle}</h1>
+<p>\langle v,w \rangle. $$</p>
+<p>Hence,</p>
+<h1 id="-langle-vlambda-w-rangle-2">$$ \langle v,\lambda w \rangle</h1>
+<p>\overline{\lambda}\langle v,w \rangle. $$</p></div></org-env-block>
+
+<h1
+id="real-and-complex-inner-product-spaces-实内积空间与复内积空间">Real
+and Complex Inner Product Spaces 实内积空间与复内积空间</h1>
+<p>If <span class="math inline"><em>F</em> = ℝ</span>, then <span
+class="math inline"><em>V</em></span> is called a real inner product
+space.</p>
+<p>If <span class="math inline"><em>F</em> = ℂ</span>, then <span
+class="math inline"><em>V</em></span> is called a complex inner product
+space.</p>
+<p>In the real case, complex conjugation is trivial, so conjugate
+symmetry becomes ordinary symmetry:</p>
+<h1 id="-langle-vw-rangle">$$ \langle v,w \rangle</h1>
+<p>\langle w,v \rangle. $$</p>
+<p>In the complex case, one must keep the conjugation:</p>
+<h1 id="-langle-vw-rangle-1">$$ \langle v,w \rangle</h1>
+<p>\overline{\langle w,v \rangle}. $$</p>
+<h1 id="orthogonality-正交">Orthogonality 正交</h1>
+<p><org-env-block data-kind="define" data-title="Let $V$ be an inner product space. Two vectors $v,w \in V$ are called orthogonal if" data-label="Define"><span class="org-env-heading"><span class="org-env-heading-label">Define</span><span class="org-env-heading-title" data-empty="false">Let
+<span class="math inline"><em>V</em></span> be an inner product space.
+Two vectors <span
+class="math inline"><em>v</em>, <em>w</em> ∈ <em>V</em></span> are
+called orthogonal
+if</span></span><div class="org-env-content"><p><span class="math display">⟨<em>v</em>, <em>w</em>⟩ = 0.</span></p></p>
+<p>We write</p>
+<p><span class="math display"><em>v</em> ⟂ <em>w</em>.</span></p></div></org-env-block>
+
+<p>Intuitively, orthogonality generalises the idea of perpendicular
+vectors in Euclidean geometry.</p>
+<p>中文直觉：正交就是“内积为零”的抽象垂直性。</p>
+<h1 id="from-inner-product-to-length-从内积到长度">From Inner Product to
+Length 从内积到长度</h1>
+<p>The inner product gives a notion of squared length.</p>
+<p>For <span class="math inline"><em>v</em> ∈ <em>V</em></span>,
+define</p>
+<h1 id="-v2">$$ |v|^2</h1>
+<p>\langle v,v \rangle. $$</p>
+<p>Since the inner product is positive-definite,</p>
+<p><span class="math display">⟨<em>v</em>, <em>v</em>⟩ ≥ 0.</span></p>
+<p>Therefore it makes sense to define</p>
+<h1 id="-v">$$ |v|</h1>
+<p>\sqrt{\langle v,v \rangle}. $$</p>
+<p>This is the length of <span class="math inline"><em>v</em></span>
+induced by the inner product.</p>
+<h1 id="norm-induced-by-an-inner-product-内积诱导的范数">Norm Induced by
+an Inner Product 内积诱导的范数</h1>
+<p><org-env-block data-kind="define" data-title="Let $V$ be an inner product space. The norm induced by the inner product is" data-label="Define"><span class="org-env-heading"><span class="org-env-heading-label">Define</span><span class="org-env-heading-title" data-empty="false">Let
+<span class="math inline"><em>V</em></span> be an inner product space.
+The norm induced by the inner product
+is</span></span><div class="org-env-content"><h1 id="-v">$$ |v|</h1></p>
+<p>\sqrt{\langle v,v \rangle}. $$</p>
+<p>This function</p>
+<p><span
+class="math display">∥⋅∥ : <em>V</em> → ℝ<sub> ≥ 0</sub></span></p>
+<p>is called the induced norm.</p></div></org-env-block>
+
+<p>The induced norm satisfies:</p>
+<ol type="1">
+<li><p>Non-negativity:</p>
+<p><span class="math display">∥<em>v</em>∥ ≥ 0.</span></p></li>
+<li><p>Definiteness:</p>
+<p><span
+class="math display">∥<em>v</em>∥ = 0 ⇔ <em>v</em> = 0.</span></p></li>
+<li><p>Homogeneity:</p>
+<h1 id="-lambda-v">$$ |\lambda v|</h1>
+<p>|\lambda||v|. $$</p></li>
+<li><p>Triangle inequality:</p>
+<p><span
+class="math display">∥<em>v</em> + <em>w</em>∥ ≤ ∥<em>v</em>∥+∥<em>w</em>∥.</span></p></li>
+</ol>
+<p>Thus every inner product space is naturally a normed vector
+space.</p>
+<h1 id="distance-induced-by-the-norm-范数诱导的距离">Distance Induced by
+the Norm 范数诱导的距离</h1>
+<p><org-env-block data-kind="define" data-title="Let $V$ be an inner product space with induced norm $\|\cdot\|$." data-label="Define"><span class="org-env-heading"><span class="org-env-heading-label">Define</span><span class="org-env-heading-title" data-empty="false">Let
+<span class="math inline"><em>V</em></span> be an inner product space
+with induced norm <span
+class="math inline">∥⋅∥</span>.</span></span><div class="org-env-content"><p>Define</p></p>
+<h1 id="-dvw">$$ d(v,w)</h1>
+<p>|v-w|. $$</p>
+<p>Then</p>
+<p><span
+class="math display"><em>d</em> : <em>V</em> × <em>V</em> → ℝ<sub> ≥ 0</sub></span></p>
+<p>is called the metric induced by the inner product.</p></div></org-env-block>
+
+<p>This metric satisfies:</p>
+<ol type="1">
+<li><p>Non-negativity:</p>
+<p><span
+class="math display"><em>d</em>(<em>v</em>, <em>w</em>) ≥ 0.</span></p></li>
+<li><p>Definiteness:</p>
+<p><span
+class="math display"><em>d</em>(<em>v</em>, <em>w</em>) = 0 ⇔ <em>v</em> = <em>w</em>.</span></p></li>
+<li><p>Symmetry:</p>
+<h1 id="-dvw">$$ d(v,w)</h1>
+<p>d(w,v). $$</p></li>
+<li><p>Triangle inequality:</p>
+<p><span
+class="math display"><em>d</em>(<em>u</em>, <em>w</em>) ≤ <em>d</em>(<em>u</em>, <em>v</em>) + <em>d</em>(<em>v</em>, <em>w</em>).</span></p></li>
+</ol>
+<p>Thus every inner product space is naturally a metric space.</p>
+<h1 id="convergence-极限与收敛">Convergence 极限与收敛</h1>
+<p>Once a distance function is available, we can define convergence.</p>
+<p><org-env-block data-kind="define" data-title="Let $(V,d)$ be the metric space induced by an inner product space." data-label="Define"><span class="org-env-heading"><span class="org-env-heading-label">Define</span><span class="org-env-heading-title" data-empty="false">Let
+<span class="math inline">(<em>V</em>, <em>d</em>)</span> be the metric
+space induced by an inner product
+space.</span></span><div class="org-env-content"><p>A sequence <span
+class="math inline">(<em>v</em><sub><em>n</em></sub>)<sub><em>n</em> ∈ ℕ</sub></span>
+converges to <span class="math inline"><em>v</em> ∈ <em>V</em></span>
+if</p></p>
+<p><span
+class="math display">lim<sub><em>n</em> → ∞</sub><em>d</em>(<em>v</em><sub><em>n</em></sub>, <em>v</em>) = 0.</span></p>
+<p>Equivalently,</p>
+<p><span
+class="math display">lim<sub><em>n</em> → ∞</sub>∥<em>v</em><sub><em>n</em></sub> − <em>v</em>∥ = 0.</span></p>
+<p>We write</p>
+<p><span
+class="math display"><em>v</em><sub><em>n</em></sub> → <em>v</em>.</span></p></div></org-env-block>
+
+<p>So in an inner product space,</p>
+<p><span
+class="math display"><em>v</em><sub><em>n</em></sub> → <em>v</em></span></p>
+<p>means that the distance between <span
+class="math inline"><em>v</em><sub><em>n</em></sub></span> and <span
+class="math inline"><em>v</em></span> goes to zero.</p>
+<p>中文直觉：收敛就是“越来越靠近”，而“靠近”由内积诱导出的距离来衡量。</p>
+<h1 id="cauchy-sequences-柯西列">Cauchy Sequences 柯西列</h1>
+<p>To define completeness, we first need Cauchy sequences.</p>
+<p><org-env-block data-kind="define" data-title="Let $(V,d)$ be the metric space induced by an inner product space." data-label="Define"><span class="org-env-heading"><span class="org-env-heading-label">Define</span><span class="org-env-heading-title" data-empty="false">Let
+<span class="math inline">(<em>V</em>, <em>d</em>)</span> be the metric
+space induced by an inner product
+space.</span></span><div class="org-env-content"><p>A sequence <span
+class="math inline">(<em>v</em><sub><em>n</em></sub>)<sub><em>n</em> ∈ ℕ</sub></span>
+is called a Cauchy sequence if for every <span
+class="math inline"><em>ε</em> &gt; 0</span>, there exists <span
+class="math inline"><em>N</em> ∈ ℕ</span> such that for all <span
+class="math inline"><em>m</em>, <em>n</em> ≥ <em>N</em></span>,</p></p>
+<p><span
+class="math display"><em>d</em>(<em>v</em><sub><em>m</em></sub>, <em>v</em><sub><em>n</em></sub>) &lt; <em>ε</em>.</span></p>
+<p>Equivalently,</p>
+<p><span
+class="math display">∥<em>v</em><sub><em>m</em></sub> − <em>v</em><sub><em>n</em></sub>∥ &lt; <em>ε</em>.</span></p></div></org-env-block>
+
+<p>Intuitively, a Cauchy sequence is a sequence whose terms eventually
+become arbitrarily close to each other.</p>
+<p>注意：Cauchy
+条件只要求序列内部越来越接近，不直接指定它要收敛到哪个点。</p>
+<h1 id="completeness-完备性">Completeness 完备性</h1>
+<p><org-env-block data-kind="define" data-title="An inner product space $V$ is complete if every Cauchy sequence in $V$ converges to an element of $V$." data-label="Define"><span class="org-env-heading"><span class="org-env-heading-label">Define</span><span class="org-env-heading-title" data-empty="false">An
+inner product space <span class="math inline"><em>V</em></span> is
+complete if every Cauchy sequence in <span
+class="math inline"><em>V</em></span> converges to an element of <span
+class="math inline"><em>V</em></span>.</span></span><div class="org-env-content"></div></org-env-block></p>
+<p>In symbols, <span class="math inline"><em>V</em></span> is complete
+if</p>
+<p><span class="math display">(<em>v</em><sub><em>n</em></sub>) is
+Cauchy ⇒ ∃<em>v</em> ∈ <em>V</em> such that
+<em>v</em><sub><em>n</em></sub> → <em>v</em>.</span></p>
+<p>A complete inner product space is called a Hilbert space.</p>
+<p><org-env-block data-kind="define" data-title="A Hilbert space is a complete inner product space." data-label="Define"><span class="org-env-heading"><span class="org-env-heading-label">Define</span><span class="org-env-heading-title" data-empty="false">A
+Hilbert space is a complete inner product
+space.</span></span><div class="org-env-content"></div></org-env-block></p>
+<p>Thus the hierarchy is:</p>
+<p><span class="math display">inner product space ⇒ normed vector
+space ⇒ metric space.</span></p>
+<p>If the induced metric is complete, then we get:</p>
+<h1 id="-textcomplete-inner-product-space">$$ \text{complete inner
+product space}</h1>
+<p>\text{Hilbert space}. $$</p>
+<h1
+id="mathematical-vs-physical-convention-数学与物理约定的区别">Mathematical
+vs Physical Convention 数学与物理约定的区别</h1>
+<p>There are two common conventions for complex inner products.</p>
+<h2 id="mathematical-convention-数学约定">Mathematical Convention
+数学约定</h2>
+<p>In mathematics, especially in linear algebra and functional analysis,
+the inner product is usually taken to be linear in the first
+variable:</p>
+<h1 id="-langle-lambda-vw-rangle">$$ \langle \lambda v,w \rangle</h1>
+<p>\lambda \langle v,w \rangle, $$</p>
+<p>and conjugate-linear in the second variable:</p>
+<h1 id="-langle-vlambda-w-rangle">$$ \langle v,\lambda w \rangle</h1>
+<p>\overline{\lambda}\langle v,w \rangle. $$</p>
+<h2 id="physical-convention-物理约定">Physical Convention 物理约定</h2>
+<p>In physics, especially in Dirac notation, the inner product is
+usually taken to be linear in the second variable:</p>
+<h1 id="-langle-vlambda-w-rangle-1">$$ \langle v,\lambda w \rangle</h1>
+<p>\lambda \langle v,w \rangle, $$</p>
+<p>and conjugate-linear in the first variable:</p>
+<h1 id="-langle-lambda-vw-rangle-1">$$ \langle \lambda v,w \rangle</h1>
+<p>\overline{\lambda}\langle v,w \rangle. $$</p>
+<p>This convention is natural for expressions like</p>
+<p><span class="math display">⟨<em>ψ</em> ∣ <em>ϕ</em>⟩.</span></p>
+<p>Here the ket <span class="math inline">|<em>ϕ</em>⟩</span> is treated
+as the vector input, so linearity is placed on the ket side.</p>
+<p><org-env-block data-kind="important" data-title="The two conventions are mathematically equivalent, but one must be consistent." data-label="Important"><span class="org-env-heading"><span class="org-env-heading-label">Important</span><span class="org-env-heading-title" data-empty="false">The
+two conventions are mathematically equivalent, but one must be
+consistent.</span></span><div class="org-env-content"><p>真正重要的不是哪一个变量线性，而是整篇文章中必须保持同一个约定。</p></div></org-env-block></p>
+<h1 id="conceptual-chain-概念链条">Conceptual Chain 概念链条</h1>
+<p>The whole structure can be summarised as follows.</p>
+<ol type="1">
+<li><p>Start with a vector space:</p>
+<p><span class="math display"><em>V</em>.</span></p></li>
+<li><p>Add an inner product:</p>
+<p><span class="math display">⟨<em>v</em>, <em>w</em>⟩.</span></p></li>
+<li><p>The inner product gives squared length:</p>
+<h1 id="-v2-1">$$ |v|^2</h1>
+<p>\langle v,v \rangle. $$</p></li>
+<li><p>Squared length gives a norm:</p>
+<h1 id="-v-1">$$ |v|</h1>
+<p>\sqrt{\langle v,v \rangle}. $$</p></li>
+<li><p>The norm gives a distance:</p>
+<h1 id="-dvw-1">$$ d(v,w)</h1>
+<p>|v-w|. $$</p></li>
+<li><p>The distance gives a notion of convergence:</p>
+<p><span
+class="math display"><em>v</em><sub><em>n</em></sub> → <em>v</em> ⇔ <em>d</em>(<em>v</em><sub><em>n</em></sub>, <em>v</em>) → 0.</span></p></li>
+<li><p>The distance also gives a notion of Cauchy sequence:</p>
+<p><span class="math display">(<em>v</em><sub><em>n</em></sub>) is
+Cauchy ⇔ ∀<em>ε</em> &gt; 0, ∃<em>N</em>, ∀<em>m</em>, <em>n</em> ≥ <em>N</em>, <em>d</em>(<em>v</em><sub><em>m</em></sub>, <em>v</em><sub><em>n</em></sub>) &lt; <em>ε</em>.</span></p></li>
+<li><p>Completeness means every Cauchy sequence converges inside the
+space:</p>
+<p><span class="math display">(<em>v</em><sub><em>n</em></sub>) is
+Cauchy ⇒ ∃<em>v</em> ∈ <em>V</em>, <em>v</em><sub><em>n</em></sub> → <em>v</em>.</span></p></li>
+<li><p>A complete inner product space is a Hilbert space:</p>
+<h1 id="-texthilbert-space">$$ \text{Hilbert space}</h1>
+<p>\text{complete inner product space}. $$</p></li>
+</ol>
+<p><org-env-block data-kind="summary" data-title="An inner product space is not just a vector space with an extra operation. The inner product generates the whole analytic structure:" data-label="Summary"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="false">An
+inner product space is not just a vector space with an extra operation.
+The inner product generates the whole analytic
+structure:</span></span><div class="org-env-content"><p><span
+class="math display">⟨⋅, ⋅⟩ ⇒ ∥⋅∥ ⇒ <em>d</em> ⇒ convergence ⇒ completeness.</span></p></p>
+<p>This is why inner product spaces are central in linear algebra,
+functional analysis, and quantum computing.</p></div></org-env-block>
           </article>
         </div>
       </div>

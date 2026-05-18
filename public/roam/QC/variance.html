@@ -27,49 +27,288 @@
         <div class="typora-web-editor-host">
           <article id="content" class="ProseMirror" data-note-title="Variance">
             <h1 class="title">Variance</h1>
-            <h1 id="方差-variance">方差 (Variance)</h1>
-<p><org-env-block data-kind="definition" data-title="$ \[ Delta  (M)\]^(2)" data-label="Definition"><span class="org-env-heading"><span class="org-env-heading-label">Definition</span><span class="org-env-heading-title" data-empty="false">$
-[ Delta (M)]^(2)</span></span><div class="org-env-content"><p>&amp;=
-angle.l (M - lr(angle.l M angle.r) )^2 angle.r &lt;/p&gt;</p>
-<p>&amp;= lr(angle.l M^(2) angle.r) - lr(angle.l M angle.r) ^(2) $</p></div></org-env-block>
+            <h1 id="variance-方差">Variance 方差</h1>
+<p><org-env-block data-kind="summary" data-title="In quantum measurement, the variance of an observable $M$ measures how spread out the measurement outcomes are around their expectation value." data-label="Summary"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="false">In
+quantum measurement, the variance of an observable <span
+class="math inline"><em>M</em></span> measures how spread out the
+measurement outcomes are around their expectation
+value.</span></span><div class="org-env-content"><p>For an observable
+<span class="math inline"><em>M</em></span> and a state
+<span class="math inline">|<em>ψ</em>⟩</span>, the variance is</p></p>
+<h1 id="-delta-m2">$$ (\Delta M)^2</h1>
+<p>\langle (M-\langle M\rangle)^2\rangle. $$</p>
+<p>Equivalently,</p>
+<h1 id="-delta-m2-1">$$ (\Delta M)^2</h1>
+<h2 id="langle-m2rangle">\langle M^2\rangle</h2>
+<p>\langle M\rangle^2. $$</p>
+<p>The standard deviation is</p>
+<h1 id="-delta-m">$$ \Delta M</h1>
+<p>\sqrt{\langle M^2\rangle-\langle M\rangle^2}. $$</p></div></org-env-block>
 
-<p><org-env-block data-kind="proof" data-title="设方差 (Variance) 的定义为：" data-label="Proof"><span class="org-env-heading"><span class="org-env-heading-label">Proof</span><span class="org-env-heading-title" data-empty="false">设方差
-(Variance) 的定义为：</span></span><div class="org-env-content"><p>$
-"Var" = sum _i p_i (m_i - lr(angle.l M angle.r) )^2 $</p></p>
-<pre><code>展开括号内的平方项：
-$$     &amp;=  sum _i p_i (m_i^2 - 2m_i lr(angle.l M angle.r)  +  lr(angle.l M angle.r) ^2)  \
+<h1 id="1-setup-测量设定">1. Setup 测量设定</h1>
+<p>Let <span class="math inline"><em>M</em></span> be an observable, so
+<span class="math inline"><em>M</em></span> is a Hermitian operator.</p>
+<p>Assume first that <span class="math inline"><em>M</em></span> has a
+discrete non-degenerate spectral decomposition</p>
+<h1 id="-m">$$ M</h1>
+<p>\sum_i m_i |m_i\rangle\langle m_i|, $$</p>
+<p>where</p>
+<h1 id="-mm_irangle">$$ M|m_i\rangle</h1>
+<p>m_i |m_i\rangle. $$</p>
+<p>Let the system be in a normalized state</p>
+<p><span class="math display">|<em>ψ</em>⟩.</span></p>
+<p>The probability of measuring the outcome <span
+class="math inline"><em>m</em><sub><em>i</em></sub></span> is</p>
+<h1 id="-p_i">$$ p_i</h1>
+<p>|\langle m_i|\psi\rangle|^2. $$</p>
+<p>The expectation value of <span class="math inline"><em>M</em></span>
+is</p>
+<h1 id="-langle-mrangle">$$ \langle M\rangle</h1>
+<p>\sum_i p_i m_i. $$</p>
+<p>Equivalently,</p>
+<h1 id="-langle-mrangle-1">$$ \langle M\rangle</h1>
+<p>\langle \psi|M|\psi\rangle. $$</p>
+<h1 id="2-definition-of-variance-方差的定义">2. Definition of Variance
+方差的定义</h1>
+<p><org-env-block data-kind="define" data-title="The variance of the observable $M$ in the state $|\psi\rangle$ is" data-label="Define"><span class="org-env-heading"><span class="org-env-heading-label">Define</span><span class="org-env-heading-title" data-empty="false">The
+variance of the observable <span class="math inline"><em>M</em></span>
+in the state <span class="math inline">|<em>ψ</em>⟩</span>
+is</span></span><div class="org-env-content"><h1 id="-delta-m2">$$
+(\Delta M)^2</h1></p>
+<p>\langle (M-\langle M\rangle I)^2\rangle. $$</p>
+<p>Since <span class="math inline">⟨<em>M</em>⟩</span> is a scalar, we
+often write this more simply as</p>
+<h1 id="-delta-m2-1">$$ (\Delta M)^2</h1>
+<p>\langle (M-\langle M\rangle)^2\rangle. $$</p></div></org-env-block>
 
-&amp;=  sum _i p_i m_i^2 - 2 lr(angle.l M angle.r)   sum _i p_i m_i +  lr(angle.l M angle.r) ^2  sum _i p_i
- $$</code></pre>
+<p>In terms of measurement outcomes, this is exactly the classical
+variance:</p>
+<h1 id="-delta-m2">$$ (\Delta M)^2</h1>
+<p>\sum_i p_i (m_i-\langle M\rangle)^2. $$</p>
+<p>Here:</p>
+<ul>
+<li><span class="math inline"><em>m</em><sub><em>i</em></sub></span> is
+a possible measurement outcome;</li>
+<li><span class="math inline"><em>p</em><sub><em>i</em></sub></span> is
+the probability of obtaining <span
+class="math inline"><em>m</em><sub><em>i</em></sub></span>;</li>
+<li><span class="math inline">⟨<em>M</em>⟩</span> is the average
+measurement outcome.</li>
+</ul>
+<h1 id="3-main-formula-主公式">3. Main Formula 主公式</h1>
+<p><org-env-block data-kind="theorem" data-title="For any observable $M$ and normalized state $|\psi\rangle$," data-label="Theorem"><span class="org-env-heading"><span class="org-env-heading-label">Theorem</span><span class="org-env-heading-title" data-empty="false">For
+any observable <span class="math inline"><em>M</em></span> and
+normalized state <span
+class="math inline">|<em>ψ</em>⟩</span>,</span></span><div class="org-env-content"><h1 id="-delta-m2">$$
+(\Delta M)^2</h1></p>
+<h2 id="langle-m2rangle">\langle M^2\rangle</h2>
+<p>\langle M\rangle^2. $$</p></div></org-env-block>
 
-<p><org-env-block data-kind="attention" data-title="其中利用以下统计性质：" data-label="Attention"><span class="org-env-heading"><span class="org-env-heading-label">Attention</span><span class="org-env-heading-title" data-empty="false">其中利用以下统计性质：</span></span><div class="org-env-content"><pre><code>1.
-$ sum _i p_i m_i = lr(angle.l M angle.r) $ (期望值的定义) 2. $ sum _i
-p_i = 1$ (概率归一化条件)
-代入上式进行化简：</code></pre></div></org-env-block></p>
-<pre><code>$     &amp;= (  sum _i p_i m_i^2 ) - 2 lr(angle.l M angle.r)   dot.op   lr(angle.l M angle.r)  +  lr(angle.l M angle.r) ^2  dot.op  1  \
+<p><org-env-block data-kind="proof" data-title="Start from the classical variance formula for measurement outcomes:" data-label="Proof"><span class="org-env-heading"><span class="org-env-heading-label">Proof</span><span class="org-env-heading-title" data-empty="false">Start
+from the classical variance formula for measurement
+outcomes:</span></span><div class="org-env-content"><h1 id="-delta-m2">$$
+(\Delta M)^2</h1></p>
+<p>\sum_i p_i (m_i-\langle M\rangle)^2. $$</p>
+<p>Expand the square:</p>
+<h1 id="-delta-m2-1">$$ (\Delta M)^2</h1>
+<h2 id="sum_i-p_i-left-m_i2">\sum_i p_i \left( m_i^2</h2>
+<p>2m_i\langle M\rangle + \langle M\rangle^2 \right). $$</p>
+<p>Distribute the sum:</p>
+<h1 id="-delta-m2-2">$$ (\Delta M)^2</h1>
+<h2 id="sum_i-p_i-m_i2">\sum_i p_i m_i^2</h2>
+<p>2\langle M\rangle \sum_i p_i m_i + \langle M\rangle^2 \sum_i p_i.
+$$</p>
+<p>Now use the two basic facts:</p>
+<h1 id="-sum_i-p_i-m_i">$$ \sum_i p_i m_i</h1>
+<p>\langle M\rangle, $$</p>
+<p>and</p>
+<h1 id="-sum_i-p_i">$$ \sum_i p_i</h1>
+<ol type="1">
+<li></li>
+</ol>
+<p>$$</p>
+<p>Substituting gives</p>
+<h1 id="-delta-m2-3">$$ (\Delta M)^2</h1>
+<h2 id="sum_i-p_i-m_i2-1">\sum_i p_i m_i^2</h2>
+<p>2\langle M\rangle^2 + \langle M\rangle^2. $$</p>
+<p>Therefore,</p>
+<h1 id="-delta-m2-4">$$ (\Delta M)^2</h1>
+<h2 id="sum_i-p_i-m_i2-2">\sum_i p_i m_i^2</h2>
+<p>\langle M\rangle^2. $$</p>
+<p>It remains to identify the first term as <span
+class="math inline">⟨<em>M</em><sup>2</sup>⟩</span>.</p>
+<p>Since</p>
+<h1 id="-mm_irangle">$$ M|m_i\rangle</h1>
+<p>m_i |m_i\rangle, $$</p>
+<p>we have</p>
+<h1 id="-m2m_irangle">$$ M^2|m_i\rangle</h1>
+<h1 id="mmm_irangle">M(M|m_i\rangle)</h1>
+<h1 id="mm_im_irangle">M(m_i|m_i\rangle)</h1>
+<h1 id="m_i-mm_irangle">m_i M|m_i\rangle</h1>
+<p>m_i^2 |m_i\rangle. $$</p>
+<p>Thus <span
+class="math inline">|<em>m</em><sub><em>i</em></sub>⟩</span> is also an
+eigenvector of <span class="math inline"><em>M</em><sup>2</sup></span>,
+with eigenvalue <span
+class="math inline"><em>m</em><sub><em>i</em></sub><sup>2</sup></span>.</p>
+<p>The probability of obtaining the eigenstate component <span
+class="math inline">|<em>m</em><sub><em>i</em></sub>⟩</span> is
+still</p>
+<h1 id="-p_i">$$ p_i</h1>
+<p>|\langle m_i|\psi\rangle|^2, $$</p>
+<p>because squaring the operator changes the eigenvalues from <span
+class="math inline"><em>m</em><sub><em>i</em></sub></span> to <span
+class="math inline"><em>m</em><sub><em>i</em></sub><sup>2</sup></span>,
+but does not change the eigenvectors.</p>
+<p>Hence</p>
+<h1 id="-langle-m2rangle">$$ \langle M^2\rangle</h1>
+<p>\sum_i p_i m_i^2. $$</p>
+<p>Therefore,</p>
+<h1 id="-delta-m2-5">$$ (\Delta M)^2</h1>
+<h2 id="langle-m2rangle">\langle M^2\rangle</h2>
+<p>\langle M\rangle^2. $$</p>
+<p>This proves the formula.</p></div></org-env-block>
 
-<p>&amp;= ( sum _i p_i m_i^2 ) - 2 lr(angle.l M angle.r) ^2 + lr(angle.l
-M angle.r) ^2 \</p>
-<p>&amp;= ( sum _i p_i m_i^2 ) - lr(angle.l M angle.r) ^2 $</p>
-<p>对于算符 <span
-class="math inline"><em>M</em><sup>2</sup></span>，其期望值写作：</code></pre></p>
-<p>$ lr(angle.l M^2 angle.r) = lr(angle.l psi | M^2 | psi angle.r) =
-lr(angle.l psi | M dot.op M | psi angle.r) $</p>
-<pre><code>考察算符 $M$ 的本征方程 $M lr(|m_i angle.r)  = m_i lr(|m_i angle.r) $，则 $M^2$ 的作用如下：</code></pre>
-<p>$ M dot.op M =&gt; m_i' = m_i^2 $ 即 <span
-class="math inline"><em>M</em><sup>2</sup></span> 的本征值为 <span
-class="math inline"><em>m</em><sub><em>i</em></sub><sup>2</sup></span>。</p>
-<pre><code>此时对应的概率 $p_i&#39;$ 为：</code></pre>
-<p>$ p_i' = | lr(angle.l m_i' | psi angle.r) |^2 $</p>
-<pre><code>但在笔记中特别强调了一个核心性质（红色标注部分）：
+<h1 id="4-operator-derivation-算符推导">4. Operator Derivation
+算符推导</h1>
+<p>There is also a shorter operator-level derivation.</p>
+<p><org-env-block data-kind="proof" data-title="By definition," data-label="Proof"><span class="org-env-heading"><span class="org-env-heading-label">Proof</span><span class="org-env-heading-title" data-empty="false">By
+definition,</span></span><div class="org-env-content"><h1 id="-delta-m2">$$
+(\Delta M)^2</h1></p>
+<p>\langle (M-\langle M\rangle I)^2\rangle. $$</p>
+<p>Expand the operator square:</p>
+<h1 id="-m-langle-mrangle-i2">$$ (M-\langle M\rangle I)^2</h1>
+<h2 id="m2">M^2</h2>
+<p>2\langle M\rangle M + \langle M\rangle^2 I. $$</p>
+<p>Taking expectation values gives</p>
+<h1 id="-delta-m2-1">$$ (\Delta M)^2</h1>
+<h2 id="langle-m2rangle">\langle M^2\rangle</h2>
+<p>2\langle M\rangle \langle M\rangle + \langle M\rangle^2 \langle
+I\rangle. $$</p>
+<p>Since the state is normalized,</p>
+<h1 id="-langle-irangle">$$ \langle I\rangle</h1>
+<h1 id="langle-psiipsirangle">\langle \psi|I|\psi\rangle</h1>
+<h1 id="langle-psipsirangle">\langle \psi|\psi\rangle</h1>
+<ol type="1">
+<li></li>
+</ol>
+<p>$$</p>
+<p>Therefore,</p>
+<h1 id="-delta-m2-2">$$ (\Delta M)^2</h1>
+<h2 id="langle-m2rangle-1">\langle M^2\rangle</h2>
+<p>2\langle M\rangle^2 + \langle M\rangle^2. $$</p>
+<p>Hence</p>
+<h1 id="-delta-m2-3">$$ (\Delta M)^2</h1>
+<h2 id="langle-m2rangle-2">\langle M^2\rangle</h2>
+<p>\langle M\rangle^2. $$</p></div></org-env-block>
 
-<p>这意味着算符平方后，本征态没有改变，因此概率分布保持一致：</code></pre></p>
-<p>$ p_i' = | lr(angle.l m_i | psi angle.r) |^2 = p_i $</p>
-<pre><code>因此，$M^2$ 的期望值就是 $m_i^2$ 的加权和：</code></pre>
-<p>$ lr(angle.l M^2 angle.r) = sum m_i^2 p_i = sum p_i m_i^2 $</p>
-<pre><code>结合第 1 部分的展开结果与第 2 部分的算符期望定义，得证：</code></pre>
-<p>$ therefore "Var" = lr(angle.l M^2 angle.r) - lr(angle.l M angle.r)
-^2 $ ■</p></div></org-env-block>
+<h1 id="5-degenerate-spectrum-简并谱情形">5. Degenerate Spectrum
+简并谱情形</h1>
+<p>If <span class="math inline"><em>M</em></span> has degenerate
+eigenvalues, then we should use spectral projections.</p>
+<p>Let</p>
+<h1 id="-m-1">$$ M</h1>
+<p>\sum_m m P_m, $$</p>
+<p>where <span
+class="math inline"><em>P</em><sub><em>m</em></sub></span> is the
+orthogonal projection onto the eigenspace with eigenvalue <span
+class="math inline"><em>m</em></span>.</p>
+<p>Then the probability of obtaining outcome <span
+class="math inline"><em>m</em></span> is</p>
+<h1 id="-pm">$$ p(m)</h1>
+<p>\langle \psi|P_m|\psi\rangle. $$</p>
+<p>The expectation value is</p>
+<h1 id="-langle-mrangle-2">$$ \langle M\rangle</h1>
+<p>\sum_m m,p(m). $$</p>
+<p>The second moment is</p>
+<h1 id="-langle-m2rangle">$$ \langle M^2\rangle</h1>
+<p>\sum_m m^2 p(m). $$</p>
+<p>Hence the same variance formula holds:</p>
+<h1 id="-delta-m2-1">$$ (\Delta M)^2</h1>
+<h2 id="langle-m2rangle">\langle M^2\rangle</h2>
+<p>\langle M\rangle^2. $$</p>
+<h1 id="6-density-operator-form-密度算符形式">6. Density Operator Form
+密度算符形式</h1>
+<p>If the quantum state is represented by a density operator <span
+class="math inline"><em>ρ</em></span>, then</p>
+<h1 id="-langle-mrangle-3">$$ \langle M\rangle</h1>
+<p>\operatorname{tr}(\rho M), $$</p>
+<p>and</p>
+<h1 id="-langle-m2rangle-1">$$ \langle M^2\rangle</h1>
+<p>\operatorname{tr}(\rho M^2). $$</p>
+<p>Therefore,</p>
+<h1 id="-delta-m2-2">$$ (\Delta M)^2</h1>
+<h2 id="operatornametrrho-m2">\operatorname{tr}(\rho M^2)</h2>
+<p>\operatorname{tr}(\rho M)^2. $$</p>
+<p>Equivalently,</p>
+<h1 id="-delta-m2-3">$$ (\Delta M)^2</h1>
+<p>\operatorname{tr}\left(\rho (M-\langle M\rangle I)^2\right). $$</p>
+<h1 id="7-interpretation-物理解释">7. Interpretation 物理解释</h1>
+<p>The variance measures how uncertain the measurement outcomes of <span
+class="math inline"><em>M</em></span> are in the state <span
+class="math inline">|<em>ψ</em>⟩</span>.</p>
+<p>If</p>
+<p><span
+class="math display">(<em>Δ</em><em>M</em>)<sup>2</sup> = 0,</span></p>
+<p>then the measurement of <span class="math inline"><em>M</em></span>
+is deterministic in that state.</p>
+<p>For a pure state, this happens exactly when <span
+class="math inline">|<em>ψ</em>⟩</span> lies in an eigenspace of <span
+class="math inline"><em>M</em></span>.</p>
+<p>If</p>
+<p><span
+class="math display">(<em>Δ</em><em>M</em>)<sup>2</sup> &gt; 0,</span></p>
+<p>then repeated measurements of <span
+class="math inline"><em>M</em></span> on identically prepared systems
+can give different outcomes.</p>
+<p>中文直觉：</p>
+<p><span class="math display"><em>Δ</em><em>M</em></span></p>
+<p>measures the typical size of fluctuation around the mean value</p>
+<p><span class="math display">⟨<em>M</em>⟩.</span></p>
+<h1 id="8-important-special-case-eigenstates-本征态情形">8. Important
+Special Case: Eigenstates 本征态情形</h1>
+<p>Suppose</p>
+<h1 id="-mpsirangle">$$ M|\psi\rangle</h1>
+<p>m|\psi\rangle. $$</p>
+<p>Then measuring <span class="math inline"><em>M</em></span> always
+gives the value <span class="math inline"><em>m</em></span>.</p>
+<p>Indeed,</p>
+<h1 id="-langle-mrangle-4">$$ \langle M\rangle</h1>
+<h1 id="langle-psimpsirangle">\langle \psi|M|\psi\rangle</h1>
+<p>m, $$</p>
+<p>and</p>
+<h1 id="-langle-m2rangle-2">$$ \langle M^2\rangle</h1>
+<h1 id="langle-psim2psirangle">\langle \psi|M^2|\psi\rangle</h1>
+<p>m^2. $$</p>
+<p>Therefore,</p>
+<h1 id="-delta-m2-4">$$ (\Delta M)^2</h1>
+<h1 id="m2-m2">m^2-m^2</h1>
+<ol start="0" type="1">
+<li></li>
+</ol>
+<p>$$</p>
+<p>So eigenstates have zero variance for their corresponding
+observable.</p>
+<h1 id="9-conceptual-summary-概念总结">9. Conceptual Summary
+概念总结</h1>
+<p><org-env-block data-kind="summary" data-title="Variance in quantum mechanics is the variance of measurement outcomes." data-label="Summary"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="false">Variance
+in quantum mechanics is the variance of measurement
+outcomes.</span></span><div class="org-env-content"><p>Starting from the
+classical statistical formula,</p></p>
+<h1 id="-delta-m2">$$ (\Delta M)^2</h1>
+<p>\sum_i p_i(m_i-\langle M\rangle)^2, $$</p>
+<p>we obtain the compact operator formula</p>
+<h1 id="-delta-m2-1">$$ (\Delta M)^2</h1>
+<h2 id="langle-m2rangle">\langle M^2\rangle</h2>
+<p>\langle M\rangle^2. $$</p>
+<p>For a pure state,</p>
+<h1 id="-langle-mrangle">$$ \langle M\rangle</h1>
+<p>\langle \psi|M|\psi\rangle. $$</p>
+<p>For a density operator,</p>
+<h1 id="-langle-mrangle-1">$$ \langle M\rangle</h1>
+<p>\operatorname{tr}(\rho M). $$</p>
+<p>Thus variance measures the statistical spread of possible measurement
+outcomes around their expectation value.</p></div></org-env-block>
           </article>
         </div>
       </div>

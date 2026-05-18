@@ -483,6 +483,22 @@ function orgEnvRangeAt($pos: ResolvedPos): { pos: number; node: PMNode } | null 
   return { pos: $pos.before(depth), node: $pos.node(depth) };
 }
 
+function orgEnvRangeNearSelection(state: EditorState): { pos: number; node: PMNode } | null {
+  const orgEnvType = state.schema.nodes.org_env_block;
+  if (!orgEnvType) return null;
+  const sel = state.selection;
+  const inside = orgEnvRangeAt(sel.$from) ?? orgEnvRangeAt(sel.$to);
+  if (inside) return inside;
+
+  const before = sel.$from.nodeBefore;
+  if (before?.type === orgEnvType) return { pos: sel.from - before.nodeSize, node: before };
+
+  const after = sel.$from.nodeAfter;
+  if (after?.type === orgEnvType) return { pos: sel.from, node: after };
+
+  return null;
+}
+
 const orgEnvRule: RuleBlock = (state, startLine, endLine, silent) => {
   if (state.tShift[startLine]! > 3) return false;
   const start = state.bMarks[startLine]! + state.tShift[startLine]!;
@@ -614,7 +630,17 @@ export const orgEnv: FeatureSpec = {
       const $from = sel.$from;
       const orgEnvType = schema.nodes.org_env_block;
       const depth = orgEnvDepth($from, orgEnvType);
-      if (depth < 0) return false;
+      if (depth < 0) {
+        const nearby = orgEnvRangeNearSelection(state);
+        if (!nearby) return false;
+        if (dispatch) {
+          const insertAt = nearby.pos + nearby.node.nodeSize;
+          const tr = state.tr.insert(insertAt, schema.nodes.paragraph.create());
+          tr.setSelection(TextSelection.create(tr.doc, insertAt + 1));
+          dispatch(tr.scrollIntoView());
+        }
+        return true;
+      }
 
       if (dispatch) {
         const node = $from.node(depth);

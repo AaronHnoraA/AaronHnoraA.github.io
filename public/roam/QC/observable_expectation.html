@@ -27,50 +27,337 @@
         <div class="typora-web-editor-host">
           <article id="content" class="ProseMirror" data-note-title="Observable &amp; Expectation">
             <h1 class="title">Observable &amp; Expectation</h1>
-            <h1 id="1-可观测量为什么是厄米算符hermitian-matrix">1.
-可观测量为什么是厄米算符(<a href="../math/hermitian_matrix.html">Hermitian
-Matrix</a>)</h1>
-<p>在量子力学中：</p>
+            <h1 id="observable--expectation-可观测量与期望值">Observable &amp;
+Expectation 可观测量与期望值</h1>
+<p><org-env-block data-kind="summary" data-title="In quantum mechanics, an observable is represented by a Hermitian operator on a Hilbert space." data-label="Summary"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="false">In
+quantum mechanics, an observable is represented by a Hermitian operator
+on a Hilbert space.</span></span><div class="org-env-content"><p>The key
+chain is:</p></p>
+<p><span class="math display">observable ⇒ Hermitian operator ⇒ spectral
+decomposition ⇒ measurement outcomes ⇒ Born probabilities ⇒ expectation
+value.</span></p>
+<p>For a pure state <span class="math inline">|<em>ψ</em>⟩</span> and an
+observable <span class="math inline"><em>Â</em></span>, the expectation
+value is</p>
+<h1 id="-langle-arangle">$$ \langle A\rangle</h1>
+<p>\langle \psi|\hat{A}|\psi\rangle. $$</p>
+<p>For a density operator <span class="math inline"><em>ρ</em></span>,
+the expectation value is</p>
+<h1 id="-langle-arangle-1">$$ \langle A\rangle</h1>
+<p>\operatorname{tr}(\rho \hat{A}). $$</p></div></org-env-block>
+
+<h1
+id="1-why-observables-are-hermitian-operators-为什么可观测量是厄米算符">1.
+Why Observables Are Hermitian Operators 为什么可观测量是厄米算符</h1>
+<p>In quantum mechanics, every physical observable <span
+class="math inline"><em>A</em></span> is represented by a Hermitian
+operator</p>
+<p><span class="math display"><em>Â</em></span></p>
+<p>acting on a Hilbert space <span
+class="math inline"><em>H</em></span>.</p>
+<p>That is,</p>
+<p><span
+class="math display"><em>Â</em><sup>†</sup> = <em>Â</em>.</span></p>
+<p>There are two main reasons.</p>
+<h2 id="11-measurement-outcomes-must-be-real-测量结果必须是实数">1.1
+Measurement outcomes must be real 测量结果必须是实数</h2>
+<p>Experimental measurement outcomes are real numbers.</p>
+<p>Hermitian operators have real eigenvalues. If</p>
+<h1 id="-hataa_nrangle">$$ \hat{A}|a_n\rangle</h1>
+<p>a_n |a_n\rangle, $$</p>
+<p>then</p>
+<p><span
+class="math display"><em>a</em><sub><em>n</em></sub> ∈ ℝ.</span></p>
+<p>Thus the eigenvalues of <span class="math inline"><em>Â</em></span>
+can consistently represent possible measurement outcomes.</p>
+<h2
+id="12-hermitian-operators-admit-orthogonal-spectral-decompositions-厄米算符允许正交谱分解">1.2
+Hermitian operators admit orthogonal spectral decompositions
+厄米算符允许正交谱分解</h2>
+<p>By the spectral theorem, a Hermitian operator has an orthonormal
+eigenbasis in the finite-dimensional case.</p>
+<p>So we can write</p>
+<h1 id="-hata">$$ \hat{A}</h1>
+<p>\sum_n a_n |a_n\rangle\langle a_n|, $$</p>
+<p>where</p>
+<p><span
+class="math display"><em>Â</em>|<em>a</em><sub><em>n</em></sub>⟩ = <em>a</em><sub><em>n</em></sub>|<em>a</em><sub><em>n</em></sub>⟩,</span></p>
+<p>and</p>
+<p><span
+class="math display">⟨<em>a</em><sub><em>m</em></sub>|<em>a</em><sub><em>n</em></sub>⟩ = <em>δ</em><sub><em>m</em><em>n</em></sub>.</span></p>
+<p>This orthogonal decomposition is what makes the probability
+interpretation possible.</p>
+<p><org-env-block data-kind="important" data-title="A measurement of the observable $A$ does not directly output the operator $\hat{A}$." data-label="Important"><span class="org-env-heading"><span class="org-env-heading-label">Important</span><span class="org-env-heading-title" data-empty="false">A
+measurement of the observable <span
+class="math inline"><em>A</em></span> does not directly output the
+operator <span
+class="math inline"><em>Â</em></span>.</span></span><div class="org-env-content"><p>It
+outputs one of the eigenvalues of <span
+class="math inline"><em>Â</em></span>.</p></p>
+<p>The operator encodes the full structure of possible outcomes.</p></div></org-env-block>
+
+<h1 id="2-physical-meaning-of-expectation-value-期望值的物理意义">2.
+Physical Meaning of Expectation Value 期望值的物理意义</h1>
+<p>Suppose the system is in a normalized pure state</p>
+<p><span
+class="math display">|<em>ψ</em>⟩ ∈ <em>H</em>,   ⟨<em>ψ</em>|<em>ψ</em>⟩ = 1.</span></p>
+<p>We repeatedly prepare the same state <span
+class="math inline">|<em>ψ</em>⟩</span> and measure the same observable
+<span class="math inline"><em>Â</em></span>.</p>
+<p>Each measurement produces one eigenvalue</p>
+<p><span class="math display"><em>a</em><sub><em>n</em></sub></span></p>
+<p>with probability</p>
+<p><span
+class="math display"><em>p</em><sub><em>n</em></sub>.</span></p>
+<p>The statistical average is</p>
+<h1 id="-langle-arangle">$$ \langle A\rangle</h1>
+<p>\sum_n a_n p_n. $$</p>
+<p>This is the expectation value.</p>
+<p><org-env-block data-kind="note" data-title="The expectation value is not usually the result of a single measurement." data-label="Note"><span class="org-env-heading"><span class="org-env-heading-label">Note</span><span class="org-env-heading-title" data-empty="false">The
+expectation value is not usually the result of a single
+measurement.</span></span><div class="org-env-content"><p>It is the
+average value obtained in the limit of many repeated experiments with
+the same preparation.</p></div></org-env-block></p>
+<h1 id="3-born-rule-and-spectral-expansion-玻恩规则与谱展开">3. Born
+Rule and Spectral Expansion 玻恩规则与谱展开</h1>
+<p>Assume for now that <span class="math inline"><em>Â</em></span> has a
+discrete non-degenerate spectrum with orthonormal eigenbasis</p>
+<p><span
+class="math display">{|<em>a</em><sub><em>n</em></sub>⟩}<sub><em>n</em></sub>.</span></p>
+<p>Then every state <span class="math inline">|<em>ψ</em>⟩</span> can be
+expanded as</p>
+<h1 id="-psirangle">$$ |\psi\rangle</h1>
+<p>\sum_n c_n |a_n\rangle, $$</p>
+<p>where</p>
+<h1 id="-c_n">$$ c_n</h1>
+<p>\langle a_n|\psi\rangle. $$</p>
+<p>Since <span class="math inline">|<em>ψ</em>⟩</span> is
+normalized,</p>
+<p><span
+class="math display">∑<sub><em>n</em></sub>|<em>c</em><sub><em>n</em></sub>|<sup>2</sup> = 1.</span></p>
+<p>The Born rule says that the probability of obtaining outcome <span
+class="math inline"><em>a</em><sub><em>n</em></sub></span> is</p>
+<h1 id="-p_n">$$ p_n</h1>
+<h1 id="langle-a_npsirangle2">|\langle a_n|\psi\rangle|^2</h1>
+<p>|c_n|^2. $$</p>
+<p>Therefore,</p>
+<h1 id="-langle-arangle-1">$$ \langle A\rangle</h1>
+<p>\sum_n a_n |c_n|^2. $$</p>
+<h1 id="4-derivation-of-the-operator-formula-期望值算符公式的推导">4.
+Derivation of the Operator Formula 期望值算符公式的推导</h1>
+<p>Starting from the statistical average,</p>
+<h1 id="-langle-arangle-2">$$ \langle A\rangle</h1>
+<p>\sum_n a_n p_n. $$</p>
+<p>Using Born's rule,</p>
+<h1 id="-p_n-1">$$ p_n</h1>
+<p>|\langle a_n|\psi\rangle|^2. $$</p>
+<p>Therefore,</p>
+<h1 id="-langle-arangle-3">$$ \langle A\rangle</h1>
+<p>\sum_n a_n |\langle a_n|\psi\rangle|^2. $$</p>
+<p>Now,</p>
+<h1 id="-langle-a_npsirangle2">$$ |\langle a_n|\psi\rangle|^2</h1>
+<p>\langle \psi|a_n\rangle\langle a_n|\psi\rangle. $$</p>
+<p>So</p>
+<h1 id="-langle-arangle-4">$$ \langle A\rangle</h1>
+<p>\sum_n a_n \langle \psi|a_n\rangle \langle a_n|\psi\rangle. $$</p>
+<p>Move the scalar expression into bra-ket form:</p>
+<h1 id="-langle-arangle-5">$$ \langle A\rangle</h1>
+<p>\left\langle \psi \middle| \left( \sum_n a_n |a_n\rangle\langle a_n|
+\right) \middle| \psi \right\rangle. $$</p>
+<p>By the spectral decomposition,</p>
+<h1 id="-hata-1">$$ \hat{A}</h1>
+<p>\sum_n a_n |a_n\rangle\langle a_n|. $$</p>
+<p>Hence</p>
+<h1 id="-langle-arangle-6">$$ \langle A\rangle</h1>
+<p>\langle \psi|\hat{A}|\psi\rangle. $$</p>
+<p><org-env-block data-kind="important" data-title="The formula" data-label="Important"><span class="org-env-heading"><span class="org-env-heading-label">Important</span><span class="org-env-heading-title" data-empty="false">The
+formula</span></span><div class="org-env-content"><h1 id="-langle-arangle">$$
+\langle A\rangle</h1></p>
+<p>\langle \psi|\hat{A}|\psi\rangle $$</p>
+<p>is not an arbitrary definition.</p>
+<p>It is the compact linear-algebraic expression of the statistical
+average</p>
+<p><span
+class="math display">∑<sub><em>n</em></sub><em>a</em><sub><em>n</em></sub><em>p</em><sub><em>n</em></sub>.</span></p>
+<p>However, in the axiomatic formulation of quantum mechanics, this
+formula is often taken as part of the measurement postulate.</p></div></org-env-block>
+
+<h1 id="5-degenerate-eigenvalues-简并本征值情形">5. Degenerate
+Eigenvalues 简并本征值情形</h1>
+<p>If an eigenvalue <span class="math inline"><em>a</em></span> has
+eigenspace <span
+class="math inline"><em>E</em><sub><em>a</em></sub></span>, then
+measurement outcome <span class="math inline"><em>a</em></span>
+corresponds not to one eigenvector but to the whole eigenspace.</p>
+<p>Let <span class="math inline"><em>P</em><sub><em>a</em></sub></span>
+be the orthogonal projection onto <span
+class="math inline"><em>E</em><sub><em>a</em></sub></span>.</p>
+<p>Then the spectral decomposition is</p>
+<h1 id="-hata-2">$$ \hat{A}</h1>
+<p>\sum_a a P_a. $$</p>
+<p>The probability of measuring outcome <span
+class="math inline"><em>a</em></span> is</p>
+<h1 id="-pa">$$ p(a)</h1>
+<p>|P_a|\psi\rangle|^2. $$</p>
+<p>Equivalently,</p>
+<h1 id="-pa-1">$$ p(a)</h1>
+<p>\langle \psi|P_a|\psi\rangle. $$</p>
+<p>The expectation value is</p>
+<h1 id="-langle-arangle-7">$$ \langle A\rangle</h1>
+<p>\sum_a a,\langle \psi|P_a|\psi\rangle. $$</p>
+<p>Using</p>
+<h1 id="-hata-3">$$ \hat{A}</h1>
+<p>\sum_a aP_a, $$</p>
+<p>we again obtain</p>
+<h1 id="-langle-arangle-8">$$ \langle A\rangle</h1>
+<p>\langle \psi|\hat{A}|\psi\rangle. $$</p>
+<p><org-env-block data-kind="note" data-title="The non-degenerate formula" data-label="Note"><span class="org-env-heading"><span class="org-env-heading-label">Note</span><span class="org-env-heading-title" data-empty="false">The
+non-degenerate
+formula</span></span><div class="org-env-content"><p><span
+class="math display"><em>p</em><sub><em>n</em></sub> = |⟨<em>a</em><sub><em>n</em></sub>|<em>ψ</em>⟩|<sup>2</sup></span></p></p>
+<p>is a special case of the projection formula</p>
+<p><span
+class="math display"><em>p</em>(<em>a</em>) = ⟨<em>ψ</em>|<em>P</em><sub><em>a</em></sub>|<em>ψ</em>⟩.</span></p>
+<p>When <span class="math inline"><em>E</em><sub><em>a</em></sub></span>
+is one-dimensional,</p>
+<p><span
+class="math display"><em>P</em><sub><em>a</em></sub> = |<em>a</em>⟩⟨<em>a</em>|.</span></p></div></org-env-block>
+
+<h1 id="6-core-spectral-theoretic-statement-谱理论的核心结论">6. Core
+Spectral-Theoretic Statement 谱理论的核心结论</h1>
+<p>For a Hermitian operator <span
+class="math inline"><em>Â</em></span>:</p>
 <ul>
-<li>每一个物理可观测量 A</li>
-<li>都对应一个厄米算符 Â, 在希尔伯特空间(<a
-href="../math/hilbert_space.html">Hilbert Space</a>)内.</li>
+<li>possible measurement outcomes lie in the spectrum of <span
+class="math inline"><em>Â</em></span>;</li>
+<li>in the finite-dimensional case, the spectrum consists of
+eigenvalues;</li>
+<li>for discrete spectra, outcomes correspond to eigenvalues;</li>
+<li>for degenerate spectra, outcomes correspond to eigenspaces and
+projections;</li>
+<li>for continuous spectra, one needs the spectral measure
+formulation.</li>
 </ul>
-<p>原因有两个：</p>
-<ol type="1">
-<li>本征值必须是实数（实验结果）</li>
-<li>本征态可以正交分解（概率解释）</li>
-</ol>
-<h1 id="2-期望值的物理意义">2. 期望值的物理意义</h1>
-<p>设系统处于态 |ψ⟩， 对同一个系统做大量重复实验：</p>
-<p>每一次测量得到一个本征值 a_n 出现概率为 p_n</p>
-<p>统计平均值是： ⟨A⟩ = ∑ a_n p_n</p>
-<p>谱定理告诉我们：</p>
-<ul>
-<li>p_n = |⟨a_n|ψ⟩|²</li>
-</ul>
-<p>代入并整理，得到一个<em>极其紧凑的表达式</em>：</p>
-<p>⟨A⟩ = ⟨ψ| Â |ψ⟩</p>
-<p>这不是“定义”， 而是从统计平均 <em>严格推导出来的结果</em>。</p>
-<h1 id="3-谱理论的核心结论">3. 谱理论的核心结论</h1>
-<p>对任意厄米算符 A：</p>
-<ul>
-<li>所有可能测量结果 ∈ A 的谱</li>
-<li>离散谱 → 本征值</li>
-<li>连续谱 → 广义本征态</li>
-</ul>
-<p>如果将 |ψ⟩ 在本征基中展开：</p>
-<div class="sourceCode" id="cb1"><pre
-class="sourceCode typst"><code class="sourceCode typst"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">#</span>table<span class="op">(</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  columns<span class="op">:</span> <span class="dv">2</span><span class="op">,</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="op">[</span>ψ⟩ = ∑ c_n], [a_n⟩],</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
-<p>那么：</p>
-<ul>
-<li>|c_n|² = 测到 a_n 的概率</li>
-</ul>
-<p>量子力学的概率性， 并不是“测量扰动”， 而是状态在谱分解中的
-<em>几何投影</em>。</p>
+<p>In finite dimensions, the clean statement is:</p>
+<h1 id="-hata-4">$$ \hat{A}</h1>
+<p>\sum_a a P_a, $$</p>
+<p>where <span
+class="math inline"><em>P</em><sub><em>a</em></sub></span> is the
+orthogonal projection onto the eigenspace of eigenvalue <span
+class="math inline"><em>a</em></span>.</p>
+<p>The corresponding probability rule is:</p>
+<h1 id="-praa">$$ \Pr(A=a)</h1>
+<p>\langle \psi|P_a|\psi\rangle. $$</p>
+<p>The expectation value is:</p>
+<h1 id="-mathbbea">$$ \mathbb{E}[A]</h1>
+<h1 id="sum_a-apraa">\sum_a a,\Pr(A=a)</h1>
+<p>\langle \psi|\hat{A}|\psi\rangle. $$</p>
+<h1 id="7-continuous-spectrum-连续谱情形">7. Continuous Spectrum
+连续谱情形</h1>
+<p>For observables with continuous spectrum, such as position or
+momentum, the eigenvectors are not ordinary Hilbert-space vectors. They
+are generalized eigenvectors.</p>
+<p>For example, one often formally writes</p>
+<h1 id="-hatxxrangle">$$ \hat{X}|x\rangle</h1>
+<p>x|x\rangle. $$</p>
+<p>But <span class="math inline">|<em>x</em>⟩</span> is not usually an
+element of the Hilbert space <span
+class="math inline"><em>L</em><sup>2</sup>(ℝ)</span>.</p>
+<p>The rigorous formulation uses a projection-valued measure <span
+class="math inline"><em>E</em><sub><em>A</em></sub></span> such that</p>
+<h1 id="-hata-5">$$ \hat{A}</h1>
+<p>\int_{\mathbb{R}} \lambda , dE_A(\lambda). $$</p>
+<p>For a state <span class="math inline">|<em>ψ</em>⟩</span>, the
+probability of getting a result in a measurable set <span
+class="math inline"><em>S</em> ⊆ ℝ</span> is</p>
+<h1 id="-pra-in-s">$$ \Pr(A \in S)</h1>
+<p>\langle \psi|E_A(S)|\psi\rangle. $$</p>
+<p>The expectation value is</p>
+<h1 id="-langle-arangle-9">$$ \langle A\rangle</h1>
+<p>\int_{\mathbb{R}} \lambda , d\mu_\psi(\lambda), $$</p>
+<p>where</p>
+<h1 id="-mu_psis">$$ \mu_\psi(S)</h1>
+<p>\langle \psi|E_A(S)|\psi\rangle. $$</p>
+<p><org-env-block data-kind="note" data-title="In introductory quantum computing, we usually work in finite-dimensional Hilbert spaces, so the finite-dimensional spectral decomposition is enough." data-label="Note"><span class="org-env-heading"><span class="org-env-heading-label">Note</span><span class="org-env-heading-title" data-empty="false">In
+introductory quantum computing, we usually work in finite-dimensional
+Hilbert spaces, so the finite-dimensional spectral decomposition is
+enough.</span></span><div class="org-env-content"><p>Continuous-spectrum
+issues become important in functional analysis and continuous-variable
+quantum mechanics.</p></div></org-env-block></p>
+<h1 id="8-geometric-interpretation-几何解释">8. Geometric Interpretation
+几何解释</h1>
+<p>If</p>
+<h1 id="-psirangle-1">$$ |\psi\rangle</h1>
+<p>\sum_n c_n |a_n\rangle, $$</p>
+<p>then each coefficient</p>
+<h1 id="-c_n-1">$$ c_n</h1>
+<p>\langle a_n|\psi\rangle $$</p>
+<p>is the amplitude of <span class="math inline">|<em>ψ</em>⟩</span> in
+the <span class="math inline">|<em>a</em><sub><em>n</em></sub>⟩</span>
+direction.</p>
+<p>The probability of measuring <span
+class="math inline"><em>a</em><sub><em>n</em></sub></span> is</p>
+<p><span
+class="math display">|<em>c</em><sub><em>n</em></sub>|<sup>2</sup>.</span></p>
+<p>Thus the probabilistic nature of quantum measurement is not merely
+“measurement disturbance.”</p>
+<p>Rather, it is encoded in the geometric projection of the state vector
+onto the spectral subspaces of the observable.</p>
+<p>More precisely:</p>
+<p><span class="math display">state + observable ⇒ projection onto
+spectral subspaces ⇒ probabilities.</span></p>
+<p><org-env-block data-kind="important" data-title="For a given observable $\hat{A}$, if $|\psi\rangle$ is an eigenstate of $\hat{A}$, then measuring $A$ is deterministic." data-label="Important"><span class="org-env-heading"><span class="org-env-heading-label">Important</span><span class="org-env-heading-title" data-empty="false">For
+a given observable <span class="math inline"><em>Â</em></span>, if <span
+class="math inline">|<em>ψ</em>⟩</span> is an eigenstate of <span
+class="math inline"><em>Â</em></span>, then measuring <span
+class="math inline"><em>A</em></span> is
+deterministic.</span></span><div class="org-env-content"><p>If
+<span class="math inline">|<em>ψ</em>⟩</span> is a superposition of
+different eigenspaces of <span class="math inline"><em>Â</em></span>,
+then the measurement outcomes are
+probabilistic.</p></div></org-env-block></p>
+<h1 id="9-density-operator-form-密度算符形式">9. Density-Operator Form
+密度算符形式</h1>
+<p>If the state is represented by a density operator <span
+class="math inline"><em>ρ</em></span>, then the expectation value of
+observable <span class="math inline"><em>Â</em></span> is</p>
+<h1 id="-langle-arangle-10">$$ \langle A\rangle</h1>
+<p>\operatorname{tr}(\rho \hat{A}). $$</p>
+<p>For a pure state</p>
+<h1 id="-rho_psi">$$ \rho_\psi</h1>
+<p>|\psi\rangle\langle \psi|, $$</p>
+<p>we recover</p>
+<h1 id="-operatornametrrho_psi-hata">$$ \operatorname{tr}(\rho_\psi
+\hat{A})</h1>
+<p>\langle \psi|\hat{A}|\psi\rangle. $$</p>
+<p>Thus the density-operator formula generalises the pure-state
+formula.</p>
+<h1 id="conceptual-summary-概念总结">Conceptual Summary 概念总结</h1>
+<p><org-env-block data-kind="summary" data-title="An observable $A$ is represented by a Hermitian operator $\hat{A}$." data-label="Summary"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="false">An
+observable <span class="math inline"><em>A</em></span> is represented by
+a Hermitian operator <span
+class="math inline"><em>Â</em></span>.</span></span><div class="org-env-content"><p>The
+spectral theorem gives</p></p>
+<h1 id="-hata">$$ \hat{A}</h1>
+<p>\sum_a aP_a. $$</p>
+<p>The eigenvalues <span class="math inline"><em>a</em></span> are
+possible measurement outcomes.</p>
+<p>The projections <span
+class="math inline"><em>P</em><sub><em>a</em></sub></span> determine the
+probabilities:</p>
+<h1 id="-praa">$$ \Pr(A=a)</h1>
+<p>\langle \psi|P_a|\psi\rangle. $$</p>
+<p>The expectation value is</p>
+<h1 id="-langle-arangle">$$ \langle A\rangle</h1>
+<h1 id="sum_a-apraa">\sum_a a,\Pr(A=a)</h1>
+<p>\langle \psi|\hat{A}|\psi\rangle. $$</p>
+<p>For a density operator <span
+class="math inline"><em>ρ</em></span>,</p>
+<h1 id="-langle-arangle-1">$$ \langle A\rangle</h1>
+<p>\operatorname{tr}(\rho\hat{A}). $$</p>
+<p>Therefore, expectation value is the bridge between spectral
+measurement outcomes and experimentally reproducible statistical
+averages.</p></div></org-env-block>
           </article>
         </div>
       </div>

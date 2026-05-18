@@ -140,6 +140,12 @@ function sourceDeleteLineRange(textarea: HTMLTextAreaElement): { from: number; t
   return { ...range, text: textarea.value.slice(range.from, range.to) };
 }
 
+function sourceCurrentSelectionText(textarea: HTMLTextAreaElement): string {
+  const start = textarea.selectionStart ?? 0;
+  const end = textarea.selectionEnd ?? start;
+  return start < end ? textarea.value.slice(start, end) : "";
+}
+
 function sourceDeleteLine(textarea: HTMLTextAreaElement): string {
   const range = sourceDeleteLineRange(textarea);
   if (!range) return "";
@@ -391,6 +397,12 @@ function pmDeleteLine(editor: Editor): string {
     pmDeleteChar(editor);
   }
   return range.text;
+}
+
+function pmCurrentSelectionText(editor: Editor): string {
+  const view = editor.view;
+  const { from, to } = view.state.selection;
+  return from < to ? view.state.doc.textBetween(from, to, "\n", "\n") : "";
 }
 
 function pmReplaceChar(editor: Editor, ch: string): void {
@@ -667,6 +679,32 @@ export function createVimLite(
     setMode("normal");
   }
 
+  function yankSelection(): void {
+    resetMotionMemory();
+    withSurface(
+      (textarea) => yank(sourceCurrentSelectionText(textarea)),
+      () => yank(pmCurrentSelectionText(editor)),
+    );
+    setMode("normal");
+  }
+
+  function yankLine(): void {
+    resetMotionMemory();
+    withSurface(
+      (textarea) => {
+        const range = sourceDeleteLineRange(textarea);
+        if (range) yank(range.text);
+      },
+      () => {
+        const view = editor.view;
+        const { from } = view.state.selection;
+        const block = pmSourceLineRangeAt(editor, from) ?? pmBlockRangeAt(editor, from);
+        yank(view.state.doc.textBetween(block.from, block.to, "\n", "\n"));
+      },
+    );
+    setMode("normal");
+  }
+
   function paste(where: "before" | "after"): void {
     if (!register) return;
     resetMotionMemory();
@@ -699,6 +737,14 @@ export function createVimLite(
       pending = "";
       if (key === "d") {
         deleteLine();
+        return true;
+      }
+      return true;
+    }
+    if (pending === "y") {
+      pending = "";
+      if (key === "y") {
+        yankLine();
         return true;
       }
       return true;
@@ -806,6 +852,9 @@ export function createVimLite(
       case "d":
         pending = "d";
         return true;
+      case "y":
+        pending = "y";
+        return true;
       case "Escape":
         setMode("normal");
         return true;
@@ -870,6 +919,9 @@ export function createVimLite(
         deleteChar();
         setMode("normal");
         return true;
+      case "y":
+        yankSelection();
+        return true;
       case "r":
         pending = "r";
         return true;
@@ -897,6 +949,9 @@ export function createVimLite(
       case "d":
       case "Delete":
         deleteLine();
+        return true;
+      case "y":
+        yankSelection();
         return true;
       case "V":
       case "v":

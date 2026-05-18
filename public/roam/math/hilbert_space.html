@@ -28,126 +28,382 @@
           <article id="content" class="ProseMirror" data-note-title="Hilbert Space">
             <h1 class="title">Hilbert Space</h1>
             <h1 id="hilbert-space-希尔伯特空间">Hilbert Space 希尔伯特空间</h1>
-<p><org-env-block data-kind="attention" data-title="Hilbert" data-label="Attention"><span class="org-env-heading"><span class="org-env-heading-label">Attention</span><span class="org-env-heading-title" data-empty="false">Hilbert</span></span><div class="org-env-content"><p>Hilbert
-space is a big space. ----- Carlton Caves</p></div></org-env-block></p>
-<h2 id="1-数学理解-mathematical-understanding">1. 数学理解 (Mathematical
-Understanding)</h2>
-<p>本质是将欧几里得空间 (<span
-class="math inline"><em>b</em><em>b</em>(<em>R</em>)<sup>(</sup><em>n</em>)</span>)
-推广到<em>无限维</em>，并保留几何直观。</p>
-<ul>
-<li><p><em>核心定义</em>: 一个<em>完备 (Complete)</em> 的<em>内积空间
-(Inner Product Space)</em>。</p>
-<ul>
-<li><em>内积 ($ lr(angle.l u, v angle.r) $)</em>:
-定义了“角度”和“投影”。若内积为 0，则两向量正交。</li>
-<li><em>范数 (<span class="math inline">||<em>v</em>||</span>)</em>:
-由内积导出 (<span
-class="math inline">||<em>v</em>|| = <em>s</em><em>q</em><em>r</em><em>t</em>(<em>l</em><em>r</em>(<em>a</em><em>n</em><em>g</em><em>l</em><em>e</em>.<em>l</em><em>v</em>, <em>v</em><em>a</em><em>n</em><em>g</em><em>l</em><em>e</em>.<em>r</em>))</span>)，定义了向量的“长度”。</li>
-<li><em>完备性</em>:
-空间内的柯西序列收敛于空间内（保证极限存在，微积分可行）。</li>
-</ul></li>
-<li><p><em>常见例子</em>:</p>
-<ul>
-<li><span
-class="math inline"><em>b</em><em>b</em>(<em>R</em>)<sup><em>n</em></sup></span>
-(有限维希尔伯特空间)。</li>
-<li><span class="math inline"><em>L</em><sup>2</sup></span> 空间
-(平方可积函数空间，量子力学中最常用)。</li>
-</ul></li>
-</ul>
-<h2 id="2-量子应用-quant-量子应p-quaions">2. 量子应用 (Quant. 量子应p
-(Quaions)</h2>
-<p>量子力学的公理化数学基础。</p>
-<ul>
-<li><p><em>态 (State)</em>:
-物理系统的状态由希尔伯特空间中的<em>射线</em>（归一化向量 $ lr(|psi
-angle.r) $）描述。</p></li>
-<li><p><em>叠加原理</em>:
-向量的线性组合仍然是空间中的一个有效向量。</p></li>
-<li><p><em>可观测量</em>: 对应于作用在空间上的<em>厄米算符 (Hermitian
-Operators)</em>。</p>
-<ul>
-<li>算符的<em>本征值</em>是测量的可能结果。</li>
-<li>算符的<em>本征态</em>构成空间的基底。</li>
-</ul></li>
-<li><p><em>概率 (Born Rule)</em>: 概率幅由内积给出，概率为内积的模方
-(<span
-class="math inline"><em>P</em> = |<em>l</em><em>r</em>(<em>a</em><em>n</em><em>g</em><em>l</em><em>e</em>.<em>l</em><em>p</em><em>h</em><em>i</em>|<em>p</em><em>s</em><em>i</em><em>a</em><em>n</em><em>g</em><em>l</em><em>e</em>.<em>r</em>)|<sup>2</sup></span>)。</p></li>
-</ul>
-<p><span
-class="math display"><em>d</em>(<em>v</em><sub><em>i</em></sub>, <em>v</em><sub><em>j</em></sub>)<sup>2</sup> = <em>s</em><em>u</em><em>m</em><sub>(</sub><em>k</em> = 1)<sup><em>N</em></sup>|<em>z</em><sub>(</sub><em>i</em><em>k</em>) − <em>z</em><sub>(</sub><em>j</em><em>k</em>)|<sup>2</sup> &lt; <em>e</em><em>p</em><em>s</em><em>i</em><em>l</em><em>o</em><em>n</em>.<em>a</em><em>l</em><em>t</em><sup>2</sup></span></p>
-<h1 id="ss">ss</h1>
-<p>有限维必完备</p>
-<p><org-env-block data-kind="theorem" data-title="在有限维内积空间中，所有柯西序列均收敛于该空间内的某个向量。因此，有限维内积空间([Inner Product Space](inner_product_space.md))天然是完备的，即有限维内积空间即为希尔伯特空间。" data-label="Theorem"><span class="org-env-heading"><span class="org-env-heading-label">Theorem</span><span class="org-env-heading-title" data-empty="false">在有限维内积空间中，所有柯西序列均收敛于该空间内的某个向量。因此，有限维内积空间(<a
-href="inner_product_space.html">Inner Product
-Space</a>)天然是完备的，即有限维内积空间即为希尔伯特空间。</span></span><div class="org-env-content"></div></org-env-block></p>
-<p><org-env-block data-kind="proof" data-title="# 证明思路" data-label="Proof"><span class="org-env-heading"><span class="org-env-heading-label">Proof</span><span class="org-env-heading-title" data-empty="false">#
-证明思路</span></span><div class="org-env-content"><pre><code>-
-选取正交基</p>
-<ul>
-<li>将向量柯西列转化为坐标柯西列</li>
-<li>利用实数/复数的完备性</li>
-<li>再拼回向量极限</code></pre></li>
-</ul>
-<h1 id="证明">证明</h1>
-<pre><code>设 $V$ 是 $N$ 维复内积空间。</code></pre>
-<h2 id="step-1选取正交基">Step 1：选取正交基</h2>
-<pre><code>由 Gram–Schmidt 正交化，存在正交基：</code></pre>
-<p>$$</p>
-<pre><code> {e\_1,e\_2, dots ,e\_N} </code></pre>
-<p>$$</p>
-<h2 id="step-2设-v_i-为柯西列">Step 2：设 <span
-class="math inline"><em>v</em><sub><em>i</em></sub></span> 为柯西列</h2>
-<pre><code>对任意 $ epsilon.alt &gt;0$，存在 $n$，
-使得当 $i,j&gt;n$ 时：</code></pre>
-<p>$$</p>
-<pre><code> d(v_i,v_j)&lt; \epsilon.alt  </code></pre>
-<p>$$</p>
-<h2 id="step-3写成坐标形式">Step 3：写成坐标形式</h2>
-<pre><code>对每个 $i$，存在唯一的 $z_(i k) in bb(C)$，
-使得：</code></pre>
-<p><span
-class="math display"><em>v</em><sub><em>i</em></sub> = <em>s</em><em>u</em><em>m</em><sub>(</sub><em>k</em> = 1)<sup><em>N</em></sup><em>z</em><sub>(</sub><em>i</em><em>k</em>)<em>e</em><sub><em>k</em></sub></span></p>
-<h2 id="step-4距离的坐标表达">Step 4：距离的坐标表达</h2>
-<pre><code>由正交性：</code></pre>
-<p><span
-class="math display"><em>s</em><em>d</em>(<em>v</em><sub><em>i</em></sub>, <em>v</em><sub><em>j</em></sub>)<sup>2</sup> = <em>s</em><em>u</em><em>m</em><sub>(</sub><em>k</em> = 1)<sup><em>N</em></sup>|<em>z</em><sub>(</sub><em>i</em><em>k</em>) − <em>z</em><sub>(</sub><em>j</em><em>k</em>)|<sup>2</sup> &lt; <em>e</em><em>p</em><em>s</em><em>i</em><em>l</em><em>o</em><em>n</em>.<em>a</em><em>l</em><em>t</em><sup>2</sup></span></p>
-<h2 id="step-5拆分为实部与虚部">Step 5：拆分为实部与虚部</h2>
-<pre><code>记：</code></pre>
-<p><span
-class="math display"><em>z</em><sub>(</sub><em>i</em><em>k</em>) = <em>x</em><sub>(</sub><em>i</em><em>k</em>) + <em>i</em><em>y</em><sub>(</sub><em>i</em><em>k</em>)</span></p>
-<pre><code>则：
-$$
-  sum _(k=1)^N |x_(i k)-x_(j k)|^2
+<p><org-env-block data-kind="attention" data-title="Hilbert" data-label="Attention"><span class="org-env-heading"><span class="org-env-heading-label">Attention</span><span class="org-env-heading-title" data-empty="false">Hilbert</span></span><div class="org-env-content"><p>"Hilbert
+space is a big space." --- Carlton Caves</p></div></org-env-block></p>
+<p><org-env-block data-kind="summary" data-title="A Hilbert space is a complete inner product space." data-label="Summary"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="false">A
+Hilbert space is a complete inner product
+space.</span></span><div class="org-env-content"><p>Conceptually, it
+generalises Euclidean space while preserving the geometric notions of
+length, angle, orthogonality, projection, and convergence.</p></p>
+<p>The key chain is:</p>
+<p><span class="math display">inner
+product ⇒ norm ⇒ metric ⇒ convergence ⇒ completeness.</span></p>
+<p>If an inner product space is complete with respect to the metric
+induced by its norm, then it is a Hilbert space.</p></div></org-env-block>
 
-<ul>
-<li>sum <em>(k=1)^N |y</em>(i k)-y_(j k)|^2 &lt; epsilon.alt ^2
-$$</code></pre></li>
-</ul>
-<h2 id="step-6坐标收敛">Step 6：坐标收敛</h2>
-<pre><code>对每个 $k$，
-${x_(i k)}_i,{y_(i k)}_i$ 为实数柯西列。
-
-<p>由 <span class="math inline"><em>b</em><em>b</em>(<em>R</em>)</span>
-的完备性， 存在 <span
-class="math inline"><em>x</em><sub><em>k</em></sub>, <em>y</em><sub><em>k</em></sub><em>i</em><em>n</em><em>b</em><em>b</em>(<em>R</em>)</span>，
-使得：</code></pre></p>
+<h2 id="1-mathematical-understanding-数学理解">1. Mathematical
+Understanding 数学理解</h2>
+<p>The essential idea is to generalise Euclidean space</p>
+<p><span class="math display">ℝ<sup><em>n</em></sup></span></p>
+<p>to possibly infinite-dimensional settings while preserving geometric
+intuition.</p>
+<p><org-env-block data-kind="define" data-title="A Hilbert space is a complete inner product space." data-label="Define"><span class="org-env-heading"><span class="org-env-heading-label">Define</span><span class="org-env-heading-title" data-empty="false">A
+Hilbert space is a complete inner product
+space.</span></span><div class="org-env-content"></div></org-env-block></p>
+<p>Equivalently, a Hilbert space is a vector space <span
+class="math inline"><em>H</em></span> equipped with an inner product</p>
 <p><span
-class="math display"><em>x</em><sub><em>i</em><em>k</em></sub> → <em>x</em><sub><em>k</em></sub>,  <em>y</em><sub><em>i</em><em>k</em></sub> → <em>y</em><sub><em>k</em></sub></span></p>
-<h2 id="step-7构造极限向量">Step 7：构造极限向量</h2>
-<pre><code>令：</code></pre>
-<p>$ z_k=x_k+i y_k, quad v= sum _(k=1)^N z_k e_k $</p>
-<pre><code>则：</code></pre>
-<p>$ d(v_i,v) -&gt; 0 $</p>
-<pre><code>故：</code></pre>
-<p>$ v_i \to v $</p>
-<h1 id="结论">结论</h1>
-<pre><code>有限维内积空间是完备的。</code></pre></div></org-env-block>
+class="math display">⟨⋅, ⋅⟩ : <em>H</em> × <em>H</em> → <em>F</em>,</span></p>
+<p>where usually <span class="math inline"><em>F</em> = ℝ</span> or
+<span class="math inline"><em>F</em> = ℂ</span>, such that every Cauchy
+sequence in <span class="math inline"><em>H</em></span> converges to an
+element of <span class="math inline"><em>H</em></span>.</p>
+<h3 id="core-components-核心组成">Core Components 核心组成</h3>
+<ul>
+<li><p><strong>Inner product 内积</strong></p>
+<p>The inner product</p>
+<p><span class="math display">⟨<em>u</em>, <em>v</em>⟩</span></p>
+<p>defines geometric notions such as angle, orthogonality, and
+projection.</p>
+<p>If</p>
+<p><span class="math display">⟨<em>u</em>, <em>v</em>⟩ = 0,</span></p>
+<p>then <span class="math inline"><em>u</em></span> and <span
+class="math inline"><em>v</em></span> are orthogonal.</p></li>
+<li><p><strong>Norm 范数</strong></p>
+<p>The norm is induced by the inner product:</p>
+<h1 id="-v">$$ |v|</h1>
+<p>\sqrt{\langle v,v\rangle}. $$</p>
+<p>It measures the length of a vector.</p></li>
+<li><p><strong>Metric 距离</strong></p>
+<p>The norm induces a distance function:</p>
+<h1 id="-duv">$$ d(u,v)</h1>
+<p>|u-v|. $$</p></li>
+<li><p><strong>Completeness 完备性</strong></p>
+<p>Completeness means that every Cauchy sequence converges to an element
+inside the same space.</p>
+<p>In symbols, if <span
+class="math inline">(<em>v</em><sub><em>n</em></sub>)</span> is Cauchy,
+then there exists <span
+class="math inline"><em>v</em> ∈ <em>H</em></span> such that</p>
+<p><span
+class="math display"><em>v</em><sub><em>n</em></sub> → <em>v</em>.</span></p>
+<p>中文直觉：完备性保证“应该存在的极限”不会跑到空间外面去。</p></li>
+</ul>
+<h3 id="common-examples-常见例子">Common Examples 常见例子</h3>
+<ol type="1">
+<li><p>Finite-dimensional Euclidean spaces:</p>
+<p><span class="math display">ℝ<sup><em>n</em></sup>.</span></p></li>
+<li><p>Finite-dimensional complex spaces:</p>
+<p><span class="math display">ℂ<sup><em>n</em></sup>.</span></p></li>
+<li><p>The space of square-integrable functions:</p>
+<p><span
+class="math display"><em>L</em><sup>2</sup>(<em>X</em>).</span></p>
+<p>This is one of the most important examples in quantum
+mechanics.</p></li>
+</ol>
+<h2 id="2-quantum-application-量子应用">2. Quantum Application
+量子应用</h2>
+<p>Hilbert spaces provide the mathematical foundation for the axiomatic
+formulation of quantum mechanics.</p>
+<h3 id="states-态">States 态</h3>
+<p>A quantum state is represented by a ray in a Hilbert space.</p>
+<p>Equivalently, one often represents a state by a normalised vector</p>
+<p><span class="math display">|<em>ψ</em>⟩ ∈ <em>H</em></span></p>
+<p>with</p>
+<p><span class="math display">⟨<em>ψ</em> ∣ <em>ψ</em>⟩ = 1.</span></p>
+<p>Strictly speaking, two nonzero vectors that differ by a nonzero
+scalar represent the same physical ray. In ordinary quantum mechanics,
+global phase does not change the physical state:</p>
+<p><span
+class="math display">|<em>ψ</em>⟩ ∼ <em>e</em><sup><em>i</em><em>θ</em></sup>|<em>ψ</em>⟩.</span></p>
+<h3 id="superposition-叠加原理">Superposition 叠加原理</h3>
+<p>If <span class="math inline">|<em>ψ</em>⟩</span> and <span
+class="math inline">|<em>ϕ</em>⟩</span> are state vectors, then their
+linear combination</p>
+<p><span
+class="math display"><em>α</em>|<em>ψ</em>⟩ + <em>β</em>|<em>ϕ</em>⟩</span></p>
+<p>is also a vector in the Hilbert space.</p>
+<p>After normalisation, it can represent another quantum state.</p>
+<h3 id="observables-可观测量">Observables 可观测量</h3>
+<p>Physical observables are represented by Hermitian operators.</p>
+<p>An operator <span class="math inline"><em>A</em></span> is Hermitian
+if</p>
+<p><span
+class="math display"><em>A</em><sup>†</sup> = <em>A</em>.</span></p>
+<p>The eigenvalues of a Hermitian operator are possible measurement
+outcomes.</p>
+<p>The eigenvectors or eigenspaces describe the corresponding states
+after measurement.</p>
+<h3 id="born-rule-玻恩规则">Born Rule 玻恩规则</h3>
+<p>The inner product gives probability amplitudes.</p>
+<p>If a system is in state <span class="math inline">|<em>ψ</em>⟩</span>
+and we measure whether it is in state <span
+class="math inline">|<em>ϕ</em>⟩</span>, then the probability is</p>
+<h1 id="-p">$$ P</h1>
+<p>|\langle \phi \mid \psi\rangle|^2. $$</p>
+<p>This is one of the main reasons Hilbert spaces are central in quantum
+theory.</p>
+<h2 id="3-finite-dimensional-inner-product-spaces-are-complete">3.
+Finite-Dimensional Inner Product Spaces Are Complete</h2>
+<p>有限维内积空间必然完备。</p>
+<p><org-env-block data-kind="theorem" data-title="Every finite-dimensional inner product space is complete." data-label="Theorem"><span class="org-env-heading"><span class="org-env-heading-label">Theorem</span><span class="org-env-heading-title" data-empty="false">Every
+finite-dimensional inner product space is
+complete.</span></span><div class="org-env-content"><p>Equivalently,
+every finite-dimensional inner product space is a Hilbert
+space.</p></div></org-env-block></p>
+<p><org-env-block data-kind="proof" data-title="Let $V$ be an $N$-dimensional inner product space over $\mathbb{C}$." data-label="Proof"><span class="org-env-heading"><span class="org-env-heading-label">Proof</span><span class="org-env-heading-title" data-empty="false">Let
+<span class="math inline"><em>V</em></span> be an <span
+class="math inline"><em>N</em></span>-dimensional inner product space
+over <span
+class="math inline">ℂ</span>.</span></span><div class="org-env-content"><p>The
+real case is similar and slightly simpler.</p></p>
+<h3 id="proof-idea-证明思路">Proof Idea 证明思路</h3>
+<p>We prove completeness by reducing vector convergence to coordinate
+convergence.</p>
+<p>The steps are:</p>
+<ol type="1">
+<li>choose an orthonormal basis;</li>
+<li>write each vector in coordinates;</li>
+<li>show that a Cauchy sequence of vectors gives Cauchy sequences of
+coordinates;</li>
+<li>use completeness of <span class="math inline">ℂ</span>;</li>
+<li>reconstruct the limit vector.</li>
+</ol>
+<h3 id="step-1-choose-an-orthonormal-basis">Step 1: Choose an
+orthonormal basis</h3>
+<p>Since <span class="math inline"><em>V</em></span> is
+finite-dimensional, by the Gram--Schmidt process there exists an
+orthonormal basis</p>
+<p><span
+class="math display">{<em>e</em><sub>1</sub>, <em>e</em><sub>2</sub>, …, <em>e</em><sub><em>N</em></sub>}.</span></p>
+<p>Thus every vector <span
+class="math inline"><em>v</em> ∈ <em>V</em></span> can be written
+uniquely as</p>
+<h1 id="-v">$$ v</h1>
+<p>\sum_{k=1}^N z_k e_k, $$</p>
+<p>where <span
+class="math inline"><em>z</em><sub><em>k</em></sub> ∈ ℂ</span>.</p>
+<h3 id="step-2-let-v_i-be-a-cauchy-sequence">Step 2: Let <span
+class="math inline">(<em>v</em><sub><em>i</em></sub>)</span> be a Cauchy
+sequence</h3>
+<p>Let <span
+class="math inline">(<em>v</em><sub><em>i</em></sub>)<sub><em>i</em> ∈ ℕ</sub></span>
+be a Cauchy sequence in <span class="math inline"><em>V</em></span>.</p>
+<p>By definition, for every <span
+class="math inline"><em>ε</em> &gt; 0</span>, there exists <span
+class="math inline"><em>M</em> ∈ ℕ</span> such that for all <span
+class="math inline"><em>i</em>, <em>j</em> ≥ <em>M</em></span>,</p>
+<p><span
+class="math display">∥<em>v</em><sub><em>i</em></sub> − <em>v</em><sub><em>j</em></sub>∥ &lt; <em>ε</em>.</span></p>
+<p>Equivalently,</p>
+<p><span
+class="math display"><em>d</em>(<em>v</em><sub><em>i</em></sub>, <em>v</em><sub><em>j</em></sub>) &lt; <em>ε</em>.</span></p>
+<h3 id="step-3-write-each-vector-in-coordinates">Step 3: Write each
+vector in coordinates</h3>
+<p>For each <span class="math inline"><em>i</em></span>, write</p>
+<h1 id="-v_i">$$ v_i</h1>
+<p>\sum_{k=1}^N z_{ik} e_k, $$</p>
+<p>where <span
+class="math inline"><em>z</em><sub><em>i</em><em>k</em></sub> ∈ ℂ</span>.</p>
+<p>Then</p>
+<h1 id="-v_i-v_j">$$ v_i-v_j</h1>
+<p>\sum_{k=1}^N (z_{ik}-z_{jk})e_k. $$</p>
+<h3 id="step-4-use-the-norm-formula-in-an-orthonormal-basis">Step 4: Use
+the norm formula in an orthonormal basis</h3>
+<p>Because <span
+class="math inline">{<em>e</em><sub>1</sub>, …, <em>e</em><sub><em>N</em></sub>}</span>
+is orthonormal,</p>
+<h1 id="-v_i-v_j2">$$ |v_i-v_j|^2</h1>
+<p>\sum_{k=1}^N |z_{ik}-z_{jk}|^2. $$</p>
+<p>Since <span
+class="math inline">(<em>v</em><sub><em>i</em></sub>)</span> is Cauchy,
+for all sufficiently large <span
+class="math inline"><em>i</em>, <em>j</em></span>,</p>
+<p><span class="math display">$$
+\sum_{k=1}^N |z_{ik}-z_{jk}|^2
+&lt;
+\varepsilon^2.
+$$</span></p>
+<p>Therefore, for each fixed <span
+class="math inline"><em>k</em></span>,</p>
+<p><span class="math display">$$
+|z_{ik}-z_{jk}|^2
+\le
+\sum_{\ell=1}^N |z_{i\ell}-z_{j\ell}|^2
+&lt;
+\varepsilon^2.
+$$</span></p>
+<p>Hence</p>
+<p><span
+class="math display">|<em>z</em><sub><em>i</em><em>k</em></sub> − <em>z</em><sub><em>j</em><em>k</em></sub>| &lt; <em>ε</em>.</span></p>
+<p>So for each <span class="math inline"><em>k</em></span>, the
+coordinate sequence <span
+class="math inline">(<em>z</em><sub><em>i</em><em>k</em></sub>)<sub><em>i</em> ∈ ℕ</sub></span>
+is Cauchy in <span class="math inline">ℂ</span>.</p>
+<h3 id="step-5-use-completeness-of-mathbbc">Step 5: Use completeness of
+<span class="math inline">ℂ</span></h3>
+<p>Since <span class="math inline">ℂ</span> is complete, for each <span
+class="math inline"><em>k</em></span> there exists <span
+class="math inline"><em>z</em><sub><em>k</em></sub> ∈ ℂ</span> such
+that</p>
+<p><span
+class="math display"><em>z</em><sub><em>i</em><em>k</em></sub> → <em>z</em><sub><em>k</em></sub></span></p>
+<p>as <span class="math inline"><em>i</em> → ∞</span>.</p>
+<h3 id="step-6-construct-the-candidate-limit-vector">Step 6: Construct
+the candidate limit vector</h3>
+<p>Define</p>
+<h1 id="-v-1">$$ v</h1>
+<p>\sum_{k=1}^N z_k e_k. $$</p>
+<p>Since <span class="math inline"><em>V</em></span> is a vector space
+and <span
+class="math inline"><em>e</em><sub>1</sub>, …, <em>e</em><sub><em>N</em></sub> ∈ <em>V</em></span>,
+we have</p>
+<p><span class="math display"><em>v</em> ∈ <em>V</em>.</span></p>
+<h3 id="step-7-show-that-v_i-to-v">Step 7: Show that <span
+class="math inline"><em>v</em><sub><em>i</em></sub> → <em>v</em></span></h3>
+<p>We compute</p>
+<h1 id="-v_i-v">$$ v_i-v</h1>
+<p>\sum_{k=1}^N (z_{ik}-z_k)e_k. $$</p>
+<p>Again using orthonormality,</p>
+<h1 id="-v_i-v2">$$ |v_i-v|^2</h1>
+<p>\sum_{k=1}^N |z_{ik}-z_k|^2. $$</p>
+<p>For each fixed <span class="math inline"><em>k</em></span>,</p>
+<p><span
+class="math display"><em>z</em><sub><em>i</em><em>k</em></sub> → <em>z</em><sub><em>k</em></sub>.</span></p>
+<p>Since the sum is finite,</p>
+<p><span class="math display">$$
+\sum_{k=1}^N |z_{ik}-z_k|^2
+\to 0.
+$$</span></p>
+<p>Therefore,</p>
+<p><span
+class="math display">∥<em>v</em><sub><em>i</em></sub> − <em>v</em>∥ → 0.</span></p>
+<p>So</p>
+<p><span
+class="math display"><em>v</em><sub><em>i</em></sub> → <em>v</em>.</span></p>
+<p>Thus every Cauchy sequence in <span
+class="math inline"><em>V</em></span> converges to an element of <span
+class="math inline"><em>V</em></span>.</p>
+<p>Therefore <span class="math inline"><em>V</em></span> is
+complete.</p>
+<p>Hence every finite-dimensional inner product space is a Hilbert
+space.</p></div></org-env-block>
 
-<h1 id="希尔伯特空间的相互作用">希尔伯特空间的相互作用</h1>
-<p><org-env-block data-kind="theorem" data-title="希尔伯特空间的相互作用" data-label="Theorem"><span class="org-env-heading"><span class="org-env-heading-label">Theorem</span><span class="org-env-heading-title" data-empty="false">希尔伯特空间的相互作用</span></span><div class="org-env-content"><p>给定任意两个（或更多）希尔伯特空间，利用直和或张量积的方式，可以给出一个更大的希尔伯特空间。</p></div></org-env-block></p>
-<p>这意味着 这为量子力学中张量积干涉两个量子系统提供了理论支撑.</p>
+<p><org-env-block data-kind="important" data-title="The finite-dimensional assumption is essential." data-label="Important"><span class="org-env-heading"><span class="org-env-heading-label">Important</span><span class="org-env-heading-title" data-empty="false">The
+finite-dimensional assumption is
+essential.</span></span><div class="org-env-content"><p>In
+infinite-dimensional spaces, an inner product space need not be
+complete. A Hilbert space is precisely an inner product space where this
+completeness condition has been imposed.</p></div></org-env-block></p>
+<h2 id="4-interaction-of-hilbert-spaces-希尔伯特空间之间的构造">4.
+Interaction of Hilbert Spaces 希尔伯特空间之间的构造</h2>
+<p>Hilbert spaces can be combined to form larger Hilbert spaces.</p>
+<p>There are two especially important operations:</p>
+<p><span
+class="math display"><em>H</em><sub>1</sub> ⊕ <em>H</em><sub>2</sub></span></p>
+<p>and</p>
+<p><span
+class="math display"><em>H</em><sub>1</sub> ⊗ <em>H</em><sub>2</sub>.</span></p>
+<h3 id="direct-sum-直和">Direct Sum 直和</h3>
+<p><org-env-block data-kind="define" data-title="Given two Hilbert spaces $H_1$ and $H_2$, their direct sum is" data-label="Define"><span class="org-env-heading"><span class="org-env-heading-label">Define</span><span class="org-env-heading-title" data-empty="false">Given
+two Hilbert spaces <span
+class="math inline"><em>H</em><sub>1</sub></span> and <span
+class="math inline"><em>H</em><sub>2</sub></span>, their direct sum
+is</span></span><div class="org-env-content"><h1 id="-h_1-oplus-h_2">$$
+H_1 \oplus H_2</h1></p>
+<p>{(v_1,v_2) : v_1 \in H_1,\ v_2 \in H_2}. $$</p>
+<p>The inner product is defined by</p>
+<h1 id="-langle-v_1v_2w_1w_2rangle">$$ \langle
+(v_1,v_2),(w_1,w_2)\rangle</h1>
+<p>\langle v_1,w_1\rangle_{H_1} + \langle v_2,w_2\rangle_{H_2}. $$</p></div></org-env-block>
+
+<p>The direct sum describes a space where states or vectors are placed
+side by side.</p>
+<p>Intuitively:</p>
+<p><span
+class="math display"><em>H</em><sub>1</sub> ⊕ <em>H</em><sub>2</sub>  means
+choosing between sectors/components.</span></p>
+<h3 id="tensor-product-张量积">Tensor Product 张量积</h3>
+<p><org-env-block data-kind="define" data-title="Given two Hilbert spaces $H_1$ and $H_2$, their tensor product is a Hilbert space" data-label="Define"><span class="org-env-heading"><span class="org-env-heading-label">Define</span><span class="org-env-heading-title" data-empty="false">Given
+two Hilbert spaces <span
+class="math inline"><em>H</em><sub>1</sub></span> and <span
+class="math inline"><em>H</em><sub>2</sub></span>, their tensor product
+is a Hilbert space</span></span><div class="org-env-content"><p><span
+class="math display"><em>H</em><sub>1</sub> ⊗ <em>H</em><sub>2</sub></span></p></p>
+<p>generated by formal tensors</p>
+<p><span
+class="math display"><em>v</em><sub>1</sub> ⊗ <em>v</em><sub>2</sub>,</span></p>
+<p>where <span
+class="math inline"><em>v</em><sub>1</sub> ∈ <em>H</em><sub>1</sub></span>
+and <span
+class="math inline"><em>v</em><sub>2</sub> ∈ <em>H</em><sub>2</sub></span>.</p></div></org-env-block>
+
+<p>The tensor product is the fundamental construction for combining
+quantum systems.</p>
+<p>If one system has Hilbert space <span
+class="math inline"><em>H</em><sub><em>A</em></sub></span> and another
+has Hilbert space <span
+class="math inline"><em>H</em><sub><em>B</em></sub></span>, then the
+joint system has Hilbert space</p>
+<p><span
+class="math display"><em>H</em><sub><em>A</em></sub> ⊗ <em>H</em><sub><em>B</em></sub>.</span></p>
+<p>For example, if</p>
+<p><span
+class="math display">|<em>ψ</em>⟩ ∈ <em>H</em><sub><em>A</em></sub></span></p>
+<p>and</p>
+<p><span
+class="math display">|<em>ϕ</em>⟩ ∈ <em>H</em><sub><em>B</em></sub>,</span></p>
+<p>then the product state is</p>
+<p><span
+class="math display">|<em>ψ</em>⟩ ⊗ |<em>ϕ</em>⟩ ∈ <em>H</em><sub><em>A</em></sub> ⊗ <em>H</em><sub><em>B</em></sub>.</span></p>
+<p>But not every vector in <span
+class="math inline"><em>H</em><sub><em>A</em></sub> ⊗ <em>H</em><sub><em>B</em></sub></span>
+is a simple product vector. Some vectors are entangled states.</p>
+<p>For example,</p>
+<p><span class="math display">$$
+\frac{1}{\sqrt{2}}
+\left(
+|00\rangle + |11\rangle
+\right)
+$$</span></p>
+<p>is an entangled state in</p>
+<p><span class="math display">ℂ<sup>2</sup> ⊗ ℂ<sup>2</sup>.</span></p>
+<p><org-env-block data-kind="important" data-title="For quantum mechanics, the tensor product is more fundamental than the direct sum for describing composite systems." data-label="Important"><span class="org-env-heading"><span class="org-env-heading-label">Important</span><span class="org-env-heading-title" data-empty="false">For
+quantum mechanics, the tensor product is more fundamental than the
+direct sum for describing composite
+systems.</span></span><div class="org-env-content"><p>If two systems are
+considered together, their joint state space is usually</p></p>
+<p><span
+class="math display"><em>H</em><sub><em>A</em></sub> ⊗ <em>H</em><sub><em>B</em></sub>,</span></p>
+<p>not</p>
+<p><span
+class="math display"><em>H</em><sub><em>A</em></sub> ⊕ <em>H</em><sub><em>B</em></sub>.</span></p></div></org-env-block>
+
+<h2 id="5-conceptual-summary-概念总结">5. Conceptual Summary
+概念总结</h2>
+<p>A Hilbert space is a vector space with enough structure to do both
+geometry and analysis.</p>
+<p>The structure can be viewed as the following chain:</p>
+<p><span class="math display">vector space ⇒ inner product
+space ⇒ normed vector space ⇒ metric space ⇒ complete metric
+structure.</span></p>
+<p>So:</p>
+<h1 id="-texthilbert-space">$$ \text{Hilbert space}</h1>
+<p>\text{inner product space} + \text{completeness}. $$</p>
+<p>In quantum computing, Hilbert spaces matter because:</p>
+<ol type="1">
+<li>quantum states are vectors or rays in Hilbert spaces;</li>
+<li>amplitudes are computed using inner products;</li>
+<li>measurement probabilities are given by the Born rule;</li>
+<li>observables are represented by Hermitian operators;</li>
+<li>composite systems are represented by tensor products.</li>
+</ol>
+<p><org-env-block data-kind="summary" data-title="A Hilbert space is the natural mathematical home for quantum theory." data-label="Summary"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="false">A
+Hilbert space is the natural mathematical home for quantum
+theory.</span></span><div class="org-env-content"><p>It is linear enough
+to support superposition, geometric enough to support orthogonality and
+projection, and complete enough to support limits, approximation, and
+analysis.</p></div></org-env-block></p>
           </article>
         </div>
       </div>

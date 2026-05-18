@@ -380,10 +380,22 @@ function buildMenu() {
         accelerator: "CmdOrCtrl+Shift+R",
         click: () => runInWindow(dispatchCommandScript("reload-snippets")),
       },
+      {
+        label: "Enable Snippet Suggestions",
+        click: () => runInWindow(dispatchCommandScript("enable-snippet-suggestions")),
+      },
+      {
+        label: "Disable Snippet Suggestions",
+        click: () => runInWindow(dispatchCommandScript("disable-snippet-suggestions")),
+      },
+      {
+        label: "Reset Snippet Suggestions",
+        click: () => runInWindow(dispatchCommandScript("reset-snippet-suggestions")),
+      },
       { type: "separator" },
       {
         label: "Insert Block...",
-        accelerator: "CmdOrCtrl+Enter",
+        accelerator: "Cmd+Enter",
         click: () => runInWindow(dispatchCommandScript("open-block-menu")),
       },
       {
@@ -449,6 +461,11 @@ function buildMenu() {
         label: "Notes",
         accelerator: "CmdOrCtrl+1",
         click: () => runInWindow("document.querySelector('[data-action=notes]')?.click()"),
+      },
+      {
+        label: "Filesystem",
+        accelerator: "Ctrl+Enter",
+        click: () => runInWindow(dispatchCommandScript("open-filesystem")),
       },
       {
         label: "Editor",

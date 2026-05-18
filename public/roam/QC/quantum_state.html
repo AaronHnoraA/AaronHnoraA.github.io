@@ -27,54 +27,284 @@
         <div class="typora-web-editor-host">
           <article id="content" class="ProseMirror" data-note-title="Quantum State">
             <h1 class="title">Quantum State</h1>
-            <h1 id="1-量子态的数学载体希尔伯特空间hilbert-space">1.
-量子态的数学载体：希尔伯特空间(<a
-href="../math/hilbert_space.html">Hilbert Space</a>)</h1>
-<p>在量子力学中，每一个物理系统，都对应一个 <em>复希尔伯特空间</em>
-H。</p>
-<p>H 具备三个关键结构：</p>
+            <h1 id="quantum-state-量子态">Quantum State 量子态</h1>
+<p><org-env-block data-kind="summary" data-title="A quantum state describes the physical state of a quantum system." data-label="Summary"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="false">A
+quantum state describes the physical state of a quantum
+system.</span></span><div class="org-env-content"><p>Mathematically, a
+closed quantum system is associated with a complex Hilbert space
+<span class="math inline"><em>H</em></span>.</p></p>
+<p>A pure quantum state is not literally a single vector in <span
+class="math inline"><em>H</em></span>, but a ray, namely a
+one-dimensional subspace of <span
+class="math inline"><em>H</em></span>.</p>
+<p>In calculations, we usually choose a normalized representative vector
+<span class="math inline">|<em>ψ</em>⟩</span> from that ray.</p></div></org-env-block>
+
+<h1 id="1-mathematical-carrier-of-quantum-states-量子态的数学载体">1.
+Mathematical Carrier of Quantum States 量子态的数学载体</h1>
+<p>In quantum mechanics, every physical system is associated with a
+complex Hilbert space</p>
+<p><span class="math display"><em>H</em>.</span></p>
+<p>This Hilbert space has three key structures.</p>
+<ol type="1">
+<li><p>Linear structure:</p>
+<p><span
+class="math display"><em>α</em>|<em>ψ</em>⟩ + <em>β</em>|<em>ϕ</em>⟩ ∈ <em>H</em>.</span></p>
+<p>This supports the superposition principle.</p></li>
+<li><p>Inner product:</p>
+<p><span class="math display">⟨<em>ϕ</em>|<em>ψ</em>⟩.</span></p>
+<p>The inner product is used to compute amplitudes, probabilities,
+orthogonality, projections, and expectation values.</p></li>
+<li><p>Completeness:</p>
+<p>Cauchy sequences converge inside the space. This guarantees that
+limiting processes do not leave the state space.</p></li>
+</ol>
+<p>中文直觉：</p>
+<h1 id="-texthilbert-space">$$ \text{Hilbert space}</h1>
+<p>\text{linear structure} + \text{geometry} + \text{limit structure}.
+$$</p>
+<p>So Hilbert space is the mathematical environment in which quantum
+states live.</p>
+<h1 id="2-separable-hilbert-spaces-可分希尔伯特空间">2. Separable
+Hilbert Spaces 可分希尔伯特空间</h1>
+<p>In many physical settings, one assumes that the Hilbert space is
+separable.</p>
+<p><org-env-block data-kind="define" data-title="A Hilbert space $H$ is separable if it contains a countable dense subset." data-label="Define"><span class="org-env-heading"><span class="org-env-heading-label">Define</span><span class="org-env-heading-title" data-empty="false">A
+Hilbert space <span class="math inline"><em>H</em></span> is separable
+if it contains a countable dense
+subset.</span></span><div class="org-env-content"><p>Equivalently, for
+Hilbert spaces, separability means that <span
+class="math inline"><em>H</em></span> has a countable orthonormal
+basis.</p></div></org-env-block></p>
+<p>This means that there exists an orthonormal basis</p>
+<p><span
+class="math display">{|<em>e</em><sub><em>n</em></sub>⟩}<sub><em>n</em> ∈ ℕ</sub></span></p>
+<p>such that every vector <span
+class="math inline">|<em>ψ</em>⟩ ∈ <em>H</em></span> can be approximated
+by finite linear combinations of these basis vectors.</p>
+<p>In finite-dimensional quantum computing, the Hilbert spaces are
+automatically separable. For example, an <span
+class="math inline"><em>n</em></span>-qubit system has state space</p>
+<p><span
+class="math display">(ℂ<sup>2</sup>)<sup>⊗<em>n</em></sup> ≅ ℂ<sup>2<sup><em>n</em></sup></sup>.</span></p>
+<p><org-env-block data-kind="note" data-title="It is better to say that separability makes the Hilbert space manageable by countable coordinates." data-label="Note"><span class="org-env-heading"><span class="org-env-heading-label">Note</span><span class="org-env-heading-title" data-empty="false">It
+is better to say that separability makes the Hilbert space manageable by
+countable coordinates.</span></span><div class="org-env-content"><p>The
+phrase “finite experiments can determine the state” is not quite
+accurate, because exact quantum state determination generally requires
+infinitely many samples in principle. In practice, one estimates a state
+statistically.</p></div></org-env-block></p>
+<h1
+id="3-a-quantum-state-is-not-literally-a-vector-量子态不是单个矢量">3. A
+Quantum State Is Not Literally a Vector 量子态不是单个矢量</h1>
+<p>The key conceptual point is:</p>
+<p><span class="math display">quantum state ≠ one specific vector in
+<em>H</em>.</span></p>
+<p>Rather,</p>
+<h1 id="-textpure-quantum-state">$$ \text{pure quantum state}</h1>
+<p>\text{a ray in } H. $$</p>
+<p>A ray is a one-dimensional subspace of <span
+class="math inline"><em>H</em></span>.</p>
+<p>If <span class="math inline">|<em>ψ</em>⟩ ≠ 0</span>, then the
+corresponding ray is</p>
+<h1 id="-psirangle">$$ [|\psi\rangle]</h1>
+<p>{\lambda |\psi\rangle : \lambda \in \mathbb{C},\ \lambda \neq 0}.
+$$</p>
+<p>When we restrict to normalized vectors, this becomes the equivalence
+relation</p>
+<p><span
+class="math display">|<em>ψ</em>⟩ ∼ <em>e</em><sup><em>i</em><em>θ</em></sup>|<em>ψ</em>⟩,</span></p>
+<p>where</p>
+<p><span class="math display"><em>θ</em> ∈ ℝ.</span></p>
+<p>Thus two normalized vectors that differ only by a global phase
+represent the same physical pure state.</p>
+<p><org-env-block data-kind="important" data-title="A global phase has no physical effect:" data-label="Important"><span class="org-env-heading"><span class="org-env-heading-label">Important</span><span class="org-env-heading-title" data-empty="false">A
+global phase has no physical
+effect:</span></span><div class="org-env-content"><p><span
+class="math display">|<em>ψ</em>⟩  and  <em>e</em><sup><em>i</em><em>θ</em></sup>|<em>ψ</em>⟩</span></p></p>
+<p>represent the same physical state.</p></div></org-env-block>
+
+<h1 id="4-why-global-phase-is-unobservable-为什么整体相位不可观测">4.
+Why Global Phase Is Unobservable 为什么整体相位不可观测</h1>
+<p>Suppose</p>
+<h1 id="-psirangle-1">$$ |\psi'\rangle</h1>
+<p>e^{i\theta}|\psi\rangle. $$</p>
+<p>Let <span class="math inline">|<em>ϕ</em>⟩</span> be any measurement
+basis vector. Then the probability amplitude changes as</p>
+<h1 id="-langle-phipsirangle">$$ \langle \phi|\psi'\rangle</h1>
+<h1 id="langle-phieithetapsirangle">\langle
+\phi|e^{i\theta}\psi\rangle</h1>
+<p>e^{i\theta}\langle \phi|\psi\rangle. $$</p>
+<p>But the probability is the squared modulus:</p>
+<h1 id="-langle-phipsirangle2">$$ |\langle \phi|\psi'\rangle|^2</h1>
+<p>|e^{i\theta}\langle \phi|\psi\rangle|^2. $$</p>
+<p>Since</p>
+<p><span
+class="math display">|<em>e</em><sup><em>i</em><em>θ</em></sup>| = 1,</span></p>
+<p>we get</p>
+<h1 id="-langle-phipsirangle2-1">$$ |\langle \phi|\psi'\rangle|^2</h1>
+<p>|\langle \phi|\psi\rangle|^2. $$</p>
+<p>So measurement probabilities do not change.</p>
+<p>The same holds for expectation values. Let <span
+class="math inline"><em>Â</em></span> be an observable. Then</p>
+<h1 id="-langle-psihatapsirangle">$$ \langle
+\psi'|\hat{A}|\psi'\rangle</h1>
+<p>\langle e^{i\theta}\psi|\hat{A}|e^{i\theta}\psi\rangle. $$</p>
+<p>Since the bra transforms as</p>
+<h1 id="-langle-psi">$$ \langle \psi'|</h1>
+<p>e^{-i\theta}\langle \psi|, $$</p>
+<p>we have</p>
+<h1 id="-langle-psihatapsirangle-1">$$ \langle
+\psi'|\hat{A}|\psi'\rangle</h1>
+<p>e^{-i\theta}e^{i\theta} \langle \psi|\hat{A}|\psi\rangle. $$</p>
+<p>Therefore,</p>
+<h1 id="-langle-psihatapsirangle-2">$$ \langle
+\psi'|\hat{A}|\psi'\rangle</h1>
+<p>\langle \psi|\hat{A}|\psi\rangle. $$</p>
+<p>Thus all probabilities and expectation values are unchanged by a
+global phase.</p>
+<h1 id="5-projective-hilbert-space-射影希尔伯特空间">5. Projective
+Hilbert Space 射影希尔伯特空间</h1>
+<p>The set of physical pure states is the projective Hilbert space</p>
+<p><span class="math display">ℙ(<em>H</em>).</span></p>
+<p>It is defined as</p>
+<h1 id="-mathbbph">$$ \mathbb{P}(H)</h1>
+<p>(H \setminus {0})/\mathbb{C}^{\times}, $$</p>
+<p>where two nonzero vectors are identified if they differ by a nonzero
+complex scalar.</p>
+<p>Equivalently, if we restrict to normalized vectors, then</p>
+<h1 id="-mathbbph-1">$$ \mathbb{P}(H)</h1>
+<p>{|\psi\rangle \in H : \langle \psi|\psi\rangle = 1}/U(1), $$</p>
+<p>where</p>
+<h1 id="-u1">$$ U(1)</h1>
+<p>{e^{i\theta} : \theta \in \mathbb{R}}. $$</p>
+<p>中文直觉：</p>
 <ul>
-<li>线性结构（可以相加、数乘）</li>
-<li>内积 ⟨·,·⟩（用来算概率与期望值）</li>
-<li>完备性（极限不会“跑丢”）</li>
+<li>Hilbert space <span class="math inline"><em>H</em></span> contains
+vectors.</li>
+<li>Physical pure states are rays in <span
+class="math inline"><em>H</em></span>.</li>
+<li>Choosing <span class="math inline">|<em>ψ</em>⟩</span> is choosing
+one representative of the ray.</li>
 </ul>
-<p>在实际物理中，我们通常假设 H 是 <em>可分的</em>，
-意思是：它有一个可数的正交基，
-这与“有限次实验可以确定状态”这一物理事实相匹配。</p>
-<h1 id="2-量子态不是矢量而是束">2. 量子态不是矢量，而是“束”</h1>
-<p><em>关键结论：</em> 量子态 ≠ 希尔伯特空间中的某一个具体矢量 量子态 =
-<em>一维子空间</em>（又叫“束”）</p>
-<p>原因是： 如果两个矢量只差一个整体相位</p>
-<div class="sourceCode" id="cb1"><pre
-class="sourceCode typst"><code class="sourceCode typst"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">#</span>table<span class="op">(</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  columns<span class="op">:</span> <span class="dv">2</span><span class="op">,</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="op">[</span>ψ⟩ 和 e^{iθ}<span class="op">],</span> <span class="op">[</span>ψ⟩<span class="op">],</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">)</span></span></code></pre></div>
-<p>那么：</p>
-<ul>
-<li>所有可观测量的概率</li>
-<li>所有期望值</li>
-</ul>
-<p>完全一样，实验无法区分。</p>
-<p>因此，真正的物理状态是：</p>
-<ul>
-<li>所有长度为 1 的矢量</li>
-<li>按“相差一个相位”分成的等价类</li>
-</ul>
-<p>数学上，这叫： <em>射影希尔伯特空间</em> P(H)</p>
-<h1 id="3-为什么平时还在用态矢这个说法">3.
-为什么平时还在用“态矢”这个说法？</h1>
-<p>虽然严格来说量子态是“束”， 但在很多情形下：</p>
-<ul>
-<li>选定一个代表元 |ψ⟩ 计算</li>
-<li>最终结果与相位无关</li>
-</ul>
-<p>所以物理学家常常：</p>
-<ul>
-<li>用 |ψ⟩ 代指这个束</li>
-<li>称之为“态矢”</li>
-</ul>
-<p>这是一个 <em>计算上的简化</em>， 而不是概念上的严格等价。</p>
+<h1 id="6-why-we-still-use-state-vectors-为什么平时还说态矢">6. Why We
+Still Use State Vectors 为什么平时还说“态矢”</h1>
+<p>Although a pure quantum state is strictly a ray, in calculations we
+usually choose one normalized representative</p>
+<p><span class="math display">|<em>ψ</em>⟩</span></p>
+<p>and call it a state vector.</p>
+<p>This is convenient because:</p>
+<ol type="1">
+<li>linear algebra is done with vectors;</li>
+<li>amplitudes are written as inner products;</li>
+<li>global phase cancels out in probabilities and expectation
+values;</li>
+<li>choosing a representative does not change physical predictions.</li>
+</ol>
+<p>Thus the phrase “state vector” is a computational shorthand.</p>
+<p><org-env-block data-kind="important" data-title="Strictly speaking:" data-label="Important"><span class="org-env-heading"><span class="org-env-heading-label">Important</span><span class="org-env-heading-title" data-empty="false">Strictly
+speaking:</span></span><div class="org-env-content"><h1 id="-textstate-vector">$$
+\text{state vector}</h1></p>
+<p>\text{chosen representative}, $$</p>
+<p>while</p>
+<h1 id="-textphysical-pure-state">$$ \text{physical pure state}</h1>
+<p>\text{ray / equivalence class}. $$</p>
+<p>So using <span class="math inline">|<em>ψ</em>⟩</span> is a
+calculation convention, not a conceptual identity.</p></div></org-env-block>
+
+<h1 id="7-pure-states-and-mixed-states-纯态与混合态">7. Pure States and
+Mixed States 纯态与混合态</h1>
+<p>The discussion above concerns pure states.</p>
+<p>A pure state can be represented by a ray</p>
+<p><span class="math display">[|<em>ψ</em>⟩]</span></p>
+<p>or equivalently by the rank-one density operator</p>
+<h1 id="-rho_psi">$$ \rho_\psi</h1>
+<p>|\psi\rangle\langle \psi|. $$</p>
+<p>This density operator is invariant under global phase. Indeed, if</p>
+<h1 id="-psirangle-2">$$ |\psi'\rangle</h1>
+<p>e^{i\theta}|\psi\rangle, $$</p>
+<p>then</p>
+<h1 id="-psiranglelangle-psi">$$ |\psi'\rangle\langle \psi'|</h1>
+<h1 id="eithetapsirangle-e-ithetalangle-psi">e^{i\theta}|\psi\rangle
+e^{-i\theta}\langle \psi|</h1>
+<p>|\psi\rangle\langle \psi|. $$</p>
+<p>So the density-operator representation removes the global-phase
+ambiguity automatically.</p>
+<p>A mixed state is represented by a density operator</p>
+<h1 id="-rho">$$ \rho</h1>
+<p>\sum_i p_i |\psi_i\rangle\langle \psi_i|, $$</p>
+<p>where</p>
+<p><span
+class="math display"><em>p</em><sub><em>i</em></sub> ≥ 0,   ∑<sub><em>i</em></sub><em>p</em><sub><em>i</em></sub> = 1.</span></p>
+<p>Mixed states are not generally rays. They represent classical
+probabilistic mixtures of pure states.</p>
+<h1 id="8-qubit-example-单量子比特例子">8. Qubit Example
+单量子比特例子</h1>
+<p>For one qubit, the Hilbert space is</p>
+<p><span class="math display"><em>H</em> = ℂ<sup>2</sup>.</span></p>
+<p>A normalized state vector can be written as</p>
+<h1 id="-psirangle-3">$$ |\psi\rangle</h1>
+<p>\alpha |0\rangle + \beta |1\rangle, $$</p>
+<p>where</p>
+<p><span class="math display"><em>α</em>, <em>β</em> ∈ ℂ,</span></p>
+<p>and</p>
+<p><span
+class="math display">|<em>α</em>|<sup>2</sup> + |<em>β</em>|<sup>2</sup> = 1.</span></p>
+<p>The vectors</p>
+<p><span class="math display">|<em>ψ</em>⟩</span></p>
+<p>and</p>
+<p><span
+class="math display"><em>e</em><sup><em>i</em><em>θ</em></sup>|<em>ψ</em>⟩</span></p>
+<p>represent the same physical state.</p>
+<p>The probabilities of measuring <span class="math inline">0</span> and
+<span class="math inline">1</span> are</p>
+<p><span
+class="math display">Pr (0) = |<em>α</em>|<sup>2</sup>,</span></p>
+<p>and</p>
+<p><span
+class="math display">Pr (1) = |<em>β</em>|<sup>2</sup>.</span></p>
+<p>These probabilities are unchanged by multiplying the whole state
+vector by <span
+class="math inline"><em>e</em><sup><em>i</em><em>θ</em></sup></span>.</p>
+<p><org-env-block data-kind="note" data-title="Global phase is unobservable, but relative phase is observable." data-label="Note"><span class="org-env-heading"><span class="org-env-heading-label">Note</span><span class="org-env-heading-title" data-empty="false">Global
+phase is unobservable, but relative phase is
+observable.</span></span><div class="org-env-content"><p>For
+example,</p></p>
+<p><span class="math display">$$
+\frac{|0\rangle+|1\rangle}{\sqrt{2}}
+$$</span></p>
+<p>and</p>
+<p><span class="math display">$$
+\frac{|0\rangle-|1\rangle}{\sqrt{2}}
+$$</span></p>
+<p>are physically different states.</p>
+<p>They differ by a relative phase between the <span
+class="math inline">|0⟩</span> and <span class="math inline">|1⟩</span>
+components, not merely by a global phase.</p></div></org-env-block>
+
+<h1 id="conceptual-summary-概念总结">Conceptual Summary 概念总结</h1>
+<p><org-env-block data-kind="summary" data-title="A quantum system is associated with a complex Hilbert space $H$." data-label="Summary"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="false">A
+quantum system is associated with a complex Hilbert space <span
+class="math inline"><em>H</em></span>.</span></span><div class="org-env-content"><p>A
+pure quantum state is a ray in <span
+class="math inline"><em>H</em></span>:</p></p>
+<h1 id="-psirangle">$$ [|\psi\rangle]</h1>
+<p>{\lambda|\psi\rangle : \lambda \in \mathbb{C},\ \lambda \neq 0}.
+$$</p>
+<p>For normalized representatives,</p>
+<p><span
+class="math display">|<em>ψ</em>⟩ ∼ <em>e</em><sup><em>i</em><em>θ</em></sup>|<em>ψ</em>⟩.</span></p>
+<p>Thus:</p>
+<h1 id="-textphysical-pure-state">$$ \text{physical pure state}</h1>
+<h1 id="textray">\text{ray}</h1>
+<h1 id="textone-dimensional-subspace">\text{one-dimensional
+subspace}</h1>
+<p>\text{equivalence class up to global phase}. $$</p>
+<p>In calculations, we usually choose a normalized representative <span
+class="math inline">|<em>ψ</em>⟩</span> and call it the state
+vector.</p>
+<p>This is convenient because all physical predictions are invariant
+under global phase.</p></div></org-env-block>
           </article>
         </div>
       </div>

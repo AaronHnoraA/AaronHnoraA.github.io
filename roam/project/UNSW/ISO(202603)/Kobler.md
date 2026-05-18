@@ -82,6 +82,8 @@ From Graph Isomorphism/Automorphism to Tensor Isomorphism/Automorphism
 
 ## Goal
 
+My current task is to understand the graph-side relationships between $\mathrm{GI}$, $\mathrm{GA}$, $\#\mathrm{GI}$, and $\#\mathrm{GA}$ from Köbler--Schöning--Torán, and then identify which parts of this workflow may have tensor analogues.
+
 ## 1. Graph-Side Definitions
 
 For graphs $G$ and $H$, the graph isomorphism problem asks whether there exists a bijection between their vertex sets preserving adjacency. I write

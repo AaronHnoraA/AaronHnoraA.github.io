@@ -2,8 +2,8 @@
 id: 20260126T000000-hilbert-space
 title: Hilbert Space
 date: 2026-01-26
-tags: math, structure, concept, intuition, working, QC, algebra, linear_algebra
-source: roam/math/hilbert_space.md
+tags: math, structure, concept, intuition, working, QC, algebra, linear\_algebra
+source: roam/math/hilbert\_space.md
 #+end meta
 
 # Hilbert Space 希尔伯特空间
@@ -75,7 +75,6 @@ where usually $F=\mathbb{R}$ or $F=\mathbb{C}$, such that every Cauchy sequence 
   $$
 
   then $u$ and $v$ are orthogonal.
-
 - **Norm 范数**
 
   The norm is induced by the inner product:
@@ -87,7 +86,6 @@ where usually $F=\mathbb{R}$ or $F=\mathbb{C}$, such that every Cauchy sequence 
   $$
 
   It measures the length of a vector.
-
 - **Metric 距离**
 
   The norm induces a distance function:
@@ -97,7 +95,6 @@ where usually $F=\mathbb{R}$ or $F=\mathbb{C}$, such that every Cauchy sequence 
   =
   \|u-v\|.
   $$
-
 - **Completeness 完备性**
 
   Completeness means that every Cauchy sequence converges to an element inside the same space.
@@ -117,13 +114,11 @@ where usually $F=\mathbb{R}$ or $F=\mathbb{C}$, such that every Cauchy sequence 
    $$
    \mathbb{R}^n.
    $$
-
 2. Finite-dimensional complex spaces:
 
    $$
    \mathbb{C}^n.
    $$
-
 3. The space of square-integrable functions:
 
    $$

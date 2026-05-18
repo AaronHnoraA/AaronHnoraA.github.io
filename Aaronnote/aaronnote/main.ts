@@ -95,8 +95,8 @@ root.innerHTML = `
             <div class="aaronnote-files-toolbar">
               <input data-note-filter type="search" placeholder="Filter notes by path, title, tag, or id" />
               <div class="aaronnote-files-actions">
-                <button type="button" data-action="notes-collapse-all">Collapse all</button>
-                <button type="button" data-action="notes-expand-all">Expand all</button>
+                <button type="button" data-action="notes-collapse-all">Parent</button>
+                <button type="button" data-action="notes-expand-all">Current</button>
                 <span data-note-count></span>
               </div>
             </div>
@@ -205,6 +205,26 @@ selectionTool.innerHTML = `
 selectionTool.hidden = true;
 document.body.appendChild(selectionTool);
 
+const findTool = document.createElement("div");
+findTool.className = "aaronnote-find-tool";
+findTool.innerHTML = `
+  <input data-find-query type="search" placeholder="Find" />
+  <input data-find-replace type="text" placeholder="Replace" />
+  <label><input data-find-regex type="checkbox" /> Regex</label>
+  <span data-find-count></span>
+  <button type="button" data-find-action="prev">Prev</button>
+  <button type="button" data-find-action="next">Next</button>
+  <button type="button" data-find-action="replace">Replace</button>
+  <button type="button" data-find-action="all">All</button>
+  <button type="button" data-find-action="close">Close</button>
+`;
+findTool.hidden = true;
+document.body.appendChild(findTool);
+const findQuery = findTool.querySelector<HTMLInputElement>("[data-find-query]")!;
+const findReplace = findTool.querySelector<HTMLInputElement>("[data-find-replace]")!;
+const findRegex = findTool.querySelector<HTMLInputElement>("[data-find-regex]")!;
+const findCount = findTool.querySelector<HTMLElement>("[data-find-count]")!;
+
 const quickInsertPopup = document.createElement("div");
 quickInsertPopup.className = "aaronnote-quick-popup";
 quickInsertPopup.hidden = true;
@@ -241,6 +261,8 @@ let snippetPopupIndex = 0;
 let snippetDeleteBefore = 0;
 let snippetSuppressedPrefix = "";
 let snippetRenderKey = "";
+let snippetSuggestionsEnabled = true;
+let snippetMouseSuppressed = false;
 let quickInsertItems: QuickInsertItem[] = [];
 let quickInsertIndex = 0;
 let quickInsertDeleteBefore = 0;
@@ -250,7 +272,10 @@ let quickInsertMode: "slash" | "block" = "slash";
 let blockMenuPinned = false;
 let snippetSession: SnippetSession;
 let mathPreviewKey = "";
+let mathPreviewUpdateRequested = false;
 let snippetScanRequested = false;
+let findMatches: Array<{ from: number; to: number; match: RegExpExecArray }> = [];
+let findIndex = -1;
 let saveRequestSeq = 0;
 const saveClientId = (() => {
   try {
@@ -265,10 +290,12 @@ let pendingEquationTag = params.get("eqTag") || "";
 
 const recentStorageKey = "aaronnote.recent";
 const writingModeStorageKey = "aaronnote.writingMode";
+const snippetSuggestionsStorageKey = "aaronnote.snippetSuggestions.enabled";
 type RecentNote = { file: string; openedAt: number };
 type OpenNoteOptions = { newWindow?: boolean; equationTag?: string };
 let recentNotes = loadRecentNotes();
 let writingMode = loadWritingMode();
+snippetSuggestionsEnabled = loadSnippetSuggestionsEnabled();
 
 const cursorStorageKey = "aaronnote.cursorPositions";
 type CursorPosition = {
@@ -352,7 +379,8 @@ function scratchStatus(): string {
 const editor = createEditor(host, {
   initialContent: "",
   onChange: () => {
-    scheduleAssistUpdate({ snippets: true });
+    snippetMouseSuppressed = false;
+    scheduleAssistUpdate({ snippets: true, mathPreview: true });
     if (!currentFile) {
       setStatus(scratchStatus());
       return;
@@ -394,6 +422,9 @@ const filesystemBrowser = createFilesystemBrowser({
   getRecentNotes: () => recentNotes,
   getCurrentFile: () => currentFile,
   openNote,
+  deleteNote: (note) => void deleteNoteFromBrowser(note),
+  createNode: () => void createNode(),
+  createFolder: (dir) => createFolderFromBrowser(dir),
 });
 
 const agendaManager = createAgendaManager({
@@ -473,8 +504,119 @@ host.addEventListener("drop", (event) => {
   void insertFiles(files);
 });
 
+host.addEventListener("focusout", () => {
+  window.setTimeout(() => {
+    if (document.activeElement && host.contains(document.activeElement)) return;
+    mathPreview.hidden = true;
+    mathPreviewKey = "";
+  }, 0);
+});
+
 function setStatus(text: string): void {
   statusEl.textContent = text;
+}
+
+function findPattern(): RegExp | null {
+  const query = findQuery.value;
+  if (!query) return null;
+  try {
+    return new RegExp(findRegex.checked ? query : escapeRegExp(query), "gu");
+  } catch (err) {
+    findCount.textContent = err instanceof Error ? err.message : "Bad regex";
+    return null;
+  }
+}
+
+function refreshFindMatches(): void {
+  findMatches = [];
+  findIndex = -1;
+  const pattern = findPattern();
+  if (!pattern) {
+    findCount.textContent = "";
+    return;
+  }
+  const markdown = editor.getMarkdown();
+  for (const match of markdown.matchAll(pattern)) {
+    const from = match.index ?? 0;
+    const text = match[0] ?? "";
+    if (!text) {
+      pattern.lastIndex += 1;
+      continue;
+    }
+    findMatches.push({ from, to: from + text.length, match });
+  }
+  findCount.textContent = findMatches.length ? `0 / ${findMatches.length}` : "No matches";
+}
+
+function selectFindMatch(index: number): void {
+  if (findMatches.length === 0) {
+    refreshFindMatches();
+    if (findMatches.length === 0) return;
+  }
+  findIndex = (index + findMatches.length) % findMatches.length;
+  const match = findMatches[findIndex]!;
+  editor.setMarkdownSelection(match.from, match.to);
+  findCount.textContent = `${findIndex + 1} / ${findMatches.length}`;
+}
+
+function findNext(delta = 1): void {
+  if (findMatches.length === 0) refreshFindMatches();
+  selectFindMatch(findIndex + delta);
+}
+
+function openFindTool(): void {
+  if (!notesPage.hidden) {
+    showNotesTool("filesystem");
+    noteFilter.focus();
+    noteFilter.select();
+    return;
+  }
+  findTool.hidden = false;
+  findQuery.focus();
+  findQuery.select();
+  refreshFindMatches();
+}
+
+function closeFindTool(): void {
+  findTool.hidden = true;
+  editor.focus();
+}
+
+function replacementText(match: RegExpExecArray): string {
+  if (!findRegex.checked) return findReplace.value;
+  return findReplace.value.replace(/\$(\$|&|\d{1,2})/g, (_token, key: string) => {
+    if (key === "$") return "$";
+    if (key === "&") return match[0] ?? "";
+    const index = Number(key);
+    return Number.isFinite(index) ? match[index] ?? "" : "";
+  });
+}
+
+function replaceCurrentFindMatch(): void {
+  if (findMatches.length === 0) refreshFindMatches();
+  if (findMatches.length === 0) return;
+  const match = findMatches[Math.max(0, findIndex)] ?? findMatches[0]!;
+  editor.replaceMarkdownRange(match.from, match.to, replacementText(match.match), "end");
+  refreshFindMatches();
+  selectFindMatch(Math.min(findIndex, findMatches.length - 1));
+}
+
+function replaceAllFindMatches(): void {
+  const pattern = findPattern();
+  if (!pattern) return;
+  const markdown = editor.getMarkdown();
+  const next = markdown.replace(pattern, findReplace.value);
+  if (next === markdown) return;
+  editor.setMarkdown(next);
+  refreshFindMatches();
+  scheduleAssistUpdate({ snippets: true });
+  if (currentFile) {
+    setStatus("Dirty");
+    window.clearTimeout(saveTimer);
+    saveTimer = window.setTimeout(() => save(), 900);
+  } else {
+    setStatus(scratchStatus());
+  }
 }
 
 function decodeNoteRef(ref: string): string {
@@ -1234,6 +1376,79 @@ async function deleteCurrentNote(): Promise<void> {
   }
 }
 
+async function deleteNoteFromBrowser(note: NoteSummary): Promise<void> {
+  if (!note.file) {
+    setStatus("No selected note");
+    return;
+  }
+  const label = note.path || note.file;
+  const confirmed = await openFormModal("Delete note", [
+    { id: "confirm", label: `Type TRASH to move ${label} to the system Trash`, value: "" },
+  ], "Move to Trash");
+  if (confirmed?.confirm !== "TRASH") return;
+  setStatus("Moving note to Trash");
+  try {
+    const fileToDelete = note.file;
+    if (window.AaronnoteDesktop?.trashNote) {
+      const desktopResult = await window.AaronnoteDesktop.trashNote(fileToDelete);
+      if (!desktopResult?.ok) throw new Error(desktopResult?.message || "Move to Trash failed");
+      const res = await fetch("/api/roamdb/sync");
+      const msg = await res.json() as { notes?: NoteSummary[]; message?: string };
+      if (!res.ok || !Array.isArray(msg.notes)) throw new Error(msg.message || "Refresh failed");
+      notes = msg.notes;
+    } else {
+      const res = await fetch("/api/delete", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ file: fileToDelete }),
+      });
+      const msg = await res.json() as { ok?: boolean; notes?: NoteSummary[]; message?: string };
+      if (!res.ok || !msg.ok) throw new Error(msg.message || "Move to Trash failed");
+      notes = Array.isArray(msg.notes) ? msg.notes : [];
+    }
+    cursorPositions.delete(fileToDelete);
+    saveCursorPositionsLocal();
+    if (fileToDelete === currentFile) {
+      currentFile = "";
+      fileLabel.textContent = "Scratch";
+      editor.setMarkdown("");
+    }
+    renderNotes();
+    if (!graphPage.hidden) renderGraph();
+    updateFloatingToc();
+    setStatus("Moved note to Trash");
+  } catch (err) {
+    setStatus(err instanceof Error ? err.message : "Move to Trash failed");
+  }
+}
+
+async function createFolderFromBrowser(baseDir: string): Promise<string | null> {
+  const initial = baseDir ? `${normalizeNotePath(baseDir)}/` : "";
+  const result = await openFormModal("New folder", [
+    { id: "path", label: "Folder path", type: "path", value: initial, suggestions: notePathSuggestions() },
+  ], "Create");
+  if (!result) return null;
+  const folder = normalizeNotePath(result.path || "");
+  if (!folder) return null;
+  setStatus("Creating folder");
+  try {
+    const res = await fetch("/api/folder", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ path: folder }),
+    });
+    const msg = await res.json() as { ok?: boolean; path?: string; notes?: NoteSummary[]; message?: string };
+    if (!res.ok || !msg.ok) throw new Error(msg.message || "Create folder failed");
+    if (Array.isArray(msg.notes)) notes = msg.notes;
+    renderNotes();
+    setStatus(`Folder created: ${msg.path || folder}`);
+    return msg.path || folder;
+  } catch (err) {
+    setStatus(err instanceof Error ? err.message : "Create folder failed");
+    return null;
+  }
+}
+
 async function updateNoteMeta(endpoint: string, body: Record<string, unknown>, success: string): Promise<void> {
   if (!currentFile) {
     setStatus("No current note");
@@ -1622,7 +1837,11 @@ function showNotesPage(tab = "filesystem"): void {
   sourceButton.hidden = true;
   editorButton.hidden = false;
   showNotesTool(tab);
-  if (tab === "filesystem") noteFilter.focus();
+  if (tab === "filesystem") window.requestAnimationFrame(() => filesystemBrowser.focus());
+}
+
+function openFilesystemPage(): void {
+  showNotesPage("filesystem");
 }
 
 function showNotesTool(tab: string): void {
@@ -1642,7 +1861,7 @@ function showNotesTool(tab: string): void {
   } else if (tab === "recent") {
     renderRecentNotes();
   } else if (tab === "filesystem") {
-    noteFilter.focus();
+    window.requestAnimationFrame(() => filesystemBrowser.focus());
   }
 }
 
@@ -1939,9 +2158,12 @@ function placeFloatingAbove(el: HTMLElement, rect: { left: number; top: number; 
   const margin = 8;
   const resolvedWidth = Math.min(width, window.innerWidth - margin * 2);
   const left = Math.min(Math.max(margin, rect.left), Math.max(margin, window.innerWidth - resolvedWidth - margin));
-  const previewHeight = Math.min(el.offsetHeight || 180, 240);
+  const previewHeight = Math.min(el.offsetHeight || 180, window.innerHeight - margin * 2);
   let top = rect.top - previewHeight - 8;
   if (top < margin) top = rect.bottom + 8;
+  if (top + previewHeight > window.innerHeight - margin) {
+    top = Math.max(margin, window.innerHeight - previewHeight - margin);
+  }
   el.style.left = `${left}px`;
   el.style.top = `${top}px`;
   el.style.width = `${resolvedWidth}px`;
@@ -1996,6 +2218,10 @@ function snippetContextMode(ctx: ReturnType<typeof editor.cursorContext>): strin
 }
 
 function updateSnippetPopup(ctx: ReturnType<typeof editor.cursorContext>): void {
+  if (!snippetSuggestionsEnabled || snippetMouseSuppressed) {
+    hideSnippetPopup();
+    return;
+  }
   const active = document.activeElement;
   if (!active || !host.contains(active)) {
     hideSnippetPopup();
@@ -2209,7 +2435,7 @@ function mathBlockAnchorRect(blockStart: number): { left: number; top: number; b
   }
 }
 
-function updateMathPreview(ctx: ReturnType<typeof editor.cursorContext>): void {
+function updateMathPreview(ctx: ReturnType<typeof editor.cursorContext>, allowNewPreview: boolean): void {
   const math = mathAtCursor(ctx);
   if (!math || math.tex.trim().length === 0) {
     mathPreview.hidden = true;
@@ -2217,6 +2443,15 @@ function updateMathPreview(ctx: ReturnType<typeof editor.cursorContext>): void {
     return;
   }
   const nextKey = `${math.display ? "display" : "inline"}\n${math.tex.trim()}`;
+  if (mathPreviewKey === nextKey && !mathPreview.hidden) {
+    placeFloatingAbove(mathPreview, math.rect ?? ctx.rect, math.display ? 640 : 320);
+    return;
+  }
+  if (!allowNewPreview) {
+    mathPreview.hidden = true;
+    mathPreviewKey = "";
+    return;
+  }
   if (mathPreviewKey !== nextKey) {
     mathPreviewKey = nextKey;
     mathPreview.innerHTML = "";
@@ -2230,7 +2465,12 @@ function updateMathPreview(ctx: ReturnType<typeof editor.cursorContext>): void {
     });
   }
   mathPreview.hidden = false;
-  placeFloatingAbove(mathPreview, math.rect ?? ctx.rect, math.display ? 420 : 300);
+  placeFloatingAbove(mathPreview, math.rect ?? ctx.rect, math.display ? 640 : 320);
+  window.requestAnimationFrame(() => {
+    if (mathPreviewKey === nextKey && !mathPreview.hidden) {
+      placeFloatingAbove(mathPreview, math.rect ?? ctx.rect, math.display ? 640 : 320);
+    }
+  });
 }
 
 function activeEditorSelection(): { text: string; rect: DOMRect } | null {
@@ -2240,8 +2480,11 @@ function activeEditorSelection(): { text: string; rect: DOMRect } | null {
   const anchor = selection.anchorNode;
   const focus = selection.focusNode;
   if (!anchor || !focus || !host.contains(anchor) || !host.contains(focus)) return null;
-  const text = selection.toString().trim();
-  if (!text) return null;
+  const logical = editor.getSelection();
+  const from = Math.min(logical.from, logical.to);
+  const to = Math.max(logical.from, logical.to);
+  const text = from < to ? editor.textBetween(from, to) : selection.toString();
+  if (!text.trim()) return null;
   const rect = selection.getRangeAt(0).getBoundingClientRect();
   if (rect.width === 0 && rect.height === 0) return null;
   return { text, rect };
@@ -2294,15 +2537,18 @@ function runSelectionCommand(command: string): void {
   selectionTool.hidden = true;
 }
 
-function scheduleAssistUpdate(options: { snippets?: boolean } = {}): void {
+function scheduleAssistUpdate(options: { snippets?: boolean; mathPreview?: boolean } = {}): void {
   snippetScanRequested = snippetScanRequested || options.snippets === true;
+  mathPreviewUpdateRequested = mathPreviewUpdateRequested || options.mathPreview === true;
   window.clearTimeout(assistTimer);
   assistTimer = window.setTimeout(() => {
     window.cancelAnimationFrame(assistFrame);
     assistFrame = window.requestAnimationFrame(() => {
       const ctx = editor.cursorContext(1600);
       const shouldScanSnippets = snippetScanRequested;
+      const shouldUpdateMathPreview = mathPreviewUpdateRequested;
       snippetScanRequested = false;
+      mathPreviewUpdateRequested = false;
       updateVimCursor(vimCursor, editor, vimMode, ctx);
       if (vimMode !== "insert") {
         hideSnippetPopup();
@@ -2318,7 +2564,7 @@ function scheduleAssistUpdate(options: { snippets?: boolean } = {}): void {
         hideBlockMenuTrigger();
       }
       else if (shouldScanSnippets) updateSnippetPopup(ctx);
-      updateMathPreview(ctx);
+      updateMathPreview(ctx, shouldUpdateMathPreview);
       updateFloatingToc();
       updateSelectionTool();
       if (activeEditorSelection()) hideBlockMenuTrigger();
@@ -2403,6 +2649,43 @@ function saveWritingMode(): void {
   } catch {
     // Writing mode is a local preference; ignore storage failures.
   }
+}
+
+function loadSnippetSuggestionsEnabled(): boolean {
+  try {
+    return window.localStorage.getItem(snippetSuggestionsStorageKey) !== "false";
+  } catch {
+    return true;
+  }
+}
+
+function saveSnippetSuggestionsEnabled(): void {
+  try {
+    window.localStorage.setItem(snippetSuggestionsStorageKey, snippetSuggestionsEnabled ? "true" : "false");
+  } catch {
+    // Snippet suggestions are a local preference; ignore storage failures.
+  }
+}
+
+function setSnippetSuggestionsEnabled(enabled: boolean): void {
+  snippetSuggestionsEnabled = enabled;
+  snippetSuppressedPrefix = "";
+  saveSnippetSuggestionsEnabled();
+  if (!enabled) {
+    hideSnippetPopup();
+    setStatus("Snippet suggestions disabled");
+    return;
+  }
+  setStatus("Snippet suggestions enabled");
+  scheduleAssistUpdate({ snippets: true });
+}
+
+function clearSnippetSuggestionState(): void {
+  snippetSuppressedPrefix = "";
+  snippetMouseSuppressed = false;
+  hideSnippetPopup();
+  setStatus("Snippet suggestions reset");
+  if (snippetSuggestionsEnabled) scheduleAssistUpdate({ snippets: true });
 }
 
 function applyWritingMode(): void {
@@ -2767,6 +3050,34 @@ function runEditorCommand(command: EditorCommand, value = ""): void {
 }
 
 document.addEventListener("keydown", (event) => {
+  const primaryMod = /Mac/.test(navigator.platform)
+    ? event.metaKey && !event.ctrlKey
+    : event.ctrlKey && !event.metaKey;
+  if (event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey && event.key === "Enter") {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!notesPage.hidden && notesPanels.some((panel) => panel.dataset.notesPanel === "filesystem" && !panel.hidden)) {
+      showEditorPage();
+    } else {
+      openFilesystemPage();
+    }
+    return;
+  }
+  if (
+    editorOwnsEventTarget(event)
+    && !event.metaKey
+    && !event.ctrlKey
+    && !event.altKey
+    && (event.key.length === 1 || ["Backspace", "Delete", "Enter", "Tab"].includes(event.key))
+  ) {
+    snippetMouseSuppressed = false;
+  }
+  if (primaryMod && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "f") {
+    event.preventDefault();
+    event.stopPropagation();
+    openFindTool();
+    return;
+  }
   if (event.key === "/" && !event.shiftKey && !event.altKey) {
     const isMac = /Mac/.test(navigator.platform);
     if (isMac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey) {
@@ -2775,6 +3086,20 @@ document.addEventListener("keydown", (event) => {
       toggleSourceMode();
       return;
     }
+  }
+  if (
+    vimMode !== "insert"
+    && event.key === "/"
+    && !event.metaKey
+    && !event.ctrlKey
+    && !event.altKey
+    && !event.shiftKey
+    && editorOwnsEventTarget(event)
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+    openFindTool();
+    return;
   }
   if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.key.toLowerCase() === "t") {
     event.preventDefault();
@@ -2868,6 +3193,10 @@ window.addEventListener("aaronnote:command", (event) => {
   if (command === "tag-manager") void handleTagCommand();
   if (command === "sync-roamdb") void syncRoamDb();
   if (command === "reload-snippets") void reloadSnippets();
+  if (command === "enable-snippet-suggestions") setSnippetSuggestionsEnabled(true);
+  if (command === "disable-snippet-suggestions") setSnippetSuggestionsEnabled(false);
+  if (command === "reset-snippet-suggestions") clearSnippetSuggestionState();
+  if (command === "open-filesystem") openFilesystemPage();
   if (command === "open-block-menu") openBlockMenu();
   if (command === "toggle-source") toggleSourceMode();
   if (command === "save-now") save();
@@ -2910,6 +3239,37 @@ selectionTool.addEventListener("click", (event) => {
   event.stopPropagation();
   runSelectionCommand(button.dataset.selectionCommand || "");
 });
+findTool.addEventListener("mousedown", (event) => event.stopPropagation());
+findTool.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    event.preventDefault();
+    closeFindTool();
+    return;
+  }
+  if (event.key === "Enter") {
+    event.preventDefault();
+    findNext(event.shiftKey ? -1 : 1);
+  }
+});
+findQuery.addEventListener("input", () => {
+  refreshFindMatches();
+  if (findMatches.length) selectFindMatch(0);
+});
+findRegex.addEventListener("change", () => {
+  refreshFindMatches();
+  if (findMatches.length) selectFindMatch(0);
+});
+findTool.addEventListener("click", (event) => {
+  const button = (event.target as Element | null)?.closest<HTMLButtonElement>("[data-find-action]");
+  if (!button) return;
+  event.preventDefault();
+  const action = button.dataset.findAction || "";
+  if (action === "prev") findNext(-1);
+  if (action === "next") findNext(1);
+  if (action === "replace") replaceCurrentFindMatch();
+  if (action === "all") replaceAllFindMatches();
+  if (action === "close") closeFindTool();
+});
 noteFilter.addEventListener("input", scheduleRenderNotes);
 agendaFilter.addEventListener("input", scheduleRenderAgenda);
 agendaSort.addEventListener("change", scheduleRenderAgenda);
@@ -2923,8 +3283,12 @@ document.addEventListener("keyup", (event) => {
   scheduleAssistUpdate();
 });
 document.addEventListener("mousedown", (event) => {
-  if (quickInsertMode !== "block" || quickInsertPopup.hidden) return;
   const target = event.target as Node | null;
+  if (!snippetPopup.hidden && target && !snippetPopup.contains(target)) {
+    if (host.contains(target)) snippetMouseSuppressed = true;
+    hideSnippetPopup();
+  }
+  if (quickInsertMode !== "block" || quickInsertPopup.hidden) return;
   if (!target) return;
   if (quickInsertPopup.contains(target) || blockMenuTrigger.contains(target)) return;
   hideQuickInsertPopup();

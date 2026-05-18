@@ -16,7 +16,7 @@
 import { EditorState, Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import { Decoration, DecorationSet, EditorView } from "prosemirror-view";
 import { redo, undo } from "prosemirror-history";
-import { DOMSerializer, type Node as PMNode } from "prosemirror-model";
+import { DOMSerializer, Slice, type Node as PMNode } from "prosemirror-model";
 
 import { defaultPlugins } from "./editor.ts";
 import { cleanEditorHTML } from "./export-html.ts";
@@ -363,6 +363,10 @@ export interface Editor {
   insertText(text: string, deleteBefore?: number): { from: number; to: number };
   /** Select a range in the active surface. Offsets are source offsets in source mode, PM offsets otherwise. */
   setSelection(from: number, to?: number): void;
+  /** Select a markdown-source range regardless of current surface. */
+  setMarkdownSelection(from: number, to?: number): void;
+  /** Replace a markdown-source range regardless of current surface. */
+  replaceMarkdownRange(from: number, to: number, text: string, select?: "start" | "end" | "all"): { from: number; to: number };
   /** Current active-surface selection. */
   getSelection(): { from: number; to: number };
   /** Reveal the active cursor in the viewport and briefly flash it. */
@@ -508,6 +512,19 @@ export function createEditor(
     return plain;
   }
 
+  function replaceRenderedSelectionFromClipboard(text: string): void {
+    if (!plainTextLooksLikeMarkdownSource(text)) {
+      const { from, to } = view.state.selection;
+      view.dispatch(view.state.tr.insertText(text, from, to).scrollIntoView());
+      view.focus();
+      return;
+    }
+    const parsed = parse(text);
+    const tr = view.state.tr.replaceSelection(new Slice(parsed.content, 0, 0)).scrollIntoView();
+    view.dispatch(tr);
+    view.focus();
+  }
+
   function buildView(initialMd: string): EditorView {
     const doc = initialMd ? parse(initialMd) : schema.nodes.doc.createAndFill()!;
     const base = EditorState.create({
@@ -552,7 +569,7 @@ export function createEditor(
           const text = markdownFromClipboard(data);
           if (!text) return false;
           event.preventDefault();
-          replaceMarkdownSelection(text);
+          replaceRenderedSelectionFromClipboard(text);
           return true;
         },
       },
@@ -576,9 +593,25 @@ export function createEditor(
   // Resize the source textarea to its content height. Called on every
   // input + on entering source mode so the page never shows a nested
   // scrollbar inside the textarea.
-  function autoSizeSource(): void {
+  function autoSizeSource(options: { preserveScroll?: boolean } = {}): void {
+    const scrollParent = nearestScrollParent(sourceTextarea);
+    const parentScrollTop = scrollParent?.scrollTop ?? 0;
+    const parentScrollLeft = scrollParent?.scrollLeft ?? 0;
+    const windowScrollX = window.scrollX;
+    const windowScrollY = window.scrollY;
     sourceTextarea.style.height = "auto";
     sourceTextarea.style.height = `${sourceTextarea.scrollHeight}px`;
+    if (options.preserveScroll !== true || writingMode.typewriterMode) return;
+    if (scrollParent) {
+      scrollParent.scrollTop = parentScrollTop;
+      scrollParent.scrollLeft = parentScrollLeft;
+      return;
+    }
+    window.scrollTo({
+      left: windowScrollX,
+      top: windowScrollY,
+      behavior: "instant" as ScrollBehavior,
+    });
   }
 
   // Find the Y pixel position (in viewport coords) of `offset` inside
@@ -895,7 +928,7 @@ export function createEditor(
   // Auto-grow the textarea as the user types so the page itself
   // owns the scroll, never the textarea.
   sourceTextarea.addEventListener("input", () => {
-    autoSizeSource();
+    autoSizeSource({ preserveScroll: true });
     lastSourceMarkdown = sourceTextarea.value;
     emitChange(sourceTextarea.value);
     if (writingMode.typewriterMode) window.requestAnimationFrame(scrollTextareaCursorIntoView);
@@ -906,10 +939,11 @@ export function createEditor(
     const text = markdownFromClipboard(data);
     if (!text) return;
     event.preventDefault();
+    if (document.execCommand("insertText", false, text)) return;
     const start = sourceTextarea.selectionStart ?? sourceTextarea.value.length;
     const end = sourceTextarea.selectionEnd ?? start;
     sourceTextarea.setRangeText(text, start, end, "end");
-    autoSizeSource();
+    autoSizeSource({ preserveScroll: true });
     lastSourceMarkdown = sourceTextarea.value;
     emitChange(sourceTextarea.value);
     if (writingMode.typewriterMode) window.requestAnimationFrame(scrollTextareaCursorIntoView);
@@ -935,7 +969,7 @@ export function createEditor(
     } else {
       sourceTextarea.setRangeText("  ", start, end, "end");
     }
-    autoSizeSource();
+    autoSizeSource({ preserveScroll: true });
     lastSourceMarkdown = sourceTextarea.value;
     emitChange(sourceTextarea.value);
   });
@@ -1406,6 +1440,26 @@ export function createEditor(
         view.focus();
       }
     },
+    setMarkdownSelection(from: number, to = from): void {
+      const md = inSource ? sourceTextarea.value : lastSourceMarkdown;
+      const startOffset = Math.max(0, Math.min(from, md.length));
+      const endOffset = Math.max(0, Math.min(to, md.length));
+      if (inSource) {
+        sourceTextarea.setSelectionRange(startOffset, endOffset);
+        sourceTextarea.focus();
+        scrollTextareaCursorIntoView();
+        return;
+      }
+      const doc = view.state.doc;
+      const start = Math.min(mdOffsetToRenderedPos(md, startOffset), doc.content.size);
+      const end = Math.min(mdOffsetToRenderedPos(md, endOffset), doc.content.size);
+      try {
+        view.dispatch(view.state.tr.setSelection(TextSelection.create(doc, start, end)).scrollIntoView());
+      } catch {
+        view.dispatch(view.state.tr.setSelection(TextSelection.near(doc.resolve(start))).scrollIntoView());
+      }
+      view.focus();
+    },
     getSelection(): { from: number; to: number } {
       if (inSource) {
         return {
@@ -1462,6 +1516,29 @@ export function createEditor(
             .scrollIntoView(),
         );
       }
+      return inserted;
+    },
+    replaceMarkdownRange(from: number, to: number, text: string, select = "end"): { from: number; to: number } {
+      const md = inSource ? sourceTextarea.value : lastSourceMarkdown;
+      const start = Math.max(0, Math.min(from, md.length));
+      const end = Math.max(0, Math.min(to, md.length));
+      const nextMd = `${md.slice(0, start)}${text}${md.slice(end)}`;
+      const inserted = { from: start, to: start + text.length };
+      const selectionFrom = select === "start" ? inserted.from : inserted.to;
+      const selectionTo = select === "all" ? inserted.from : selectionFrom;
+      if (inSource) {
+        sourceTextarea.value = nextMd;
+        lastSourceMarkdown = nextMd;
+        autoSizeSource({ preserveScroll: true });
+        sourceTextarea.setSelectionRange(selectionTo, select === "all" ? inserted.to : selectionTo);
+        sourceTextarea.focus();
+        emitChange(nextMd);
+        return inserted;
+      }
+      lastSourceMarkdown = nextMd;
+      rebuild(nextMd);
+      emitChange(nextMd);
+      this.setMarkdownSelection(selectionTo, select === "all" ? inserted.to : selectionTo);
       return inserted;
     },
     undo(): boolean {
