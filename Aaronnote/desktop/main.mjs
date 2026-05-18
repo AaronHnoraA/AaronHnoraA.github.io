@@ -1,13 +1,22 @@
 import { app, BrowserWindow, Menu, dialog, ipcMain, shell } from "electron";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { access, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { homedir, tmpdir } from "node:os";
+import { homedir } from "node:os";
+import { promisify } from "node:util";
 
 import { startAaronnoteServer } from "../server/aaronnote-server.mjs";
 
 const desktopDir = dirname(fileURLToPath(import.meta.url));
 const projectDir = resolve(desktopDir, "..");
+const noteRoot = process.env.AARONNOTE_ROOT || join(homedir(), "HC", "Org", "roam");
+const workspaceRoot = process.env.AARONNOTE_WORKSPACE_ROOT
+  ? resolve(process.env.AARONNOTE_WORKSPACE_ROOT)
+  : resolve(noteRoot, "..");
+const publishScript = join(workspaceRoot, "bin", "publish-site");
+const pdfPublishRoot = join(workspaceRoot, "public", ".export");
+const execFileAsync = promisify(execFile);
 const isPackaged = app.isPackaged;
 const staticDir = isPackaged
   ? join(app.getAppPath(), "dist", "aaronnote")
@@ -15,7 +24,6 @@ const staticDir = isPackaged
 const publishJsDir = isPackaged
   ? join(process.resourcesPath, "js")
   : resolve(projectDir, "..", "js");
-const noteRoot = process.env.AARONNOTE_ROOT || join(homedir(), "HC", "Org", "roam");
 
 let serverHandle = null;
 let mainWindow = null;
@@ -173,6 +181,36 @@ function pdfNameForFile(file, fallback = "Aaronnote.pdf") {
   return `${stem}.pdf`.replace(/[/:]/g, "-");
 }
 
+function publishedHtmlForFile(file) {
+  const resolved = resolve(String(file || ""));
+  if (!inside(resolved, workspaceRoot)) {
+    throw new Error(`Cannot publish PDF for file outside workspace: ${resolved}`);
+  }
+  const rel = relative(workspaceRoot, resolved);
+  if (!/\.(?:md|markdown)$/i.test(rel)) {
+    throw new Error(`PDF export requires a Markdown note: ${resolved}`);
+  }
+  return join(pdfPublishRoot, rel.replace(/\.(?:md|markdown)$/i, ".html"));
+}
+
+async function publishNoteHtmlForPdf(file) {
+  const resolved = resolve(String(file || ""));
+  const htmlFile = publishedHtmlForFile(resolved);
+  await execFileAsync(publishScript, [
+    "--note",
+    resolved,
+    "--include-private",
+    "--output-root",
+    pdfPublishRoot,
+  ], {
+    cwd: workspaceRoot,
+    env: process.env,
+    maxBuffer: 1024 * 1024 * 16,
+  });
+  await access(htmlFile);
+  return htmlFile;
+}
+
 async function waitForPrintableAssets(win) {
   await win.webContents.executeJavaScript(`
     Promise.race([
@@ -266,13 +304,8 @@ ipcMain.handle("aaronnote:export-pdf", async (event, options = {}) => {
     },
   });
 
-  let tempDir = "";
   try {
-    const html = String(options.document || "");
-    if (!html.trim()) throw new Error("Missing printable document");
-    tempDir = await mkdtemp(join(tmpdir(), "aaronnote-print-"));
-    const htmlFile = join(tempDir, "index.html");
-    await writeFile(htmlFile, html, "utf8");
+    const htmlFile = await publishNoteHtmlForPdf(options.file || "");
     await printWindow.loadFile(htmlFile);
     await waitForPrintableAssets(printWindow);
     const pdf = await printWindow.webContents.printToPDF({
@@ -284,7 +317,6 @@ ipcMain.handle("aaronnote:export-pdf", async (event, options = {}) => {
     return { ok: true, file: result.filePath, message: `Exported ${result.filePath}` };
   } finally {
     printWindow.destroy();
-    if (tempDir) await rm(tempDir, { recursive: true, force: true });
   }
 });
 
@@ -511,6 +543,7 @@ app.whenReady().then(async () => {
     host: "127.0.0.1",
     port: Number(process.env.AARONNOTE_PORT || 0),
     root: noteRoot,
+    workspaceRoot,
     staticDir,
     publishJsDir,
   });

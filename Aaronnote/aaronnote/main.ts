@@ -31,7 +31,7 @@ declare global {
     AaronnoteDesktop?: {
       chooseNotePath?: (options?: { suggestedPath?: string; title?: string }) => Promise<string>;
       trashNote?: (file: string) => Promise<{ ok?: boolean; file?: string; message?: string }>;
-      exportPdf?: (options?: { file?: string; name?: string; document?: string }) => Promise<{ ok?: boolean; canceled?: boolean; file?: string; message?: string }>;
+      exportPdf?: (options?: { file?: string; name?: string }) => Promise<{ ok?: boolean; canceled?: boolean; file?: string; message?: string }>;
     };
   }
 }
@@ -919,15 +919,20 @@ function syncSourceUi(): void {
   sourceButton.setAttribute("aria-pressed", currentMode === "source" ? "true" : "false");
 }
 
-async function saveStandalone(): Promise<void> {
+async function saveStandalone(): Promise<boolean> {
   const seq = ++saveRequestSeq;
   const file = currentFile;
+  if (!file) {
+    setStatus(scratchStatus());
+    return false;
+  }
   const content = editor.getMarkdown();
   const mode = editor.isSourceMode() ? "source" : "markdown";
   saveAbortController?.abort();
   const controller = new AbortController();
   saveAbortController = controller;
   setStatus("Saving");
+  let saved = false;
   try {
     const res = await fetch("/api/save", {
       method: "POST",
@@ -936,8 +941,9 @@ async function saveStandalone(): Promise<void> {
       signal: controller.signal,
     });
     const msg = await res.json() as Extract<Inbound, { type: "saved" }>;
-    if (seq !== saveRequestSeq || file !== currentFile) return;
-    setStatus(res.ok && msg.ok ? "Saved" : msg.message || "Save failed");
+    saved = res.ok && msg.ok === true;
+    if (seq !== saveRequestSeq || file !== currentFile) return false;
+    setStatus(saved ? "Saved" : msg.message || "Save failed");
     if (Array.isArray(msg.notes)) {
       notes = msg.notes;
       renderNotes();
@@ -946,25 +952,13 @@ async function saveStandalone(): Promise<void> {
       updateFloatingToc();
     }
   } catch (err) {
-    if (err instanceof DOMException && err.name === "AbortError") return;
-    if (seq !== saveRequestSeq || file !== currentFile) return;
+    if (err instanceof DOMException && err.name === "AbortError") return false;
+    if (seq !== saveRequestSeq || file !== currentFile) return false;
     setStatus(err instanceof Error ? err.message : "Save failed");
   } finally {
     if (saveAbortController === controller) saveAbortController = null;
   }
-}
-
-function collectPrintableCss(): string {
-  const chunks: string[] = [];
-  for (const sheet of Array.from(document.styleSheets)) {
-    try {
-      const css = Array.from(sheet.cssRules)
-        .map((rule) => rule.cssText)
-        .join("\n");
-      if (css.trim()) chunks.push(css);
-    } catch {}
-  }
-  return chunks.join("\n\n");
+  return saved;
 }
 
 function pdfExportName(): string {
@@ -972,88 +966,19 @@ function pdfExportName(): string {
   return `${rawName.replace(/\.[^.]+$/, "") || "Aaronnote"}.pdf`;
 }
 
-function printableDocument(): string {
-  const css = collectPrintableCss().replace(/<\/style/gi, "<\\/style");
-  const title = fileLabel.textContent?.trim() || pdfExportName().replace(/\.pdf$/i, "");
-  const previewHtml = editor.getHTML();
-  const baseHref = window.location.href;
-  return `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>${escapeHtml(title)}</title>
-  <base href="${escapeHtml(baseHref)}">
-  <style>${css}</style>
-  <style>
-    @page { size: A4; margin: 18mm 17mm 20mm; }
-    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    html, body {
-      min-height: 0;
-      margin: 0;
-      background: var(--aaron-paper, #f7f4ed);
-      color: var(--aaron-ink, #1e1a16);
-    }
-    body {
-      box-sizing: border-box;
-      font-family: var(--aaron-font-english), var(--aaron-font-chinese);
-    }
-    .aaronnote-pdf-document.ProseMirror {
-      width: auto;
-      max-width: none !important;
-      min-height: 0;
-      margin: 0;
-      padding: 0;
-      background: transparent;
-      border: 0;
-      box-shadow: none;
-    }
-    .aaronnote-pdf-document .ProseMirror-trailingBreak,
-    .aaronnote-pdf-document .ProseMirror-separator {
-      display: none !important;
-    }
-  </style>
-</head>
-<body>
-  <article class="ProseMirror aaronnote-pdf-document">${previewHtml}</article>
-</body>
-</html>`;
-}
-
-function waitAnimationFrame(): Promise<void> {
-  return new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
-}
-
-async function waitForEditorExportAssets(timeoutMs = 2500): Promise<void> {
-  await waitAnimationFrame();
-  await waitAnimationFrame();
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const rendering = Array.from(host.querySelectorAll<HTMLElement>(".cb-diagram-preview:not([hidden])"))
-      .some((el) => el.textContent?.trim() === "Rendering diagram...");
-    if (!rendering) break;
-    await new Promise((resolve) => window.setTimeout(resolve, 80));
-  }
-  const images = Array.from(host.querySelectorAll<HTMLImageElement>("img"));
-  await Promise.race([
-    Promise.all(images.map((img) => img.complete ? true : new Promise((resolve) => {
-      img.addEventListener("load", resolve, { once: true });
-      img.addEventListener("error", resolve, { once: true });
-    }))),
-    new Promise((resolve) => window.setTimeout(resolve, Math.max(0, deadline - Date.now()))),
-  ]);
-  await document.fonts?.ready?.catch(() => {});
-}
-
 async function exportPdf(): Promise<void> {
   setStatus("Exporting PDF");
-  await waitForEditorExportAssets();
   const desktopExport = window.AaronnoteDesktop?.exportPdf;
   if (desktopExport) {
     try {
+      if (!currentFile) {
+        setStatus("Save the note before exporting PDF");
+        return;
+      }
+      if (!await saveStandalone()) throw new Error("Save failed");
       const msg = await desktopExport({
         file: currentFile || "Aaronnote.md",
         name: pdfExportName(),
-        document: printableDocument(),
       });
       if (msg?.canceled) {
         setStatus("Export canceled");
@@ -2932,15 +2857,6 @@ function scheduleRenderAgenda(): void {
 
 function renderAgenda(): void {
   agendaManager.render();
-}
-
-function escapeHtml(value: unknown): string {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }
 
 function renderGraph(): void {

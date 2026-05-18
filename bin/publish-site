@@ -11,6 +11,7 @@ import re
 import shutil
 import subprocess
 import sys
+from urllib.parse import unquote
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -236,6 +237,41 @@ def parse_note(path: Path) -> Note | None:
     )
 
 
+def first_markdown_heading(text: str) -> str | None:
+    for line in text.splitlines():
+        match = re.match(r"^\s*#\s+(.+?)\s*$", line)
+        if match:
+            return match.group(1).strip()
+    return None
+
+
+def parse_note_for_export(path: Path) -> Note:
+    note = parse_note(path)
+    if note:
+        return note
+
+    text = path.read_text(encoding="utf-8")
+    metadata, body = parse_metadata_block(text)
+    rel = path.relative_to(ROOT)
+    rel_path = rel.as_posix()
+    tags = [str(tag) for tag in metadata.get("tags", [])] if isinstance(metadata.get("tags"), list) else []
+    aliases = [str(alias) for alias in metadata.get("aliases", [])] if isinstance(metadata.get("aliases"), list) else []
+    private = private_path_p(rel) or private_metadata_p(metadata, tags)
+    return Note(
+        path=path,
+        rel_path=rel_path,
+        id=str(metadata.get("id") or path.stem),
+        title=str(metadata.get("title") or first_markdown_heading(body) or path.stem),
+        date=str(metadata.get("date") or "Undated"),
+        tags=tags,
+        aliases=aliases,
+        summary=clean_markdown_text(text)[:180],
+        search_text=clean_markdown_text(text),
+        refs=sorted(set(MD_LINK_RE.findall(text))),
+        private=private,
+    )
+
+
 def find_notes() -> list[Note]:
     notes: list[Note] = []
     for path in iter_project_files():
@@ -252,9 +288,9 @@ def find_notes() -> list[Note]:
     return sorted(notes, key=lambda note: (note.date, note.title), reverse=True)
 
 
-def deps_file_for(output_file: Path) -> Path:
-    rel = output_file.relative_to(PUBLIC)
-    return PUBLIC / ".deps" / rel.with_suffix(".json")
+def deps_file_for(output_file: Path, output_root: Path = PUBLIC) -> Path:
+    rel = output_file.relative_to(output_root)
+    return output_root / ".deps" / rel.with_suffix(".json")
 
 
 def publish_forced() -> bool:
@@ -346,10 +382,46 @@ def deps_for_note(note: Note) -> set[str]:
     return deps
 
 
+def executable_from_path(value: str) -> str | None:
+    value = value.strip()
+    if not value:
+        return None
+    if os.sep in value:
+        return value if Path(value).exists() else None
+    return shutil.which(value)
+
+
+def node_executable() -> str:
+    for value in (
+        os.environ.get("AARONNOTE_NODE", ""),
+        os.environ.get("NODE_BINARY", ""),
+        "node",
+        "/opt/homebrew/bin/node",
+        "/usr/local/bin/node",
+        str(Path.home() / ".nix-profile" / "bin" / "node"),
+        "/run/current-system/sw/bin/node",
+    ):
+        resolved = executable_from_path(value)
+        if resolved:
+            return resolved
+
+    try:
+        resolved = subprocess.check_output(
+            ["/bin/zsh", "-lc", "command -v node"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        resolved = ""
+    if resolved:
+        return resolved
+    raise RuntimeError("Aaronnote renderer failed: node executable not found")
+
+
 def render_aaronnote_markdown(text: str) -> str:
     try:
         result = subprocess.run(
-            ["node", "Aaronnote/scripts/render-html.mjs"],
+            [node_executable(), "Aaronnote/scripts/render-html.mjs"],
             cwd=ROOT,
             input=json.dumps({"markdown": text}, ensure_ascii=False),
             text=True,
@@ -374,17 +446,17 @@ def render_markdown_body(note: Note, markdown_text: str) -> str:
     return rendered
 
 
-def site_root_for(note: Note) -> str:
-    depth = len(Path(note.rel_path).parent.parts)
+def site_root_for(note_link: str) -> str:
+    depth = len(Path(note_link).parent.parts)
     return "../" * depth or "./"
 
 
-def note_page_html(note: Note, content_html: str) -> str:
-    root = site_root_for(note)
+def note_page_html(note: Note, content_html: str, *, include_private_content: bool = False) -> str:
+    root = site_root_for(note.link)
     body_class = "aaronnote-shell published-note-page"
-    if note.private:
+    if note.private and not include_private_content:
         body_class += " hidden-note-page"
-    if note.private:
+    if note.private and not include_private_content:
         content_html = (
             '<p class="sealed-note-message">This note has been sealed by the administrator.</p>'
         )
@@ -431,15 +503,28 @@ def note_page_html(note: Note, content_html: str) -> str:
 """
 
 
-def render_note_html(note: Note) -> str:
-    output_file = PUBLIC / note.link
-    deps_file = deps_file_for(output_file)
-    if output_is_current(output_file, deps_file):
+def render_note_html(
+    note: Note,
+    *,
+    output_root: Path = PUBLIC,
+    include_private_content: bool = False,
+    force: bool = False,
+) -> str:
+    output_file = output_root / note.link
+    deps_file = deps_file_for(output_file, output_root)
+    if not force and not include_private_content and output_is_current(output_file, deps_file):
         return "skipped"
     output_file.parent.mkdir(parents=True, exist_ok=True)
     deps_file.parent.mkdir(parents=True, exist_ok=True)
     markdown_text = note.path.read_text(encoding="utf-8")
-    output_file.write_text(note_page_html(note, render_markdown_body(note, markdown_text)), encoding="utf-8")
+    output_file.write_text(
+        note_page_html(
+            note,
+            render_markdown_body(note, markdown_text),
+            include_private_content=include_private_content,
+        ),
+        encoding="utf-8",
+    )
     deps_file.write_text(json.dumps({"inputs": sorted(deps_for_note(note))}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return "rendered"
 
@@ -487,6 +572,67 @@ def _copy_into_public(source: Path, target: Path) -> None:
     if target.is_symlink() or target.exists():
         target.unlink()
     shutil.copy2(source, target)
+
+
+PUBLISHED_STYLE_PATHS = (
+    Path("Aaronnote/aaronnote/style.css"),
+    Path("Aaronnote/src/styles/widgets.css"),
+    Path("Aaronnote/src/styles/theme-typora.css"),
+    Path("css/aaronnote-published.css"),
+)
+
+
+def copy_published_styles(output_root: Path) -> None:
+    for rel in PUBLISHED_STYLE_PATHS:
+        source = ROOT / rel
+        if source.exists():
+            _copy_into_public(source, output_root / rel)
+
+
+def markdown_asset_target(note: Note, raw_path: str) -> Path | None:
+    path_text = unquote(raw_path.split("#", 1)[0].split("?", 1)[0]).strip()
+    if not path_text or re.match(r"^[a-z][a-z0-9+.-]*:", path_text, flags=re.I):
+        return None
+    asset_path = Path(path_text)
+    return asset_path if asset_path.is_absolute() else note.path.parent / asset_path
+
+
+def note_static_asset_paths(note: Note) -> set[Path]:
+    try:
+        text = note.path.read_text(encoding="utf-8")
+    except OSError:
+        return set()
+
+    paths: set[Path] = set()
+    for raw_path in [*MD_IMAGE_RE.findall(text), *MD_LINK_RE.findall(text)]:
+        asset_path = markdown_asset_target(note, raw_path)
+        if not asset_path:
+            continue
+        if asset_path.exists() and asset_path.is_file() and asset_path.suffix.lower() in STATIC_EXTENSIONS:
+            paths.add(asset_path.resolve())
+
+    for rel_dir in (
+        Path("img") / note.path.stem,
+        Path("images") / note.path.stem,
+        Path("assets") / "img" / note.path.stem,
+    ):
+        directory = note.path.parent / rel_dir
+        if directory.exists():
+            paths.update(
+                path.resolve()
+                for path in directory.rglob("*")
+                if path.is_file() and path.suffix.lower() in STATIC_EXTENSIONS
+            )
+    return paths
+
+
+def copy_note_static_assets(note: Note, output_root: Path) -> None:
+    for source in note_static_asset_paths(note):
+        try:
+            rel = source.relative_to(ROOT)
+        except ValueError:
+            continue
+        _copy_into_public(source, output_root / rel)
 
 
 def copy_static(notes: list[Note]) -> None:
@@ -568,10 +714,66 @@ def collect_notes() -> tuple[list[Note], dict[str, Note]]:
     return notes, notes_by_id
 
 
+def arg_value(args: list[str], name: str) -> str | None:
+    if name not in args:
+        return None
+    index = args.index(name)
+    if index + 1 >= len(args):
+        raise SystemExit(f"{name} requires a value")
+    return args[index + 1]
+
+
+def resolve_root_path(raw_path: str) -> Path:
+    path = Path(raw_path).expanduser()
+    if not path.is_absolute():
+        path = ROOT / path
+    return path.resolve()
+
+
+def publish_single_note(args: list[str]) -> bool:
+    raw_note = arg_value(args, "--note")
+    if not raw_note:
+        return False
+
+    note_path = resolve_root_path(raw_note)
+    try:
+        rel = note_path.relative_to(ROOT)
+    except ValueError as err:
+        raise SystemExit(f"Note is outside publish root: {note_path}") from err
+    if not note_path.exists() or note_path.suffix.lower() not in {".md", ".markdown"}:
+        raise SystemExit(f"Not a Markdown note: {note_path}")
+    if should_skip(rel):
+        raise SystemExit(f"Skipped path cannot be published: {note_path}")
+
+    output_root = PUBLIC
+    raw_output_root = arg_value(args, "--output-root")
+    if raw_output_root:
+        output_root = resolve_root_path(raw_output_root)
+
+    include_private = "--include-private" in args
+    note = parse_note_for_export(note_path)
+    output_root.mkdir(parents=True, exist_ok=True)
+    copy_published_styles(output_root)
+    copy_note_static_assets(note, output_root)
+    status = render_note_html(
+        note,
+        output_root=output_root,
+        include_private_content=include_private,
+        force=True,
+    )
+    output_file = output_root / note.link
+    print(f"Published {note.rel_path} to {output_file} ({status})")
+    return True
+
+
 def main() -> None:
+    args = sys.argv[1:]
+    if publish_single_note(args):
+        return
+
     notes, _notes_by_id = collect_notes()
 
-    if "--record-state" in sys.argv[1:]:
+    if "--record-state" in args:
         head = git_head()
         write_publish_state(notes, 0, len(notes), head)
         print(f"Recorded publish state for git {head[:12] if head else 'unknown'}")

@@ -18,6 +18,7 @@ $$
     expect(html).toContain("<math");
     expect(html).toContain("<math-block");
     expect(html).toContain("math-block-rendered");
+    expect(html).not.toContain("math-block-source");
     expect(html).not.toContain("<h1");
   });
 });

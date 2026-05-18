@@ -14,7 +14,6 @@ contextBridge.exposeInMainWorld("AaronnoteDesktop", {
     return ipcRenderer.invoke("aaronnote:export-pdf", {
       file: String(options.file || ""),
       name: String(options.name || ""),
-      document: String(options.document || ""),
     });
   },
 });
