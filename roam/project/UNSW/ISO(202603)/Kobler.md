@@ -16,7 +16,6 @@ My current task is to skim Köbler's book and identify possible correspondences 
 $$
 \begin{array}{ccccc} d\mathrm{GA} & 
 \le_p & \mathrm{GI} & \le_p & \mathrm{GA} \\ \downarrow & & \downarrow & & \downarrow \\ d\mathrm{TA} & \overset{?}{\le_p} & \mathrm{TI} & \le_p & \mathrm{cTA} \end{array}
-
 $$
 
 where
@@ -53,8 +52,7 @@ $$
 
 has a valid tensor-side counterpart.  
 
- **Open point.**   
-
+#+begin comment Open point
  The currently unclear part is whether the proposed tensor-side analogue  
 
 $$
@@ -68,6 +66,7 @@ $$
 $$
   d\mathrm{GA} \le\_p \mathrm{GI}.
 $$
+#+end comment
 #+end summary
 
 ## 

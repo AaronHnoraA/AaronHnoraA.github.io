@@ -18,7 +18,7 @@ declare global {
 }
 
 function hrefProtocol(href: string): string | null {
-  const match = href.match(/^([A-Za-z][\w+.-]*):/);
+  const match = href.trim().match(/^([A-Za-z][\w+.-]*):/);
   return match?.[1]?.toLowerCase() ?? null;
 }
 
@@ -32,7 +32,7 @@ function internalNoteHref(href: string): boolean {
   if (!raw || raw.startsWith("#")) return false;
   if (hrefProtocol(raw)) return false;
   const path = raw.split(/[?#]/, 1)[0] ?? "";
-  return /\.(?:md|markdown)$/i.test(path);
+  return /\.(?:md|markdown|typ)$/i.test(path);
 }
 
 function localEquationHref(href: string): boolean {

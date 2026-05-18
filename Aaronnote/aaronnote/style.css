@@ -549,6 +549,142 @@ input {
   font-weight: 700;
 }
 
+.aaronnote-agenda-toolbar {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) 150px auto auto auto;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.aaronnote-agenda-toolbar input {
+  margin-bottom: 0;
+}
+
+.aaronnote-agenda-toolbar select {
+  height: 38px;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 3px;
+  background: var(--aaron-paper);
+  color: var(--aaron-ink);
+}
+
+.aaronnote-agenda-toolbar label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--aaron-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.aaronnote-agenda-toolbar label input {
+  width: auto;
+  height: auto;
+  margin: 0;
+}
+
+.aaronnote-agenda-toolbar button {
+  height: 38px;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 3px;
+  background: var(--aaron-paper);
+  color: var(--aaron-ink);
+  cursor: pointer;
+}
+
+.aaronnote-agenda-toolbar span {
+  color: var(--aaron-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.aaronnote-agenda-list {
+  display: grid;
+  gap: 8px;
+}
+
+.aaronnote-agenda-group {
+  margin-top: 8px;
+  border-bottom: 1px solid var(--aaron-paper-line);
+  padding-bottom: 4px;
+  color: var(--aaron-muted);
+  font: 800 11px/1.2 var(--aaron-font-sans);
+  text-transform: uppercase;
+}
+
+.aaronnote-agenda-item {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--aaron-paper-line);
+  border-left: 3px solid #2563eb;
+  background: color-mix(in srgb, var(--aaron-paper-soft), white 20%);
+}
+
+.aaronnote-agenda-item[data-status="doing"] { border-left-color: #a16207; }
+.aaronnote-agenda-item[data-status="done"] { border-left-color: #15803d; opacity: 0.72; }
+.aaronnote-agenda-item[data-status="blocked"] { border-left-color: #b91c1c; }
+
+.aaronnote-agenda-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 3px;
+  background: var(--aaron-paper);
+  color: var(--aaron-red-dark);
+  font: 800 11px/1 var(--aaron-font-sans);
+}
+
+.aaronnote-agenda-main {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.aaronnote-agenda-title {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--aaron-ink);
+  cursor: pointer;
+  font: 750 15px/1.25 var(--aaron-font-sans);
+  text-align: left;
+}
+
+.aaronnote-agenda-title:hover {
+  color: var(--aaron-red-dark);
+  text-decoration: underline;
+}
+
+.aaronnote-agenda-meta,
+.aaronnote-agenda-context {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--aaron-muted);
+  font-size: 12px;
+}
+
+.aaronnote-agenda-context {
+  color: color-mix(in srgb, var(--aaron-muted), var(--aaron-ink) 24%);
+  font-family: var(--aaron-font-mono);
+}
+
+.aaronnote-agenda-actions button {
+  height: 28px;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 3px;
+  background: var(--aaron-paper);
+  color: var(--aaron-ink);
+  cursor: pointer;
+}
+
 .aaronnote-management-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

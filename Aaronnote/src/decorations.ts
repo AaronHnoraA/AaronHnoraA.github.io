@@ -25,6 +25,67 @@ function resolveAssetUrl(src: string): string {
   return window.AaronnoteResolveAssetUrl?.(src) ?? src;
 }
 
+const INLINE_TODO_STATUSES = ["todo", "doing", "done", "blocked"] as const;
+type InlineTodoStatus = (typeof INLINE_TODO_STATUSES)[number];
+
+function normalizeInlineTodoStatus(raw: string | null | undefined): InlineTodoStatus {
+  const value = String(raw ?? "").trim().toLowerCase();
+  if (value === "" || value === " " || value === "open" || value === "unchecked") return "todo";
+  if (value === "~" || value === "-" || value === "wip" || value === "active") return "doing";
+  if (value === "x" || value === "checked" || value === "complete") return "done";
+  if (value === "!" || value === "block") return "blocked";
+  return INLINE_TODO_STATUSES.includes(value as InlineTodoStatus)
+    ? (value as InlineTodoStatus)
+    : "todo";
+}
+
+function nextInlineTodoStatus(status: InlineTodoStatus): InlineTodoStatus {
+  const idx = INLINE_TODO_STATUSES.indexOf(status);
+  return INLINE_TODO_STATUSES[(idx + 1) % INLINE_TODO_STATUSES.length]!;
+}
+
+function layoutInlineTodoWidget(el: HTMLElement, view: EditorView): void {
+  const chip = el.querySelector<HTMLElement>(".inline-todo-chip");
+  const line = el.querySelector<HTMLElement>(".inline-todo-line");
+  const card = el.querySelector<HTMLElement>(".inline-todo-card");
+  if (!chip || !line || !card) return;
+
+  let disposed = false;
+  const dispose = (): void => {
+    if (disposed) return;
+    disposed = true;
+    window.removeEventListener("resize", update);
+    window.removeEventListener("scroll", update, true);
+  };
+  const update = (): void => {
+    if (!el.isConnected) {
+      dispose();
+      return;
+    }
+    const chipRect = chip.getBoundingClientRect();
+    const editorHost = view.dom.closest(".aaronnote-editor") as HTMLElement | null;
+    const rootRect = (editorHost ?? view.dom).getBoundingClientRect();
+    const viewportRight = Math.min(window.innerWidth - 16, rootRect.right - 28);
+    const cardWidth = Math.round(Math.min(320, Math.max(220, rootRect.width * 0.24)));
+    const cardLeft = Math.max(chipRect.right + 46, viewportRight - cardWidth);
+    const top = Math.max(12, chipRect.top - 8);
+    const lineLeft = chipRect.right + 6;
+    const lineWidth = Math.max(0, cardLeft - lineLeft);
+
+    card.style.left = `${cardLeft}px`;
+    card.style.top = `${top}px`;
+    card.style.width = `${cardWidth}px`;
+    line.style.left = `${lineLeft}px`;
+    line.style.top = `${chipRect.top + chipRect.height / 2}px`;
+    line.style.width = `${lineWidth}px`;
+    line.hidden = lineWidth < 18;
+  };
+
+  window.addEventListener("resize", update);
+  window.addEventListener("scroll", update, true);
+  window.requestAnimationFrame(update);
+}
+
 // Widget builders — keyed by `kind`. A widget renders as a DOM element
 // at a specific position; decorations.ts decides whether to emit it based
 // on the cursor's relation to the parent span.
@@ -123,6 +184,25 @@ const widgetBuilders: Record<string, (attrs: Record<string, string>) => HTMLElem
     });
     return el;
   },
+  "inline-todo": (attrs) => {
+    const status = normalizeInlineTodoStatus(attrs.status);
+    const el = document.createElement("span");
+    el.className = "inline-todo-widget";
+    el.setAttribute("data-status", status);
+    const button = document.createElement("span");
+    button.className = "inline-todo-chip";
+    button.textContent = status.toUpperCase();
+    const text = document.createElement("span");
+    text.className = "inline-todo-text";
+    text.textContent = attrs.content ?? "";
+    const line = document.createElement("span");
+    line.className = "inline-todo-line";
+    const card = document.createElement("span");
+    card.className = "inline-todo-card";
+    card.append(text);
+    el.append(button, line, card);
+    return el;
+  },
 };
 
 function buildWidget(w: WidgetDecoration): HTMLElement {
@@ -165,6 +245,34 @@ function buildWidgetLazy(w: WidgetDecoration): (view: EditorView, getPos: () => 
             .scrollIntoView(),
         );
         view.focus();
+      });
+    }
+    if (w.kind === "inline-todo") {
+      layoutInlineTodoWidget(el, view);
+      el.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      });
+      el.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const source = view.state.doc.textBetween(w.spanFrom, w.spanTo, "\n", "\n");
+        const match = source.match(/^@@todo(?:\(([^)\n]*)\))?(\s+\[)/);
+        if (!match) return;
+        const next = nextInlineTodoStatus(normalizeInlineTodoStatus(match[1]));
+        const statusStart = w.spanFrom + "@@todo".length;
+        const tr = view.state.tr;
+        if (match[1] != null) {
+          const statusEnd = statusStart + match[1].length + 2;
+          tr.replaceWith(
+            statusStart,
+            statusEnd,
+            next === "todo" ? [] : view.state.schema.text(`(${next})`),
+          );
+        } else if (next !== "todo") {
+          tr.insertText(`(${next})`, statusStart);
+        }
+        if (tr.docChanged) view.dispatch(tr.scrollIntoView());
       });
     }
     return el;
@@ -227,6 +335,7 @@ function buildDecorationSet(state: EditorState): DecorationSet {
         // when an image span first appears mid-typing.
         stopEvent: (e: Event) => {
           if (w.kind === "math-render" && (e.type === "mousedown" || e.type === "click")) return true;
+          if (w.kind === "inline-todo" && (e.type === "mousedown" || e.type === "click")) return true;
           return e.type !== "click";
         },
       }),

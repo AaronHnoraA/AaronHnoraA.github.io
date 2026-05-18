@@ -1,7 +1,13 @@
 import type { Fragment, Node as PMNode, NodeType, ResolvedPos, Schema } from "prosemirror-model";
 import type { RuleBlock } from "markdown-it/lib/parser_block.mjs";
-import { Plugin, TextSelection } from "prosemirror-state";
-import type { EditorView, NodeView, ViewMutationRecord } from "prosemirror-view";
+import { Plugin, PluginKey, TextSelection, type EditorState } from "prosemirror-state";
+import {
+  Decoration,
+  DecorationSet,
+  type EditorView,
+  type NodeView,
+  type ViewMutationRecord,
+} from "prosemirror-view";
 
 import type { FeatureSpec } from "./_types.ts";
 
@@ -20,6 +26,7 @@ const ENV_LABELS: Record<string, string> = {
   remark: "Remark",
   example: "Example",
   note: "Note",
+  comment: "Comment",
   info: "Info",
   attention: "Attention",
   property: "Property",
@@ -92,17 +99,30 @@ function fragmentChildren(fragment: Fragment): PMNode[] {
   return children;
 }
 
+type OrgEnvUiMeta = { type: "toggleComment"; pos: number };
+
+const orgEnvUiKey = new PluginKey<DecorationSet>("org-env-ui");
+
 class OrgEnvNodeView implements NodeView {
   dom: HTMLElement;
   contentDOM: HTMLElement;
   private label: HTMLElement;
   private title: HTMLInputElement;
   private metaDOM: HTMLElement;
+  private commentButton: HTMLButtonElement;
   private node: PMNode;
   private readonly view: EditorView;
   private readonly getPos: () => number | undefined;
+  private suppressNextCommentMouseDown = false;
+  private suppressNextCommentClick = false;
+  private commentSuppressTimer: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(node: PMNode, view: EditorView, getPos: () => number | undefined) {
+  constructor(
+    node: PMNode,
+    view: EditorView,
+    getPos: () => number | undefined,
+    decorations: readonly Decoration[],
+  ) {
     this.node = node;
     this.view = view;
     this.getPos = getPos;
@@ -112,6 +132,7 @@ class OrgEnvNodeView implements NodeView {
     this.title = document.createElement("input");
     this.contentDOM = document.createElement("div");
     this.metaDOM = document.createElement("div");
+    this.commentButton = document.createElement("button");
 
     this.label.className = "org-env-heading-label";
     this.label.contentEditable = "false";
@@ -121,6 +142,9 @@ class OrgEnvNodeView implements NodeView {
     this.contentDOM.className = "org-env-content";
     this.metaDOM.className = "org-env-meta";
     this.metaDOM.contentEditable = "false";
+    this.commentButton.type = "button";
+    this.commentButton.className = "org-env-comment-button";
+    this.commentButton.contentEditable = "false";
 
     this.title.addEventListener("mousedown", (event) => {
       event.stopPropagation();
@@ -141,44 +165,127 @@ class OrgEnvNodeView implements NodeView {
       }
     });
     this.contentDOM.addEventListener("mousedown", (event) => this.selectContentFromMouse(event));
-
     const heading = document.createElement("span");
     heading.className = "org-env-heading";
     heading.append(this.label, this.title);
-    this.dom.append(heading, this.contentDOM, this.metaDOM);
-    this.renderAttrs(node);
+    this.dom.append(this.commentButton, heading, this.contentDOM, this.metaDOM);
+    this.dom.addEventListener("pointerdown", (event) => this.handleCommentPointerDown(event), true);
+    this.dom.addEventListener("mousedown", (event) => this.handleCommentMouseDown(event), true);
+    this.dom.addEventListener("click", (event) => this.handleCommentClick(event), true);
+    this.renderAttrs(node, decorations);
   }
 
-  update(node: PMNode): boolean {
+  update(node: PMNode, decorations: readonly Decoration[]): boolean {
     if (node.type !== this.node.type) return false;
     this.node = node;
-    this.renderAttrs(node);
+    this.renderAttrs(node, decorations);
     return true;
   }
 
   stopEvent(event: Event): boolean {
     return event.target instanceof Node
-      && (this.title.contains(event.target) || this.metaDOM.contains(event.target));
+      && (
+        this.title.contains(event.target)
+        || this.metaDOM.contains(event.target)
+        || this.commentButton.contains(event.target)
+      );
   }
 
   ignoreMutation(mutation: ViewMutationRecord): boolean {
     return mutation.target instanceof Node
-      && (this.title.contains(mutation.target) || this.metaDOM.contains(mutation.target));
+      && (
+        this.title.contains(mutation.target)
+        || this.metaDOM.contains(mutation.target)
+        || this.commentButton.contains(mutation.target)
+      );
   }
 
-  private renderAttrs(node: PMNode): void {
+  destroy(): void {
+    if (this.commentSuppressTimer) clearTimeout(this.commentSuppressTimer);
+  }
+
+  private suppressFollowingCommentEvents(mouseDown: boolean): void {
+    this.suppressNextCommentMouseDown = mouseDown;
+    this.suppressNextCommentClick = true;
+    if (this.commentSuppressTimer) clearTimeout(this.commentSuppressTimer);
+    this.commentSuppressTimer = setTimeout(() => {
+      this.suppressNextCommentMouseDown = false;
+      this.suppressNextCommentClick = false;
+      this.commentSuppressTimer = null;
+    }, 750);
+  }
+
+  private isCommentButtonEvent(event: Event): boolean {
+    if (event.target instanceof Node && this.commentButton.contains(event.target)) return true;
+    if (!(event instanceof MouseEvent)) return false;
+    const rect = this.commentButton.getBoundingClientRect();
+    return event.clientX >= rect.left
+      && event.clientX <= rect.right
+      && event.clientY >= rect.top
+      && event.clientY <= rect.bottom;
+  }
+
+  private handleCommentPointerDown(event: PointerEvent): void {
+    if (event.button !== 0 || !this.isCommentButtonEvent(event)) return;
+    event.stopPropagation();
+    this.toggleComment();
+    this.suppressFollowingCommentEvents(true);
+  }
+
+  private handleCommentMouseDown(event: MouseEvent): void {
+    if (event.button !== 0 || !this.isCommentButtonEvent(event)) return;
+    event.stopPropagation();
+    if (this.suppressNextCommentMouseDown) {
+      this.suppressNextCommentMouseDown = false;
+      return;
+    }
+    this.toggleComment();
+    this.suppressFollowingCommentEvents(false);
+  }
+
+  private handleCommentClick(event: MouseEvent): void {
+    if (!this.isCommentButtonEvent(event)) return;
+    event.stopPropagation();
+    if (this.suppressNextCommentClick) {
+      this.suppressNextCommentClick = false;
+      return;
+    }
+    this.toggleComment();
+  }
+
+  private toggleComment(): void {
+    const pos = this.getPos();
+    if (typeof pos !== "number") return;
+    this.view.dispatch(
+      this.view.state.tr.setMeta(orgEnvUiKey, {
+        type: "toggleComment",
+        pos,
+      } satisfies OrgEnvUiMeta),
+    );
+  }
+
+  private renderAttrs(node: PMNode, decorations: readonly Decoration[]): void {
     const kind = String(node.attrs.kind || "note");
     const title = String(node.attrs.title || "");
     const label = envLabel(kind);
+    const isComment = kind === "comment";
+    const active = decorations.some((decoration) => decoration.spec.orgEnvActive === true);
+    const commentOpen = decorations.some((decoration) => decoration.spec.orgEnvCommentOpen === true);
     this.dom.dataset.kind = kind;
     this.dom.dataset.title = title;
     this.dom.dataset.label = label;
+    this.dom.dataset.commentOpen = isComment && commentOpen ? "true" : "false";
+    this.dom.classList.toggle("org-env-active", active);
+    this.dom.classList.toggle("org-env-comment-open", isComment && commentOpen);
     this.label.textContent = label;
     if (this.title.value !== title) this.title.value = title;
     this.title.dataset.empty = title ? "false" : "true";
-    this.title.hidden = kind === "meta";
-    this.label.hidden = kind === "meta";
-    this.contentDOM.hidden = kind === "meta";
+    this.commentButton.hidden = !isComment;
+    this.commentButton.textContent = title || "Comment";
+    this.commentButton.setAttribute("aria-expanded", commentOpen ? "true" : "false");
+    this.title.hidden = kind === "meta" || isComment;
+    this.label.hidden = kind === "meta" || isComment;
+    this.contentDOM.hidden = kind === "meta" || (isComment && !commentOpen);
     this.metaDOM.hidden = kind !== "meta";
     this.title.setAttribute("aria-label", `${label} title`);
     if (kind === "meta") this.renderMeta();
@@ -300,17 +407,76 @@ class OrgEnvNodeView implements NodeView {
 }
 
 function orgEnvNodeViewPlugin(): Plugin {
-  return new Plugin({
+  return new Plugin<DecorationSet>({
+    key: orgEnvUiKey,
+    state: {
+      init: () => DecorationSet.empty,
+      apply(tr, openComments, _oldState, newState) {
+        const mapped = openComments.map(tr.mapping, tr.doc);
+        const meta = tr.getMeta(orgEnvUiKey) as OrgEnvUiMeta | undefined;
+        if (meta?.type !== "toggleComment") return mapped;
+
+        const pos = tr.mapping.map(meta.pos, 1);
+        const node = newState.doc.nodeAt(pos);
+        if (
+          !node
+          || node.type !== newState.schema.nodes.org_env_block
+          || String(node.attrs.kind || "") !== "comment"
+        ) {
+          return mapped;
+        }
+
+        const existing = mapped.find(
+          pos,
+          pos + node.nodeSize,
+          (spec) => spec.orgEnvCommentOpen === true,
+        );
+        if (existing.length > 0) return mapped.remove(existing);
+        return mapped.add(newState.doc, [
+          Decoration.node(pos, pos + node.nodeSize, {}, { orgEnvCommentOpen: true }),
+        ]);
+      },
+    },
     props: {
+      decorations: orgEnvDecorations,
       nodeViews: {
-        org_env_block: (node, view, getPos) => new OrgEnvNodeView(
+        org_env_block: (node, view, getPos, decorations) => new OrgEnvNodeView(
           node,
           view,
           getPos as () => number | undefined,
+          decorations,
         ),
       },
     },
   });
+}
+
+function orgEnvDecorations(state: EditorState): DecorationSet {
+  const openComments = orgEnvUiKey.getState(state) ?? DecorationSet.empty;
+  const active = activeOrgEnvDecoration(state);
+  const decorations = [
+    ...openComments.find(),
+    ...active.find(),
+  ];
+  return decorations.length > 0
+    ? DecorationSet.create(state.doc, decorations)
+    : DecorationSet.empty;
+}
+
+function activeOrgEnvDecoration(state: EditorState): DecorationSet {
+  const range = orgEnvRangeAt(state.selection.$from) ?? orgEnvRangeAt(state.selection.$to);
+  if (!range) return DecorationSet.empty;
+  return DecorationSet.create(state.doc, [
+    Decoration.node(range.pos, range.pos + range.node.nodeSize, {}, { orgEnvActive: true }),
+  ]);
+}
+
+function orgEnvRangeAt($pos: ResolvedPos): { pos: number; node: PMNode } | null {
+  const orgEnvType = $pos.doc.type.schema.nodes.org_env_block;
+  if (!orgEnvType) return null;
+  const depth = orgEnvDepth($pos, orgEnvType);
+  if (depth < 0) return null;
+  return { pos: $pos.before(depth), node: $pos.node(depth) };
 }
 
 const orgEnvRule: RuleBlock = (state, startLine, endLine, silent) => {

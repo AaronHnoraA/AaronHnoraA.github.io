@@ -57,6 +57,30 @@ export const linkSpecs: FeatureSpecs = {
       ],
     },
     {
+      id: "href-with-balanced-parens",
+      label: "[eq:1](roam/project/UNSW/ISO(202603)/meeting.md#eq-eq%3A1) — balanced parens stay in href",
+      seed: "[eq:1](roam/project/UNSW/ISO(202603)/meeting.md#eq-eq%3A1) ",
+      events: [],
+      checkpoints: [
+        {
+          at: 0,
+          expect: "<l:roam/project/UNSW/ISO(202603)/meeting.md#eq-eq%3A1>eq:1</l> |",
+        },
+      ],
+    },
+    {
+      id: "href-with-encoded-parens",
+      label: "[eq:1](roam/project/UNSW/ISO%28202603%29/meeting.md#eq-eq%3A1) — encoded parens stay in href",
+      seed: "[eq:1](roam/project/UNSW/ISO%28202603%29/meeting.md#eq-eq%3A1) ",
+      events: [],
+      checkpoints: [
+        {
+          at: 0,
+          expect: "<l:roam/project/UNSW/ISO%28202603%29/meeting.md#eq-eq%3A1>eq:1</l> |",
+        },
+      ],
+    },
+    {
       id: "empty-link-stable",
       label: "[]() stable — empty text keeps delims visible",
       seed: "[]() ",

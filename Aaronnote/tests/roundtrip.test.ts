@@ -72,6 +72,12 @@ $$
 \end{array}
 $$
 #+end summary`));
+  test("org comment block", () =>
+    roundTripStable("#+begin comment Proof gap\nfirst line\nsecond line\n#+end comment"));
+  test("inline todo default status", () =>
+    roundTripStable("body @@todo [update statement] tail"));
+  test("inline todo explicit status", () =>
+    roundTripStable("body @@todo(doing) [update statement] tail"));
   // Indented (4-space) code: md-it produces a `code_block` token with no
   // markup, same shape as a fenced block w/ no lang. Round-trip is at
   // doc level — md-text serialises to the fenced form (no `style` attr

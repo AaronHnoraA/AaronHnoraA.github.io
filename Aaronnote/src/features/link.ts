@@ -10,23 +10,156 @@ import type { FeatureSpec, InlineFeatureSpec } from "./_types.ts";
 //   content     = text            (link mark covers this range)
 //   close delim = `](href "title")` or `](href)`  (length depends on attrs)
 //
-// parseInline uses a regex — unlike the delim-run emphasis/code/strike
-// path — because the close delim is asymmetric and carries data. Nested
-// brackets inside content and escaped `]` are not handled yet (pilot).
+// parseInline uses a small scanner — unlike the delim-run
+// emphasis/code/strike path — because the close delim is asymmetric and
+// carries data. It accepts balanced parentheses in destinations so
+// note paths such as `ISO(202603)/meeting.md#eq-x` stay one href.
 
-const LINK_RE = /\[([^\]]*?)\]\(([^\s)]*)(?:\s+"([^"]*)")?\)/g;
+type LinkMatch = {
+  start: number;
+  end: number;
+  labelFrom: number;
+  labelTo: number;
+  href: string;
+  title: string | null;
+};
+
+function escapedAt(text: string, pos: number): boolean {
+  let slashes = 0;
+  for (let i = pos - 1; i >= 0 && text[i] === "\\"; i--) slashes++;
+  return slashes % 2 === 1;
+}
+
+function findLabelClose(text: string, open: number): number {
+  let depth = 0;
+  for (let i = open + 1; i < text.length; i++) {
+    const ch = text[i]!;
+    if (ch === "\\" && i + 1 < text.length) {
+      i++;
+      continue;
+    }
+    if (ch === "[") {
+      depth++;
+      continue;
+    }
+    if (ch !== "]") continue;
+    if (depth === 0) return i;
+    depth--;
+  }
+  return -1;
+}
+
+function skipSpaces(text: string, pos: number): number {
+  while (pos < text.length && /[ \t]/.test(text[pos]!)) pos++;
+  return pos;
+}
+
+function parseTitle(text: string, pos: number): { title: string; end: number } | null {
+  const quote = text[pos];
+  if (quote !== '"') return null;
+  let out = "";
+  for (let i = pos + 1; i < text.length; i++) {
+    const ch = text[i]!;
+    if (ch === "\\" && i + 1 < text.length) {
+      out += ch + text[i + 1]!;
+      i++;
+      continue;
+    }
+    if (ch === quote) return { title: out, end: i + 1 };
+    if (ch === "\n" || ch === "\r") return null;
+    out += ch;
+  }
+  return null;
+}
+
+function parseDestination(text: string, pos: number): { href: string; title: string | null; end: number } | null {
+  let cursor = skipSpaces(text, pos);
+  let href = "";
+
+  if (text[cursor] === ")") {
+    return { href, title: null, end: cursor + 1 };
+  }
+
+  if (text[cursor] === "<") {
+    let end = -1;
+    for (let i = cursor + 1; i < text.length; i++) {
+      const ch = text[i]!;
+      if (ch === "\n" || ch === "\r") return null;
+      if (ch === ">" && !escapedAt(text, i)) {
+        end = i;
+        break;
+      }
+    }
+    if (end < 0) return null;
+    href = text.slice(cursor + 1, end);
+    cursor = end + 1;
+  } else {
+    const start = cursor;
+    let depth = 0;
+    for (; cursor < text.length; cursor++) {
+      const ch = text[cursor]!;
+      if (ch === "\n" || ch === "\r") return null;
+      if (ch === "\\" && cursor + 1 < text.length) {
+        cursor++;
+        continue;
+      }
+      if (ch === "(") {
+        depth++;
+        continue;
+      }
+      if (ch === ")") {
+        if (depth === 0) break;
+        depth--;
+        continue;
+      }
+      if (depth === 0 && /[ \t]/.test(ch)) break;
+    }
+    href = text.slice(start, cursor);
+  }
+
+  cursor = skipSpaces(text, cursor);
+  let title: string | null = null;
+  if (text[cursor] !== ")") {
+    const parsedTitle = parseTitle(text, cursor);
+    if (!parsedTitle) return null;
+    title = parsedTitle.title;
+    cursor = skipSpaces(text, parsedTitle.end);
+  }
+  if (text[cursor] !== ")") return null;
+  return { href, title, end: cursor + 1 };
+}
+
+function findLinks(text: string): LinkMatch[] {
+  const matches: LinkMatch[] = [];
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] !== "[" || escapedAt(text, i)) continue;
+    if (i > 0 && text[i - 1] === "!" && !escapedAt(text, i - 1)) continue;
+    const labelClose = findLabelClose(text, i);
+    if (labelClose < 0 || text[labelClose + 1] !== "(") continue;
+    const dest = parseDestination(text, labelClose + 2);
+    if (!dest) continue;
+    matches.push({
+      start: i,
+      end: dest.end,
+      labelFrom: i + 1,
+      labelTo: labelClose,
+      href: dest.href,
+      title: dest.title,
+    });
+    i = dest.end - 1;
+  }
+  return matches;
+}
 
 const scan: InlineFeatureSpec["scan"] = (text, consumed) => {
   const out: InlineSpan[] = [];
-  LINK_RE.lastIndex = 0;
-  let m: RegExpExecArray | null;
-  while ((m = LINK_RE.exec(text))) {
-    const fullStart = m.index;
-    const fullEnd = fullStart + m[0].length;
+  for (const match of findLinks(text)) {
+    const fullStart = match.start;
+    const fullEnd = match.end;
     const openFrom = fullStart;
     const openTo = fullStart + 1; // after `[`
     const contentFrom = openTo;
-    const contentTo = openTo + m[1]!.length;
+    const contentTo = match.labelTo;
     const closeFrom = contentTo;
     const closeTo = fullEnd;
 
@@ -49,8 +182,8 @@ const scan: InlineFeatureSpec["scan"] = (text, consumed) => {
     // any earlier feature's spans there stay live.
     markConsumed(consumed, openFrom, openTo);
     markConsumed(consumed, closeFrom, closeTo);
-    const href = m[2]!;
-    const title = m[3] ?? null;
+    const href = match.href;
+    const title = match.title;
     const span: InlineSpan = {
       type: "link",
       from: contentFrom,
@@ -63,7 +196,7 @@ const scan: InlineFeatureSpec["scan"] = (text, consumed) => {
     };
     // Empty link text would render as nothing if delims hid normally —
     // override the delim layout so the link stays visible/editable.
-    if (m[1] === "") {
+    if (match.labelFrom === match.labelTo) {
       if (href === "" || title !== null) {
         // [](): both delims forced visible. With a title we also fall
         // back to whole-close-delim visibility (no href promotion yet).

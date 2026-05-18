@@ -144,6 +144,15 @@ $$`;
     expect(mathBlock.type).toBe(schema.nodes.math_block);
     expect(mathBlock.textContent).toBe(source.split("\n").slice(1, -1).join("\n"));
   });
+
+  test("org comment block parses as a comment node", () => {
+    const doc = parse("#+begin comment Proof gap\nfirst line\nsecond line\n#+end comment");
+    const block = doc.child(0);
+    expect(block.type).toBe(schema.nodes.org_env_block);
+    expect(block.attrs.kind).toBe("comment");
+    expect(block.attrs.title).toBe("Proof gap");
+    expect(block.textContent).toBe("first line\nsecond line");
+  });
 });
 
 describe("parser: inline marks", () => {

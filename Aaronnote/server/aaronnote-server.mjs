@@ -629,11 +629,13 @@ function tagsFromContent(content) {
 }
 
 function decodeRef(ref) {
+  let decoded = String(ref || "");
   try {
-    return decodeURIComponent(ref);
+    decoded = decodeURIComponent(decoded);
   } catch {
-    return ref;
+    decoded = String(ref || "");
   }
+  return decoded.replace(/\\([\\`*_[\](){}#+.!<>-])/g, "$1");
 }
 
 function refFromRoamHref(href) {
@@ -647,16 +649,150 @@ function refFromRoamHref(href) {
   ).trim();
 }
 
+function hrefProtocol(href) {
+  return String(href || "").trim().match(/^([A-Za-z][\w+.-]*):/)?.[1]?.toLowerCase() || "";
+}
+
+function hrefPath(href) {
+  const raw = String(href || "").trim();
+  if (/^file:\/\//i.test(raw)) {
+    try {
+      return decodeRef(new URL(raw).pathname);
+    } catch {
+      return decodeRef(raw.replace(/^file:\/\//i, ""));
+    }
+  }
+  if (/^file:/i.test(raw)) return decodeRef(raw.replace(/^file:/i, "").split(/[?#]/, 1)[0] || "");
+  return decodeRef(raw.split(/[?#]/, 1)[0] || "");
+}
+
+function noteFileRefFromHref(href) {
+  const protocol = hrefProtocol(href);
+  if (protocol && protocol !== "file") return "";
+  const path = hrefPath(href);
+  return /\.(?:md|markdown|typ)$/i.test(path) ? path : "";
+}
+
+function markdownEscapedAt(text, pos) {
+  let slashes = 0;
+  for (let i = pos - 1; i >= 0 && text[i] === "\\"; i--) slashes++;
+  return slashes % 2 === 1;
+}
+
+function markdownLabelClose(text, open) {
+  let depth = 0;
+  for (let i = open + 1; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === "\\" && i + 1 < text.length) {
+      i++;
+      continue;
+    }
+    if (ch === "[") {
+      depth++;
+      continue;
+    }
+    if (ch !== "]") continue;
+    if (depth === 0) return i;
+    depth--;
+  }
+  return -1;
+}
+
+function skipMarkdownSpaces(text, pos) {
+  while (pos < text.length && /[ \t]/.test(text[pos])) pos++;
+  return pos;
+}
+
+function parseMarkdownTitle(text, pos) {
+  if (text[pos] !== '"') return null;
+  let title = "";
+  for (let i = pos + 1; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === "\\" && i + 1 < text.length) {
+      title += ch + text[i + 1];
+      i++;
+      continue;
+    }
+    if (ch === '"') return { title, end: i + 1 };
+    if (ch === "\n" || ch === "\r") return null;
+    title += ch;
+  }
+  return null;
+}
+
+function parseMarkdownDestination(text, pos) {
+  let cursor = skipMarkdownSpaces(text, pos);
+  let href = "";
+  if (text[cursor] === ")") return { href, end: cursor + 1 };
+  if (text[cursor] === "<") {
+    let end = -1;
+    for (let i = cursor + 1; i < text.length; i++) {
+      const ch = text[i];
+      if (ch === "\n" || ch === "\r") return null;
+      if (ch === ">" && !markdownEscapedAt(text, i)) {
+        end = i;
+        break;
+      }
+    }
+    if (end < 0) return null;
+    href = text.slice(cursor + 1, end);
+    cursor = end + 1;
+  } else {
+    const start = cursor;
+    let depth = 0;
+    for (; cursor < text.length; cursor++) {
+      const ch = text[cursor];
+      if (ch === "\n" || ch === "\r") return null;
+      if (ch === "\\" && cursor + 1 < text.length) {
+        cursor++;
+        continue;
+      }
+      if (ch === "(") {
+        depth++;
+        continue;
+      }
+      if (ch === ")") {
+        if (depth === 0) break;
+        depth--;
+        continue;
+      }
+      if (depth === 0 && /[ \t]/.test(ch)) break;
+    }
+    href = text.slice(start, cursor);
+  }
+  cursor = skipMarkdownSpaces(text, cursor);
+  if (text[cursor] !== ")") {
+    const title = parseMarkdownTitle(text, cursor);
+    if (!title) return null;
+    cursor = skipMarkdownSpaces(text, title.end);
+  }
+  if (text[cursor] !== ")") return null;
+  return { href, end: cursor + 1 };
+}
+
+function markdownLinkHrefs(text) {
+  const hrefs = [];
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] !== "[" || markdownEscapedAt(text, i)) continue;
+    const labelClose = markdownLabelClose(text, i);
+    if (labelClose < 0 || text[labelClose + 1] !== "(") continue;
+    const dest = parseMarkdownDestination(text, labelClose + 2);
+    if (!dest) continue;
+    hrefs.push(dest.href);
+    i = dest.end - 1;
+  }
+  return hrefs;
+}
+
 export function refsFromContent(content) {
   const meta = noteMetadata(content);
   const refs = new Set(Array.isArray(meta.refs) ? meta.refs : []);
   for (const match of content.matchAll(/#note\("([^"]+)"\)/g)) refs.add(match[1]);
   for (const match of content.matchAll(/\[\[([^\]\n]+)\]\]/g)) refs.add(match[1].trim());
-  for (const match of content.matchAll(/\]\(([^)\n]+\.md)(?:#[^)]*)?\)/g)) {
-    refs.add(decodeURIComponent(match[1]));
-  }
-  for (const match of content.matchAll(/\]\((roam:\/\/[^)\n]+)\)/gi)) {
-    refs.add(refFromRoamHref(match[1]));
+  for (const href of markdownLinkHrefs(content)) {
+    const noteRef = noteFileRefFromHref(href);
+    if (noteRef) refs.add(noteRef);
+    if (/^roam:\/\//i.test(href)) refs.add(refFromRoamHref(href));
   }
   for (const match of content.matchAll(/\broam:\/\/[^\s<>)\]]+/gi)) {
     refs.add(refFromRoamHref(match[0]));
@@ -811,6 +947,84 @@ async function scanNotes() {
   }
   for (const note of uniqueNotes) note.backlinks = [...new Set(note.backlinks)].sort();
   return uniqueNotes.sort((a, b) => a.title.localeCompare(b.title));
+}
+
+const todoStatuses = new Set(["todo", "doing", "done", "blocked"]);
+
+function normalizeTodoStatus(raw = "") {
+  const value = String(raw || "").trim().toLowerCase();
+  if (!value || value === " " || value === "open" || value === "unchecked") return "todo";
+  if (value === "~" || value === "-" || value === "wip" || value === "active") return "doing";
+  if (value === "x" || value === "checked" || value === "complete") return "done";
+  if (value === "!" || value === "block") return "blocked";
+  return todoStatuses.has(value) ? value : "todo";
+}
+
+function extractTodos(content, note, updatedAt) {
+  const todos = [];
+  const lineStarts = [0];
+  for (let i = 0; i < content.length; i++) {
+    if (content[i] === "\n") lineStarts.push(i + 1);
+  }
+  const lineFor = (index) => {
+    let lo = 0;
+    let hi = lineStarts.length - 1;
+    while (lo <= hi) {
+      const mid = Math.floor((lo + hi) / 2);
+      if (lineStarts[mid] <= index) lo = mid + 1;
+      else hi = mid - 1;
+    }
+    return Math.max(0, hi) + 1;
+  };
+  const re = /@@todo(?:\(([^)\n]*)\))?\s+\[((?:\\.|[^\]\\\n])*)\]/g;
+  let match;
+  while ((match = re.exec(content))) {
+    const source = match[0];
+    const text = String(match[2] || "").replace(/\\([\]\\])/g, "$1").trim();
+    const status = normalizeTodoStatus(match[1]);
+    const line = lineFor(match.index);
+    const lineStart = lineStarts[line - 1] || 0;
+    const lineEnd = content.indexOf("\n", lineStart);
+    const rawLine = content.slice(lineStart, lineEnd < 0 ? content.length : lineEnd).trim();
+    todos.push({
+      id: `${note.file}:${match.index}`,
+      status,
+      text,
+      source,
+      index: match.index,
+      line,
+      column: match.index - lineStart + 1,
+      context: rawLine,
+      file: note.file,
+      path: note.path,
+      noteKey: note.key,
+      noteId: note.id,
+      noteTitle: note.title,
+      noteDate: note.date || "",
+      groupKey: note.groupKey || "",
+      groupLabel: note.groupLabel || "",
+      updatedAt,
+    });
+  }
+  return todos;
+}
+
+async function scanTodos() {
+  const scanned = await scanNotes();
+  const todos = [];
+  for (const note of scanned) {
+    try {
+      const info = await stat(note.file);
+      const content = await readFile(note.file, "utf8");
+      todos.push(...extractTodos(content, note, info.mtimeMs));
+    } catch {}
+  }
+  return todos.sort((a, b) => {
+    const statusRank = { blocked: 0, doing: 1, todo: 2, done: 3 };
+    return (statusRank[a.status] ?? 9) - (statusRank[b.status] ?? 9)
+      || b.updatedAt - a.updatedAt
+      || String(a.noteTitle).localeCompare(String(b.noteTitle));
+  });
 }
 
 function snippetDirs() {
@@ -1183,6 +1397,11 @@ async function routeApi(req, res) {
 
     if (req.method === "GET" && url.pathname === "/api/notes") {
       sendJson(res, 200, { type: "notes", notes: await scanNotes(), root: noteRoot });
+      return true;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/todos") {
+      sendJson(res, 200, { type: "todos", todos: await scanTodos(), root: noteRoot });
       return true;
     }
 

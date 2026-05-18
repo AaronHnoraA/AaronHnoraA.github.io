@@ -33,8 +33,6 @@ declare global {
 window.__GRAPH_NO_AUTO_INIT__ = true;
 
 const params = new URLSearchParams(window.location.search);
-const emacsPort = params.get("emacsPort") || "";
-const token = params.get("token") || "";
 
 const root = document.querySelector<HTMLDivElement>("#app")!;
 root.innerHTML = `
@@ -46,6 +44,7 @@ root.innerHTML = `
       </div>
       <div class="aaronnote-actions">
         <button type="button" data-action="notes">Notes</button>
+        <button type="button" data-action="agenda">Agenda</button>
         <button type="button" data-action="source">Source</button>
         <button type="button" data-action="editor" hidden>Editor</button>
       </div>
@@ -62,12 +61,27 @@ root.innerHTML = `
           </header>
           <div class="aaronnote-notes-tabs" role="tablist" aria-label="Roam tools">
             <button type="button" data-notes-tab="recent">Recent</button>
+            <button type="button" data-notes-tab="agenda">Agenda</button>
             <button type="button" data-notes-tab="filesystem" class="is-active">Filesystem</button>
             <button type="button" data-notes-tab="graph">Roam graph</button>
             <button type="button" data-notes-tab="management">Roam management</button>
           </div>
           <div data-notes-panel="recent" hidden>
             <div data-recent-list class="aaronnote-note-list"></div>
+          </div>
+          <div data-notes-panel="agenda" hidden>
+            <div class="aaronnote-agenda-toolbar">
+              <input data-agenda-filter type="search" placeholder="Filter active todos" />
+              <select data-agenda-sort aria-label="Sort todos">
+                <option value="status">Status</option>
+                <option value="file">File</option>
+                <option value="time">Time</option>
+              </select>
+              <label><input data-agenda-done type="checkbox" /> Done</label>
+              <button type="button" data-action="agenda-refresh">Refresh</button>
+              <span data-agenda-count></span>
+            </div>
+            <div data-agenda-list class="aaronnote-agenda-list"></div>
           </div>
           <div data-notes-panel="filesystem">
             <input data-note-filter type="search" placeholder="Filter notes by path, title, tag, or id" />
@@ -120,9 +134,16 @@ const graphCanvas = document.querySelector<HTMLElement>("[data-graph-canvas]")!;
 const graphFocus = document.querySelector<HTMLElement>("[data-graph-focus]")!;
 const graphStats = document.querySelector<HTMLElement>("[data-graph-stats]")!;
 const notesButton = document.querySelector<HTMLButtonElement>("[data-action='notes']")!;
+const agendaButton = document.querySelector<HTMLButtonElement>("[data-action='agenda']")!;
 const sourceButton = document.querySelector<HTMLButtonElement>("[data-action='source']")!;
 const editorButton = document.querySelector<HTMLButtonElement>("[data-action='editor']")!;
 const editorInlineButton = document.querySelector<HTMLButtonElement>("[data-action='editor-inline']")!;
+const agendaFilter = document.querySelector<HTMLInputElement>("[data-agenda-filter]")!;
+const agendaSort = document.querySelector<HTMLSelectElement>("[data-agenda-sort]")!;
+const agendaDone = document.querySelector<HTMLInputElement>("[data-agenda-done]")!;
+const agendaRefresh = document.querySelector<HTMLButtonElement>("[data-action='agenda-refresh']")!;
+const agendaCount = document.querySelector<HTMLElement>("[data-agenda-count]")!;
+const agendaList = document.querySelector<HTMLElement>("[data-agenda-list]")!;
 const toc = document.querySelector<HTMLElement>("[data-floating-toc]")!;
 const tocList = document.querySelector<HTMLElement>("[data-toc-list]")!;
 const tocToggle = document.querySelector<HTMLButtonElement>("[data-toc-toggle]")!;
@@ -154,10 +175,31 @@ let currentFile = "";
 let currentMode: "markdown" | "source" = "markdown";
 let currentStandalone = false;
 let saveTimer = 0;
-let ws: WebSocket | null = null;
 let notes: NoteSummary[] = [];
 let snippets: SnippetSummary[] = [];
-let receivedOpen = false;
+type AgendaTodo = {
+  id: string;
+  status: "todo" | "doing" | "done" | "blocked";
+  text: string;
+  source: string;
+  index: number;
+  line: number;
+  column: number;
+  context: string;
+  file: string;
+  path?: string;
+  noteKey?: string;
+  noteId?: string;
+  noteTitle?: string;
+  noteDate?: string;
+  groupKey?: string;
+  groupLabel?: string;
+  updatedAt: number;
+};
+let agendaTodos: AgendaTodo[] = [];
+let agendaLoading = false;
+let agendaRenderFrame = 0;
+let pendingTodoFocus: { file: string; source: string; index?: number } | null = null;
 let assistFrame = 0;
 let assistTimer = 0;
 let vimMode: VimLiteMode = "insert";
@@ -330,25 +372,28 @@ function setStatus(text: string): void {
   statusEl.textContent = text;
 }
 
-function send(payload: Record<string, unknown>): void {
-  const msg = JSON.stringify({ token, ...payload });
-  if (ws?.readyState === WebSocket.OPEN) ws.send(msg);
+function decodeNoteRef(ref: string): string {
+  let decoded = ref;
+  try {
+    decoded = decodeURIComponent(ref);
+  } catch {
+    decoded = ref;
+  }
+  return decoded.replace(/\\([\\`*_[\](){}#+.!<>-])/g, "$1");
 }
 
-function decodeNoteRef(ref: string): string {
-  try {
-    return decodeURIComponent(ref);
-  } catch {
-    return ref;
-  }
+function cleanHref(href: string): string {
+  const raw = String(href || "").trim();
+  if (raw.startsWith("<") && raw.endsWith(">")) return raw.slice(1, -1).trim();
+  return raw;
 }
 
 function hrefProtocol(href: string): string | null {
-  return href.trim().match(/^([A-Za-z][\w+.-]*):/)?.[1]?.toLowerCase() ?? null;
+  return cleanHref(href).match(/^([A-Za-z][\w+.-]*):/)?.[1]?.toLowerCase() ?? null;
 }
 
 function hrefPath(href: string): string {
-  const raw = String(href || "").trim();
+  const raw = cleanHref(href);
   if (/^file:\/\//i.test(raw)) {
     try {
       return decodeNoteRef(new URL(raw).pathname);
@@ -361,7 +406,7 @@ function hrefPath(href: string): string {
 }
 
 function hrefHash(href: string): string {
-  const raw = String(href || "").trim();
+  const raw = cleanHref(href);
   const index = raw.indexOf("#");
   if (index < 0) return "";
   return decodeNoteRef((raw.slice(index + 1).split(/[?&]/, 1)[0] ?? "").trim());
@@ -379,7 +424,7 @@ function escapeRegExp(value: string): string {
 }
 
 function noteRefFromRoamHref(href: string): string | null {
-  const match = String(href || "").trim().match(/^roam:\/\/(.+)$/i);
+  const match = cleanHref(href).match(/^roam:\/\/(.+)$/i);
   if (!match) return null;
   const raw = match[1]!
     .split(/[?#]/, 1)[0]!
@@ -429,7 +474,7 @@ function joinNotePath(baseDir: string, path: string): string {
 function markdownNoteHref(href: string): boolean {
   const protocol = hrefProtocol(href);
   if (protocol && protocol !== "file") return false;
-  return /\.(?:md|markdown)$/i.test(hrefPath(href));
+  return /\.(?:md|markdown|typ)$/i.test(hrefPath(href));
 }
 
 function internalNoteCandidates(href: string): string[] {
@@ -514,11 +559,6 @@ function openExternalUrl(href: string, options: OpenNoteOptions = {}): void {
   }
   if (options.newWindow) {
     window.open(href, "_blank", "noopener,noreferrer");
-    return;
-  }
-  if (emacsPort && token && ws?.readyState === WebSocket.OPEN) {
-    send({ type: "open-url", url: href });
-    setStatus("Opening link");
     return;
   }
   window.location.href = href;
@@ -617,17 +657,7 @@ function save(): void {
     setStatus(scratchStatus());
     return;
   }
-  if (!emacsPort || !token) {
-    void saveStandalone();
-    return;
-  }
-  send({
-    type: "save",
-    file: currentFile,
-    content: editor.getMarkdown(),
-    mode: editor.isSourceMode() ? "source" : "markdown",
-  });
-  setStatus("Saving");
+  void saveStandalone();
 }
 
 function syncSourceUi(): void {
@@ -656,6 +686,7 @@ async function saveStandalone(): Promise<void> {
     if (Array.isArray(msg.notes)) {
       notes = msg.notes;
       renderNotes();
+      if (!notesPage.hidden && notesPanels.some((panel) => panel.dataset.notesPanel === "agenda" && !panel.hidden)) void loadAgendaTodos(true);
       if (!graphPage.hidden) renderGraph();
       updateFloatingToc();
     }
@@ -788,6 +819,7 @@ async function syncRoamDb(): Promise<void> {
     if (!res.ok || !Array.isArray(msg.notes)) throw new Error(msg.message || "Sync failed");
     notes = msg.notes;
     renderNotes();
+    if (!notesPage.hidden && notesPanels.some((panel) => panel.dataset.notesPanel === "agenda" && !panel.hidden)) void loadAgendaTodos(true);
     if (!graphPage.hidden) renderGraph();
     updateFloatingToc();
     setStatus(`Synced ${roamNotes().length} roam nodes`);
@@ -1247,6 +1279,42 @@ function jumpToEquationTag(rawTag: string): boolean {
   return true;
 }
 
+function jumpToTodoSource(source: string, preferredIndex?: number): boolean {
+  const target = String(source || "");
+  if (!target) return false;
+  if (editor.isSourceMode()) {
+    const markdown = editor.getMarkdown();
+    const index = typeof preferredIndex === "number" && markdown.slice(preferredIndex, preferredIndex + target.length) === target
+      ? preferredIndex
+      : markdown.indexOf(target);
+    if (index < 0) return false;
+    const contentOffset = Math.max(0, target.indexOf("[") + 1);
+    editor.setSelection(index + contentOffset, index + contentOffset + Math.min(1, Math.max(0, target.length - contentOffset - 1)));
+    editor.revealCursor();
+    return true;
+  }
+
+  let hit: { from: number; to: number } | null = null;
+  editor.view.state.doc.descendants((node, pos) => {
+    if (hit || !node.isTextblock) return !hit;
+    const text = node.textContent;
+    const index = text.indexOf(target);
+    if (index < 0) return true;
+    const contentOffset = Math.max(0, target.indexOf("[") + 1);
+    const from = pos + 1 + index + contentOffset;
+    hit = {
+      from,
+      to: Math.min(pos + 1 + text.length, from + Math.min(1, Math.max(0, target.length - contentOffset - 1))),
+    };
+    return false;
+  });
+  if (!hit) return false;
+  editor.setSelection(hit.from, hit.to);
+  editor.revealCursor();
+  scheduleAssistUpdate();
+  return true;
+}
+
 function equationTagSuggestionsFromContent(content = editor.getMarkdown()): string[] {
   return [...new Set([...content.matchAll(/\\tag\s*\{([^{}\n]+)\}/g)].map((match) => match[1]!.trim()).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b));
@@ -1275,17 +1343,22 @@ function equationHash(tag: string): string {
   return `eq-${encodeURIComponent(tag)}`;
 }
 
+function encodeMarkdownHrefPathPart(part: string): string {
+  return encodeURIComponent(part).replace(/[!'()*]/g, (char) =>
+    `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+}
+
 function encodeMarkdownHrefPath(path: string): string {
-  return path
+  return decodeNoteRef(path)
     .replace(/\\/g, "/")
     .split("/")
-    .map((part) => encodeURIComponent(part))
+    .map((part) => encodeMarkdownHrefPathPart(part))
     .join("/");
 }
 
 function equationReferenceMarkdown(tag: string): string {
   const note = currentNote();
-  const targetPath = note?.source || note?.path || note?.link || currentFile || fileNameFromPath(currentFile || "note.md");
+  const targetPath = note?.path || note?.link || currentFile || note?.source || fileNameFromPath(currentFile || "note.md");
   return `[${tag}](${encodeMarkdownHrefPath(targetPath)}#${equationHash(tag)})`;
 }
 
@@ -1396,7 +1469,7 @@ function disposeGraph(): void {
   graphFocus.innerHTML = "";
 }
 
-function showNotesPage(): void {
+function showNotesPage(tab = "filesystem"): void {
   if (currentStandalone) {
     setStatus("Standalone Markdown file");
     return;
@@ -1408,10 +1481,11 @@ function showNotesPage(): void {
   notesPage.hidden = false;
   toc.hidden = true;
   notesButton.hidden = true;
+  agendaButton.hidden = true;
   sourceButton.hidden = true;
   editorButton.hidden = false;
-  showNotesTool("filesystem");
-  noteFilter.focus();
+  showNotesTool(tab);
+  if (tab === "filesystem") noteFilter.focus();
 }
 
 function showNotesTool(tab: string): void {
@@ -1425,6 +1499,9 @@ function showNotesTool(tab: string): void {
   if (tab === "graph") {
     renderGraph();
     graphFilter.focus();
+  } else if (tab === "agenda") {
+    void loadAgendaTodos();
+    agendaFilter.focus();
   } else if (tab === "recent") {
     renderRecentNotes();
   } else if (tab === "filesystem") {
@@ -1438,6 +1515,7 @@ function showEditorPage(): void {
   host.hidden = false;
   toc.hidden = false;
   notesButton.hidden = currentStandalone;
+  agendaButton.hidden = currentStandalone;
   sourceButton.hidden = false;
   editorButton.hidden = true;
   editor.focus();
@@ -1504,7 +1582,6 @@ function openNote(note: NoteSummary, options: OpenNoteOptions = {}): void {
     return;
   }
   pendingEquationTag = equationTag;
-  if (emacsPort && token) send({ type: "open-file", file: note.file });
   void openStandaloneFile(note.file);
   showEditorPage();
 }
@@ -2299,6 +2376,166 @@ function renderNotes(): void {
   }
 }
 
+function formatAgendaTime(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return "";
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function agendaStatusRank(status: AgendaTodo["status"]): number {
+  return ({ blocked: 0, doing: 1, todo: 2, done: 3 } as Record<AgendaTodo["status"], number>)[status] ?? 9;
+}
+
+function shownAgendaTodos(): AgendaTodo[] {
+  const query = agendaFilter.value.trim().toLowerCase();
+  const includeDone = agendaDone.checked;
+  const shown = agendaTodos.filter((todo) => {
+    if (!includeDone && todo.status === "done") return false;
+    const haystack = [
+      todo.status,
+      todo.text,
+      todo.context,
+      todo.noteTitle,
+      todo.path,
+      todo.file,
+      todo.groupLabel,
+    ].join(" ").toLowerCase();
+    return !query || haystack.includes(query);
+  });
+  const sort = agendaSort.value;
+  return shown.sort((a, b) => {
+    if (sort === "file") {
+      return String(a.path || a.file).localeCompare(String(b.path || b.file))
+        || a.line - b.line
+        || agendaStatusRank(a.status) - agendaStatusRank(b.status);
+    }
+    if (sort === "time") {
+      return b.updatedAt - a.updatedAt
+        || agendaStatusRank(a.status) - agendaStatusRank(b.status)
+        || String(a.noteTitle).localeCompare(String(b.noteTitle));
+    }
+    return agendaStatusRank(a.status) - agendaStatusRank(b.status)
+      || b.updatedAt - a.updatedAt
+      || String(a.noteTitle).localeCompare(String(b.noteTitle));
+  });
+}
+
+async function loadAgendaTodos(force = false): Promise<void> {
+  if (agendaLoading) return;
+  if (!force && agendaTodos.length > 0) {
+    renderAgenda();
+    return;
+  }
+  agendaLoading = true;
+  agendaCount.textContent = "Loading";
+  try {
+    const res = await fetch("/api/todos");
+    const msg = await res.json() as { todos?: AgendaTodo[]; message?: string };
+    if (!res.ok || !Array.isArray(msg.todos)) throw new Error(msg.message || "Todo scan failed");
+    agendaTodos = msg.todos;
+    renderAgenda();
+  } catch (err) {
+    agendaList.innerHTML = `<div class="aaronnote-empty">${escapeHtml(err instanceof Error ? err.message : "Todo scan failed")}</div>`;
+    agendaCount.textContent = "Failed";
+  } finally {
+    agendaLoading = false;
+  }
+}
+
+function scheduleRenderAgenda(): void {
+  window.cancelAnimationFrame(agendaRenderFrame);
+  agendaRenderFrame = window.requestAnimationFrame(renderAgenda);
+}
+
+function renderAgenda(): void {
+  const shown = shownAgendaTodos();
+  const active = shown.filter((todo) => todo.status !== "done").length;
+  const done = agendaTodos.filter((todo) => todo.status === "done").length;
+  agendaCount.textContent = `${shown.length} shown · ${active} active${done ? ` · ${done} done` : ""}`;
+  agendaList.innerHTML = "";
+  if (shown.length === 0) {
+    agendaList.innerHTML = `<div class="aaronnote-empty">${agendaTodos.length === 0 ? "No todos indexed" : "No todos match the current filters"}</div>`;
+    return;
+  }
+
+  let currentGroup = "";
+  const groupFor = (todo: AgendaTodo): string => {
+    if (agendaSort.value === "file") return todo.path || todo.file || "Scratch";
+    if (agendaSort.value === "time") return formatAgendaTime(todo.updatedAt).split(",")[0] || "Undated";
+    return todo.status.toUpperCase();
+  };
+  for (const todo of shown) {
+    const group = groupFor(todo);
+    if (group !== currentGroup) {
+      currentGroup = group;
+      const heading = document.createElement("div");
+      heading.className = "aaronnote-agenda-group";
+      heading.textContent = group;
+      agendaList.appendChild(heading);
+    }
+    agendaList.appendChild(renderAgendaTodo(todo));
+  }
+}
+
+function renderAgendaTodo(todo: AgendaTodo): HTMLElement {
+  const item = document.createElement("article");
+  item.className = "aaronnote-agenda-item";
+  item.dataset.status = todo.status;
+
+  const status = document.createElement("span");
+  status.className = "aaronnote-agenda-status";
+  status.textContent = todo.status.toUpperCase();
+
+  const main = document.createElement("div");
+  main.className = "aaronnote-agenda-main";
+  const title = document.createElement("button");
+  title.type = "button";
+  title.className = "aaronnote-agenda-title";
+  title.textContent = todo.text || "(empty todo)";
+  title.addEventListener("click", (event) => focusAgendaTodo(todo, { newWindow: event.altKey || event.metaKey }));
+
+  const meta = document.createElement("div");
+  meta.className = "aaronnote-agenda-meta";
+  meta.textContent = `${todo.noteTitle || fileNameFromPath(todo.file)} · ${todo.path || todo.file}:${todo.line}${todo.updatedAt ? ` · ${formatAgendaTime(todo.updatedAt)}` : ""}`;
+
+  const context = document.createElement("div");
+  context.className = "aaronnote-agenda-context";
+  context.textContent = todo.context || todo.source;
+  main.append(title, meta, context);
+
+  const actions = document.createElement("div");
+  actions.className = "aaronnote-agenda-actions";
+  const focus = document.createElement("button");
+  focus.type = "button";
+  focus.textContent = "Focus";
+  focus.addEventListener("click", () => focusAgendaTodo(todo));
+  actions.append(focus);
+
+  item.append(status, main, actions);
+  return item;
+}
+
+function focusAgendaTodo(todo: AgendaTodo, options: { newWindow?: boolean } = {}): void {
+  if (!todo.file) return;
+  const note = notes.find((item) => item.file === todo.file) || {
+    file: todo.file,
+    path: todo.path || todo.file,
+    title: todo.noteTitle || fileNameFromPath(todo.file),
+    standalone: true,
+  };
+  pendingTodoFocus = { file: todo.file, source: todo.source, index: todo.index };
+  if (todo.file === currentFile && !options.newWindow) {
+    showEditorPage();
+    if (!jumpToTodoSource(todo.source, todo.index)) setStatus("Todo source not found");
+    return;
+  }
+  openNote(note, options);
+}
+
 function noteKey(note: NoteSummary): string {
   return note.key || note.id || note.path || note.file || "";
 }
@@ -2453,7 +2690,6 @@ async function openStandaloneFile(file: string): Promise<void> {
 
 function applyOpen(msg: Extract<Inbound, { type: "open" }>): void {
   saveCursorPositionNow({ force: true });
-  receivedOpen = true;
   currentFile = msg.file || "";
   currentStandalone = msg.standalone === true;
   root.dataset.standalone = currentStandalone ? "true" : "false";
@@ -2461,12 +2697,14 @@ function applyOpen(msg: Extract<Inbound, { type: "open" }>): void {
   currentMode = storedPosition?.mode ?? (msg.mode === "source" ? "source" : "markdown");
   fileLabel.textContent = currentFile || "Scratch";
   notesButton.hidden = currentStandalone;
+  agendaButton.hidden = currentStandalone;
   if (currentStandalone && !notesPage.hidden) showEditorPage();
   touchRecentNote(currentFile);
 
   if (Array.isArray(msg.notes)) {
     notes = msg.notes;
     renderNotes();
+    if (!notesPage.hidden && notesPanels.some((panel) => panel.dataset.notesPanel === "agenda" && !panel.hidden)) void loadAgendaTodos(true);
     if (!graphPage.hidden) renderGraph();
   }
   if (Array.isArray(msg.snippets)) {
@@ -2480,12 +2718,17 @@ function applyOpen(msg: Extract<Inbound, { type: "open" }>): void {
   editor.setMarkdown(msg.content ?? "");
   const equationTag = normalizeEquationTag(pendingEquationTag);
   pendingEquationTag = "";
+  const todoFocus = pendingTodoFocus && pendingTodoFocus.file === currentFile ? pendingTodoFocus : null;
+  if (todoFocus) pendingTodoFocus = null;
   const jumped = equationTag ? jumpToEquationTag(equationTag) : false;
-  const restored = !jumped && currentFile ? restoreCursorPosition(currentFile) : false;
-  if (!jumped && !restored) editor.focus();
+  const todoJumped = !jumped && todoFocus ? jumpToTodoSource(todoFocus.source, todoFocus.index) : false;
+  const restored = !jumped && !todoJumped && currentFile ? restoreCursorPosition(currentFile) : false;
+  if (!jumped && !todoJumped && !restored) editor.focus();
   vim.setMode("insert");
   if (equationTag) {
     setStatus(jumped ? `Equation tag ${equationTag}` : `Equation tag not found: ${equationTag}`);
+  } else if (todoFocus) {
+    setStatus(todoJumped ? "Todo focused" : "Todo source not found");
   } else {
     setStatus(currentMode === "source" ? "Source mode" : "Ready");
   }
@@ -2510,86 +2753,6 @@ async function bootstrapStandalone(): Promise<void> {
   } catch (err) {
     setStatus(err instanceof Error ? err.message : "Bootstrap failed");
   }
-}
-
-function handleInbound(raw: string): void {
-  let msg: Inbound;
-  try {
-    msg = JSON.parse(raw) as Inbound;
-  } catch {
-    return;
-  }
-  if (msg.type === "open") applyOpen(msg);
-  if (msg.type === "saved") {
-    setStatus(msg.ok ? "Saved" : msg.message || "Save failed");
-    if (Array.isArray(msg.notes)) {
-      notes = msg.notes;
-      renderNotes();
-      if (!graphPage.hidden) renderGraph();
-      updateFloatingToc();
-    }
-  }
-  if (msg.type === "notes" && Array.isArray(msg.notes)) {
-    notes = msg.notes;
-    renderNotes();
-    if (!graphPage.hidden) renderGraph();
-  }
-  if (msg.type === "snippets" && Array.isArray(msg.snippets)) {
-    snippets = msg.snippets.length > 0 ? msg.snippets : demoSnippets;
-    renderSnippets();
-    scheduleAssistUpdate();
-  }
-}
-
-function applyDemoOpen(): void {
-  if (receivedOpen) return;
-  currentFile = "";
-  currentMode = "markdown";
-  currentStandalone = false;
-  root.dataset.standalone = "false";
-  fileLabel.textContent = emacsPort && token ? "Scratch" : "Demo (no Emacs)";
-  notes = [];
-  snippets = demoSnippets;
-  renderNotes();
-  renderSnippets();
-  if (editor.isSourceMode()) editor.toggleSource();
-  syncSourceUi();
-  editor.setMarkdown([
-    "# Aaronnote Demo",
-    "",
-    "Inline math: $x^2 + y^2$.",
-    "",
-    "$$",
-    "E = mc^2",
-    "$$",
-    "",
-  ].join("\n"));
-  editor.focus();
-  vim.setMode("insert");
-  setStatus(emacsPort && token ? "Demo" : "Demo only");
-  scheduleAssistUpdate();
-}
-
-function connect(): void {
-  if (!emacsPort || !token) {
-    setStatus("Missing Emacs bridge");
-    return;
-  }
-  ws = new WebSocket(`ws://127.0.0.1:${emacsPort}/`);
-  ws.addEventListener("open", () => {
-    setStatus("Connected");
-    send({ type: "hello" });
-  });
-  ws.addEventListener("message", (event) => handleInbound(String(event.data)));
-  ws.addEventListener("close", () => {
-    setStatus("Disconnected");
-    window.setTimeout(connect, 1500);
-  });
-  ws.addEventListener("error", () => {
-    try {
-      ws?.close();
-    } catch {}
-  });
 }
 
 document.addEventListener("keydown", (event) => {
@@ -2673,7 +2836,8 @@ window.addEventListener("aaronnote:command", (event) => {
   if (command === "flush-state") flushState({ keepalive: true });
 });
 
-notesButton.addEventListener("click", showNotesPage);
+notesButton.addEventListener("click", () => showNotesPage());
+agendaButton.addEventListener("click", () => showNotesPage("agenda"));
 syncButton.addEventListener("click", () => void syncRoamDb());
 sourceButton.addEventListener("click", toggleSourceMode);
 editorButton.addEventListener("click", showEditorPage);
@@ -2687,6 +2851,10 @@ tocToggle.addEventListener("click", () => {
 selectionTool.addEventListener("mousedown", (event) => event.preventDefault());
 selectionTool.addEventListener("click", () => void copyActiveSelection());
 noteFilter.addEventListener("input", scheduleRenderNotes);
+agendaFilter.addEventListener("input", scheduleRenderAgenda);
+agendaSort.addEventListener("change", scheduleRenderAgenda);
+agendaDone.addEventListener("change", scheduleRenderAgenda);
+agendaRefresh.addEventListener("click", () => void loadAgendaTodos(true));
 graphFilter.addEventListener("input", () => scheduleRenderGraph());
 document.addEventListener("keyup", (event) => {
   if (event.key !== "Escape") snippetSuppressedPrefix = "";
@@ -2719,10 +2887,5 @@ window.addEventListener("beforeunload", () => {
 });
 
 void Promise.allSettled([loadServerRecentNotes(), loadServerCursorPositions()]).finally(() => {
-  if (emacsPort && token) {
-    connect();
-    window.setTimeout(applyDemoOpen, 1200);
-  } else {
-    void bootstrapStandalone();
-  }
+  void bootstrapStandalone();
 });

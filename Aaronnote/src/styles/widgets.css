@@ -163,6 +163,95 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
+/* ─── Inline TODO anchor ─────────────────────────────────────────── */
+.ProseMirror .todo-source-hidden {
+  display: none;
+}
+
+.ProseMirror .inline-todo-widget {
+  --inline-todo-accent: #2563eb;
+  --inline-todo-bg: #eff6ff;
+  --inline-todo-border: #93c5fd;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: 0.06em;
+  margin: 0 0.12em;
+  white-space: normal;
+}
+
+.ProseMirror .inline-todo-widget[data-status="doing"] {
+  --inline-todo-accent: #a16207;
+  --inline-todo-bg: #fefce8;
+  --inline-todo-border: #fde047;
+}
+
+.ProseMirror .inline-todo-widget[data-status="done"] {
+  --inline-todo-accent: #15803d;
+  --inline-todo-bg: #f0fdf4;
+  --inline-todo-border: #86efac;
+}
+
+.ProseMirror .inline-todo-widget[data-status="blocked"] {
+  --inline-todo-accent: #b91c1c;
+  --inline-todo-bg: #fef2f2;
+  --inline-todo-border: #fca5a5;
+}
+
+.ProseMirror .inline-todo-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 20px;
+  box-sizing: border-box;
+  padding: 0 7px;
+  border: 1px solid color-mix(in srgb, var(--inline-todo-accent), transparent 24%);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--inline-todo-bg), white 24%);
+  color: var(--inline-todo-accent);
+  cursor: pointer;
+  font: 800 10px/1 var(--aaron-font-sans, system-ui, sans-serif);
+  letter-spacing: 0;
+  user-select: none;
+}
+
+.ProseMirror .inline-todo-line {
+  position: fixed;
+  z-index: 7;
+  border-top: 2px solid color-mix(in srgb, var(--inline-todo-accent), transparent 28%);
+  pointer-events: none;
+}
+
+.ProseMirror .inline-todo-card {
+  position: fixed;
+  z-index: 8;
+  box-sizing: border-box;
+  padding: 7px 9px;
+  border: 1px solid var(--inline-todo-border);
+  border-left: 3px solid var(--inline-todo-accent);
+  border-radius: 6px;
+  background: var(--inline-todo-bg);
+  color: #1f2937;
+  box-shadow: 0 6px 18px rgb(25 38 64 / 12%);
+  font: 13px/1.35 var(--aaron-font-sans, system-ui, sans-serif);
+  overflow-wrap: anywhere;
+}
+
+.ProseMirror .inline-todo-text {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+@media (max-width: 900px) {
+  .ProseMirror .inline-todo-line,
+  .ProseMirror .inline-todo-card {
+    display: none;
+  }
+}
+
 /* Heading-draft contour: while the cursor is inside a paragraph that
  * starts with `# ` (etc), the whole paragraph reads as bold so the
  * user sees the heading-to-be. The `# ` itself has .syntax-hint and

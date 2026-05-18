@@ -269,6 +269,95 @@
 .ProseMirror org-env-block[data-kind="warning"] { --block-c: var(--c-attend); }
 .ProseMirror org-env-block[data-kind="note"] { --block-c: var(--c-note); }
 .ProseMirror org-env-block[data-kind="info"] { --block-c: var(--c-note); }
+.ProseMirror org-env-block[data-kind="comment"] {
+  --block-c: #f97316;
+  position: relative;
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 1.6em;
+  margin: 0.45rem 0;
+  padding: 0;
+  border-left: 0;
+  overflow: visible;
+}
+
+.ProseMirror org-env-block[data-kind="comment"] .org-env-comment-button {
+  display: inline-flex;
+  position: relative;
+  align-items: center;
+  justify-content: center;
+  z-index: 13;
+  min-width: 66px;
+  height: 22px;
+  box-sizing: border-box;
+  padding: 0 9px;
+  border: 1px solid color-mix(in srgb, var(--block-c), transparent 24%);
+  border-radius: 4px;
+  background: color-mix(in srgb, #fff7ed, white 20%);
+  color: color-mix(in srgb, var(--block-c), black 18%);
+  cursor: pointer;
+  font: 800 11px/1 var(--aaron-font-sans, system-ui, sans-serif);
+  letter-spacing: 0;
+  user-select: none;
+}
+
+.ProseMirror org-env-block[data-kind="comment"] .org-env-comment-button:hover {
+  border-color: color-mix(in srgb, var(--block-c), black 8%);
+  background: #ffedd5;
+}
+
+.ProseMirror org-env-block[data-kind="comment"] .org-env-heading,
+.ProseMirror org-env-block[data-kind="comment"] .org-env-meta {
+  display: none !important;
+}
+
+.ProseMirror org-env-block[data-kind="comment"] .org-env-content {
+  position: absolute;
+  left: calc(100% + 12px);
+  top: -0.25rem;
+  z-index: 12;
+  width: min(320px, 34vw);
+  min-height: 1.4em;
+  box-sizing: border-box;
+  padding: 9px 11px;
+  border: 1px solid #fdba74;
+  border-left: 3px solid var(--block-c);
+  border-radius: 6px;
+  background: #fff7ed;
+  box-shadow: 0 10px 28px rgb(68 45 23 / 14%);
+  font-family: var(--aaron-font-english), var(--aaron-font-chinese);
+}
+
+.ProseMirror org-env-block[data-kind="comment"] .org-env-content[hidden] {
+  display: none !important;
+}
+
+.ProseMirror org-env-block[data-kind="comment"] .org-env-content::before {
+  content: "";
+  position: absolute;
+  right: 100%;
+  top: 15px;
+  width: 12px;
+  border-top: 2px solid color-mix(in srgb, var(--block-c), transparent 25%);
+}
+
+.ProseMirror org-env-block[data-kind="comment"].org-env-active .org-env-comment-button,
+.ProseMirror org-env-block[data-kind="comment"].org-env-comment-open .org-env-comment-button {
+  background: #ffedd5;
+}
+
+@media (max-width: 900px) {
+  .ProseMirror org-env-block[data-kind="comment"] .org-env-content {
+    position: static;
+    width: min(100%, 420px);
+    margin-top: 0.45rem;
+  }
+
+  .ProseMirror org-env-block[data-kind="comment"] .org-env-content::before {
+    display: none;
+  }
+}
 .ProseMirror org-env-block[data-kind="meta"] {
   --block-c: var(--aaron-muted, #6f6a61);
   font-size: 0.86em;

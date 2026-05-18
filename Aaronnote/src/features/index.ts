@@ -22,6 +22,7 @@ import { image } from "./image.ts";
 import { link } from "./link.ts";
 import { refDef } from "./ref-def.ts";
 import { list } from "./list.ts";
+import { inlineTodo } from "./inline-todo.ts";
 import { math } from "./math.ts";
 import { orgEnv } from "./org-env.ts";
 import { strike } from "./strike.ts";
@@ -42,6 +43,7 @@ export const ALL_FEATURES: FeatureSpec[] = [
   link,
   image,
   math,
+  inlineTodo,
   orgEnv,
   hr,
   blockquote,
