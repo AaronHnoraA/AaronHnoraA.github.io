@@ -50,7 +50,7 @@ PRIVATE_PATH_PREFIXES = (
 )
 
 FRONT_MATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n?", re.S)
-ORG_META_RE = re.compile(r"\A#\+begin(?:_|\s+)meta\s*\n(.*?)^#\+end(?:_|\s+)meta\s*\n?", re.S | re.M)
+ORG_META_RE = re.compile(r"\A[ \t]*#\+begin(?:_|\s+)meta\s*\n(.*?)^[ \t]*#\+end(?:_|\s+)meta\s*\n?", re.S | re.M)
 ORG_ENV_RE = re.compile(r"(?ms)^#\+begin(?:_|\s+)([A-Za-z][\w-]*)(?:\s+([^\n]+?))?\s*\n(.*?)^\s*#\+end(?:_|\s+)\1\s*$")
 MD_IMAGE_RE = re.compile(r"!\[[^\]]*\]\(([^)]+)\)")
 MD_LINK_RE = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
@@ -124,11 +124,24 @@ def should_skip(path: Path) -> bool:
 
 
 def iter_project_files() -> Iterator[Path]:
-    for dirpath, dirnames, filenames in os.walk(ROOT, onerror=lambda _err: None):
-        rel_dir = Path(dirpath).relative_to(ROOT)
+    seen_dirs: set[tuple[int, int]] = set()
+    for dirpath, dirnames, filenames in os.walk(ROOT, followlinks=True, onerror=lambda _err: None):
+        current = Path(dirpath)
+        try:
+            stat = current.stat()
+        except OSError:
+            dirnames[:] = []
+            continue
+        key = (stat.st_dev, stat.st_ino)
+        if key in seen_dirs:
+            dirnames[:] = []
+            continue
+        seen_dirs.add(key)
+
+        rel_dir = current.relative_to(ROOT)
         dirnames[:] = [dirname for dirname in dirnames if not should_skip(rel_dir / dirname)]
         for filename in filenames:
-            yield Path(dirpath) / filename
+            yield current / filename
 
 
 def parse_metadata_block(text: str) -> tuple[dict[str, object], str]:

@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { writeFile } from "node:fs/promises";
-import { relative, resolve, sep } from "node:path";
+import { readFile, writeFile } from "node:fs/promises";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 
 const execFileAsync = promisify(execFile);
 
@@ -12,6 +12,82 @@ async function git(noteRoot, args) {
     maxBuffer: MAX_BUFFER,
   });
   return stdout.trim();
+}
+
+async function gitOutput(noteRoot, args) {
+  try {
+    const { stdout, stderr } = await execFileAsync("git", ["-C", noteRoot, ...args], {
+      maxBuffer: MAX_BUFFER,
+    });
+    return { ok: true, code: 0, stdout: stdout.trim(), stderr: stderr.trim() };
+  } catch (err) {
+    return {
+      ok: false,
+      code: Number(err?.code) || 1,
+      stdout: String(err?.stdout || "").trim(),
+      stderr: String(err?.stderr || "").trim(),
+      message: err?.message || "Git command failed",
+    };
+  }
+}
+
+function slashPath(path) {
+  return String(path || "").split(sep).join("/");
+}
+
+function stripGitQuotes(value) {
+  const text = String(value || "");
+  return text.startsWith("\"") && text.endsWith("\"") ? text.slice(1, -1) : text;
+}
+
+function statusKind(x, y) {
+  if (x === "?" && y === "?") return "untracked";
+  if (x === "U" || y === "U" || (x === "A" && y === "A") || (x === "D" && y === "D")) return "conflict";
+  const code = x !== " " ? x : y;
+  if (code === "A") return "added";
+  if (code === "M") return "modified";
+  if (code === "D") return "deleted";
+  if (code === "R") return "renamed";
+  if (code === "C") return "copied";
+  return "changed";
+}
+
+function statusSummary(x, y) {
+  if (x === "?" && y === "?") return "Untracked";
+  const parts = [];
+  if (x !== " ") parts.push("index " + x);
+  if (y !== " ") parts.push("worktree " + y);
+  return parts.join(", ") || "Clean";
+}
+
+async function resolveNotePathInfo(noteRoot, pathValue) {
+  const noteRootAbs = resolve(noteRoot);
+  const root = await gitRoot(noteRoot);
+  const raw = String(pathValue || "").trim();
+  if (!raw) throw new Error("Missing path");
+  const abs = isAbsolute(raw) ? resolve(raw) : resolve(noteRootAbs, raw);
+  if (abs !== noteRootAbs && !abs.startsWith(noteRootAbs + sep)) {
+    throw new Error("File outside noteRoot: " + pathValue);
+  }
+  return {
+    abs,
+    noteRel: slashPath(relative(noteRootAbs, abs)),
+    gitRel: slashPath(relative(root, abs)),
+  };
+}
+
+function untrackedFileDiff(path, content) {
+  const lines = String(content || "").split(/\r?\n/);
+  if (lines.length > 0 && lines.at(-1) === "") lines.pop();
+  return [
+    "diff --git a/" + path + " b/" + path,
+    "new file mode 100644",
+    "index 0000000..0000000",
+    "--- /dev/null",
+    "+++ b/" + path,
+    "@@ -0,0 +1 @@",
+    ...lines.map((line) => "+" + line),
+  ].join("\n");
 }
 
 // Resolves the git repository root from noteRoot (follows symlinks via git itself).
@@ -150,6 +226,75 @@ export async function roamRepoStatus(noteRoot) {
     });
   } catch {}
   return { branch, ahead, behind, uncommitted, hasRemote: Boolean(remoteUrl), remoteUrl };
+}
+
+export async function roamRepoChanges(noteRoot) {
+  const root = await gitRoot(noteRoot);
+  const noteRootAbs = resolve(noteRoot);
+  const out = await git(noteRoot, ["-c", "core.quotePath=false", "status", "--porcelain=v1", "--untracked-files=all", "--", "."]);
+  if (!out) return [];
+  const changes = [];
+  for (const line of out.split("\n")) {
+    if (!line.trim()) continue;
+    const x = line[0] || " ";
+    const y = line[1] || " ";
+    const raw = line.slice(3).trim();
+    if (!raw) continue;
+    const parts = raw.includes(" -> ") ? raw.split(" -> ") : [raw];
+    const path = stripGitQuotes(parts.at(-1));
+    const oldPath = parts.length > 1 ? stripGitQuotes(parts[0]) : "";
+    const abs = await resolveGitPath(noteRoot, path);
+    if (!abs) continue;
+    changes.push({
+      path: slashPath(relative(noteRootAbs, abs)),
+      file: abs,
+      gitPath: slashPath(relative(root, abs)),
+      oldPath,
+      status: x + y,
+      staged: x !== " " && x !== "?",
+      unstaged: y !== " " || (x === "?" && y === "?"),
+      tracked: !(x === "?" && y === "?"),
+      kind: statusKind(x, y),
+      summary: statusSummary(x, y),
+      isMarkdown: path.toLowerCase().endsWith(".md") || path.toLowerCase().endsWith(".markdown"),
+    });
+  }
+  return changes;
+}
+
+export async function diffRoamFile(noteRoot, pathValue, options = {}) {
+  const info = await resolveNotePathInfo(noteRoot, pathValue);
+  const scope = options?.scope === "staged" || options?.scope === "working" ? options.scope : "all";
+  const sha = String(options?.sha || "").trim();
+  if (sha) {
+    const out = await gitOutput(noteRoot, ["show", "--format=", "--no-ext-diff", "--unified=80", sha, "--", info.gitRel]);
+    if (!out.ok && out.code !== 1) throw new Error(out.stderr || out.stdout || out.message);
+    return { file: info.abs, path: info.noteRel, diff: out.stdout, scope: "commit", sha };
+  }
+
+  const changes = await roamRepoChanges(noteRoot);
+  const change = changes.find((item) => item.path === info.noteRel || item.file === info.abs);
+  if (change?.kind === "untracked") {
+    const content = await readFile(info.abs, "utf8");
+    return { file: info.abs, path: info.noteRel, diff: untrackedFileDiff(info.gitRel, content), scope: "working" };
+  }
+
+  const sections = [];
+  if (scope === "all" || scope === "staged") {
+    const staged = await gitOutput(noteRoot, ["diff", "--cached", "--no-ext-diff", "--unified=80", "--", info.gitRel]);
+    if (!staged.ok && staged.code !== 1) throw new Error(staged.stderr || staged.stdout || staged.message);
+    if (staged.stdout) sections.push(scope === "all" ? "# Staged\n" + staged.stdout : staged.stdout);
+  }
+  if (scope === "all" || scope === "working") {
+    const working = await gitOutput(noteRoot, ["diff", "--no-ext-diff", "--unified=80", "--", info.gitRel]);
+    if (!working.ok && working.code !== 1) throw new Error(working.stderr || working.stdout || working.message);
+    if (working.stdout) sections.push(scope === "all" ? "# Working tree\n" + working.stdout : working.stdout);
+  }
+  return { file: info.abs, path: info.noteRel, diff: sections.join("\n\n"), scope };
+}
+
+export async function pullRoam(noteRoot) {
+  return git(noteRoot, ["pull", "--ff-only"]);
 }
 
 // Push roam repo to origin. Throws if no remote or push fails.
