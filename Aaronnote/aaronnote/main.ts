@@ -1847,6 +1847,66 @@ async function restoreCurrentFileVersion(): Promise<void> {
   }
 }
 
+async function roamGitLog(): Promise<void> {
+  setStatus("Loading git log…");
+  try {
+    const msg = await api.roamTools.repoHistory(30);
+    const entries = msg.entries ?? [];
+    showRoamToolRows(
+      "Roam Git Log",
+      entries.map((e) => ({
+        title: e.subject,
+        detail: `${e.date.slice(0, 16).replace("T", " ")}  ${e.sha.slice(0, 8)}`,
+        kind: "commit",
+      })),
+    );
+    setStatus(entries.length ? `${entries.length} commits` : "No commits");
+  } catch (err) {
+    setStatus(err instanceof Error ? err.message : "Git log failed");
+  }
+}
+
+async function roamGitStatus(): Promise<void> {
+  setStatus("Checking git status…");
+  try {
+    const s = await api.roamTools.repoStatus();
+    const parts: string[] = [];
+    if (s.branch) parts.push(`Branch: ${s.branch}`);
+    if ((s.ahead ?? 0) > 0) parts.push(`↑${s.ahead} ahead`);
+    if ((s.behind ?? 0) > 0) parts.push(`↓${s.behind} behind`);
+    if (s.uncommitted) parts.push("uncommitted changes");
+    if (!s.hasRemote) parts.push("no remote");
+    showRoamToolRows("Roam Git Status", parts.map((p) => ({ title: p })));
+    setStatus(parts.join("  ·  ") || "Up to date");
+  } catch (err) {
+    setStatus(err instanceof Error ? err.message : "Git status failed");
+  }
+}
+
+async function roamCommitNow(): Promise<void> {
+  try {
+    const result = await openFormModal("Commit Roam", [
+      { id: "message", label: "Commit message", type: "text", value: "" },
+    ], "Commit");
+    if (!result) return;
+    setStatus("Committing…");
+    await api.roamTools.commit(result.message ?? "");
+    setStatus("Committed");
+  } catch (err) {
+    setStatus(err instanceof Error ? err.message : "Commit failed");
+  }
+}
+
+async function roamPush(): Promise<void> {
+  setStatus("Pushing…");
+  try {
+    await api.roamTools.push();
+    setStatus("Pushed to remote");
+  } catch (err) {
+    setStatus(err instanceof Error ? err.message : "Push failed");
+  }
+}
+
 function applyRoamToolIndexPayload(msg: { notes?: NoteSummary[]; directories?: DirectorySummary[]; files?: FileSummary[] }): void {
   applyIndexPayload(msg);
   renderNotes();
@@ -6863,6 +6923,10 @@ window.addEventListener("aaronnote:command", (event) => {
   if (command === "sync-roamdb") void syncRoamDb();
   if (command === "sync-roamdb-full") void syncRoamDbFull();
   if (command === "roam-restore-file-version") void restoreCurrentFileVersion();
+  if (command === "roam-git-log") void roamGitLog();
+  if (command === "roam-git-status") void roamGitStatus();
+  if (command === "roam-commit-now") void roamCommitNow();
+  if (command === "roam-push") void roamPush();
   if (command === "reload-snippets") void reloadSnippets();
   if (command === "enable-snippet-suggestions") setSnippetSuggestionsEnabled(true);
   if (command === "disable-snippet-suggestions") setSnippetSuggestionsEnabled(false);

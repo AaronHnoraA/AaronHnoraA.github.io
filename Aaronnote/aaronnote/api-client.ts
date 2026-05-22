@@ -49,6 +49,10 @@ type NativeApi = {
     rewritePathRefs?: (body: Record<string, unknown>) => Promise<unknown>;
     fileHistory?: (file: string) => Promise<unknown>;
     restoreFileVersion?: (body: { file: string; sha: string }) => Promise<unknown>;
+    repoStatus?: () => Promise<unknown>;
+    repoHistory?: (limit?: number) => Promise<unknown>;
+    push?: () => Promise<unknown>;
+    commit?: (message: string) => Promise<unknown>;
   };
   assets?: {
     upload?: (body: { file: string; name: string; type: string; data: string }) => Promise<unknown>;
@@ -244,6 +248,26 @@ export const api = {
     async restoreFileVersion(body: { file: string; sha: string }): Promise<IndexPayload & { restoredFile?: string; message?: string }> {
       const native = requireMethod(requireNative().roamTools?.restoreFileVersion, "File version restore");
       return ensureOk(await native(body) as IndexPayload & { restoredFile?: string; message?: string }, "File version restore failed");
+    },
+
+    async repoStatus(): Promise<{ branch?: string; ahead?: number; behind?: number; uncommitted?: boolean; hasRemote?: boolean; remoteUrl?: string; message?: string }> {
+      const native = requireMethod(requireNative().roamTools?.repoStatus, "Repo status");
+      return ensureOk(await native() as { branch?: string; ahead?: number; behind?: number; uncommitted?: boolean; hasRemote?: boolean; remoteUrl?: string; message?: string }, "Repo status failed");
+    },
+
+    async repoHistory(limit = 30): Promise<{ entries?: Array<{ sha: string; date: string; subject: string }>; message?: string }> {
+      const native = requireMethod(requireNative().roamTools?.repoHistory, "Repo history");
+      return ensureOk(await native(limit) as { entries?: Array<{ sha: string; date: string; subject: string }>; message?: string }, "Repo history failed");
+    },
+
+    async push(): Promise<{ ok?: boolean; message?: string }> {
+      const native = requireMethod(requireNative().roamTools?.push, "Roam push");
+      return ensureOk(await native() as { ok?: boolean; message?: string }, "Roam push failed");
+    },
+
+    async commit(message: string): Promise<{ ok?: boolean; sha?: string; message?: string }> {
+      const native = requireMethod(requireNative().roamTools?.commit, "Roam commit");
+      return ensureOk(await native(message) as { ok?: boolean; sha?: string; message?: string }, "Roam commit failed");
     },
   },
 

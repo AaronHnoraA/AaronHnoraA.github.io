@@ -120,6 +120,60 @@ export async function commitRoam(noteRoot, message) {
   return headSha(noteRoot);
 }
 
+// Returns { branch, ahead, behind, uncommitted, remoteUrl } for the roam repo.
+export async function roamRepoStatus(noteRoot) {
+  let branch = "", ahead = 0, behind = 0, uncommitted = false, remoteUrl = "";
+  try {
+    branch = await git(noteRoot, ["rev-parse", "--abbrev-ref", "HEAD"]);
+  } catch {}
+  try {
+    remoteUrl = await git(noteRoot, ["config", "--get", "remote.origin.url"]);
+  } catch {}
+  if (remoteUrl) {
+    try {
+      await git(noteRoot, ["fetch", "--quiet"]);
+    } catch {}
+    try {
+      const aheadBehind = await git(noteRoot, [
+        "rev-list", "--left-right", "--count", `${branch}...origin/${branch}`,
+      ]);
+      const [a, b] = aheadBehind.split("\t").map(Number);
+      ahead = a || 0;
+      behind = b || 0;
+    } catch {}
+  }
+  try {
+    const out = await git(noteRoot, ["status", "--porcelain", "--"]);
+    uncommitted = out.split("\n").some((l) => {
+      const f = l.slice(3).trim();
+      return f && /\.(?:md|markdown)$/i.test(f);
+    });
+  } catch {}
+  return { branch, ahead, behind, uncommitted, hasRemote: Boolean(remoteUrl), remoteUrl };
+}
+
+// Push roam repo to origin. Throws if no remote or push fails.
+export async function pushRoam(noteRoot) {
+  return git(noteRoot, ["push", "origin", "HEAD"]);
+}
+
+// Returns recent commits for the entire roam repo.
+// Each entry: { sha, date, subject, files }
+export async function repoHistory(noteRoot, limit = 30) {
+  try {
+    const out = await git(noteRoot, [
+      "log", `--format=%H\t%cI\t%s`, `-n`, String(limit),
+    ]);
+    if (!out) return [];
+    return out.split("\n").filter(Boolean).map((line) => {
+      const [sha, date, ...rest] = line.split("\t");
+      return { sha, date, subject: rest.join("\t") };
+    });
+  } catch {
+    return [];
+  }
+}
+
 // Returns recent commits that touched the given absolute file path.
 // Each entry: { sha, date, subject }
 export async function fileHistory(noteRoot, absFile, limit = 20) {

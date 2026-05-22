@@ -8,6 +8,7 @@ import { homedir } from "node:os";
 import { promisify } from "node:util";
 
 import { saveNote } from "../server/lib/save.mjs";
+import { commitRoam } from "../server/lib/roam-git.mjs";
 import {
   bootstrapNote,
   readNote,
@@ -20,6 +21,9 @@ import {
   maybeScheduleWeeklyFullSync,
   fileHistory,
   restoreFileFromCommit,
+  roamRepoStatus,
+  pushRoam,
+  repoHistory,
   roamNoteRoot,
   renameRoamTag,
   deleteRoamTag,
@@ -337,6 +341,23 @@ function registerApiIpc() {
     const notes = await syncRoamDb(null, { changedFiles: [file] });
     const index = await notesIndexPayload(notes);
     return { type: "notes", ...index, root: noteRoot, db: join(noteRoot, "roam.db"), restoredFile: file };
+  });
+  registerApiHandler("aaronnote:api:roam-tools:repo-status", async () => {
+    const status = await roamRepoStatus(roamNoteRoot);
+    return { type: "roam-repo-status", ...status };
+  });
+  registerApiHandler("aaronnote:api:roam-tools:repo-history", async (limit) => {
+    const entries = await repoHistory(roamNoteRoot, typeof limit === "number" ? limit : 30);
+    return { type: "roam-repo-history", entries };
+  });
+  registerApiHandler("aaronnote:api:roam-tools:push", async () => {
+    await pushRoam(roamNoteRoot);
+    return { type: "roam-push-done", ok: true };
+  });
+  registerApiHandler("aaronnote:api:roam-tools:commit", async (message) => {
+    const msg = typeof message === "string" && message.trim() ? message.trim() : `roam commit: ${new Date().toISOString()}`;
+    const sha = await commitRoam(roamNoteRoot, msg);
+    return { type: "roam-commit-done", ok: true, sha };
   });
   registerApiHandler("aaronnote:api:notes:templates", (force) => templatesPayload(force === true));
   registerApiHandler("aaronnote:api:notes:snippets", () => snippetsPayload(true));
@@ -969,6 +990,23 @@ function buildMenu() {
       {
         label: "Restore Current File from Commit…",
         click: () => runInWindow(dispatchCommandScript("roam-restore-file-version")),
+      },
+      { type: "separator" },
+      {
+        label: "Roam Git Log",
+        click: () => runInWindow(dispatchCommandScript("roam-git-log")),
+      },
+      {
+        label: "Roam Git Status",
+        click: () => runInWindow(dispatchCommandScript("roam-git-status")),
+      },
+      {
+        label: "Commit Roam Now…",
+        click: () => runInWindow(dispatchCommandScript("roam-commit-now")),
+      },
+      {
+        label: "Push Roam to Remote",
+        click: () => runInWindow(dispatchCommandScript("roam-push")),
       },
       { type: "separator" },
       {

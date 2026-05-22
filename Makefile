@@ -4,9 +4,16 @@ LLM_PROMPT ?= agent/skill/llm-maintenance.md
 LOOKUP_PROMPT ?= agent/skill/lookup.md
 LOOKUP_QUERY ?= $(or $(QUERY),$(Q))
 RSYNC_EXCLUDES := --exclude .deps/ --exclude .publish-state.json --exclude .DS_Store
+ROAM_DIR := $(HOME)/Documents/AaronNote
 
-.PHONY: all force sync git dryrun clean cv llm lookup maintain publish build
+# Org repo role: Aaronnote source + published site distribution.
+# roam/ is a symlink → ~/Documents/AaronNote (its own git repo, gitignored here).
+# Notes are managed inside Aaronnote (auto-commit, version control menu).
 
+.PHONY: all force sync git dryrun clean cv llm lookup maintain publish build roam-push roam-log roam-status
+
+# Publish site, rsync to NAS, commit Org/Aaronnote changes, push.
+# roam/ is gitignored so git add -A never touches note files.
 all: publish
 	rsync -avh --delete $(RSYNC_EXCLUDES) --progress -e ssh public/ Aaron-nas:/volume1/web/public/
 	git add -A
@@ -29,6 +36,19 @@ dryrun: publish
 publish:
 	$(PUBLISH)
 
+# --- Roam / AaronNote note repo management ---
+
+roam-push:
+	git -C $(ROAM_DIR) push
+
+roam-log:
+	git -C $(ROAM_DIR) log --oneline -20
+
+roam-status:
+	git -C $(ROAM_DIR) status --short
+
+# --------------------------------------------
+
 cv:
 	cd CV && latexmk -xelatex -interaction=nonstopmode -halt-on-error -jobname=Aaron_He_CV main.tex
 
@@ -44,7 +64,6 @@ maintain:
 
 build:
 	$(MAKE) -C Aaronnote build
-
 
 clean:
 	rm -rf public/*

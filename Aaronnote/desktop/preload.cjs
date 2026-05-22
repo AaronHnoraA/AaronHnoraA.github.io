@@ -54,6 +54,10 @@ contextBridge.exposeInMainWorld("aaronnoteApi", {
     rewritePathRefs: (body = {}) => invoke("aaronnote:api:roam-tools:rewrite-path-refs", body),
     fileHistory: (file = "") => invoke("aaronnote:api:roam-tools:file-history", String(file || "")),
     restoreFileVersion: (body = {}) => invoke("aaronnote:api:roam-tools:restore-file-version", body),
+    repoStatus: () => invoke("aaronnote:api:roam-tools:repo-status"),
+    repoHistory: (limit = 30) => invoke("aaronnote:api:roam-tools:repo-history", Number(limit) || 30),
+    push: () => invoke("aaronnote:api:roam-tools:push"),
+    commit: (message = "") => invoke("aaronnote:api:roam-tools:commit", String(message || "")),
   },
   assets: {
     upload: (body = {}) => invoke("aaronnote:api:assets:upload", body),

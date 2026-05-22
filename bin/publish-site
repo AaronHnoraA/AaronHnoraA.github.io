@@ -15,6 +15,7 @@ from urllib.parse import unquote
 
 
 ROOT = Path(__file__).resolve().parents[1]
+ROAM_ROOT = ROOT / "roam"   # symlink → ~/Documents/AaronNote (own git repo)
 PUBLIC = ROOT / "public"
 PUBLISH_STATE = PUBLIC / ".publish-state.json"
 ASSET_VERSION = "20260517-md"
@@ -23,7 +24,8 @@ IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".avif"}
 STATIC_EXTENSIONS = IMAGE_EXTENSIONS | {".css", ".js", ".pdf"}
 SKIP_DIRS = {".git", ".git-rewrite", ".cache", ".direnv", ".venv", "node_modules", "public", "release", "ltximg", "_typst", "__pycache__"}
 PUBLISH_INPUT_PATHS = (
-    "roam",
+    # "roam" is now a symlink to ~/Documents/AaronNote (its own git repo, gitignored here).
+    # Roam note changes are tracked via ROAM_ROOT git HEAD — see roam_git_head().
     "CV",
     "Aaronnote/aaronnote/style.css",
     "Aaronnote/aaronnote/published-toc.js",
@@ -357,11 +359,16 @@ def publish_forced() -> bool:
     return os.environ.get("PUBLISH_FORCE") == "1"
 
 
-def git_head() -> str | None:
+def git_head(cwd: Path = ROOT) -> str | None:
     try:
-        return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+        return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=cwd, text=True).strip()
     except (subprocess.CalledProcessError, FileNotFoundError):
         return None
+
+
+def roam_git_head() -> str | None:
+    """HEAD of the AaronNote roam repo (separate git repo, symlinked at ROOT/roam)."""
+    return git_head(ROAM_ROOT)
 
 
 def git_inputs_dirty() -> bool:
@@ -378,7 +385,7 @@ def publish_outputs_exist(notes: list[Note]) -> bool:
     return all(path.exists() for path in required)
 
 
-def publish_state_current(notes: list[Note], head: str | None) -> bool:
+def publish_state_current(notes: list[Note], head: str | None, roam_head: str | None) -> bool:
     if publish_forced() or not head or git_inputs_dirty() or not PUBLISH_STATE.exists():
         return False
     try:
@@ -387,15 +394,17 @@ def publish_state_current(notes: list[Note], head: str | None) -> bool:
         return False
     return (
         state.get("gitHead") == head
+        and state.get("roamGitHead") == roam_head
         and state.get("dirty") is False
         and state.get("noteCount") == len(notes)
         and publish_outputs_exist(notes)
     )
 
 
-def write_publish_state(notes: list[Note], rendered: int, skipped: int, head: str | None) -> None:
+def write_publish_state(notes: list[Note], rendered: int, skipped: int, head: str | None, roam_head: str | None) -> None:
     state = {
         "gitHead": head,
+        "roamGitHead": roam_head,
         "dirty": git_inputs_dirty(),
         "noteCount": len(notes),
         "rendered": rendered,
@@ -884,15 +893,16 @@ def main() -> None:
 
     notes, _notes_by_id = collect_notes()
 
+    head = git_head()
+    roam_head = roam_git_head()
+
     if "--record-state" in args:
-        head = git_head()
-        write_publish_state(notes, 0, len(notes), head)
-        print(f"Recorded publish state for git {head[:12] if head else 'unknown'}")
+        write_publish_state(notes, 0, len(notes), head, roam_head)
+        print(f"Recorded publish state for git {head[:12] if head else 'unknown'} / roam {roam_head[:12] if roam_head else 'unknown'}")
         return
 
-    head = git_head()
-    if publish_state_current(notes, head):
-        print(f"Published {len(notes)} Markdown notes to {PUBLIC} (git {head[:12]} unchanged, skipped)")
+    if publish_state_current(notes, head, roam_head):
+        print(f"Published {len(notes)} Markdown notes to {PUBLIC} (unchanged, skipped)")
         return
 
     clean_stale_outputs(notes)
@@ -904,7 +914,7 @@ def main() -> None:
         rendered += status == "rendered"
         skipped += status == "skipped"
     write_data(notes)
-    write_publish_state(notes, rendered, skipped, head)
+    write_publish_state(notes, rendered, skipped, head, roam_head)
     print(f"Published {len(notes)} Markdown notes to {PUBLIC} ({rendered} rendered, {skipped} skipped)")
 
 
