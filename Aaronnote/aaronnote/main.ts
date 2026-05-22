@@ -24,7 +24,6 @@ import {
 } from "./find.ts";
 import { createFloatingTocPanel, inlineTagAnchorsFromText, markdownHeadingsFromText } from "./floating-toc.ts";
 import { createGraphPanel } from "./graph-panel.ts";
-import { createGitPanel } from "./git-panel.ts";
 import { createLocalGraphPanel } from "./local-graph.ts";
 import { clampCommandIndex, filterCommands, type AaronnoteCommand } from "./command-palette.ts";
 import { normalizePluginOverrideMap, pluginShouldRun, type PluginOverrideMap } from "./plugin-runtime.ts";
@@ -905,13 +904,46 @@ const graphPanel = createGraphPanel({
   openNote,
 });
 
-const gitPanel = createGitPanel({
-  root: gitRoot,
-  getCurrentFile: () => currentFile,
-  openNote,
-  setStatus,
-  syncRoamDb,
-});
+type LazyGitPanel = { refresh: () => void; deactivate: () => void };
+let gitPanel: LazyGitPanel | null = null;
+let gitPanelLoading: Promise<LazyGitPanel> | null = null;
+let gitPanelActivationSeq = 0;
+
+function deactivateGitPanel(): void {
+  gitPanelActivationSeq++;
+  gitPanel?.deactivate();
+}
+
+function activateGitPanel(): void {
+  const seq = ++gitPanelActivationSeq;
+  if (gitPanel) {
+    gitPanel.refresh();
+    return;
+  }
+  if (!gitPanelLoading) {
+    setStatus("Loading git panel");
+    gitPanelLoading = import("./git-panel.ts")
+      .then(({ createGitPanel }) => {
+        const panel = createGitPanel({
+          root: gitRoot,
+          getCurrentFile: () => currentFile,
+          openNote,
+          setStatus,
+          syncRoamDb,
+        });
+        gitPanel = panel;
+        return panel;
+      })
+      .finally(() => {
+        gitPanelLoading = null;
+      });
+  }
+  void gitPanelLoading
+    .then((panel) => {
+      if (seq === gitPanelActivationSeq && notesToolVisible("git")) panel.refresh();
+    })
+    .catch((err) => setStatus(err instanceof Error ? err.message : "Git panel failed"));
+}
 
 host.addEventListener("aaronnote:insert-files", (event) => {
   const evt = event as CustomEvent<{ files?: File[]; pos?: number; mode?: "image-src" | "markdown" }>;
@@ -4091,6 +4123,7 @@ function showNotesTool(tab: string): void {
     tab = "filesystem";
   }
   if (tab !== "graph") disposeGraph();
+  if (tab !== "git") deactivateGitPanel();
   notesTabButtonElements().forEach((button) => {
     button.classList.toggle("is-active", button.dataset.notesTab === tab);
   });
@@ -4106,7 +4139,7 @@ function showNotesTool(tab: string): void {
   } else if (tab === "recent") {
     renderRecentNotes();
   } else if (tab === "git") {
-    gitPanel.refresh();
+    activateGitPanel();
   } else if (tab === "filesystem") {
     expandFilesystemGroups();
     focusFilesystemRangerSoon();
