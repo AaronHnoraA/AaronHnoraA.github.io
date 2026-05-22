@@ -40,8 +40,10 @@ PUBLISH_INPUT_PATHS = (
     "homepage.html",
     "notes.html",
     "bin/publish-site",
+    "sensitive-tags.json",
     "Makefile",
 )
+SENSITIVE_TAGS_FILE = ROOT / "sensitive-tags.json"
 PRIVATE_PATH_PREFIXES = (
     Path("roam/daily"),
     Path("roam/project"),
@@ -228,6 +230,27 @@ def private_metadata_p(metadata: dict[str, object], tags: list[str]) -> bool:
 
 def private_path_p(rel_path: Path) -> bool:
     return any(rel_path == prefix or prefix in rel_path.parents for prefix in PRIVATE_PATH_PREFIXES)
+
+
+def _load_sensitive_tags() -> frozenset[str]:
+    if not SENSITIVE_TAGS_FILE.exists():
+        return frozenset()
+    try:
+        data = json.loads(SENSITIVE_TAGS_FILE.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return frozenset()
+    items = data if isinstance(data, list) else data.get("tags", []) if isinstance(data, dict) else []
+    return frozenset(str(t).strip().lower() for t in items if t)
+
+
+SENSITIVE_TAGS: frozenset[str] = _load_sensitive_tags()
+
+
+def filter_sensitive_tags(tags: list[str]) -> list[str]:
+    """Strip tags that match the sensitive-tags.json list from published output."""
+    if not SENSITIVE_TAGS:
+        return tags
+    return [t for t in tags if t.strip().lower() not in SENSITIVE_TAGS]
 
 
 def clean_markdown_text(text: str) -> str:
@@ -598,7 +621,7 @@ def note_json(note: Note, public_ids: dict[str, str]) -> dict[str, object]:
         "section": note.section,
         "hidden": note.private,
         "private": note.private,
-        "tags": note.tags,
+        "tags": filter_sensitive_tags(note.tags),
         "aliases": [] if note.private else note.aliases,
         "refs": public_ref_keys(note.refs, public_ids),
         "backlinks": public_ref_keys(note.backlinks, public_ids),
@@ -608,7 +631,7 @@ def note_json(note: Note, public_ids: dict[str, str]) -> dict[str, object]:
 def write_data(notes: list[Note]) -> None:
     js_dir = PUBLIC / "js"
     js_dir.mkdir(parents=True, exist_ok=True)
-    tags = sorted({tag for note in notes if not note.private for tag in note.tags})
+    tags = sorted({tag for note in notes if not note.private for tag in filter_sensitive_tags(note.tags)})
     public_ids = {note.id: note.public_id for note in notes}
     data = {
         "meta": {
