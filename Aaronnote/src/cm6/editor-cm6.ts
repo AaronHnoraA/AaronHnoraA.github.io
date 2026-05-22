@@ -623,6 +623,7 @@ function buildExtensions(options: EditorOptions, previewCompartment: Compartment
       { key: "Mod-d", run: selectNextMarkdownOccurrence },
       { key: "Mod-Shift-z", run: cmRedo },
       { key: "Meta-Shift-z", run: cmRedo },
+      { mac: "Ctrl-z", run: cmRedo },
       indentWithTab,
       ...defaultKeymap,
       ...historyKeymap,

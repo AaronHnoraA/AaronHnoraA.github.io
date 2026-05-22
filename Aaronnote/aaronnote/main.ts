@@ -6693,8 +6693,10 @@ function primaryShortcutModifier(event: KeyboardEvent): boolean {
 }
 
 function historyShortcutKind(event: KeyboardEvent): "undo" | "redo" | null {
-  if (!primaryShortcutModifier(event) || event.altKey) return null;
+  if (event.altKey) return null;
   const key = event.key.toLowerCase();
+  if (/Mac/.test(navigator.platform) && event.ctrlKey && !event.metaKey && key === "z") return "redo";
+  if (!primaryShortcutModifier(event)) return null;
   if (key === "z" && !event.shiftKey) return "undo";
   if (key === "z" && event.shiftKey) return "redo";
   if (key === "y" && !event.shiftKey) return "redo";

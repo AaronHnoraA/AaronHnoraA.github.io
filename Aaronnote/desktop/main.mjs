@@ -109,6 +109,18 @@ function shouldOwnShortcut(input) {
   return ["j", "l", "r", "w"].includes(input.key.toLowerCase());
 }
 
+function historyShortcutCommand(input) {
+  if (input.alt) return "";
+  const key = String(input.key || "").toLowerCase();
+  if (process.platform === "darwin" && input.control && !input.meta && key === "z") return "redo";
+  const primary = (input.meta && !input.control) || (input.control && !input.meta);
+  if (!primary) return "";
+  if (key === "z" && input.shift) return "redo";
+  if (key === "z" && !input.shift) return "undo";
+  if (key === "y" && !input.shift) return "redo";
+  return "";
+}
+
 const ZOOM_STEP = 0.5;
 const DEFAULT_ZOOM_LEVEL = 2;
 const ZOOM_MIN = -3;
@@ -622,6 +634,14 @@ function createWindow(options = {}) {
     }
     if (handleZoomShortcut(win, input)) {
       event.preventDefault();
+      return;
+    }
+    const historyCommand = historyShortcutCommand(input);
+    if (historyCommand) {
+      event.preventDefault();
+      if (input.type === "keyDown") {
+        runInSpecificWindow(win, dispatchCommandScript(historyCommand));
+      }
       return;
     }
     if (shouldOwnShortcut(input)) {
@@ -1151,7 +1171,7 @@ function buildMenu() {
       },
       {
         label: "Redo",
-        accelerator: "CmdOrCtrl+Shift+Z",
+        accelerator: process.platform === "darwin" ? "Ctrl+Z" : "CmdOrCtrl+Shift+Z",
         click: () => runInWindow(dispatchCommandScript("redo")),
       },
       { type: "separator" },
