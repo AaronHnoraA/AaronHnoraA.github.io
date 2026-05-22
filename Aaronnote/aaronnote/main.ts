@@ -4099,6 +4099,7 @@ function showPluginPage(): void {
   closeRelationPanel();
   linkPreview.hidden = true;
   disposeGraph();
+  deactivateGitPanel();
   host.hidden = true;
   notesPage.hidden = true;
   pluginPage.hidden = false;
@@ -4148,6 +4149,7 @@ function showNotesTool(tab: string): void {
 
 function showEditorPage(): void {
   disposeGraph();
+  deactivateGitPanel();
   notesPage.hidden = true;
   pluginPage.hidden = true;
   host.hidden = false;

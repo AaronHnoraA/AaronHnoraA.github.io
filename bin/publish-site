@@ -374,6 +374,21 @@ def private_asset_paths(note: Note) -> set[Path]:
     return paths
 
 
+def private_static_asset_paths(notes: list[Note]) -> set[Path]:
+    paths: set[Path] = set()
+    for note in notes:
+        paths.update(private_asset_paths(note))
+    for prefix in PRIVATE_PATH_PREFIXES:
+        directory = ROOT / prefix
+        if directory.exists():
+            paths.update(
+                path.resolve()
+                for path in directory.rglob("*")
+                if path.is_file() and path.suffix.lower() in STATIC_EXTENSIONS
+            )
+    return paths
+
+
 def parse_note(path: Path) -> Note | None:
     text = path.read_text(encoding="utf-8")
     metadata, _body = parse_metadata_block(text)
@@ -849,9 +864,7 @@ def note_kind_assets_html(note: Note, root: str) -> str:
 
 
 def copy_static(notes: list[Note]) -> None:
-    private_assets = set()
-    for note in notes:
-        private_assets.update(private_asset_paths(note))
+    private_assets = private_static_asset_paths(notes)
 
     for path in iter_project_files():
         if not path.is_file() or path.resolve() in private_assets:
@@ -873,11 +886,15 @@ def copy_static(notes: list[Note]) -> None:
 
 def clean_stale_outputs(notes: list[Note]) -> None:
     expected_html = {note.link for note in notes}
-    private_assets = set()
-    for note in notes:
-        private_assets.update(private_asset_paths(note))
+    private_assets = private_static_asset_paths(notes)
     roam_public = PUBLIC / "roam"
     if roam_public.exists():
+        for prefix in PRIVATE_PATH_PREFIXES:
+            public_prefix = PUBLIC / prefix
+            if public_prefix.exists():
+                for public_file in public_prefix.rglob("*"):
+                    if public_file.is_file() or public_file.is_symlink():
+                        public_file.unlink()
         for source_asset in private_assets:
             try:
                 rel = source_asset.relative_to(ROOT)
@@ -925,6 +942,50 @@ def collect_notes() -> tuple[list[Note], dict[str, Note]]:
     for note in notes:
         note.backlinks = sorted(set(backlinks.get(note.id, [])))
     return notes, notes_by_id
+
+
+def publish_mask_stats(notes: list[Note]) -> tuple[int, int]:
+    masks: list[str] = []
+    for note in notes:
+        for tag in note.tags:
+            normalized = tag.strip().lower()
+            if normalized in SENSITIVE_TAGS:
+                masks.append(sealed_tag_mask(normalized))
+    return len(masks), len(set(masks))
+
+
+def publish_summary(
+    notes: list[Note],
+    *,
+    rendered: int,
+    skipped: int,
+    head: str | None,
+    roam_head: str | None,
+    unchanged: bool = False,
+) -> None:
+    public_count = sum(not note.private for note in notes)
+    sealed_count = len(notes) - public_count
+    reference_edges = sum(len(note.refs) for note in notes)
+    connected_notes = sum(1 for note in notes if note.refs or note.backlinks)
+    masked_tags, distinct_masked_tags = publish_mask_stats(notes)
+    sealed_groups = len({note.group_key for note in notes if note.private})
+    private_assets = len(private_static_asset_paths(notes))
+    public_tags = {
+        tag
+        for note in notes
+        if not note.private
+        for tag in filter_sensitive_tags(note.tags)
+    }
+    state = "unchanged" if unchanged else "updated"
+
+    print(f"Publish summary: {state}")
+    print(f"  Output: {PUBLIC}")
+    print(f"  Notes: {len(notes)} total, {public_count} public, {sealed_count} sealed")
+    print(f"  Pages: {rendered} rendered, {skipped} skipped")
+    print(f"  Graph: {reference_edges} reference edges, {connected_notes} connected notes")
+    print(f"  Tags: {len(public_tags)} public tags, {masked_tags} masked occurrences, {distinct_masked_tags} masked tags")
+    print(f"  Privacy: {sealed_groups} sealed groups, {private_assets} private static assets excluded")
+    print(f"  Git: org {head[:12] if head else 'unknown'}, roam {roam_head[:12] if roam_head else 'unknown'}")
 
 
 def arg_value(args: list[str], name: str) -> str | None:
@@ -1010,6 +1071,7 @@ def main() -> None:
 
     if publish_state_current(notes, head, roam_head):
         print(f"Published {len(notes)} Markdown notes to {PUBLIC} (unchanged, skipped)")
+        publish_summary(notes, rendered=0, skipped=len(notes), head=head, roam_head=roam_head, unchanged=True)
         return
 
     clean_stale_outputs(notes)
@@ -1023,6 +1085,7 @@ def main() -> None:
     write_data(notes)
     write_publish_state(notes, rendered, skipped, head, roam_head)
     print(f"Published {len(notes)} Markdown notes to {PUBLIC} ({rendered} rendered, {skipped} skipped)")
+    publish_summary(notes, rendered=rendered, skipped=skipped, head=head, roam_head=roam_head)
 
 
 if __name__ == "__main__":

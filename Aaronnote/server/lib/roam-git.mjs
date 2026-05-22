@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, realpath, writeFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
 const execFileAsync = promisify(execFile);
@@ -12,6 +12,13 @@ async function git(noteRoot, args) {
     maxBuffer: MAX_BUFFER,
   });
   return stdout.trim();
+}
+
+async function gitRaw(noteRoot, args) {
+  const { stdout } = await execFileAsync("git", ["-C", noteRoot, ...args], {
+    maxBuffer: MAX_BUFFER,
+  });
+  return stdout.endsWith("\n") ? stdout.slice(0, -1) : stdout;
 }
 
 async function gitOutput(noteRoot, args) {
@@ -28,6 +35,14 @@ async function gitOutput(noteRoot, args) {
       stderr: String(err?.stderr || "").trim(),
       message: err?.message || "Git command failed",
     };
+  }
+}
+
+async function realResolve(path) {
+  try {
+    return await realpath(path);
+  } catch {
+    return resolve(path);
   }
 }
 
@@ -61,11 +76,12 @@ function statusSummary(x, y) {
 }
 
 async function resolveNotePathInfo(noteRoot, pathValue) {
-  const noteRootAbs = resolve(noteRoot);
+  const noteRootAbs = await realResolve(noteRoot);
   const root = await gitRoot(noteRoot);
   const raw = String(pathValue || "").trim();
   if (!raw) throw new Error("Missing path");
-  const abs = isAbsolute(raw) ? resolve(raw) : resolve(noteRootAbs, raw);
+  const requestedAbs = isAbsolute(raw) ? resolve(raw) : resolve(noteRootAbs, raw);
+  const abs = await realResolve(requestedAbs);
   if (abs !== noteRootAbs && !abs.startsWith(noteRootAbs + sep)) {
     throw new Error("File outside noteRoot: " + pathValue);
   }
@@ -108,7 +124,7 @@ async function resolveGitPath(noteRoot, gitRelPath) {
   const root = await gitRoot(noteRoot);
   const abs = resolve(root, gitRelPath);
   // Must be inside noteRoot (which may be a symlink; git resolves real paths)
-  const noteRootReal = resolve(noteRoot);
+  const noteRootReal = await realResolve(noteRoot);
   return (abs === noteRootReal || abs.startsWith(noteRootReal + sep)) ? abs : null;
 }
 
@@ -150,7 +166,7 @@ export async function changedRoamFilesSince(noteRoot, commit) {
   // Uncommitted working-tree + index changes
   // git status --porcelain also outputs paths relative to git root
   try {
-    const out = await git(noteRoot, ["status", "--porcelain", "--"]);
+    const out = await gitRaw(noteRoot, ["status", "--porcelain", "--"]);
     for (const line of out.split("\n")) {
       // format: "XY path"  or  "XY old -> new"
       const raw = line.slice(3).trim();
@@ -219,7 +235,7 @@ export async function roamRepoStatus(noteRoot) {
     } catch {}
   }
   try {
-    const out = await git(noteRoot, ["status", "--porcelain", "--"]);
+    const out = await gitRaw(noteRoot, ["status", "--porcelain", "--"]);
     uncommitted = out.split("\n").some((l) => {
       const f = l.slice(3).trim();
       return f && /\.(?:md|markdown)$/i.test(f);
@@ -230,8 +246,8 @@ export async function roamRepoStatus(noteRoot) {
 
 export async function roamRepoChanges(noteRoot) {
   const root = await gitRoot(noteRoot);
-  const noteRootAbs = resolve(noteRoot);
-  const out = await git(noteRoot, ["-c", "core.quotePath=false", "status", "--porcelain=v1", "--untracked-files=all", "--", "."]);
+  const noteRootAbs = await realResolve(noteRoot);
+  const out = await gitRaw(noteRoot, ["-c", "core.quotePath=false", "status", "--porcelain=v1", "--untracked-files=all", "--", "."]);
   if (!out) return [];
   const changes = [];
   for (const line of out.split("\n")) {
@@ -267,7 +283,7 @@ export async function diffRoamFile(noteRoot, pathValue, options = {}) {
   const scope = options?.scope === "staged" || options?.scope === "working" ? options.scope : "all";
   const sha = String(options?.sha || "").trim();
   if (sha) {
-    const out = await gitOutput(noteRoot, ["show", "--format=", "--no-ext-diff", "--unified=80", sha, "--", info.gitRel]);
+    const out = await gitOutput(noteRoot, ["show", "--format=", "--no-ext-diff", "--unified=80", sha, "--", info.noteRel]);
     if (!out.ok && out.code !== 1) throw new Error(out.stderr || out.stdout || out.message);
     return { file: info.abs, path: info.noteRel, diff: out.stdout, scope: "commit", sha };
   }
@@ -281,12 +297,12 @@ export async function diffRoamFile(noteRoot, pathValue, options = {}) {
 
   const sections = [];
   if (scope === "all" || scope === "staged") {
-    const staged = await gitOutput(noteRoot, ["diff", "--cached", "--no-ext-diff", "--unified=80", "--", info.gitRel]);
+    const staged = await gitOutput(noteRoot, ["diff", "--cached", "--no-ext-diff", "--unified=80", "--", info.noteRel]);
     if (!staged.ok && staged.code !== 1) throw new Error(staged.stderr || staged.stdout || staged.message);
     if (staged.stdout) sections.push(scope === "all" ? "# Staged\n" + staged.stdout : staged.stdout);
   }
   if (scope === "all" || scope === "working") {
-    const working = await gitOutput(noteRoot, ["diff", "--no-ext-diff", "--unified=80", "--", info.gitRel]);
+    const working = await gitOutput(noteRoot, ["diff", "--no-ext-diff", "--unified=80", "--", info.noteRel]);
     if (!working.ok && working.code !== 1) throw new Error(working.stderr || working.stdout || working.message);
     if (working.stdout) sections.push(scope === "all" ? "# Working tree\n" + working.stdout : working.stdout);
   }

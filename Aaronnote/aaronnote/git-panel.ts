@@ -3,6 +3,7 @@ import type { GitChange, GitCommitEntry, GitRepoStatus } from "./types.ts";
 
 export type GitPanel = {
   refresh: () => void;
+  deactivate: () => void;
 };
 
 type GitPanelOptions = {
@@ -114,6 +115,7 @@ export function createGitPanel(options: GitPanelOptions): GitPanel {
   let changes: GitChange[] = [];
   let history: GitCommitEntry[] = [];
   let selected: DiffTarget | null = null;
+  let active = false;
   let refreshSeq = 0;
   let diffSeq = 0;
 
@@ -192,6 +194,7 @@ export function createGitPanel(options: GitPanelOptions): GitPanel {
   }
 
   async function loadChangeDiff(change: GitChange): Promise<void> {
+    if (!active) return;
     selected = { type: "change", change };
     renderChanges();
     renderHistory();
@@ -201,15 +204,16 @@ export function createGitPanel(options: GitPanelOptions): GitPanel {
     diffEl.replaceChildren(renderEmpty("Loading diff..."));
     try {
       const msg = await api.roamTools.diff({ file: change.file || change.path });
-      if (seq !== diffSeq) return;
+      if (seq !== diffSeq || !active) return;
       renderDiffLines(diffEl, msg.diff || "");
     } catch (err) {
-      if (seq !== diffSeq) return;
+      if (seq !== diffSeq || !active) return;
       diffEl.replaceChildren(renderEmpty(err instanceof Error ? err.message : "Diff failed"));
     }
   }
 
   async function loadCommitDiff(commit: GitCommitEntry): Promise<void> {
+    if (!active) return;
     selected = { type: "commit", commit };
     renderChanges();
     renderHistory();
@@ -219,10 +223,10 @@ export function createGitPanel(options: GitPanelOptions): GitPanel {
     diffEl.replaceChildren(renderEmpty("Loading commit..."));
     try {
       const msg = await api.roamTools.commitDiff(commit.sha);
-      if (seq !== diffSeq) return;
+      if (seq !== diffSeq || !active) return;
       renderDiffLines(diffEl, msg.diff || "");
     } catch (err) {
-      if (seq !== diffSeq) return;
+      if (seq !== diffSeq || !active) return;
       diffEl.replaceChildren(renderEmpty(err instanceof Error ? err.message : "Commit diff failed"));
     }
   }
@@ -236,11 +240,6 @@ export function createGitPanel(options: GitPanelOptions): GitPanel {
       void loadChangeDiff(existingChange);
       return;
     }
-    const existingCommit = history.find((item) => selected?.type === "commit" && item.sha === selected.commit.sha) || history[0];
-    if (existingCommit) {
-      void loadCommitDiff(existingCommit);
-      return;
-    }
     selected = null;
     diffTitleEl.textContent = "Diff";
     diffMetaEl.textContent = "No target selected";
@@ -248,6 +247,7 @@ export function createGitPanel(options: GitPanelOptions): GitPanel {
   }
 
   async function refresh(): Promise<void> {
+    active = true;
     const seq = ++refreshSeq;
     options.setStatus("Loading git state");
     try {
@@ -256,7 +256,7 @@ export function createGitPanel(options: GitPanelOptions): GitPanel {
         api.roamTools.changes(),
         api.roamTools.repoHistory(40),
       ]);
-      if (seq !== refreshSeq) return;
+      if (seq !== refreshSeq || !active) return;
       status = statusMsg;
       changes = (changesMsg.changes || []).slice().sort((a, b) => changeSortKey(a).localeCompare(changeSortKey(b)));
       history = historyMsg.entries || [];
@@ -266,7 +266,7 @@ export function createGitPanel(options: GitPanelOptions): GitPanel {
       chooseInitialSelection();
       options.setStatus(summarizeStatus(status, changes));
     } catch (err) {
-      if (seq !== refreshSeq) return;
+      if (seq !== refreshSeq || !active) return;
       const message = err instanceof Error ? err.message : "Git state failed";
       summaryEl.textContent = message;
       changesEl.replaceChildren(renderEmpty(message));
@@ -345,6 +345,31 @@ export function createGitPanel(options: GitPanelOptions): GitPanel {
     }
   }
 
+  function deactivate(): void {
+    active = false;
+    refreshSeq++;
+    diffSeq++;
+    status = {};
+    changes = [];
+    history = [];
+    selected = null;
+    messageInput.value = "";
+    branchEl.textContent = "No branch";
+    summaryEl.textContent = "Not loaded";
+    remoteEl.textContent = "No remote";
+    countsEl.textContent = "0 files";
+    commitButton.disabled = true;
+    pullButton.disabled = true;
+    pushButton.disabled = true;
+    openButton.disabled = true;
+    restoreButton.disabled = true;
+    changesEl.replaceChildren();
+    historyEl.replaceChildren();
+    diffTitleEl.textContent = "Diff";
+    diffMetaEl.textContent = "No target selected";
+    diffEl.replaceChildren();
+  }
+
   root.addEventListener("click", (event) => {
     const target = event.target as Element | null;
     const changeButton = target?.closest<HTMLButtonElement>("[data-git-change]");
@@ -377,5 +402,5 @@ export function createGitPanel(options: GitPanelOptions): GitPanel {
     }
   });
 
-  return { refresh: () => void refresh() };
+  return { refresh: () => void refresh(), deactivate };
 }
