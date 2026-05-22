@@ -1,0 +1,50 @@
+import { describe, expect, test } from "@voidzero-dev/vite-plus-test";
+import { EditorState } from "@codemirror/state";
+
+import {
+  blockMathRangesExtension,
+  getBlockMathRanges,
+  positionInsideAnyRange,
+  rangeAtPosition,
+  rangeInsideAny,
+  rangeOverlapsAny,
+  scanBlockMathRanges,
+} from "../src/cm6/math-ranges.ts";
+
+describe("block math range queries", () => {
+  test("finds overlaps, containment, and point hits on sorted ranges", () => {
+    const ranges = scanBlockMathRanges("a\n$$\nx\n$$\nb\n$$\ny\n$$\nc");
+
+    expect(ranges).toHaveLength(2);
+    expect(rangeOverlapsAny(0, ranges[0]!.from, ranges)).toBe(false);
+    expect(rangeOverlapsAny(ranges[0]!.from - 1, ranges[0]!.from + 1, ranges)).toBe(true);
+    expect(rangeOverlapsAny(ranges[0]!.to, ranges[1]!.from, ranges)).toBe(false);
+    expect(rangeOverlapsAny(ranges[1]!.to - 1, ranges[1]!.to + 4, ranges)).toBe(true);
+
+    expect(rangeInsideAny(ranges[0]!.from + 1, ranges[0]!.to - 1, ranges)).toBe(true);
+    expect(rangeInsideAny(ranges[0]!.from, ranges[0]!.to + 1, ranges)).toBe(false);
+
+    expect(positionInsideAnyRange(ranges[1]!.from, ranges)).toBe(true);
+    expect(positionInsideAnyRange(ranges[1]!.to, ranges)).toBe(false);
+    expect(rangeAtPosition(ranges[1]!.from + 1, ranges)).toBe(ranges[1]);
+    expect(rangeAtPosition(ranges[1]!.to, ranges)).toBeNull();
+  });
+
+  test("updates math tex incrementally for edits inside an existing block", () => {
+    const state = EditorState.create({
+      doc: "before\n$$\nx\n$$\nafter",
+      extensions: [blockMathRangesExtension],
+    });
+    const before = getBlockMathRanges(state)[0]!;
+    const next = state.update({
+      changes: { from: before.contentFrom + 1, to: before.contentFrom + 1, insert: " + y" },
+    }).state;
+    const after = getBlockMathRanges(next)[0]!;
+
+    expect(after.from).toBe(before.from);
+    expect(after.to).toBe(before.to + 4);
+    expect(after.contentFrom).toBe(before.contentFrom);
+    expect(after.contentTo).toBe(before.contentTo + 4);
+    expect(after.tex).toBe("x + y");
+  });
+});

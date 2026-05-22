@@ -1,0 +1,375 @@
+// Aaronnote native API client. Electron exposes window.aaronnoteApi from preload;
+// runtime calls should fail loudly if that bridge is missing.
+
+import type {
+  NoteSummary, DirectorySummary, FileSummary,
+  SnippetSummary, Inbound,
+  UnusedAsset, CursorPosition, RecentNote,
+  UploadedAsset, PluginSummary,
+} from "./types.ts";
+
+type IndexPayload = { notes?: NoteSummary[]; directories?: DirectorySummary[]; files?: FileSummary[] };
+type OpenMsg = Extract<Inbound, { type: "open" }>;
+type SavedMsg = Extract<Inbound, { type: "saved" }>;
+type NotesMsg = Extract<Inbound, { type: "notes" }>;
+type TemplatesMsg = Extract<Inbound, { type: "templates" }>;
+
+type SaveBody = {
+  file: string;
+  content: string;
+  mode: string;
+  clientId: string;
+  seq: number;
+  baseMtimeMs?: number;
+  refresh?: string;
+  force?: boolean;
+};
+
+type NativeApi = {
+  notes?: {
+    bootstrap?: (file?: string) => Promise<unknown>;
+    open?: (file: string) => Promise<unknown>;
+    list?: (force?: boolean) => Promise<unknown>;
+    save?: (body: SaveBody) => Promise<unknown>;
+    createNode?: (draft: Record<string, unknown>) => Promise<unknown>;
+    deleteNote?: (file: string) => Promise<unknown>;
+    createFolder?: (path: string) => Promise<unknown>;
+    pathSuggestions?: (file: string) => Promise<unknown>;
+    roamSync?: (reload?: boolean) => Promise<unknown>;
+    roamSyncFull?: () => Promise<unknown>;
+    templates?: (force?: boolean) => Promise<unknown>;
+    snippets?: () => Promise<unknown>;
+    todos?: (file?: string) => Promise<unknown>;
+    metaAdd?: (body: { file: string; content: string; title: string; tags: string[] }) => Promise<unknown>;
+  };
+  roamTools?: {
+    renameTag?: (body: Record<string, unknown>) => Promise<unknown>;
+    deleteTag?: (body: Record<string, unknown>) => Promise<unknown>;
+    tagOverlap?: () => Promise<unknown>;
+    rewritePathRefs?: (body: Record<string, unknown>) => Promise<unknown>;
+    fileHistory?: (file: string) => Promise<unknown>;
+    restoreFileVersion?: (body: { file: string; sha: string }) => Promise<unknown>;
+  };
+  assets?: {
+    upload?: (body: { file: string; name: string; type: string; data: string }) => Promise<unknown>;
+    storeFromPath?: (body: { file: string; path: string; name?: string; type?: string }) => Promise<unknown>;
+    scanOrphans?: () => Promise<unknown>;
+    trashOrphans?: (files: string[]) => Promise<unknown>;
+  };
+  session?: {
+    getRecent?: () => Promise<unknown>;
+    touchRecent?: (file: string, openedAt: number) => Promise<unknown>;
+    getPositions?: () => Promise<unknown>;
+    savePosition?: (position: CursorPosition) => Promise<unknown>;
+  };
+  plugins?: {
+    list?: () => Promise<unknown>;
+    getOverrides?: () => Promise<unknown>;
+    saveOverrides?: (overrides: Record<string, unknown>) => Promise<unknown>;
+  };
+  fs?: {
+    rename?: (body: Record<string, unknown>) => Promise<unknown>;
+    move?: (body: Record<string, unknown>) => Promise<unknown>;
+    duplicate?: (body: Record<string, unknown>) => Promise<unknown>;
+    trash?: (body: Record<string, unknown>) => Promise<unknown>;
+  };
+  meta?: {
+    add?: (body: Record<string, unknown>) => Promise<unknown>;
+    remove?: (body: Record<string, unknown>) => Promise<unknown>;
+    tag?: (body: Record<string, unknown>) => Promise<unknown>;
+    hideRoam?: (body: Record<string, unknown>) => Promise<unknown>;
+    activateRoam?: (body: Record<string, unknown>) => Promise<unknown>;
+  };
+  shell?: {
+    showInFolder?: (file: string) => Promise<unknown>;
+    openPath?: (file: string) => Promise<unknown>;
+  };
+  copilot?: {
+    request?: (action: string, body?: unknown) => Promise<unknown>;
+    status?: () => Promise<unknown>;
+    inline?: (body?: unknown) => Promise<unknown>;
+    shown?: (body?: unknown) => Promise<unknown>;
+    accept?: (body?: unknown) => Promise<unknown>;
+    signIn?: (body?: unknown) => Promise<unknown>;
+    signOut?: (body?: unknown) => Promise<unknown>;
+    quota?: (body?: unknown) => Promise<unknown>;
+    log?: (body?: unknown) => Promise<unknown>;
+  };
+  roamlookup?: {
+    request?: (action: string, body?: unknown) => Promise<unknown>;
+    status?: () => Promise<unknown>;
+    start?: (body?: unknown) => Promise<unknown>;
+    query?: (body?: unknown) => Promise<unknown>;
+    close?: (body?: unknown) => Promise<unknown>;
+  };
+};
+
+declare global {
+  interface Window {
+    aaronnoteApi?: NativeApi;
+  }
+}
+
+function nativeApi(): NativeApi | undefined {
+  return globalThis.window?.aaronnoteApi;
+}
+
+function requireNative(): NativeApi {
+  const native = nativeApi();
+  if (!native) throw new Error("Native IPC bridge is unavailable");
+  return native;
+}
+
+function requireMethod<T extends (...args: any[]) => unknown>(method: T | undefined, feature: string): T {
+  if (!method) throw new Error(`${feature} is unavailable`);
+  return method;
+}
+
+function ensureOk<T>(msg: T, fallback: string, allowConflict = false): T {
+  const value = msg as T & { ok?: boolean; conflict?: boolean; message?: string };
+  if (value?.ok === false && !(allowConflict && value.conflict)) {
+    throw new Error(value.message ?? fallback);
+  }
+  return msg;
+}
+
+export const api = {
+  notes: {
+    async bootstrap(file?: string): Promise<OpenMsg> {
+      const native = requireMethod(requireNative().notes?.bootstrap, "Bootstrap");
+      return ensureOk(await native(file) as OpenMsg, "Bootstrap failed");
+    },
+
+    async open(file: string): Promise<OpenMsg> {
+      const native = requireMethod(requireNative().notes?.open, "Open");
+      return ensureOk(await native(file) as OpenMsg, "Open failed");
+    },
+
+    async list(force = false): Promise<NotesMsg> {
+      const native = requireMethod(requireNative().notes?.list, "Notes load");
+      return ensureOk(await native(force) as NotesMsg, "Notes load failed");
+    },
+
+    async save(body: SaveBody): Promise<SavedMsg> {
+      const native = requireMethod(requireNative().notes?.save, "Save");
+      return ensureOk(await native(body) as SavedMsg, "Save failed", true);
+    },
+
+    saveKeepalive(body: SaveBody): void {
+      const native = requireMethod(requireNative().notes?.save, "Save");
+      void native(body).catch(() => {});
+    },
+
+    async createNode(draft: Record<string, unknown>): Promise<OpenMsg & { message?: string }> {
+      const native = requireMethod(requireNative().notes?.createNode, "Create node");
+      return ensureOk(await native(draft) as OpenMsg & { message?: string }, "Create node failed");
+    },
+
+    async deleteNote(file: string): Promise<IndexPayload & { ok?: boolean; message?: string }> {
+      const native = requireMethod(requireNative().notes?.deleteNote, "Move to Trash");
+      return ensureOk(await native(file) as IndexPayload & { ok?: boolean; message?: string }, "Move to Trash failed");
+    },
+
+    async createFolder(path: string): Promise<IndexPayload & { ok?: boolean; path?: string; message?: string }> {
+      const native = requireMethod(requireNative().notes?.createFolder, "Create folder");
+      return ensureOk(await native(path) as IndexPayload & { ok?: boolean; path?: string; message?: string }, "Create folder failed");
+    },
+
+    async pathSuggestions(file: string): Promise<{ paths?: string[] }> {
+      const native = requireMethod(requireNative().notes?.pathSuggestions, "Path suggestion load");
+      return ensureOk(await native(file) as { paths?: string[] }, "Path suggestion load failed");
+    },
+
+    async roamSync(reload = false): Promise<IndexPayload & { message?: string; db?: string }> {
+      const native = requireMethod(requireNative().notes?.roamSync, "Sync");
+      return ensureOk(await native(reload) as IndexPayload & { message?: string; db?: string }, "Sync failed");
+    },
+
+    async roamSyncFull(): Promise<IndexPayload & { message?: string; db?: string }> {
+      const native = requireMethod(requireNative().notes?.roamSyncFull, "Full Sync");
+      return ensureOk(await native() as IndexPayload & { message?: string; db?: string }, "Full sync failed");
+    },
+
+    async templates(force = false): Promise<TemplatesMsg> {
+      const native = requireMethod(requireNative().notes?.templates, "Template load");
+      return ensureOk(await native(force) as TemplatesMsg, "Template load failed");
+    },
+
+    async snippets(): Promise<{ snippets?: SnippetSummary[]; message?: string }> {
+      const native = requireMethod(requireNative().notes?.snippets, "Snippet reload");
+      return ensureOk(await native() as { snippets?: SnippetSummary[]; message?: string }, "Snippet reload failed");
+    },
+
+    async todos(file?: string): Promise<{ todos?: unknown[]; message?: string }> {
+      const native = requireMethod(requireNative().notes?.todos, "Todo scan");
+      return ensureOk(await native(file) as { todos?: unknown[]; message?: string }, "Todo scan failed");
+    },
+
+    async exportPdf(_body: { file: string; content: string }): Promise<Response> {
+      throw new Error("PDF export requires the desktop bridge");
+    },
+
+    async metaAdd(body: { file: string; content: string; title: string; tags: string[] }): Promise<OpenMsg & { message?: string }> {
+      const native = requireMethod(requireNative().notes?.metaAdd, "Generate Roam ID");
+      return ensureOk(await native(body) as OpenMsg & { message?: string }, "Generate Roam ID failed");
+    },
+  },
+
+  roamTools: {
+    async renameTag(body: Record<string, unknown>): Promise<IndexPayload & { ok?: boolean; changedCount?: number; changed?: unknown[]; message?: string }> {
+      const native = requireMethod(requireNative().roamTools?.renameTag, "Roam tag rename");
+      return ensureOk(await native(body) as IndexPayload & { ok?: boolean; changedCount?: number; changed?: unknown[]; message?: string }, "Roam tag rename failed");
+    },
+
+    async deleteTag(body: Record<string, unknown>): Promise<IndexPayload & { ok?: boolean; changedCount?: number; changed?: unknown[]; message?: string }> {
+      const native = requireMethod(requireNative().roamTools?.deleteTag, "Roam tag delete");
+      return ensureOk(await native(body) as IndexPayload & { ok?: boolean; changedCount?: number; changed?: unknown[]; message?: string }, "Roam tag delete failed");
+    },
+
+    async tagOverlap(): Promise<{ ok?: boolean; duplicateCase?: unknown[]; overlaps?: unknown[]; tagCount?: number; message?: string }> {
+      const native = requireMethod(requireNative().roamTools?.tagOverlap, "Roam tag overlap report");
+      return ensureOk(await native() as { ok?: boolean; duplicateCase?: unknown[]; overlaps?: unknown[]; tagCount?: number; message?: string }, "Roam tag overlap report failed");
+    },
+
+    async rewritePathRefs(body: Record<string, unknown>): Promise<IndexPayload & { ok?: boolean; changedCount?: number; referenceCount?: number; changed?: unknown[]; message?: string }> {
+      const native = requireMethod(requireNative().roamTools?.rewritePathRefs, "Roam path reference rewrite");
+      return ensureOk(await native(body) as IndexPayload & { ok?: boolean; changedCount?: number; referenceCount?: number; changed?: unknown[]; message?: string }, "Roam path reference rewrite failed");
+    },
+
+    async fileHistory(file: string): Promise<{ entries?: Array<{ sha: string; date: string; subject: string }>; message?: string }> {
+      const native = requireMethod(requireNative().roamTools?.fileHistory, "File history");
+      return ensureOk(await native(file) as { entries?: Array<{ sha: string; date: string; subject: string }>; message?: string }, "File history failed");
+    },
+
+    async restoreFileVersion(body: { file: string; sha: string }): Promise<IndexPayload & { restoredFile?: string; message?: string }> {
+      const native = requireMethod(requireNative().roamTools?.restoreFileVersion, "File version restore");
+      return ensureOk(await native(body) as IndexPayload & { restoredFile?: string; message?: string }, "File version restore failed");
+    },
+  },
+
+  assets: {
+    async upload(body: { file: string; name: string; type: string; data: string }): Promise<UploadedAsset> {
+      const native = requireMethod(requireNative().assets?.upload, "Asset upload");
+      return ensureOk(await native(body) as UploadedAsset, "Asset upload failed");
+    },
+
+    async storeFromPath(body: { file: string; path: string; name?: string; type?: string }): Promise<UploadedAsset> {
+      const native = requireMethod(requireNative().assets?.storeFromPath, "Native asset import");
+      return ensureOk(await native(body) as UploadedAsset, "Asset upload failed");
+    },
+
+    async scanOrphans(): Promise<{ assets?: UnusedAsset[]; message?: string }> {
+      const native = requireMethod(requireNative().assets?.scanOrphans, "Asset scan");
+      return ensureOk(await native() as { assets?: UnusedAsset[]; message?: string }, "Asset scan failed");
+    },
+
+    async trashOrphans(files: string[]): Promise<{ assets?: UnusedAsset[]; trashed?: unknown[]; message?: string }> {
+      const native = requireMethod(requireNative().assets?.trashOrphans, "Move to Trash");
+      return ensureOk(await native(files) as { assets?: UnusedAsset[]; trashed?: unknown[]; message?: string }, "Move to Trash failed");
+    },
+  },
+
+  session: {
+    async getRecent(): Promise<{ recent?: RecentNote[] }> {
+      const native = requireMethod(requireNative().session?.getRecent, "Recent notes load");
+      return ensureOk(await native() as { recent?: RecentNote[] }, "Recent notes load failed");
+    },
+
+    async touchRecent(file: string, openedAt: number): Promise<void> {
+      const native = requireMethod(requireNative().session?.touchRecent, "Recent note save");
+      ensureOk(await native(file, openedAt), "Recent note save failed");
+    },
+
+    async getPositions(): Promise<{ positions?: CursorPosition[] }> {
+      const native = requireMethod(requireNative().session?.getPositions, "Cursor positions load");
+      return ensureOk(await native() as { positions?: CursorPosition[] }, "Cursor positions load failed");
+    },
+
+    savePosition(position: CursorPosition, _keepalive = false): void {
+      const native = requireMethod(requireNative().session?.savePosition, "Cursor position save");
+      void native(position).catch(() => {});
+    },
+  },
+
+  plugins: {
+    async list(): Promise<{ plugins?: PluginSummary[]; message?: string }> {
+      const native = requireMethod(requireNative().plugins?.list, "Plugin scan");
+      return ensureOk(await native() as { plugins?: PluginSummary[]; message?: string }, "Plugin scan failed");
+    },
+
+    async getOverrides(): Promise<{ overrides?: Record<string, unknown> }> {
+      const native = requireMethod(requireNative().plugins?.getOverrides, "Plugin override load");
+      return ensureOk(await native() as { overrides?: Record<string, unknown> }, "Plugin override load failed");
+    },
+
+    async saveOverrides(overrides: Record<string, unknown>): Promise<void> {
+      const native = requireMethod(requireNative().plugins?.saveOverrides, "Plugin override save");
+      ensureOk(await native(overrides), "Plugin override save failed");
+    },
+  },
+
+  fs: {
+    async rename(body: Record<string, unknown>): Promise<Record<string, unknown> & { message?: string }> {
+      const native = requireMethod(requireNative().fs?.rename, "Rename");
+      return ensureOk(await native(body) as Record<string, unknown> & { message?: string }, "Rename failed");
+    },
+
+    async move(body: Record<string, unknown>): Promise<Record<string, unknown> & { message?: string }> {
+      const native = requireMethod(requireNative().fs?.move, "Move");
+      return ensureOk(await native(body) as Record<string, unknown> & { message?: string }, "Move failed");
+    },
+
+    async duplicate(body: Record<string, unknown>): Promise<Record<string, unknown> & { message?: string }> {
+      const native = requireMethod(requireNative().fs?.duplicate, "Duplicate");
+      return ensureOk(await native(body) as Record<string, unknown> & { message?: string }, "Duplicate failed");
+    },
+
+    async trash(body: Record<string, unknown>): Promise<Record<string, unknown> & { message?: string }> {
+      const native = requireMethod(requireNative().fs?.trash, "Move to Trash");
+      return ensureOk(await native(body) as Record<string, unknown> & { message?: string }, "Move to Trash failed");
+    },
+  },
+
+  meta: {
+    async add(body: Record<string, unknown>): Promise<Record<string, unknown> & { message?: string }> {
+      const native = requireMethod(requireNative().meta?.add, "Metadata registration");
+      return ensureOk(await native(body) as Record<string, unknown> & { message?: string }, "Metadata registration failed");
+    },
+
+    async remove(body: Record<string, unknown>): Promise<Record<string, unknown> & { message?: string }> {
+      const native = requireMethod(requireNative().meta?.remove, "Metadata removal");
+      return ensureOk(await native(body) as Record<string, unknown> & { message?: string }, "Metadata removal failed");
+    },
+
+    async tag(body: Record<string, unknown>): Promise<Record<string, unknown> & { message?: string }> {
+      const native = requireMethod(requireNative().meta?.tag, "Tag update");
+      return ensureOk(await native(body) as Record<string, unknown> & { message?: string }, "Tag update failed");
+    },
+
+    async hideRoam(body: Record<string, unknown>): Promise<Record<string, unknown> & { message?: string }> {
+      const native = requireMethod(requireNative().meta?.hideRoam, "Hide roam");
+      return ensureOk(await native(body) as Record<string, unknown> & { message?: string }, "Hide roam failed");
+    },
+
+    async activateRoam(body: Record<string, unknown>): Promise<Record<string, unknown> & { message?: string }> {
+      const native = requireMethod(requireNative().meta?.activateRoam, "Activate roam");
+      return ensureOk(await native(body) as Record<string, unknown> & { message?: string }, "Activate roam failed");
+    },
+  },
+
+  shell: {
+    available(): boolean {
+      return Boolean(nativeApi()?.shell?.showInFolder || nativeApi()?.shell?.openPath);
+    },
+
+    async showInFolder(file: string): Promise<void> {
+      const native = requireMethod(requireNative().shell?.showInFolder, "Native shell integration");
+      ensureOk(await native(file), "Reveal failed");
+    },
+
+    async openPath(file: string): Promise<void> {
+      const native = requireMethod(requireNative().shell?.openPath, "Native shell integration");
+      ensureOk(await native(file), "Open failed");
+    },
+  },
+};

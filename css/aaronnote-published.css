@@ -1,0 +1,173 @@
+.published-note-page .aaronnote-actions a {
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 3px;
+  padding: 0 10px;
+  background: var(--aaron-paper);
+  color: var(--aaron-ink);
+  text-decoration: none;
+}
+
+.published-note-page .aaronnote-actions a:hover {
+  border-color: var(--aaron-red);
+  background: var(--aaron-paper-soft);
+}
+
+.published-note-page .cm-editor {
+  box-sizing: border-box;
+  --note-image-max: 520px;
+  --note-diagram-max: 600px;
+}
+
+.aaronnote-pdf-document {
+  background: #fff;
+}
+
+.published-note-pdf {
+  width: 100%;
+  min-height: auto;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  box-shadow: none;
+}
+
+.published-note-pdf .aaronnote-body,
+.published-note-pdf .aaronnote-editor,
+.published-note-pdf .typora-web-wrap,
+.published-note-pdf .typora-web-editor-host {
+  display: block;
+  min-height: auto;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+}
+
+.published-note-pdf .cm-editor {
+  width: 100%;
+  max-width: none;
+  min-height: auto;
+  padding: 0;
+  font-size: 0.82rem;
+  line-height: 1.42;
+}
+
+@page {
+  size: A4;
+  margin: 10mm 10mm 11mm;
+}
+
+.published-note-page .aaronnote-editor .cm-editor {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.published-note-page .cm-editor org-env-block .org-env-heading-title[data-empty="true"] {
+  display: none;
+}
+
+.published-note-page .sealed-note-message {
+  box-sizing: border-box;
+  width: min(420px, 100%);
+  min-height: 188px;
+  margin: clamp(2.5rem, 12vh, 7.5rem) auto 0;
+  padding: 88px 30px 30px;
+  border: 1px solid color-mix(in srgb, var(--aaron-paper-line), var(--aaron-red) 16%);
+  border-radius: 4px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--aaron-paper), white 24%),
+      color-mix(in srgb, var(--aaron-paper-soft), white 12%)
+    );
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white, transparent 24%);
+  color: var(--aaron-muted);
+  line-height: 1.6;
+  text-align: center;
+  position: relative;
+}
+
+.published-note-page .sealed-note-message::before {
+  content: "Sealed";
+  position: absolute;
+  top: 28px;
+  left: 50%;
+  width: 92px;
+  min-height: 34px;
+  border: 1px solid color-mix(in srgb, var(--aaron-red), var(--aaron-paper-line) 52%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--aaron-paper), var(--aaron-red) 8%);
+  color: var(--aaron-red);
+  font: 600 13px/34px var(--aaron-font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif);
+  transform: translateX(-50%);
+}
+
+/* ─── published note body: image / mermaid / table / figure ───────── */
+.published-note-page .cm-editor img,
+.published-note-page .cm-editor .cm-image-render,
+.published-note-page .cm-editor img.image-render {
+  display: block;
+  height: auto;
+  max-width: min(100%, var(--note-image-max, 520px));
+  max-height: 340px;
+  margin: 0.72rem auto;
+  border: 1px solid color-mix(in srgb, var(--aaron-paper-line), var(--aaron-muted) 12%);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--aaron-paper-soft), white 26%);
+  object-fit: contain;
+}
+
+.published-note-page .cm-editor figure {
+  margin: 1rem auto;
+  text-align: center;
+}
+
+.published-note-page .cm-editor figure img {
+  margin: 0 auto 0.35rem;
+}
+
+.published-note-page .cm-editor figcaption {
+  margin: 0.1rem auto 0;
+  max-width: min(100%, var(--note-image-max, 520px));
+  color: var(--aaron-muted);
+  font-size: 0.86em;
+  font-style: italic;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.published-note-page .cm-editor .mermaid,
+.published-note-page .cm-editor svg.mermaid-svg,
+.published-note-page .cm-editor pre.cb-diagram-preview,
+.published-note-page .cm-editor pre.cb-diagram-rendered .cb-diagram-preview,
+.published-note-page .cm-editor pre.cb-diagram-rendered svg,
+.published-note-page .cm-editor .cb-diagram-preview svg {
+  display: block;
+  max-width: min(100%, var(--note-diagram-max, 600px));
+  max-height: 460px;
+  height: auto;
+  margin: 0.72rem auto;
+  overflow: auto;
+}
+
+.published-note-page .cm-editor pre.cb-diagram-preview,
+.published-note-page .cm-editor pre.cb-diagram-rendered .cb-diagram-preview {
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--aaron-paper-line), var(--aaron-muted) 12%);
+  border-radius: 4px;
+  background:
+    linear-gradient(color-mix(in srgb, var(--aaron-paper), white 34%), color-mix(in srgb, var(--aaron-paper-soft), white 28%)),
+    var(--aaron-paper);
+}
+
+.published-note-page .cm-editor svg.mermaid-svg,
+.published-note-page .cm-editor pre.cb-diagram-rendered svg,
+.published-note-page .cm-editor .cb-diagram-preview svg {
+  max-width: min(100%, var(--note-diagram-max, 600px));
+  max-height: 420px;
+  cursor: grab;
+}

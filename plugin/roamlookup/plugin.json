@@ -1,0 +1,24 @@
+{
+  "id": "roamlookup",
+  "name": "Roam Lookup",
+  "version": "0.1.0",
+  "entry": "index.ts",
+  "autoload": true,
+  "commands": ["roamlookup"],
+  "blocks": [],
+  "actions": [
+    { "id": "open", "label": "Open" },
+    { "id": "close", "label": "Close" }
+  ],
+  "settings": [
+    {
+      "id": "idleMs",
+      "label": "Idle close",
+      "type": "number",
+      "default": 60000,
+      "min": 10000,
+      "step": 5000,
+      "unit": "ms"
+    }
+  ]
+}

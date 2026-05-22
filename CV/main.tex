@@ -1,0 +1,131 @@
+\documentclass[10pt,letterpaper]{article}
+
+\usepackage[letterpaper,left=0.66in,right=0.66in,top=0.62in,bottom=0.62in]{geometry}
+\usepackage{xcolor}
+\usepackage{fontspec}
+\usepackage{enumitem}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{hyperref}
+\usepackage{microtype}
+
+\definecolor{ink}{HTML}{111827}
+\definecolor{muted}{HTML}{4B5563}
+\definecolor{rule}{HTML}{D1D5DB}
+\definecolor{accent}{HTML}{2563EB}
+
+\IfFontExistsTF{IBM Plex Sans}{
+  \setmainfont{IBM Plex Sans}
+}{
+  \IfFontExistsTF{TeX Gyre Heros}{
+    \setmainfont{TeX Gyre Heros}
+  }{
+    \setmainfont{Arial}
+  }
+}
+
+\hypersetup{
+  colorlinks=true,
+  urlcolor=muted,
+  linkcolor=accent,
+  pdfauthor={Chang He},
+  pdftitle={Chang He Aaron CV}
+}
+
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0pt}
+\setlist[itemize]{
+  leftmargin=1.35em,
+  itemsep=0.22em,
+  topsep=0.18em,
+  parsep=0pt,
+  partopsep=0pt
+}
+
+\newcommand{\cvsection}[1]{%
+  \vspace{0.82em}%
+  \noindent\begin{tabularx}{\linewidth}{@{}>{\color{accent}\bfseries\footnotesize}l X@{}}
+    \MakeUppercase{#1} & \raisebox{0.52ex}{\color{rule}\hrulefill}
+  \end{tabularx}%
+  \vspace{0.38em}%
+}
+
+\newcommand{\cventry}[4]{%
+  \noindent\begin{tabularx}{\linewidth}{@{}X>{\raggedleft\arraybackslash}p{1.45in}@{}}
+    {\bfseries #1} & {\color{muted}#2} \\
+    {\small\color{muted}#3} & {\small\color{muted}#4}
+  \end{tabularx}%
+  \vspace{0.16em}%
+}
+
+\newcommand{\interest}[2]{%
+  \vspace{0.16em}\noindent{\bfseries #1:} #2\par
+}
+
+\begin{document}
+\color{ink}
+
+\begin{center}
+  {\fontsize{20}{22}\selectfont\bfseries Chang He}
+  \hspace{0.18em}
+  {\fontsize{17}{20}\selectfont\color{muted}Aaron}
+
+  \vspace{0.36em}
+  {\footnotesize\color{muted}
+    \href{mailto:aaron.he@student.unsw.edu.au}{aaron.he@student.unsw.edu.au}
+    \hspace{0.35em}{\color{rule}|}\hspace{0.35em}
+    \href{https://github.com/AaronHnoraA}{github.com/AaronHnoraA}
+    \hspace{0.35em}{\color{rule}|}\hspace{0.35em}
+    \href{https://aaronhnoraa.github.io/}{aaronhnoraa.github.io}
+    \hspace{0.35em}{\color{rule}|}\hspace{0.35em}
+    Sydney, Australia
+  }
+\end{center}
+
+\cvsection{Education}
+
+\cventry
+  {University of New South Wales (UNSW)}
+  {Sydney, Australia}
+  {Bachelor of Science in Mathematics, UNSW 3956}
+  {Term 3, 2024 -- Present}
+\begin{itemize}
+  \item \textbf{Expected graduation:} Term 3, 2028 (Honours).
+  \item \textbf{Planned transfer:} Bachelor of Computer Science, UNSW 3779.
+  \item \textbf{Academic standing:} WAM \textbf{85}; admitted to the
+    \href{https://www.unsw.edu.au/science/student-life-resources/student-opportunities/talented-students-program}{UNSW Talented Students Program (TSP)}
+    in 2025.
+\end{itemize}
+
+\cvsection{Research Interests}
+
+\interest{Quantum computing}{quantum algorithms and quantum error correction, including fault-tolerant computation, stabilizer/CSS codes, and algebraic methods in finite-dimensional quantum systems.}
+\interest{Mathematics}{algebraic methods for isomorphism problems, multilinear algebra and tensor spaces, group actions, canonical forms, and related representation-theoretic tools.}
+\interest{Theoretical computer science}{computational complexity and algorithms, especially graph and tensor isomorphism, algebraic reductions, and structural problems at the interface of algebra and computation.}
+
+\cvsection{Research Experience}
+
+\cventry
+  {Independent Study, UTS}
+  {Sydney, Australia}
+  {Quantum Computing, Algebraic Algorithms, and Isomorphism Problems with \href{https://sites.google.com/site/jimmyqiao86/}{Youming Qiao}}
+  {Term 2, 2025 -- Present}
+\begin{itemize}
+  \item Conducting supervised reading and research preparation in quantum computation, complexity theory, and algebraic methods for isomorphism problems.
+  \item Working on graph isomorphism and tensor isomorphism problems, with emphasis on algebraic formulations, reductions, and invariants for equivalence testing.
+  \item Preparing a manuscript on connections between graph isomorphism and tensor isomorphism.
+\end{itemize}
+
+\vspace{0.28em}
+\cventry
+  {Talented Students Program, UNSW}
+  {Sydney, Australia}
+  {Academic Reading in Large Language Models with \href{https://www.unsw.edu.au/staff/quoc-le-gia}{Quoc Le Gia}}
+  {Term 1, 2025}
+\begin{itemize}
+  \item Completed supervised academic reading through the UNSW Talented Students Program, focusing on selected literature in large language models.
+  \item Developed practice in reading research papers, extracting technical assumptions, and presenting mathematical and algorithmic ideas clearly.
+\end{itemize}
+
+\end{document}

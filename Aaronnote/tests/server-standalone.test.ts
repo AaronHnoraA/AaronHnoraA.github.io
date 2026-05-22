@@ -1,0 +1,205 @@
+import { afterEach, describe, expect, test } from "@voidzero-dev/vite-plus-test";
+import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+
+// @ts-ignore The server is a Node ESM module outside the TS app graph.
+import { configure } from "../server/lib/state.mjs";
+// @ts-ignore The server is a Node ESM module outside the TS app graph.
+import { createNode, duplicateManagedFile, moveManagedPath, renameManagedPath, trashManagedPath } from "../server/lib/fs-ops.mjs";
+// @ts-ignore The server is a Node ESM module outside the TS app graph.
+import { getTodos, notesIndexPayload, readNote, scanTemplates } from "../server/lib/index.mjs";
+
+const roots: string[] = [];
+
+afterEach(async () => {
+  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+});
+
+async function setupRoot() {
+  const root = await mkdtemp(join(tmpdir(), "aaronnote-standalone-"));
+  const notes = join(root, "roam");
+  const loose = join(root, "loose");
+  await mkdir(notes, { recursive: true });
+  await mkdir(loose, { recursive: true });
+  roots.push(root);
+  configure({
+    root: notes,
+    workspaceRoot: root,
+    pluginRoot: join(root, "plugin"),
+  });
+  return { root, notes, loose };
+}
+
+describe("server standalone notes", () => {
+  test("opening standalone Markdown keeps the content payload light and notes refresh scans siblings", async () => {
+    const { loose } = await setupRoot();
+    const file = join(loose, "a.md");
+    const sibling = join(loose, "sibling.md");
+    await writeFile(file, "# A\n", "utf8");
+    await writeFile(sibling, "# Sibling\n", "utf8");
+
+    const msg = await readNote(file) as {
+      standalone?: boolean;
+      notes?: Array<{ file?: string; path?: string; standalone?: boolean }>;
+    };
+
+    expect(msg.standalone).toBe(true);
+    expect(msg.notes).toBeUndefined();
+
+    const notesMsg = await notesIndexPayload() as {
+      notes?: Array<{ file?: string; path?: string; standalone?: boolean }>;
+    };
+    expect(notesMsg.notes?.map((note) => note.file).sort()).toEqual([file, sibling].sort());
+    expect(notesMsg.notes?.every((note) => note.standalone === true)).toBe(true);
+  });
+
+  test("regular notes created while browsing standalone files stay in that folder", async () => {
+    const { loose, notes } = await setupRoot();
+    const file = join(loose, "a.md");
+    await writeFile(file, "# A\n", "utf8");
+    await readNote(file);
+
+    const msg = await createNode({
+      nodeType: "regular",
+      title: "Child",
+      path: "child.md",
+    }) as { file?: string; standalone?: boolean; notes?: Array<{ file?: string }> };
+    const child = join(loose, "child.md");
+
+    expect(msg.file).toBe(child);
+    expect(msg.standalone).toBe(true);
+    expect(await readFile(child, "utf8")).toBe("# Child\n");
+    expect(msg.notes?.some((note) => note.file === child)).toBe(true);
+    await expect(readFile(join(notes, "child.md"), "utf8")).rejects.toThrow();
+  });
+
+  test("standalone agenda scans from the current file directory", async () => {
+    const { root, loose, notes } = await setupRoot();
+    const file = join(loose, "a.md");
+    const sibling = join(loose, "sibling.md");
+    const outsideDir = join(root, "outside");
+    await mkdir(outsideDir, { recursive: true });
+    await writeFile(file, "# A\n", "utf8");
+    await writeFile(sibling, "# Sibling\n\n@@todo [loose todo]\n", "utf8");
+    await writeFile(join(outsideDir, "other.md"), "# Other\n\n@@todo [outside todo]\n", "utf8");
+    await writeFile(join(notes, "roam.md"), "# Roam\n\n@@todo [roam todo]\n", "utf8");
+
+    const msg = await getTodos(file) as { todos?: Array<{ text?: string; file?: string }> };
+
+    expect(msg.todos?.map((todo) => todo.text)).toEqual(["loose todo"]);
+    expect(msg.todos?.[0]?.file).toBe(sibling);
+  });
+
+  test("notes payload includes real directories and generated non-Markdown files", async () => {
+    const { notes } = await setupRoot();
+    await mkdir(join(notes, "empty", "child"), { recursive: true });
+    await mkdir(join(notes, "images", "note-assets"), { recursive: true });
+    await writeFile(join(notes, "a.md"), "# A\n", "utf8");
+    await writeFile(join(notes, "images", "note-assets", "pic.png"), "png", "utf8");
+
+    const msg = await notesIndexPayload() as {
+      directories?: Array<{ path?: string; generated?: boolean; noteCount?: number; fileCount?: number }>;
+      files?: Array<{ path?: string; generated?: boolean }>;
+    };
+
+    expect(msg.directories?.some((dir) => dir.path === "empty")).toBe(true);
+    expect(msg.directories?.some((dir) => dir.path === "empty/child")).toBe(true);
+    expect(msg.directories?.find((dir) => dir.path === "images")?.generated).toBe(true);
+    expect(msg.directories?.find((dir) => dir.path === "Root")?.noteCount).toBe(1);
+    expect(msg.files).toContainEqual(expect.objectContaining({
+      path: "images/note-assets/pic.png",
+      generated: true,
+    }));
+  });
+
+  test("creates a note from an independent template with variables", async () => {
+    const { root, notes } = await setupRoot();
+    const templateDir = join(root, "templates", "markdown-mode");
+    await mkdir(templateDir, { recursive: true });
+    await writeFile(join(templateDir, "meeting"), [
+      "# name: Meeting",
+      "# key: meeting",
+      "# --",
+      "# {{title}}",
+      "",
+      "Date: {{date}}",
+      "Tags: {{tags}}",
+      "",
+      "${1:agenda}",
+      "$0",
+    ].join("\n"), "utf8");
+
+    const templates = await scanTemplates({ force: true });
+    expect(templates).toContainEqual(expect.objectContaining({ key: "meeting" }));
+
+    const created = await createNode({
+      nodeType: "regular",
+      title: "Weekly Sync",
+      path: "weekly.md",
+      tags: ["work"],
+      templateKey: "meeting",
+    }) as { selection?: { from?: number; to?: number } };
+    expect(await readFile(join(notes, "weekly.md"), "utf8")).toContain("# Weekly Sync");
+    expect(await readFile(join(notes, "weekly.md"), "utf8")).toContain("Tags: work");
+    expect(created.selection?.from).toBeDefined();
+    expect(created.selection?.to).toBeDefined();
+  });
+
+  test("filesystem APIs rename, move, duplicate, and trash managed notes", async () => {
+    const { notes } = await setupRoot();
+    await mkdir(join(notes, "a"), { recursive: true });
+    await mkdir(join(notes, "b"), { recursive: true });
+    await writeFile(join(notes, "a", "one.md"), "# One\n", "utf8");
+
+    const renamed = await renameManagedPath({ path: "a/one.md", name: "two.md" }) as { ok?: boolean };
+    expect(renamed.ok).toBe(true);
+    expect(await readFile(join(notes, "a", "two.md"), "utf8")).toBe("# One\n");
+
+    const moved = await moveManagedPath({ path: "a/two.md", directory: "b" }) as { ok?: boolean };
+    expect(moved.ok).toBe(true);
+    expect(await readFile(join(notes, "b", "two.md"), "utf8")).toBe("# One\n");
+
+    const duplicated = await duplicateManagedFile({ path: "b/two.md", target: "b/two-copy.md" }) as { ok?: boolean };
+    expect(duplicated.ok).toBe(true);
+    expect(await readFile(join(notes, "b", "two-copy.md"), "utf8")).toBe("# One\n");
+
+    const trashed = await trashManagedPath({ path: "b/two-copy.md" }) as { ok?: boolean };
+    expect(trashed.ok).toBe(true);
+    await expect(readFile(join(notes, "b", "two-copy.md"), "utf8")).rejects.toThrow();
+  });
+
+  test("filesystem APIs manage non-Markdown files when visible through ranger", async () => {
+    const { notes } = await setupRoot();
+    await mkdir(join(notes, "assets"), { recursive: true });
+    await mkdir(join(notes, "archive"), { recursive: true });
+    await writeFile(join(notes, "assets", "pic.png"), "png", "utf8");
+
+    const renamed = await renameManagedPath({ path: "assets/pic.png", name: "hero.png" }) as { ok?: boolean };
+    expect(renamed.ok).toBe(true);
+    expect(await readFile(join(notes, "assets", "hero.png"), "utf8")).toBe("png");
+
+    const moved = await moveManagedPath({ path: "assets/hero.png", directory: "archive" }) as { ok?: boolean };
+    expect(moved.ok).toBe(true);
+    expect(await readFile(join(notes, "archive", "hero.png"), "utf8")).toBe("png");
+
+    const duplicated = await duplicateManagedFile({ path: "archive/hero.png", target: "archive/hero-copy.png" }) as { ok?: boolean };
+    expect(duplicated.ok).toBe(true);
+    expect(await readFile(join(notes, "archive", "hero-copy.png"), "utf8")).toBe("png");
+
+    const trashed = await trashManagedPath({ path: "archive/hero-copy.png" }) as { ok?: boolean };
+    expect(trashed.ok).toBe(true);
+    await expect(readFile(join(notes, "archive", "hero-copy.png"), "utf8")).rejects.toThrow();
+  });
+
+  test("filesystem move does not create implicit target folders", async () => {
+    const { notes } = await setupRoot();
+    await mkdir(join(notes, "a"), { recursive: true });
+    await writeFile(join(notes, "a", "one.md"), "# One\n", "utf8");
+
+    await expect(moveManagedPath({ path: "a/one.md", directory: "missing/Untitled.md" }))
+      .rejects.toThrow(/Target folder does not exist/);
+    await expect(stat(join(notes, "missing"))).rejects.toThrow();
+    expect(await readFile(join(notes, "a", "one.md"), "utf8")).toBe("# One\n");
+  });
+});

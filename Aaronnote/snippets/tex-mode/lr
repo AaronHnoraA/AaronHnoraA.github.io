@@ -1,0 +1,6 @@
+# -*- mode: snippet -*-
+# name: Left-right parentheses
+# key: lr
+# group: Aaronnote local
+# --
+\left(${1:x}\right)$0

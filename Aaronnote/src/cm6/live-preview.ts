@@ -1,0 +1,1208 @@
+/**
+ * Typora-style live preview for inline and block Markdown syntax.
+ *
+ * Phase 2 — Inline marks: EmphasisMark, CodeMark, StrikethroughMark, LinkMark/URL
+ * Phase 3 — Block marks: HeaderMark (heading), QuoteMark (blockquote), ListMark
+ * Phase 6 — HTML comments (CommentBlock / Comment), Escape backslash, Autolink brackets
+ *
+ * Strategy:
+ *   • Inline marks: cursor OUTSIDE parent span → syntax-hidden (font-size:0)
+ *                   cursor INSIDE  parent span → syntax-hint   (gray)
+ *   • Block marks: cursor on SAME LINE → syntax-hint
+ *                  cursor on OTHER line → syntax-hidden
+ *   • ListMark: always visible, just adds a `.list-marker` class for styling
+ *
+ * Lezer markdown node names used (from @lezer/markdown / @codemirror/lang-markdown):
+ *   EmphasisMark       — * / _ delimiting Emphasis and StrongEmphasis
+ *   CodeMark           — ` delimiting InlineCode
+ *   StrikethroughMark  — ~~ delimiting Strikethrough (GFM)
+ *   LinkMark           — [ and ] in Link / Image
+ *   URL                — (href) in Link / Image
+ *   HeaderMark         — # prefix in ATX headings
+ *   QuoteMark          — > prefix in Blockquote
+ *   ListMark           — - / * / + / 1. in list items
+ *   CommentBlock       — <!-- ... --> HTML comment block
+ *   Comment            — <!-- ... --> HTML comment inline
+ *   Escape             — \ before an escaped character
+ *   Autolink           — <url> auto-link (< and > folded when cursor outside)
+ *
+ * CSS classes .syntax-hidden / .syntax-hint are defined in widgets.css under
+ * the .cm-editor root.
+ */
+
+import { syntaxTree } from "@codemirror/language";
+import {
+  Decoration,
+  EditorView,
+  ViewPlugin,
+  WidgetType,
+  type DecorationSet,
+  type ViewUpdate,
+} from "@codemirror/view";
+import { StateField, type ChangeSet, type EditorState, type Text } from "@codemirror/state";
+import type { Range } from "@codemirror/state";
+import { getBlockMathRanges, rangeInsideAny, rangeOverlapsAny } from "./math-ranges.ts";
+import { renderMarkdownHTML } from "../render-html.ts";
+
+// ---------------------------------------------------------------------------
+// Node name sets
+// ---------------------------------------------------------------------------
+
+/** Inline delimiters: fold based on cursor inside/outside parent SPAN */
+const INLINE_MARK_NODES = new Set([
+  "EmphasisMark",      // * / _
+  "CodeMark",          // `
+  "StrikethroughMark", // ~~
+]);
+
+/** Link delimiters: fold based on cursor inside/outside Link/Image node */
+const LINK_MARK_NODES = new Set([
+  "LinkMark", // [ and ]
+  "URL",      // (href)
+]);
+
+/** Block marks: fold based on cursor on same LINE */
+const BLOCK_MARK_NODES = new Set([
+  "HeaderMark", // # ## ### etc.
+  "QuoteMark",  // >
+]);
+
+const CJK_TEXT_RE = /[\u2E80-\u2EFF\u3000-\u303F\u31C0-\u31EF\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF\uFF00-\uFFEF]+/g;
+const WIKILINK_RE = /\[\[([^\]\n]+)\]\]/g;
+const cjkTextCache = new Map<string, Array<{ from: number; to: number }>>();
+const cjkTextCacheLimit = 128;
+
+function linkHrefFromSpan(state: EditorState, from: number, to: number): string {
+  let href = "";
+  syntaxTree(state).iterate({
+    from,
+    to,
+    enter(node) {
+      if (href) return false;
+      if (node.name !== "URL") return;
+      href = state.doc.sliceString(node.from, node.to).trim();
+      return false;
+    },
+  });
+  return href;
+}
+
+function isRoamCoreHref(href: string): boolean {
+  const raw = String(href || "").trim();
+  if (!raw) return false;
+  if (/^roam:\/\//i.test(raw)) return true;
+  if (/^[A-Za-z][\w+.-]*:/i.test(raw)) return false;
+  if (raw.startsWith("#") || raw.startsWith("@")) return false;
+  return raw.includes("#") || raw.includes("@");
+}
+
+// ---------------------------------------------------------------------------
+// Decoration builder
+// ---------------------------------------------------------------------------
+
+type LivePreviewToken =
+  | { kind: "span"; from: number; to: number; spanFrom: number; spanTo: number; cls: string }
+  | { kind: "delimiter"; from: number; to: number; spanFrom: number; spanTo: number }
+  | { kind: "link-delimiter"; from: number; to: number; spanFrom: number; spanTo: number; linkClass: string }
+  | { kind: "block-mark"; from: number; to: number; line: number }
+  | { kind: "autolink"; from: number; to: number }
+  | { kind: "wikilink"; from: number; openTo: number; closeFrom: number; to: number }
+  | { kind: "static"; from: number; to: number; cls: string };
+
+function collectLivePreviewTokens(view: EditorView): LivePreviewToken[] {
+  const tokens: LivePreviewToken[] = [];
+  const doc = view.state.doc;
+  const blockMathRanges = getBlockMathRanges(view.state);
+
+  addCjkTextTokens(tokens, view, blockMathRanges);
+  addWikilinkTokens(tokens, view, blockMathRanges);
+
+  for (const { from, to } of view.visibleRanges) {
+    syntaxTree(view.state).iterate({
+      from,
+      to,
+      enter(node) {
+        if (rangeInsideAny(node.from, node.to, blockMathRanges)) return false;
+
+        // ── Span styling: bold / italic / code / strike ────────────────────
+        // Applied to the whole parent span so the visible content gets
+        // the right visual treatment even when delimiters are hidden.
+        if (node.name === "StrongEmphasis") {
+          tokens.push({ kind: "span", from: node.from, to: node.to, spanFrom: node.from, spanTo: node.to, cls: "cm-strong" });
+        } else if (node.name === "Emphasis") {
+          tokens.push({ kind: "span", from: node.from, to: node.to, spanFrom: node.from, spanTo: node.to, cls: "cm-em" });
+        } else if (node.name === "InlineCode") {
+          tokens.push({ kind: "span", from: node.from, to: node.to, spanFrom: node.from, spanTo: node.to, cls: "cm-inline-code" });
+        } else if (node.name === "Strikethrough") {
+          tokens.push({ kind: "span", from: node.from, to: node.to, spanFrom: node.from, spanTo: node.to, cls: "cm-strike" });
+        }
+
+        // ── Inline: emphasis / code / strikethrough ────────────────────────
+        if (INLINE_MARK_NODES.has(node.name)) {
+          const parent = node.node.parent;
+          tokens.push({
+            kind: "delimiter",
+            from: node.from,
+            to: node.to,
+            spanFrom: parent?.from ?? node.from,
+            spanTo: parent?.to ?? node.to,
+          });
+          return false; // no children to visit
+        }
+
+        // ── Link: [ ] and (url) fold; whole span gets link colour ────────
+        if (LINK_MARK_NODES.has(node.name)) {
+          let p = node.node.parent;
+          while (p && p.name !== "Link" && p.name !== "Image") p = p.parent;
+          const spanFrom = p?.from ?? node.from;
+          const spanTo = p?.to ?? node.to;
+          const href = p?.name === "Link" ? linkHrefFromSpan(view.state, spanFrom, spanTo) : "";
+          tokens.push({
+            kind: "link-delimiter",
+            from: node.from,
+            to: node.to,
+            spanFrom,
+            spanTo,
+            linkClass: isRoamCoreHref(href) ? "cm-link-text cm-roam-link-text" : "cm-link-text",
+          });
+          return false;
+        }
+
+        // ── Block: heading / blockquote — line-aware ───────────────────────
+        if (BLOCK_MARK_NODES.has(node.name)) {
+          // For HeaderMark include the trailing space (node.to may stop before it;
+          // check that the char at node.to is a space and include it).
+          let markTo = node.to;
+          if (node.name === "HeaderMark" && markTo < doc.length) {
+            const next = doc.sliceString(markTo, markTo + 1);
+            if (next === " ") markTo += 1;
+          }
+          tokens.push({ kind: "block-mark", from: node.from, to: markTo, line: doc.lineAt(node.from).number });
+          return false;
+        }
+
+        // ── ListMark: always visible, styled ──────────────────────────────
+        if (node.name === "ListMark") {
+          // Don't hide list markers — Typora shows them. Just add a class
+          // so CSS can style them (bullet, number). Also include trailing space.
+          let markTo = node.to;
+          if (markTo < doc.length && doc.sliceString(markTo, markTo + 1) === " ") {
+            markTo += 1;
+          }
+          tokens.push({ kind: "static", from: node.from, to: markTo, cls: "list-marker" });
+          return false;
+        }
+
+        // ── HTML comment: dim the whole comment ───────────────────────────
+        if (node.name === "CommentBlock" || node.name === "Comment") {
+          tokens.push({ kind: "static", from: node.from, to: node.to, cls: "syntax-hint" });
+          return false;
+        }
+
+        // ── Escape backslash: dim the \ but not the escaped char ──────────
+        if (node.name === "Escape") {
+          tokens.push({ kind: "static", from: node.from, to: node.from + 1, cls: "syntax-hint" });
+          return false;
+        }
+
+        // ── Autolink: fold < > brackets when cursor outside ───────────────
+        if (node.name === "Autolink") {
+          tokens.push({ kind: "autolink", from: node.from, to: node.to });
+          return false;
+        }
+      },
+    });
+  }
+
+  return tokens;
+}
+
+function buildDecorations(view: EditorView, tokens = collectLivePreviewTokens(view)): DecorationSet {
+  const decos: Range<Decoration>[] = [];
+  const sel = view.state.selection.main;
+  const doc = view.state.doc;
+  const cursorLine = doc.lineAt(sel.from).number;
+
+  for (const token of tokens) {
+    switch (token.kind) {
+      case "span": {
+        const inSpan = sel.from <= token.spanTo && sel.to >= token.spanFrom;
+        if (!inSpan) pushMark(decos, token.from, token.to, token.cls);
+        break;
+      }
+      case "delimiter": {
+        const inSpan = sel.from <= token.spanTo && sel.to >= token.spanFrom;
+        pushMark(decos, token.from, token.to, inSpan ? "syntax-hint" : "syntax-hidden");
+        break;
+      }
+      case "link-delimiter": {
+        const inSpan = sel.from <= token.spanTo && sel.to >= token.spanFrom;
+        pushMark(decos, token.from, token.to, inSpan ? "syntax-hint" : "syntax-hidden");
+        if (!inSpan) pushMark(decos, token.spanFrom, token.spanTo, token.linkClass);
+        break;
+      }
+      case "block-mark":
+        pushMark(decos, token.from, token.to, cursorLine === token.line ? "syntax-hint" : "syntax-hidden");
+        break;
+      case "autolink": {
+        const inSpan = sel.from <= token.to && sel.to >= token.from;
+        const cls = inSpan ? "syntax-hint" : "syntax-hidden";
+        pushMark(decos, token.from, token.from + 1, cls);
+        pushMark(decos, token.to - 1, token.to, cls);
+        break;
+      }
+      case "wikilink": {
+        const inSpan = sel.from <= token.to && sel.to >= token.from;
+        pushMark(decos, token.from, token.openTo, inSpan ? "syntax-hint" : "syntax-hidden");
+        pushMark(decos, token.closeFrom, token.to, inSpan ? "syntax-hint" : "syntax-hidden");
+        pushMark(decos, token.openTo, token.closeFrom, "cm-link-text cm-roam-link-text");
+        break;
+      }
+      case "static":
+        pushMark(decos, token.from, token.to, token.cls);
+        break;
+    }
+  }
+
+  decos.sort((a, b) => a.from - b.from || a.to - b.to);
+  return Decoration.set(decos, true);
+}
+
+function addWikilinkTokens(
+  tokens: LivePreviewToken[],
+  view: EditorView,
+  blockMathRanges: readonly { from: number; to: number }[],
+): void {
+  const doc = view.state.doc;
+  for (const { from: visibleFrom, to: visibleTo } of view.visibleRanges) {
+    const text = doc.sliceString(visibleFrom, visibleTo);
+    WIKILINK_RE.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = WIKILINK_RE.exec(text)) !== null) {
+      const from = visibleFrom + match.index;
+      const to = from + match[0].length;
+      if (rangeOverlapsAny(from, to, blockMathRanges)) continue;
+      const openTo = from + 2;
+      const closeFrom = to - 2;
+      tokens.push({ kind: "wikilink", from, openTo, closeFrom, to });
+    }
+  }
+}
+
+function addCjkTextTokens(
+  tokens: LivePreviewToken[],
+  view: EditorView,
+  blockMathRanges: readonly { from: number; to: number }[],
+): void {
+  const doc = view.state.doc;
+  for (const { from: visibleFrom, to: visibleTo } of view.visibleRanges) {
+    const text = doc.sliceString(visibleFrom, visibleTo);
+    const cacheKey = `${visibleFrom}:${visibleTo}:${text}`;
+    let ranges = cjkTextCache.get(cacheKey);
+    if (!ranges) {
+      ranges = [];
+      CJK_TEXT_RE.lastIndex = 0;
+      let match: RegExpExecArray | null;
+      while ((match = CJK_TEXT_RE.exec(text)) !== null) {
+        const from = visibleFrom + match.index;
+        ranges.push({ from, to: from + match[0].length });
+      }
+      cjkTextCache.set(cacheKey, ranges);
+      if (cjkTextCache.size > cjkTextCacheLimit) {
+        const oldest = cjkTextCache.keys().next().value;
+        if (oldest) cjkTextCache.delete(oldest);
+      }
+    }
+    for (const { from, to } of ranges) {
+      if (!rangeOverlapsAny(from, to, blockMathRanges)) tokens.push({ kind: "static", from, to, cls: "cm-cjk-text" });
+    }
+  }
+}
+
+function pushMark(
+  decos: Range<Decoration>[],
+  from: number,
+  to: number,
+  cls: string,
+): void {
+  if (from >= to) return;
+  decos.push(Decoration.mark({ class: cls }).range(from, to));
+}
+
+// ---------------------------------------------------------------------------
+// ViewPlugin export
+// ---------------------------------------------------------------------------
+
+class LivePreviewPlugin {
+  decorations: DecorationSet;
+  tokens: LivePreviewToken[];
+
+  constructor(view: EditorView) {
+    this.tokens = collectLivePreviewTokens(view);
+    this.decorations = buildDecorations(view, this.tokens);
+  }
+
+  update(update: ViewUpdate): void {
+    if (update.view.compositionStarted && update.selectionSet && !update.docChanged && !update.viewportChanged) return;
+    if (update.docChanged || update.viewportChanged || update.selectionSet) {
+      if (update.docChanged || update.viewportChanged) {
+        this.tokens = collectLivePreviewTokens(update.view);
+      }
+      this.decorations = buildDecorations(update.view, this.tokens);
+    }
+  }
+}
+
+const livePreviewPlugin = ViewPlugin.fromClass(LivePreviewPlugin, {
+  decorations: (v) => v.decorations,
+});
+
+// ---------------------------------------------------------------------------
+// Line-level decorations (StateField — Decoration.line cannot come from ViewPlugin)
+//
+// Adds a CSS class to the <div class="cm-line"> for each heading and
+// blockquote line so themes can apply font-size / indentation / border.
+// ---------------------------------------------------------------------------
+
+const HEADING_RE = /^ATXHeading([1-6])$|^SetextHeading([12])$/;
+const CODE_FENCE_LINE_RE = /^[ \t]{0,3}(`{3,}|~{3,})/;
+
+interface MarkdownTable {
+  from: number;
+  to: number;
+  source: string;
+}
+
+interface MarkdownTableData {
+  rows: string[][];
+  aligns: Array<"left" | "center" | "right" | "">;
+}
+
+function splitTableRow(line: string): string[] {
+  const trimmed = line.trim().replace(/^\|/, "").replace(/\|$/, "");
+  const cells: string[] = [];
+  let cell = "";
+  let escaped = false;
+  for (const ch of trimmed) {
+    if (escaped) {
+      cell += ch;
+      escaped = false;
+      continue;
+    }
+    if (ch === "\\") {
+      cell += ch;
+      escaped = true;
+      continue;
+    }
+    if (ch === "|") {
+      cells.push(cell.trim());
+      cell = "";
+      continue;
+    }
+    cell += ch;
+  }
+  cells.push(cell.trim());
+  return cells;
+}
+
+function isTableSeparatorLine(line: string): boolean {
+  const cells = splitTableRow(line);
+  return cells.length > 0 && cells.every((cell) => /^:?-{3,}:?$/.test(cell.replace(/\s+/g, "")));
+}
+
+function isTableRowLine(line: string): boolean {
+  return /^\s*\|.*\|\s*$/.test(line);
+}
+
+function isCodeFenceLine(line: string): boolean {
+  return CODE_FENCE_LINE_RE.test(line);
+}
+
+function collectMarkdownTablesInLineRange(
+  state: EditorState,
+  startLine: number,
+  endLine: number,
+): readonly MarkdownTable[] {
+  const tables: MarkdownTable[] = [];
+  const doc = state.doc;
+  const blockMathRanges = getBlockMathRanges(state);
+  let lineNum = Math.max(1, startLine);
+  const lastLine = Math.min(doc.lines, endLine);
+
+  while (lineNum <= lastLine) {
+    const header = doc.line(lineNum);
+    const separator = lineNum < lastLine ? doc.line(lineNum + 1) : null;
+    if (
+      !separator
+      || rangeOverlapsAny(header.from, separator.to, blockMathRanges)
+      || !isTableRowLine(header.text)
+      || !isTableRowLine(separator.text)
+      || !isTableSeparatorLine(separator.text)
+    ) {
+      lineNum++;
+      continue;
+    }
+
+    let endLine = lineNum + 1;
+    while (endLine + 1 <= lastLine) {
+      const next = doc.line(endLine + 1);
+      if (rangeOverlapsAny(next.from, next.to, blockMathRanges) || !isTableRowLine(next.text)) break;
+      endLine++;
+    }
+
+    const end = doc.line(endLine).to;
+    tables.push({
+      from: header.from,
+      to: end,
+      source: doc.sliceString(header.from, end),
+    });
+    lineNum = endLine + 1;
+  }
+
+  return tables;
+}
+
+function collectMarkdownTables(state: EditorState): readonly MarkdownTable[] {
+  return collectMarkdownTablesInLineRange(state, 1, state.doc.lines);
+}
+
+function markdownTablesFromState(state: EditorState): readonly MarkdownTable[] {
+  return state.field(markdownTablesField, false) ?? collectMarkdownTables(state);
+}
+
+function mapMarkdownTables(tables: readonly MarkdownTable[], changes: ChangeSet): readonly MarkdownTable[] {
+  return tables.map((table) => ({
+    ...table,
+    from: changes.mapPos(table.from),
+    to: changes.mapPos(table.to),
+  }));
+}
+
+function canMapMarkdownTables(
+  doc: Text,
+  tables: readonly MarkdownTable[],
+  changes: ChangeSet,
+): boolean {
+  let canMap = true;
+  changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
+    if (!canMap) return;
+    const removed = doc.sliceString(fromA, toA);
+    const added = inserted.toString();
+    if (removed.includes("|") || added.includes("|")) {
+      canMap = false;
+      return;
+    }
+    if (tables.some((table) => fromA <= table.to && toA >= table.from)) {
+      canMap = false;
+      return;
+    }
+
+    const startLine = doc.lineAt(Math.min(fromA, doc.length)).number;
+    const endLine = doc.lineAt(Math.min(Math.max(fromA, toA), doc.length)).number;
+    for (let lineNum = startLine; lineNum <= endLine; lineNum++) {
+      if (doc.line(lineNum).text.includes("|")) {
+        canMap = false;
+        return;
+      }
+    }
+  });
+  return canMap;
+}
+
+function expandedTableLineWindow(doc: Text, from: number, to: number): { startLine: number; endLine: number } {
+  let startLine = Math.max(1, doc.lineAt(Math.min(from, doc.length)).number - 2);
+  let endLine = Math.min(doc.lines, doc.lineAt(Math.min(to, doc.length)).number + 2);
+  while (startLine > 1 && isTableRowLine(doc.line(startLine - 1).text)) startLine--;
+  while (endLine < doc.lines && isTableRowLine(doc.line(endLine + 1).text)) endLine++;
+  return { startLine, endLine };
+}
+
+function expandedCodeFenceLineWindow(doc: Text, from: number, to: number): { startLine: number; endLine: number } {
+  const startCenter = doc.lineAt(Math.min(from, doc.length)).number;
+  const endCenter = doc.lineAt(Math.min(Math.max(from, to), doc.length)).number;
+  let startLine = startCenter;
+  let endLine = endCenter;
+  for (let lineNum = startCenter - 1; lineNum >= 1; lineNum--) {
+    if (isCodeFenceLine(doc.line(lineNum).text)) {
+      startLine = lineNum;
+      break;
+    }
+  }
+  for (let lineNum = endCenter + 1; lineNum <= doc.lines; lineNum++) {
+    if (isCodeFenceLine(doc.line(lineNum).text)) {
+      endLine = lineNum;
+      break;
+    }
+  }
+  return { startLine, endLine };
+}
+
+function updateMarkdownTablesNearChanges(
+  state: EditorState,
+  tables: readonly MarkdownTable[],
+  changes: ChangeSet,
+): readonly MarkdownTable[] | null {
+  let fromB = Number.POSITIVE_INFINITY;
+  let toB = 0;
+  let changeCount = 0;
+  changes.iterChanges((_fromA, _toA, nextFrom, nextTo) => {
+    changeCount++;
+    fromB = Math.min(fromB, nextFrom);
+    toB = Math.max(toB, nextTo);
+  });
+  if (changeCount === 0 || !Number.isFinite(fromB)) return mapMarkdownTables(tables, changes);
+  const { startLine, endLine } = expandedTableLineWindow(state.doc, fromB, toB);
+  const affectedFrom = state.doc.line(startLine).from;
+  const affectedTo = state.doc.line(endLine).to;
+  const rescanned = collectMarkdownTablesInLineRange(state, startLine, endLine);
+  const mapped = mapMarkdownTables(tables, changes)
+    .filter((table) => table.to < affectedFrom || table.from > affectedTo);
+  return [...mapped, ...rescanned].sort((a, b) => a.from - b.from || a.to - b.to);
+}
+
+function inlineMarkdownHTML(markdown: string): string {
+  const html = renderMarkdownHTML(markdown);
+  const match = /^<p>([\s\S]*)<\/p>\n?$/.exec(html.trim());
+  return match ? match[1] : html;
+}
+
+function cellAlign(separatorCell: string): "left" | "center" | "right" | "" {
+  const compact = separatorCell.replace(/\s+/g, "");
+  const left = compact.startsWith(":");
+  const right = compact.endsWith(":");
+  if (left && right) return "center";
+  if (right) return "right";
+  if (left) return "left";
+  return "";
+}
+
+function parseMarkdownTable(source: string): MarkdownTableData {
+  const lines = source.split(/\r?\n/).filter((line) => line.trim().length > 0);
+  const headerCells = splitTableRow(lines[0] ?? "");
+  const separatorCells = splitTableRow(lines[1] ?? "");
+  const bodyRows = lines.slice(2).map(splitTableRow);
+  const colCount = Math.max(1, headerCells.length, ...bodyRows.map((row) => row.length));
+  const normalize = (row: string[]): string[] => Array.from({ length: colCount }, (_, index) => row[index] ?? "");
+  return {
+    rows: [normalize(headerCells), ...bodyRows.map(normalize)],
+    aligns: Array.from({ length: colCount }, (_, index) => cellAlign(separatorCells[index] ?? "")),
+  };
+}
+
+function separatorForAlign(align: "left" | "center" | "right" | ""): string {
+  if (align === "left") return ":---";
+  if (align === "center") return ":---:";
+  if (align === "right") return "---:";
+  return "---";
+}
+
+function escapeTableCell(cell: string): string {
+  return cell.replace(/\r?\n/g, " ").replace(/\|/g, "\\|");
+}
+
+function buildMarkdownTableSource(data: MarkdownTableData): string {
+  const header = data.rows[0] ?? [""];
+  const body = data.rows.slice(1);
+  const aligns = Array.from({ length: header.length }, (_, index) => data.aligns[index] ?? "");
+  const rowSource = (row: string[]): string => `| ${row.map(escapeTableCell).join(" | ")} |`;
+  return [
+    rowSource(header),
+    rowSource(aligns.map(separatorForAlign)),
+    ...body.map(rowSource),
+  ].join("\n");
+}
+
+type TableFocusTarget = {
+  row: number;
+  col: number;
+  edit?: boolean;
+  select?: boolean;
+};
+
+type TableFocusResolver = TableFocusTarget | ((data: MarkdownTableData) => TableFocusTarget | null);
+
+class TableWidget extends WidgetType {
+  source: string;
+  from: number;
+  to: number;
+
+  constructor(source: string, from: number, to: number) {
+    super();
+    this.source = source;
+    this.from = from;
+    this.to = to;
+  }
+
+  eq(other: TableWidget): boolean {
+    return this.source === other.source
+      && this.from === other.from
+      && this.to === other.to;
+  }
+
+  toDOM(view: EditorView): HTMLElement {
+    const data = parseMarkdownTable(this.source);
+    const wrap = document.createElement("div");
+    wrap.className = "cm-table-block cm-table-editable-block";
+    wrap.dataset.cmSourceFrom = String(this.from);
+    wrap.dataset.cmSourceTo = String(this.to);
+    wrap.dataset.cmOpenSource = "false";
+    const stopWidgetMouseEvent = (event: Event): void => {
+      event.stopPropagation();
+    };
+    wrap.addEventListener("mousedown", stopWidgetMouseEvent);
+    wrap.addEventListener("mouseup", stopWidgetMouseEvent);
+    wrap.addEventListener("click", stopWidgetMouseEvent);
+    wrap.addEventListener("dblclick", stopWidgetMouseEvent);
+
+    let activeRow = 0;
+    let activeCol = 0;
+    let commitTimer: number | null = null;
+    const cancelPendingCommit = (): void => {
+      if (commitTimer != null) {
+        window.clearTimeout(commitTimer);
+        commitTimer = null;
+      }
+    };
+    const commit = (focusTarget?: TableFocusTarget | null): void => {
+      cancelPendingCommit();
+      const rows = tableRowsFromDOM(table);
+      if (rows.length === 0) return;
+      const nextSource = buildMarkdownTableSource({ rows, aligns: data.aligns.slice(0, rows[0]!.length) });
+      if (nextSource !== this.source) {
+        view.dispatch({ changes: { from: this.from, to: this.to, insert: nextSource } });
+        focusTableCellAfterRender(view, this.from, focusTarget);
+      } else {
+        focusTableCellInTable(table, focusTarget);
+      }
+      view.requestMeasure();
+    };
+    const scheduleCommit = (focusTarget?: TableFocusTarget | null): void => {
+      cancelPendingCommit();
+      commitTimer = window.setTimeout(() => {
+        commitTimer = null;
+        if (!wrap.isConnected) return;
+        commit(focusTarget);
+      }, 0);
+    };
+    const apply = (
+      mutate: (next: MarkdownTableData) => void,
+      focusTarget?: TableFocusResolver,
+    ): void => {
+      cancelPendingCommit();
+      const rows = tableRowsFromDOM(table);
+      const next = { rows, aligns: data.aligns.slice(0, rows[0]?.length ?? 1) };
+      mutate(next);
+      const nextSource = buildMarkdownTableSource(next);
+      const target = typeof focusTarget === "function" ? focusTarget(next) : focusTarget;
+      view.dispatch({ changes: { from: this.from, to: this.to, insert: nextSource } });
+      focusTableCellAfterRender(view, this.from, target);
+      view.requestMeasure();
+    };
+
+    const toolbar = document.createElement("div");
+    toolbar.className = "cm-table-toolbar";
+    toolbar.addEventListener("mousedown", stopEvent);
+    toolbar.append(
+      tableToolButton("+ Row", "Insert row below", () => {
+        let insertAt = Math.max(1, activeRow + 1);
+        apply((next) => {
+          const width = next.rows[0]?.length ?? 1;
+          insertAt = Math.min(insertAt, next.rows.length);
+          next.rows.splice(insertAt, 0, Array(width).fill(""));
+        }, () => ({ row: insertAt, col: activeCol, edit: true, select: true }));
+      }),
+      tableToolButton("- Row", "Delete current body row", () => apply((next) => {
+        if (next.rows.length <= 2) return;
+        const row = Math.max(1, activeRow);
+        next.rows.splice(row, 1);
+      }, (next) => ({ row: Math.max(1, Math.min(activeRow, next.rows.length - 1)), col: activeCol }))),
+      tableToolButton("+ Col", "Insert column right", () => {
+        let col = Math.max(0, activeCol + 1);
+        apply((next) => {
+          col = Math.min(col, next.rows[0]?.length ?? 1);
+          next.rows.forEach((row) => row.splice(col, 0, ""));
+          next.aligns.splice(col, 0, "");
+        }, () => ({ row: activeRow, col, edit: true, select: true }));
+      }),
+      tableToolButton("- Col", "Delete current column", () => apply((next) => {
+        if ((next.rows[0]?.length ?? 0) <= 1) return;
+        const col = Math.max(0, Math.min(activeCol, (next.rows[0]?.length ?? 1) - 1));
+        next.rows.forEach((row) => row.splice(col, 1));
+        next.aligns.splice(col, 1);
+      }, (next) => ({ row: activeRow, col: Math.max(0, Math.min(activeCol, (next.rows[0]?.length ?? 1) - 1)) }))),
+      tableToolButton("L", "Align column left", () => apply((next) => { next.aligns[activeCol] = "left"; }, { row: activeRow, col: activeCol })),
+      tableToolButton("C", "Align column center", () => apply((next) => { next.aligns[activeCol] = "center"; }, { row: activeRow, col: activeCol })),
+      tableToolButton("R", "Align column right", () => apply((next) => { next.aligns[activeCol] = "right"; }, { row: activeRow, col: activeCol })),
+    );
+
+    const table = renderEditableTable(data, (row, col) => {
+      activeRow = row;
+      activeCol = col;
+    }, commit, scheduleCommit, () => view.requestMeasure());
+    wrap.append(toolbar, table);
+    return wrap;
+  }
+
+  ignoreEvent(): boolean { return true; }
+}
+
+function stopEvent(event: Event): void {
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+function tableToolButton(label: string, title: string, run: () => void): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = label;
+  button.title = title;
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    run();
+  });
+  return button;
+}
+
+function focusTableCellInTable(table: HTMLTableElement, target?: TableFocusTarget | null): boolean {
+  if (!target || table.rows.length === 0) return false;
+  const row = table.rows[Math.max(0, Math.min(target.row, table.rows.length - 1))];
+  if (!row || row.cells.length === 0) return false;
+  const cell = row.cells[Math.max(0, Math.min(target.col, row.cells.length - 1))] as HTMLTableCellElement | undefined;
+  if (!cell) return false;
+  cell.focus();
+  if (target.edit) {
+    cell.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+    const input = cell.querySelector<HTMLInputElement>(".cm-table-cell-input");
+    if (input) {
+      input.focus();
+      if (target.select) input.select();
+    }
+  }
+  return true;
+}
+
+function focusTableCellAfterRender(
+  view: EditorView,
+  tableFrom: number,
+  target?: TableFocusTarget | null,
+): void {
+  if (!target) return;
+  window.requestAnimationFrame(() => {
+    const table = view.dom.querySelector<HTMLTableElement>(
+      `.cm-table-block[data-cm-source-from="${tableFrom}"] table`,
+    );
+    if (table && focusTableCellInTable(table, target)) return;
+    view.focus();
+  });
+}
+
+function renderEditableTable(
+  data: MarkdownTableData,
+  setActiveCell: (row: number, col: number) => void,
+  commit: (focusTarget?: TableFocusTarget | null) => void,
+  scheduleCommit: (focusTarget?: TableFocusTarget | null) => void,
+  requestMeasure: () => void,
+): HTMLTableElement {
+  const table = document.createElement("table");
+  table.className = "cm-markdown-table-preview cm-markdown-table-editable";
+  const colCount = data.rows[0]?.length ?? 1;
+  let pendingFocusTarget: TableFocusTarget | null = null;
+  const cellInput = (cell: HTMLTableCellElement): HTMLInputElement | null =>
+    cell.querySelector<HTMLInputElement>(".cm-table-cell-input");
+  const restorePreview = (cell: HTMLTableCellElement): void => {
+    const source = cell.dataset.source ?? "";
+    cell.innerHTML = inlineMarkdownHTML(source);
+    cell.dataset.editing = "false";
+    cell.dataset.dirty = "false";
+    cell.dataset.editSource = source;
+    requestMeasure();
+  };
+  const enterEditing = (cell: HTMLTableCellElement): HTMLInputElement => {
+    const existing = cellInput(cell);
+    if (existing) return existing;
+    const source = cell.dataset.source ?? cell.textContent ?? "";
+    cell.dataset.editSource = source;
+    cell.dataset.editing = "true";
+    cell.dataset.dirty = "false";
+    cell.textContent = "";
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "cm-table-cell-input";
+    input.value = source;
+    input.spellcheck = true;
+    cell.append(input);
+    requestMeasure();
+    return input;
+  };
+  const addCellEvents = (cell: HTMLTableCellElement, row: number, col: number): void => {
+    cell.tabIndex = 0;
+    cell.dataset.row = String(row);
+    cell.dataset.col = String(col);
+    cell.dataset.editing = "false";
+    cell.dataset.dirty = "false";
+    cell.dataset.editSource = cell.dataset.source ?? "";
+    const bindInput = (input: HTMLInputElement): void => {
+      if (input.dataset.bound === "true") return;
+      input.dataset.bound = "true";
+      input.addEventListener("input", () => {
+        cell.dataset.dirty = "true";
+      });
+      input.addEventListener("mousedown", (event) => event.stopPropagation());
+      input.addEventListener("mouseup", (event) => event.stopPropagation());
+      input.addEventListener("click", (event) => event.stopPropagation());
+      input.addEventListener("blur", (event) => {
+        const focusTarget = pendingFocusTarget;
+        pendingFocusTarget = null;
+        let appendedRow = false;
+        if (focusTarget && focusTarget.row >= table.rows.length) {
+          appendEmptyTableRow(table, colCount);
+          appendedRow = true;
+        }
+        const nextSource = input.value;
+        const changed = nextSource !== (cell.dataset.editSource ?? "");
+        if (changed || appendedRow) {
+          if (changed) cell.dataset.source = nextSource;
+          cell.dataset.dirty = "true";
+          const nextTarget = event.relatedTarget;
+          const movingInsideTable = nextTarget instanceof Node && table.contains(nextTarget);
+          if (movingInsideTable) scheduleCommit(focusTarget);
+          else commit(focusTarget);
+        } else {
+          cell.dataset.dirty = "false";
+        }
+        restorePreview(cell);
+        if (!changed && focusTarget) {
+          window.setTimeout(() => focusTableCellInTable(table, focusTarget), 0);
+        }
+      });
+      input.addEventListener("keydown", (event) => {
+        event.stopPropagation();
+        if (event.key === "Enter") {
+          event.preventDefault();
+          pendingFocusTarget = { row: row + 1, col, edit: true, select: true };
+          input.blur();
+        }
+        if (event.key === "Escape") {
+          event.preventDefault();
+          pendingFocusTarget = null;
+          cell.dataset.dirty = "false";
+          restorePreview(cell);
+          cell.focus();
+        }
+        if (event.key === "Tab") {
+          event.preventDefault();
+          const nextCol = event.shiftKey ? col - 1 : col + 1;
+          const nextRow = nextCol < 0 ? row - 1 : nextCol >= colCount ? row + 1 : row;
+          const normalizedCol = nextCol < 0 ? colCount - 1 : nextCol >= colCount ? 0 : nextCol;
+          pendingFocusTarget = { row: nextRow, col: normalizedCol, edit: true, select: true };
+          input.blur();
+        }
+      });
+    };
+    const openEditor = (targetCell: HTMLTableCellElement): HTMLInputElement => {
+      const input = enterEditing(targetCell);
+      bindInput(input);
+      return input;
+    };
+    cell.addEventListener("mousedown", (event) => {
+      event.stopPropagation();
+      setActiveCell(row, col);
+      if (event.target instanceof HTMLInputElement) return;
+      event.preventDefault();
+      const input = openEditor(cell);
+      window.setTimeout(() => {
+        input.focus();
+        const end = input.value.length;
+        input.setSelectionRange(end, end);
+      }, 0);
+    });
+    cell.addEventListener("focus", () => {
+      setActiveCell(row, col);
+    });
+    cell.addEventListener("click", (event) => {
+      event.stopPropagation();
+      setActiveCell(row, col);
+    });
+    cell.addEventListener("keydown", (event) => {
+      event.stopPropagation();
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        const input = openEditor(cell);
+        input.focus();
+        input.select();
+      }
+    });
+  };
+
+  const thead = table.createTHead();
+  const headerRow = thead.insertRow();
+  for (let col = 0; col < colCount; col++) {
+    const th = document.createElement("th");
+    const source = data.rows[0]?.[col] ?? "";
+    th.dataset.source = source;
+    th.innerHTML = inlineMarkdownHTML(source);
+    const align = data.aligns[col] ?? "";
+    if (align) th.style.textAlign = align;
+    addCellEvents(th, 0, col);
+    headerRow.append(th);
+  }
+
+  const tbody = table.createTBody();
+  data.rows.slice(1).forEach((row, bodyIndex) => {
+    const tr = tbody.insertRow();
+    for (let col = 0; col < colCount; col++) {
+      const td = tr.insertCell();
+      const source = row[col] ?? "";
+      td.dataset.source = source;
+      td.innerHTML = inlineMarkdownHTML(source);
+      const align = data.aligns[col] ?? "";
+      if (align) td.style.textAlign = align;
+      addCellEvents(td, bodyIndex + 1, col);
+    }
+  });
+
+  return table;
+}
+
+function tableRowsFromDOM(table: HTMLTableElement): string[][] {
+  return Array.from(table.rows).map((row) =>
+    Array.from(row.cells).map((cell) => (
+      cell.dataset.dirty === "true"
+        ? cell.querySelector<HTMLInputElement>(".cm-table-cell-input")?.value
+          ?? cell.textContent
+          ?? ""
+        : cell.dataset.source ?? cell.textContent ?? ""
+    )));
+}
+
+function appendEmptyTableRow(table: HTMLTableElement, colCount: number): void {
+  const tbody = table.tBodies[0] ?? table.createTBody();
+  const tr = tbody.insertRow();
+  for (let col = 0; col < colCount; col++) {
+    const td = tr.insertCell();
+    td.dataset.source = "";
+  }
+}
+
+const markdownTablesField = StateField.define<readonly MarkdownTable[]>({
+  create: collectMarkdownTables,
+  update(tables, tr) {
+    if (tr.docChanged) {
+      return canMapMarkdownTables(tr.startState.doc, tables, tr.changes)
+        ? mapMarkdownTables(tables, tr.changes)
+        : updateMarkdownTablesNearChanges(tr.state, tables, tr.changes) ?? collectMarkdownTables(tr.state);
+    }
+    return tables;
+  },
+});
+
+function buildTableDecoRanges(
+  state: EditorState,
+  from = 0,
+  to = state.doc.length,
+): Range<Decoration>[] {
+  const decos: Range<Decoration>[] = [];
+  const tables = markdownTablesFromState(state);
+
+  for (const table of tables) {
+    if (table.to < from || table.from > to) continue;
+    decos.push(
+      Decoration.replace({
+        widget: new TableWidget(table.source, table.from, table.to),
+        block: true,
+      }).range(table.from, table.to),
+    );
+  }
+
+  return decos;
+}
+
+function buildTableDecos(state: EditorState): DecorationSet {
+  return Decoration.set(buildTableDecoRanges(state), true);
+}
+
+const tableDecoField = StateField.define<DecorationSet>({
+  create: (state) => buildTableDecos(state),
+  update(value, tr) {
+    if (tr.docChanged) {
+      const tables = markdownTablesFromState(tr.startState);
+      return canMapMarkdownTables(tr.startState.doc, tables, tr.changes)
+        ? value.map(tr.changes)
+        : patchTableDecosNearChanges(tr.state, value.map(tr.changes), tr.changes);
+    }
+    return value.map(tr.changes);
+  },
+  provide: (f) => EditorView.decorations.from(f),
+});
+
+function patchTableDecosNearChanges(
+  state: EditorState,
+  mapped: DecorationSet,
+  changes: ChangeSet,
+): DecorationSet {
+  let fromB = Number.POSITIVE_INFINITY;
+  let toB = 0;
+  changes.iterChanges((_fromA, _toA, nextFrom, nextTo) => {
+    fromB = Math.min(fromB, nextFrom);
+    toB = Math.max(toB, nextTo);
+  });
+  if (!Number.isFinite(fromB)) return mapped;
+  const { startLine, endLine } = expandedTableLineWindow(state.doc, fromB, toB);
+  const affectedFrom = state.doc.line(startLine).from;
+  const affectedTo = state.doc.line(endLine).to;
+  return mapped
+    .update({ filterFrom: affectedFrom, filterTo: affectedTo, filter: () => false })
+    .update({ add: buildTableDecoRanges(state, affectedFrom, affectedTo), sort: true });
+}
+
+function buildLineDecoRanges(
+  state: EditorState,
+  startLine = 1,
+  endLine = state.doc.lines,
+): Range<Decoration>[] {
+  const decos: Range<Decoration>[] = [];
+  const doc = state.doc;
+  const blockMathRanges = getBlockMathRanges(state);
+  const firstLine = Math.max(1, startLine);
+  const lastWindowLine = Math.min(doc.lines, endLine);
+  if (firstLine > lastWindowLine) return decos;
+  const windowFrom = doc.line(firstLine).from;
+  const windowTo = doc.line(lastWindowLine).to;
+  const pushLineRange = (from: number, to: number, cls: string): void => {
+    let lineNum = Math.max(firstLine, doc.lineAt(from).number);
+    const lastLine = Math.min(lastWindowLine, doc.lineAt(to).number);
+    while (lineNum <= lastLine) {
+      const line = doc.line(lineNum);
+      decos.push(Decoration.line({ attributes: { class: cls } }).range(line.from));
+      lineNum++;
+    }
+  };
+
+  syntaxTree(state).iterate({
+    from: windowFrom,
+    to: windowTo,
+    enter(node) {
+      if (rangeInsideAny(node.from, node.to, blockMathRanges)) return false;
+
+      const hm = node.name.match(HEADING_RE);
+      if (hm) {
+        const level = hm[1] ?? (hm[2] === "1" ? "1" : "2");
+        pushLineRange(node.from, node.to, `cm-md-h${level}`);
+        return false;
+      }
+      if (node.name === "Blockquote") {
+        pushLineRange(node.from, node.to, "cm-md-blockquote");
+        return false;
+      }
+      if (node.name === "FencedCode" || node.name === "CodeBlock") {
+        pushLineRange(node.from, node.to, "cm-md-code-block");
+        return false;
+      }
+    },
+  });
+
+  for (const table of markdownTablesFromState(state)) {
+    if (table.to < windowFrom || table.from > windowTo) continue;
+    let lineNum = Math.max(firstLine, doc.lineAt(table.from).number);
+    const lastLine = Math.min(lastWindowLine, doc.lineAt(table.to).number);
+    while (lineNum <= lastLine) {
+      const line = doc.line(lineNum);
+      const cls = isTableSeparatorLine(line.text)
+        ? "cm-md-table cm-md-table-separator"
+        : "cm-md-table";
+      decos.push(Decoration.line({ attributes: { class: cls } }).range(line.from));
+      lineNum++;
+    }
+  }
+
+  decos.sort((a, b) => a.from - b.from || a.to - b.to);
+  return decos;
+}
+
+function buildLineDecos(state: EditorState): DecorationSet {
+  return Decoration.set(buildLineDecoRanges(state), true);
+}
+
+const lineDecoField = StateField.define<DecorationSet>({
+  create: (state) => buildLineDecos(state),
+  update(value, tr) {
+    if (tr.docChanged) {
+      if (canMapLineDecos(tr.startState.doc, tr.changes)) return value.map(tr.changes);
+      if (canPatchLineDecosNearChanges(tr.startState.doc, tr.changes)) {
+        return patchLineDecosNearChanges(tr.startState.doc, tr.state, value.map(tr.changes), tr.changes);
+      }
+      return buildLineDecos(tr.state);
+    }
+    return value.map(tr.changes);
+  },
+  provide: (f) => EditorView.decorations.from(f),
+});
+
+function canMapLineDecos(doc: Text, changes: ChangeSet): boolean {
+  let canMap = true;
+  changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
+    if (!canMap) return;
+    const removed = doc.sliceString(fromA, toA);
+    const added = inserted.toString();
+    if (/[\n#>|`~]/.test(removed) || /[\n#>|`~]/.test(added)) {
+      canMap = false;
+    }
+  });
+  return canMap;
+}
+
+function canPatchLineDecosNearChanges(doc: Text, changes: ChangeSet): boolean {
+  let canPatch = true;
+  changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
+    if (!canPatch) return;
+    const removed = doc.sliceString(fromA, toA);
+    const added = inserted.toString();
+    if (removed.includes("\n") || added.includes("\n")) {
+      canPatch = false;
+    }
+  });
+  return canPatch;
+}
+
+function patchLineDecosNearChanges(
+  oldDoc: Text,
+  state: EditorState,
+  mapped: DecorationSet,
+  changes: ChangeSet,
+): DecorationSet {
+  let fromB = Number.POSITIVE_INFINITY;
+  let toB = 0;
+  const includeNewLines = (startLine: number, endLine: number): void => {
+    fromB = Math.min(fromB, state.doc.line(startLine).from);
+    toB = Math.max(toB, state.doc.line(endLine).to);
+  };
+  changes.iterChanges((fromA, toA, nextFrom, nextTo, inserted) => {
+    const tableWindow = expandedTableLineWindow(state.doc, nextFrom, nextTo);
+    includeNewLines(tableWindow.startLine, tableWindow.endLine);
+    const removed = oldDoc.sliceString(fromA, toA);
+    const added = inserted.toString();
+    if (!/[`~]/.test(removed) && !/[`~]/.test(added)) return;
+
+    const oldWindow = expandedCodeFenceLineWindow(oldDoc, fromA, toA);
+    fromB = Math.min(fromB, changes.mapPos(oldDoc.line(oldWindow.startLine).from, -1));
+    toB = Math.max(toB, changes.mapPos(oldDoc.line(oldWindow.endLine).to, 1));
+
+    const newWindow = expandedCodeFenceLineWindow(state.doc, nextFrom, nextTo);
+    includeNewLines(newWindow.startLine, newWindow.endLine);
+  });
+  if (!Number.isFinite(fromB)) return mapped;
+  const startLine = state.doc.lineAt(Math.max(0, Math.min(fromB, state.doc.length))).number;
+  const endLine = state.doc.lineAt(Math.max(0, Math.min(toB, state.doc.length))).number;
+  const affectedFrom = state.doc.line(startLine).from;
+  const affectedTo = state.doc.line(endLine).to;
+  return mapped
+    .update({ filterFrom: affectedFrom, filterTo: affectedTo, filter: () => false })
+    .update({ add: buildLineDecoRanges(state, startLine, endLine), sort: true });
+}
+
+// ---------------------------------------------------------------------------
+// Public export — inline mark plugin + line decoration field
+// ---------------------------------------------------------------------------
+
+export const livePreviewExtension = [livePreviewPlugin, markdownTablesField, lineDecoField, tableDecoField];
