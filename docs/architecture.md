@@ -455,8 +455,8 @@ Inline math (`$...$`): replaced by a smaller inline `InlineMathWidget`.
 Handles syntax highlighting and diagram rendering:
 - Code blocks: syntax-highlighted via `@codemirror/language` and the async worker for long blocks (>12K chars).
 - Diagram fences (`mermaid`, `mindmap`, `marmind`, `markmind`): rendered via Mermaid.js.
-- Mindmap normalization: `marmind` / `markmind` accept plain indented trees or Markdown-ish lists; `normalizeMermaidSource()` converts them to Mermaid `mindmap` source unless the fence already starts with a Mermaid diagram keyword.
-- Interaction: rendered diagrams call `enableDiagramInteraction()` after SVG sanitization. The wrapper supports drag panning, toolbar zoom/fit/reset, ctrl/meta-wheel zoom, shift-wheel horizontal scroll, double-click fit, node highlighting, and safe SVG link dispatch through `aaronnote:open-url`.
+- Mindmap normalization: `marmind` / `markmind` accept plain indented trees or Markdown-ish lists; `normalizeMermaidSource()` converts them to Mermaid `mindmap` source unless the fence already starts with a Mermaid diagram keyword, and preserves ordered-list markers as labels.
+- Interaction: rendered Mermaid diagrams call `enableDiagramInteraction()` after SVG sanitization. The wrapper supports drag panning, ctrl/meta-wheel zoom, double-click reset, node highlighting, and safe SVG link dispatch through `aaronnote:open-url`. `marmind` / `markmind` skip the interaction layer and render as static Aaronnote-themed mindmaps.
 - Layout attrs: standalone `{...}` line after the closing fence extends the replaced range and applies `applyLayoutAttrs(wrap, "diagram", layout)`.
 
 ### Org-env widget (`src/cm6/widgets/block-extras.ts`)

@@ -35624,6 +35624,22 @@ $$
 In finite-dimensional quantum theory, positivity already implies
 self-adjointness. However, listing Hermitian symmetry explicitly is often
 pedagogically useful because it reminds us that observables and density
+
+
+
+
+
+
+this is hard to 
+
+
+$asdadasd^4$ is hard 
+
+
+
+
+
+
 operators belong to the real vector space of Hermitian operators.
 
 中文直觉：正半定保证测量概率非负；迹为一保证总概率为一。
@@ -35650,6 +35666,13 @@ $$
 A mixed state represents classical uncertainty over quantum states. Suppose
 the system is prepared in state $|\psi_j\rangle$ with probability $p_j$.
 The probability constraints are
+
+
+
+
+
+
+I love this 
 
 $$
 p_j \ge 0,
@@ -39698,6 +39721,14 @@ a concrete polynomial-time encoding transformation.
 ## 73.6. Direct sums and decompositions
 
 Direct-sum decompositions are central in algebraic classification problems.
+Suppose that A is hard to be used.
+
+
+
+
+
+
+
 Suppose
 
 $$
@@ -40240,7 +40271,7 @@ $$
 The point of such notation is not merely symbolic. Each arrow represents
 a concrete polynomial-time encoding transformation.
 
-## 74.6. Direct sums and decompositions
+## 74.6. Direct sums and decompositions哈哈哈这个有意思
 
 Direct-sum decompositions are central in algebraic classification problems.
 Suppose

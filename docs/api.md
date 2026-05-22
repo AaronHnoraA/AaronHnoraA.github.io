@@ -200,9 +200,9 @@ Root
 
 Images use same-line attrs. Tables and fenced diagrams use a standalone attrs line immediately after the table or closing fence.
 
-`marmind` / `markmind` are forgiving mindmap fences: if the body already starts with a Mermaid diagram keyword such as `mindmap`, `graph`, or `flowchart`, Aaronnote keeps it as-is; otherwise it converts simple indented text or `- item` lists into Mermaid `mindmap` source before rendering.
+`marmind` / `markmind` are forgiving mindmap fences: if the body already starts with a Mermaid diagram keyword such as `mindmap`, `graph`, or `flowchart`, Aaronnote keeps it as-is; otherwise it converts simple indented text or Markdown-ish lists into Mermaid `mindmap` source before rendering and keeps ordered-list markers in labels.
 
-Rendered diagrams are interactive in the editor: drag to pan, use the `+`/`-`/`Fit`/`1:1` toolbar, use ctrl/meta+wheel to zoom, double-click to fit width, click nodes to highlight them, and click safe SVG links to route through Aaronnote's normal link opener.
+Rendered Mermaid diagrams are interactive in the editor: drag to pan, use ctrl/meta+wheel to zoom, double-click to reset, click nodes to highlight them, and click safe SVG links to route through Aaronnote's normal link opener. `marmind` / `markmind` stay static and use Aaronnote's dedicated mindmap theme.
 
 Supported attribute keys (case-insensitive, `;` or `,` as separator):
 

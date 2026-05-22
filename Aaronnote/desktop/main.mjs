@@ -147,6 +147,12 @@ function scheduleApplyZoom(win) {
   setTimeout(() => applyZoom(win), 80);
 }
 
+function enablePinchZoom(win) {
+  if (!win || win.isDestroyed()) return;
+  if (win.webContents.isDestroyed()) return;
+  void win.webContents.setVisualZoomLevelLimits(1, 3).catch(() => {});
+}
+
 function applyZoomToAllWindows() {
   for (const win of appWindows()) scheduleApplyZoom(win);
 }
@@ -593,6 +599,7 @@ function createWindow(options = {}) {
   win.aaronnoteAppWindow = true;
   win.aaronnoteRendererReady = false;
   win.aaronnotePendingOpenFile = "";
+  enablePinchZoom(win);
   debugPanel?.observeWindow(win);
   scheduleApplyZoom(win);
   win.on("focus", () => scheduleApplyZoom(win));

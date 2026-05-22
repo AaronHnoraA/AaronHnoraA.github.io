@@ -7,6 +7,7 @@ type HighlightResponse = {
 
 const WORKER_HIGHLIGHT_THRESHOLD = 12_000;
 const ASYNC_CACHE_LIMIT = 192;
+const ASYNC_CACHE_BYTES = 8_000_000; // 8 MB
 
 const asyncCache = new Map<string, CodeHighlightRange[]>();
 const pending = new Map<number, string>();
@@ -15,16 +16,25 @@ const listeners = new Set<() => void>();
 let worker: Worker | null | undefined;
 let nextRequestId = 1;
 let readyVersion = 0;
+let asyncCacheBytes = 0;
+
+function asyncEntryBytes(ranges: CodeHighlightRange[]): number {
+  return ranges.length * 48;
+}
 
 function cacheKey(lang: string, text: string): string {
   return `${lang.trim().toLowerCase()}\u0000${text}`;
 }
 
 function remember(key: string, ranges: CodeHighlightRange[]): CodeHighlightRange[] {
+  if (asyncCache.has(key)) return ranges;
   asyncCache.set(key, ranges);
-  while (asyncCache.size > ASYNC_CACHE_LIMIT) {
+  asyncCacheBytes += asyncEntryBytes(ranges);
+  while (asyncCache.size > ASYNC_CACHE_LIMIT || asyncCacheBytes > ASYNC_CACHE_BYTES) {
     const oldest = asyncCache.keys().next().value as string | undefined;
     if (oldest == null) break;
+    const old = asyncCache.get(oldest)!;
+    asyncCacheBytes -= asyncEntryBytes(old);
     asyncCache.delete(oldest);
   }
   return ranges;
@@ -89,4 +99,16 @@ export function highlightCodeForEditor(lang: string, text: string): CodeHighligh
     backgroundWorker.postMessage({ id, lang, text });
   }
   return [];
+}
+
+export function disposeHighlightWorker(): void {
+  worker?.terminate();
+  worker = undefined; // reset to "not initialized" so next call recreates it
+  for (const key of pending.values()) pendingKeys.delete(key);
+  pending.clear();
+  pendingKeys.clear();
+  listeners.clear();
+  asyncCache.clear();
+  asyncCacheBytes = 0;
+  readyVersion = 0;
 }

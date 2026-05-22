@@ -26,9 +26,9 @@ Root
 {size: 180%; align: left; wrap: on}
 ````
 
-`marmind` / `markmind` accept plain indented trees and `- item` lists. Aaronnote adds the Mermaid `mindmap` header automatically unless the body already starts with a Mermaid diagram keyword such as `mindmap`, `graph`, or `flowchart`.
+`marmind` / `markmind` accept plain indented trees and Markdown-ish lists. Aaronnote adds the Mermaid `mindmap` header automatically unless the body already starts with a Mermaid diagram keyword such as `mindmap`, `graph`, or `flowchart`; ordered-list markers are kept in mindmap labels.
 
-Rendered diagrams support drag panning, `+`/`-`/`Fit`/`1:1` toolbar controls, ctrl/meta+wheel zoom, double-click fit, node selection highlighting, and safe SVG link clicks through the normal Aaronnote link opener.
+Rendered Mermaid diagrams support drag panning, ctrl/meta+wheel zoom, double-click reset, node selection highlighting, and safe SVG link clicks through the normal Aaronnote link opener. `marmind` / `markmind` render as static Aaronnote-styled mindmaps.
 
 Supported keys (any order, `;` or `,` separator, values quoted or unquoted):
 

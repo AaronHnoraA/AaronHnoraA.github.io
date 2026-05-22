@@ -26,24 +26,6 @@ import { renderMathHTML } from "../../math-render.ts";
 import { getBlockMathRanges, rangeOverlapsAny } from "../math-ranges.ts";
 import { orgEnvContextForRange, type OrgEnvContext } from "./block-extras.ts";
 
-type MathHTML = ReturnType<typeof renderMathHTML>;
-
-const mathHtmlCache = new Map<string, MathHTML>();
-const mathHtmlCacheLimit = 512;
-
-function cachedMathHTML(tex: string, displayMode: boolean): MathHTML {
-  const key = `${displayMode ? "display" : "inline"}\n${tex}`;
-  const cached = mathHtmlCache.get(key);
-  if (cached) return cached;
-  const rendered = renderMathHTML(tex, { displayMode });
-  mathHtmlCache.set(key, rendered);
-  if (mathHtmlCache.size > mathHtmlCacheLimit) {
-    const first = mathHtmlCache.keys().next().value;
-    if (first) mathHtmlCache.delete(first);
-  }
-  return rendered;
-}
-
 function setSourceRange(el: HTMLElement, from: number, to: number, openSource = false): void {
   el.dataset.cmSourceFrom = String(from);
   el.dataset.cmSourceTo = String(to);
@@ -102,7 +84,7 @@ class InlineMathWidget extends WidgetType {
     const span = document.createElement("span");
     span.className = "cm-math-inline";
     setSourceRange(span, this.from, this.to, true);
-    const { html, error } = cachedMathHTML(this.tex, false);
+    const { html, error } = renderMathHTML(this.tex, { displayMode: false });
     if (error) { span.classList.add("cm-math-error"); span.textContent = `$${this.tex}$`; }
     else span.innerHTML = html;
     return span;
@@ -143,7 +125,7 @@ class BlockMathWidget extends WidgetType {
       div.dataset.orgEnvDepth = String(this.orgEnv.depth);
       div.style.setProperty("--org-env-depth", String(this.orgEnv.depth));
     }
-    const { html, error } = cachedMathHTML(this.tex, true);
+    const { html, error } = renderMathHTML(this.tex, { displayMode: true });
     if (error) { div.classList.add("cm-math-error"); div.textContent = `$$\n${this.tex}\n$$`; }
     else div.innerHTML = html;
     return div;

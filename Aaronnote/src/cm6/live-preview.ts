@@ -75,8 +75,11 @@ const BLOCK_MARK_NODES = new Set([
 
 const CJK_TEXT_RE = /[\u2E80-\u2EFF\u3000-\u303F\u31C0-\u31EF\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF\uFF00-\uFFEF]+/g;
 const WIKILINK_RE = /\[\[([^\]\n]+)\]\]/g;
-const cjkTextCache = new Map<string, Array<{ from: number; to: number }>>();
-const cjkTextCacheLimit = 128;
+// Keyed by line number \u2192 relative offsets within the line.
+// Cleared on docChanged (line numbers shift on insert/delete).
+// Survives pure viewport scrolls so CJK highlights don't re-scan on every scroll.
+const cjkLineCache = new Map<number, Array<{ relFrom: number; relTo: number }>>();
+const cjkLineCacheLimit = 512;
 
 function linkHrefFromSpan(state: EditorState, from: number, to: number): string {
   let href = "";
@@ -115,15 +118,18 @@ type LivePreviewToken =
   | { kind: "wikilink"; from: number; openTo: number; closeFrom: number; to: number }
   | { kind: "static"; from: number; to: number; cls: string };
 
-function collectLivePreviewTokens(view: EditorView): LivePreviewToken[] {
+function collectLivePreviewTokens(
+  view: EditorView,
+  ranges: readonly { from: number; to: number }[] = view.visibleRanges,
+): LivePreviewToken[] {
   const tokens: LivePreviewToken[] = [];
   const doc = view.state.doc;
   const blockMathRanges = getBlockMathRanges(view.state);
 
-  addCjkTextTokens(tokens, view, blockMathRanges);
-  addWikilinkTokens(tokens, view, blockMathRanges);
+  addCjkTextTokens(tokens, doc, ranges, blockMathRanges);
+  addWikilinkTokens(tokens, doc, ranges, blockMathRanges);
 
-  for (const { from, to } of view.visibleRanges) {
+  for (const { from, to } of ranges) {
     syntaxTree(view.state).iterate({
       from,
       to,
@@ -276,11 +282,11 @@ function buildDecorations(view: EditorView, tokens = collectLivePreviewTokens(vi
 
 function addWikilinkTokens(
   tokens: LivePreviewToken[],
-  view: EditorView,
+  doc: Text,
+  ranges: readonly { from: number; to: number }[],
   blockMathRanges: readonly { from: number; to: number }[],
 ): void {
-  const doc = view.state.doc;
-  for (const { from: visibleFrom, to: visibleTo } of view.visibleRanges) {
+  for (const { from: visibleFrom, to: visibleTo } of ranges) {
     const text = doc.sliceString(visibleFrom, visibleTo);
     WIKILINK_RE.lastIndex = 0;
     let match: RegExpExecArray | null;
@@ -297,30 +303,34 @@ function addWikilinkTokens(
 
 function addCjkTextTokens(
   tokens: LivePreviewToken[],
-  view: EditorView,
+  doc: Text,
+  ranges: readonly { from: number; to: number }[],
   blockMathRanges: readonly { from: number; to: number }[],
 ): void {
-  const doc = view.state.doc;
-  for (const { from: visibleFrom, to: visibleTo } of view.visibleRanges) {
-    const text = doc.sliceString(visibleFrom, visibleTo);
-    const cacheKey = `${visibleFrom}:${visibleTo}:${text}`;
-    let ranges = cjkTextCache.get(cacheKey);
-    if (!ranges) {
-      ranges = [];
-      CJK_TEXT_RE.lastIndex = 0;
-      let match: RegExpExecArray | null;
-      while ((match = CJK_TEXT_RE.exec(text)) !== null) {
-        const from = visibleFrom + match.index;
-        ranges.push({ from, to: from + match[0].length });
+  for (const { from: visibleFrom, to: visibleTo } of ranges) {
+    const firstLineNum = doc.lineAt(visibleFrom).number;
+    const lastLineNum = doc.lineAt(Math.min(visibleTo, doc.length > 0 ? doc.length : 0)).number;
+    for (let lineNum = firstLineNum; lineNum <= lastLineNum; lineNum++) {
+      const line = doc.line(lineNum);
+      let cached = cjkLineCache.get(lineNum);
+      if (!cached) {
+        cached = [];
+        CJK_TEXT_RE.lastIndex = 0;
+        let match: RegExpExecArray | null;
+        while ((match = CJK_TEXT_RE.exec(line.text)) !== null) {
+          cached.push({ relFrom: match.index, relTo: match.index + match[0].length });
+        }
+        cjkLineCache.set(lineNum, cached);
+        if (cjkLineCache.size > cjkLineCacheLimit) {
+          const oldest = cjkLineCache.keys().next().value;
+          if (oldest !== undefined) cjkLineCache.delete(oldest);
+        }
       }
-      cjkTextCache.set(cacheKey, ranges);
-      if (cjkTextCache.size > cjkTextCacheLimit) {
-        const oldest = cjkTextCache.keys().next().value;
-        if (oldest) cjkTextCache.delete(oldest);
+      for (const { relFrom, relTo } of cached) {
+        const from = line.from + relFrom;
+        const to = line.from + relTo;
+        if (!rangeOverlapsAny(from, to, blockMathRanges)) tokens.push({ kind: "static", from, to, cls: "cm-cjk-text" });
       }
-    }
-    for (const { from, to } of ranges) {
-      if (!rangeOverlapsAny(from, to, blockMathRanges)) tokens.push({ kind: "static", from, to, cls: "cm-cjk-text" });
     }
   }
 }
@@ -336,24 +346,97 @@ function pushMark(
 }
 
 // ---------------------------------------------------------------------------
+// Helpers for incremental viewport updates
+// ---------------------------------------------------------------------------
+
+/** Returns the 1-based line number of the earliest position affected by changes. */
+function firstChangedLine(changes: ChangeSet, doc: Text): number {
+  let minLine = Infinity;
+  changes.iterChangedRanges((_fromA, _toA, fromB) => {
+    const pos = Math.min(fromB, doc.length > 0 ? doc.length - 1 : 0);
+    const line = doc.lineAt(pos).number;
+    if (line < minLine) minLine = line;
+  });
+  return isFinite(minLine) ? minLine : 1;
+}
+
+/**
+ * Returns sub-ranges of `newRanges` not already covered by the envelope
+ * [lastFrom, lastTo], i.e. the portions that just scrolled into view.
+ */
+function computeDeltaRanges(
+  lastFrom: number,
+  lastTo: number,
+  newRanges: readonly { from: number; to: number }[],
+): { from: number; to: number }[] {
+  const delta: { from: number; to: number }[] = [];
+  for (const { from, to } of newRanges) {
+    if (to > lastTo) delta.push({ from: Math.max(from, lastTo), to });
+    if (from < lastFrom) delta.push({ from, to: Math.min(to, lastFrom) });
+  }
+  return delta.filter(r => r.from < r.to);
+}
+
+// ---------------------------------------------------------------------------
 // ViewPlugin export
 // ---------------------------------------------------------------------------
 
 class LivePreviewPlugin {
   decorations: DecorationSet;
   tokens: LivePreviewToken[];
+  private lastVpFrom: number;
+  private lastVpTo: number;
 
   constructor(view: EditorView) {
-    this.tokens = collectLivePreviewTokens(view);
+    const vr = view.visibleRanges;
+    this.tokens = collectLivePreviewTokens(view, vr);
+    this.lastVpFrom = vr[0]?.from ?? 0;
+    this.lastVpTo = vr[vr.length - 1]?.to ?? 0;
     this.decorations = buildDecorations(view, this.tokens);
   }
 
   update(update: ViewUpdate): void {
     if (update.view.compositionStarted && update.selectionSet && !update.docChanged && !update.viewportChanged) return;
-    if (update.docChanged || update.viewportChanged || update.selectionSet) {
-      if (update.docChanged || update.viewportChanged) {
-        this.tokens = collectLivePreviewTokens(update.view);
+
+    const vr = update.view.visibleRanges;
+    const newFrom = vr[0]?.from ?? 0;
+    const newTo = vr[vr.length - 1]?.to ?? 0;
+
+    if (update.docChanged) {
+      // Partial CJK invalidation: only clear lines at/after the first change.
+      // Lines before the change have stable line numbers and valid cache entries.
+      const minLine = firstChangedLine(update.changes, update.view.state.doc);
+      if (minLine <= 1) {
+        cjkLineCache.clear();
+      } else {
+        for (const lineNum of cjkLineCache.keys()) {
+          if (lineNum >= minLine) cjkLineCache.delete(lineNum);
+        }
       }
+      this.tokens = collectLivePreviewTokens(update.view, vr);
+      this.lastVpFrom = newFrom;
+      this.lastVpTo = newTo;
+      this.decorations = buildDecorations(update.view, this.tokens);
+    } else if (update.viewportChanged) {
+      // Incremental: collect tokens only for ranges newly scrolled into view.
+      const delta = computeDeltaRanges(this.lastVpFrom, this.lastVpTo, vr);
+      const kept = this.tokens.filter(t => t.to > newFrom && t.from < newTo);
+      if (delta.length > 0) {
+        const fresh = collectLivePreviewTokens(update.view, delta);
+        if (fresh.length > 0) {
+          const merged = [...kept, ...fresh];
+          merged.sort((a, b) => a.from - b.from || a.to - b.to);
+          this.tokens = merged;
+        } else {
+          this.tokens = kept;
+        }
+      } else {
+        this.tokens = kept;
+      }
+      this.lastVpFrom = newFrom;
+      this.lastVpTo = newTo;
+      this.decorations = buildDecorations(update.view, this.tokens);
+    } else if (update.selectionSet) {
       this.decorations = buildDecorations(update.view, this.tokens);
     }
   }

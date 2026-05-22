@@ -14,7 +14,7 @@
 
 import { describe, expect, test } from "@voidzero-dev/vite-plus-test";
 import { createEditor } from "../../src/editor-api.ts";
-import { markdownHrefAt } from "../../src/cm6/editor-cm6.ts";
+import { calibrateWrappedLayoutClick, markdownHrefAt } from "../../src/cm6/editor-cm6.ts";
 import { setKnownRoamRefs } from "../../src/cm6/roam-link-status.ts";
 import { createVimLite } from "../../aaronnote/vim-lite.ts";
 
@@ -682,16 +682,19 @@ $$
     cleanup();
   });
 
-  test("mermaid widgets consume trailing image-style layout attrs", () => {
+  test("mermaid widgets consume trailing diagram layout attrs", () => {
     const md = "```mermaid\ngraph LR\nA --- B\n```\n{size:180; align: right, wrap: on}\n\nDone";
     const { editor, cleanup } = mountCM6(md);
     editor.setMarkdownSelection(md.length);
 
-    const diagram = document.querySelector<HTMLElement>(".cm-mermaid-widget");
+    const widget = document.querySelector<HTMLElement>(".cm-mermaid-widget");
+    const diagram = document.querySelector<HTMLElement>(".cm-mermaid-block");
+    expect(widget).toBeTruthy();
     expect(diagram).toBeTruthy();
-    expect(diagram!.classList.contains("aaronnote-image-align-right")).toBe(true);
-    expect(diagram!.classList.contains("aaronnote-image-wrap")).toBe(true);
-    expect(diagram!.style.getPropertyValue("--aaronnote-image-width")).toBe("180px");
+    expect(widget!.classList.contains("aaronnote-image-wrap")).toBe(false);
+    expect(diagram!.classList.contains("aaronnote-diagram-align-right")).toBe(true);
+    expect(diagram!.classList.contains("aaronnote-diagram-wrap")).toBe(true);
+    expect(diagram!.style.getPropertyValue("--aaronnote-diagram-width")).toBe("180px");
     expect((editor.view as unknown as { contentDOM: HTMLElement }).contentDOM.textContent)
       .not.toContain("{size:180");
 
@@ -1276,6 +1279,61 @@ after
 
     expect(editor.getMarkdownSelection().from).toBe(md.indexOf("![Diagram title]") + 1);
     cleanup();
+  });
+
+  test("wrapped layout clicks use native text hit-testing when CM coords drift", async () => {
+    const md = "![alt](missing.png){size:160; align:left; wrap:on}\n\nhello world";
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection(md.length);
+
+    const walker = document.createTreeWalker(editor.view.contentDOM, NodeFilter.SHOW_TEXT);
+    let textNode: Text | null = null;
+    while (walker.nextNode()) {
+      const node = walker.currentNode;
+      if (node instanceof Text && node.nodeValue?.includes("hello world")) {
+        textNode = node;
+        break;
+      }
+    }
+    expect(textNode).toBeTruthy();
+
+    const range = document.createRange();
+    range.setStart(textNode!, 2);
+    range.collapse(true);
+    const docWithCaret = document as Document & { caretRangeFromPoint?: (x: number, y: number) => Range | null };
+    const originalCaretRangeFromPoint = docWithCaret.caretRangeFromPoint;
+    const view = editor.view as typeof editor.view & {
+      posAtCoords: (coords: { x: number; y: number }) => number | null;
+    };
+    const originalPosAtCoords = Object.getOwnPropertyDescriptor(view, "posAtCoords");
+
+    docWithCaret.caretRangeFromPoint = () => range;
+    Object.defineProperty(view, "posAtCoords", {
+      configurable: true,
+      value: () => 0,
+    });
+
+    try {
+      const event = new MouseEvent("mousedown", {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+        clientX: 10,
+        clientY: 10,
+      });
+      const handled = calibrateWrappedLayoutClick(editor.view, event);
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+
+      expect(handled).toBe(true);
+      expect(event.defaultPrevented).toBe(true);
+      expect(editor.getMarkdownSelection().from).toBe(md.indexOf("hello") + 2);
+    } finally {
+      if (originalCaretRangeFromPoint) docWithCaret.caretRangeFromPoint = originalCaretRangeFromPoint;
+      else delete (docWithCaret as { caretRangeFromPoint?: unknown }).caretRangeFromPoint;
+      if (originalPosAtCoords) Object.defineProperty(view, "posAtCoords", originalPosAtCoords);
+      else delete (view as { posAtCoords?: unknown }).posAtCoords;
+      cleanup();
+    }
   });
 
   test("clicking task checkbox toggles its checked state directly", () => {

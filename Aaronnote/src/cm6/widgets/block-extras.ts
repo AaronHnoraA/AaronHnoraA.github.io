@@ -365,13 +365,27 @@ function collectHeadings(state: EditorState): TocHeading[] {
   return headings;
 }
 
+const ATX_HEADING_RE = /^#{1,6}\s/;
+const SETEXT_UNDERLINE_RE = /^[=-]{2,}\s*$/;
+
+function docHasHeading(doc: Text): boolean {
+  for (let lineNum = 1; lineNum <= doc.lines; lineNum++) {
+    const text = doc.line(lineNum).text;
+    if (ATX_HEADING_RE.test(text)) return true;
+    if (text.trim() && lineNum < doc.lines && SETEXT_UNDERLINE_RE.test(doc.line(lineNum + 1).text)) return true;
+  }
+  return false;
+}
+
 const headingsField = StateField.define<readonly TocHeading[]>({
   create: collectHeadings,
   update(headings, tr) {
     if (tr.docChanged) {
-      return canMapHeadings(tr.startState.doc, tr.changes)
-        ? headings.map((heading) => ({ ...heading, pos: tr.changes.mapPos(heading.pos) }))
-        : collectHeadings(tr.state);
+      if (!canMapHeadings(tr.startState.doc, tr.changes)) {
+        if (headings.length === 0 && !docHasHeading(tr.state.doc)) return headings;
+        return collectHeadings(tr.state);
+      }
+      return headings.map((heading) => ({ ...heading, pos: tr.changes.mapPos(heading.pos) }));
     }
     return headings;
   },

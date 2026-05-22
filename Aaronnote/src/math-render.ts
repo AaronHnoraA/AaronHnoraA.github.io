@@ -11,7 +11,13 @@ type KatexRenderOptions = {
 };
 
 const mathHtmlCache = new Map<string, { html: string; error?: string }>();
-const MATH_HTML_CACHE_LIMIT = 320;
+const MATH_HTML_CACHE_LIMIT = 512;
+const MATH_HTML_CACHE_BYTES = 4_000_000; // 4 MB
+let mathHtmlCacheBytes = 0;
+
+function mathHtmlEntryBytes(v: { html: string; error?: string }): number {
+  return (v.html.length + (v.error?.length ?? 0)) * 2;
+}
 
 function cachedMathHtml(key: string): { html: string; error?: string } | undefined {
   const cached = mathHtmlCache.get(key);
@@ -22,20 +28,32 @@ function cachedMathHtml(key: string): { html: string; error?: string } | undefin
 }
 
 function rememberMathHtml(key: string, value: { html: string; error?: string }): void {
+  if (mathHtmlCache.has(key)) return;
   mathHtmlCache.set(key, value);
-  while (mathHtmlCache.size > MATH_HTML_CACHE_LIMIT) {
+  mathHtmlCacheBytes += mathHtmlEntryBytes(value);
+  while (mathHtmlCache.size > MATH_HTML_CACHE_LIMIT || mathHtmlCacheBytes > MATH_HTML_CACHE_BYTES) {
     const oldest = mathHtmlCache.keys().next().value as string | undefined;
     if (oldest == null) break;
+    const old = mathHtmlCache.get(oldest)!;
+    mathHtmlCacheBytes -= mathHtmlEntryBytes(old);
     mathHtmlCache.delete(oldest);
   }
 }
 
 export function clearMathRenderCache(): void {
   mathHtmlCache.clear();
+  mathHtmlCacheBytes = 0;
 }
 
 export function mathRenderCacheSize(): number {
   return mathHtmlCache.size;
+}
+
+export function disposeMathRuntime(): void {
+  clearMathRenderCache();
+  if (typeof document !== "undefined") {
+    document.querySelectorAll<HTMLLinkElement>("link[data-aaronnote-katex-css]").forEach((link) => link.remove());
+  }
 }
 
 export function renderMathHTML(

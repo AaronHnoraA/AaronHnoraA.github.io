@@ -1,6 +1,6 @@
 import { describe, expect, test } from "@voidzero-dev/vite-plus-test";
 
-import { enableDiagramInteraction, normalizeMermaidSource } from "../src/diagram-render.ts";
+import { enableDiagramInteraction, normalizeMermaidSource, staticAaronMindmap } from "../src/diagram-render.ts";
 
 describe("diagram render helpers", () => {
   test("keeps full Mermaid source unchanged for marmind fences", () => {
@@ -22,7 +22,19 @@ describe("diagram render helpers", () => {
       .toBe("mindmap\n  Root\n    Branch\n      Detail");
   });
 
-  test("adds diagram toolbar and lets nodes be selected", () => {
+  test("keeps ordered list markers in marmind labels", () => {
+    expect(normalizeMermaidSource("1. Root\n  2) Branch", "markmind"))
+      .toBe("mindmap\n  1. Root\n    2) Branch");
+  });
+
+  test("keeps Aaron mindmap fences static while Mermaid mindmaps stay generic", () => {
+    expect(staticAaronMindmap("marmind")).toBe(true);
+    expect(staticAaronMindmap("markmind")).toBe(true);
+    expect(staticAaronMindmap("mindmap")).toBe(false);
+    expect(staticAaronMindmap("mermaid")).toBe(false);
+  });
+
+  test("enables diagram interaction without toolbar chrome and lets nodes be selected", () => {
     const div = document.createElement("div");
     div.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg"><g id="node-a"><text>Root</text></g></svg>';
 
@@ -30,8 +42,21 @@ describe("diagram render helpers", () => {
     div.querySelector("text")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
     expect(div.classList.contains("cm-diagram-interactive")).toBe(true);
-    expect(div.querySelector(".cm-diagram-toolbar")).toBeTruthy();
+    expect(div.querySelector(".cm-diagram-toolbar")).toBeNull();
     expect(div.querySelector("#node-a")?.classList.contains("cm-diagram-selected")).toBe(true);
+  });
+
+  test("drags diagrams by translating the svg", () => {
+    const div = document.createElement("div");
+    div.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg"><g id="node-a"><text>Root</text></g></svg>';
+    const svg = div.querySelector<SVGSVGElement>("svg")!;
+
+    enableDiagramInteraction(div);
+    svg.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, cancelable: true, button: 0, clientX: 10, clientY: 20 }));
+    div.dispatchEvent(new MouseEvent("pointermove", { bubbles: true, cancelable: true, button: 0, clientX: 28, clientY: 15 }));
+    div.dispatchEvent(new MouseEvent("pointerup", { bubbles: true, cancelable: true, button: 0, clientX: 28, clientY: 15 }));
+
+    expect(svg.style.transform).toContain("translate(18px, -5px)");
   });
 
   test("sanitizes SVG diagram links and dispatches safe links", () => {

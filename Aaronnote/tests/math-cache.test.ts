@@ -5,13 +5,13 @@ import { clearMathRenderCache, mathRenderCacheSize, renderMathLazy } from "../sr
 describe("math render cache", () => {
   test("caps cached render html", () => {
     clearMathRenderCache();
-    for (let i = 0; i < 420; i++) {
+    for (let i = 0; i < 600; i++) {
       const el = document.createElement("span");
       document.body.appendChild(el);
       renderMathLazy(`x_${i}`, el, { displayMode: false, throwOnError: false }, () => {});
       el.remove();
     }
-    expect(mathRenderCacheSize()).toBeLessThanOrEqual(320);
+    expect(mathRenderCacheSize()).toBeLessThanOrEqual(512);
     clearMathRenderCache();
   });
 });

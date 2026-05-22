@@ -10,14 +10,24 @@ type Rule = {
 };
 
 const HIGHLIGHT_CACHE_LIMIT = 384;
+const HIGHLIGHT_CACHE_BYTES = 4_000_000; // 4 MB
 const MAX_HIGHLIGHT_CHARS = 180_000;
 const cache = new Map<string, CodeHighlightRange[]>();
+let cacheBytes = 0;
+
+function highlightEntryBytes(ranges: CodeHighlightRange[]): number {
+  return ranges.length * 48;
+}
 
 function remember(key: string, ranges: CodeHighlightRange[]): CodeHighlightRange[] {
+  if (cache.has(key)) return ranges;
   cache.set(key, ranges);
-  while (cache.size > HIGHLIGHT_CACHE_LIMIT) {
+  cacheBytes += highlightEntryBytes(ranges);
+  while (cache.size > HIGHLIGHT_CACHE_LIMIT || cacheBytes > HIGHLIGHT_CACHE_BYTES) {
     const oldest = cache.keys().next().value as string | undefined;
     if (oldest == null) break;
+    const old = cache.get(oldest)!;
+    cacheBytes -= highlightEntryBytes(old);
     cache.delete(oldest);
   }
   return ranges;
@@ -25,6 +35,7 @@ function remember(key: string, ranges: CodeHighlightRange[]): CodeHighlightRange
 
 export function clearCodeHighlightCache(): void {
   cache.clear();
+  cacheBytes = 0;
 }
 
 export function codeHighlightCacheSize(): number {

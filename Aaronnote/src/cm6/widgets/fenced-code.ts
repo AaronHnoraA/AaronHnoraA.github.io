@@ -29,8 +29,7 @@ import type { Range } from "@codemirror/state";
 import { highlightCodeForEditor, onCodeHighlightReady } from "../../code-highlight-async.ts";
 import { supportedDiagramLang } from "../../diagram-langs.ts";
 import { getBlockMathRanges, rangeInsideAny, rangeOverlapsAny } from "../math-ranges.ts";
-import { readLayoutAttrsLine } from "../../layout-attrs.ts";
-import { applyImageLayout, imageLayoutFromAttrs, type ImageLayoutAttrs } from "../../image-attrs.ts";
+import { applyLayoutAttrs, layoutFromAttrs, readLayoutAttrsLine, type LayoutAttrs } from "../../layout-attrs.ts";
 
 function setSourceRange(el: HTMLElement, from: number, to: number, anchor?: number, openSource = false): void {
   el.dataset.cmSourceFrom = String(from);
@@ -134,9 +133,9 @@ class MermaidWidget extends WidgetType {
   from: number;
   to: number;
   sourceFrom: number;
-  layout: ImageLayoutAttrs;
+  layout: LayoutAttrs;
 
-  constructor(source: string, lang: string, from: number, to: number, sourceFrom: number, layout: ImageLayoutAttrs) {
+  constructor(source: string, lang: string, from: number, to: number, sourceFrom: number, layout: LayoutAttrs) {
     super();
     this.source = source;
     this.lang = lang;
@@ -160,12 +159,12 @@ class MermaidWidget extends WidgetType {
 
   toDOM(view: EditorView): HTMLElement {
     const wrap = document.createElement("figure");
-    wrap.className = "cm-mermaid-widget cm-image-widget";
+    wrap.className = "cm-mermaid-widget";
     setSourceRange(wrap, this.from, this.to, this.sourceFrom, true);
-    applyImageLayout(wrap, this.layout);
 
     const div = document.createElement("div");
     div.className = "cm-mermaid-block";
+    applyLayoutAttrs(div, "diagram", this.layout);
     wrap.append(div);
     renderMermaidWidget(this.source, this.lang, div, () => view.requestMeasure());
     return wrap;
@@ -177,9 +176,9 @@ class MermaidWidget extends WidgetType {
 class MermaidPreviewWidget extends WidgetType {
   source: string;
   lang: string;
-  layout: ImageLayoutAttrs;
+  layout: LayoutAttrs;
 
-  constructor(source: string, lang: string, layout: ImageLayoutAttrs) {
+  constructor(source: string, lang: string, layout: LayoutAttrs) {
     super();
     this.source = source;
     this.lang = lang;
@@ -197,11 +196,11 @@ class MermaidPreviewWidget extends WidgetType {
 
   toDOM(view: EditorView): HTMLElement {
     const wrap = document.createElement("figure");
-    wrap.className = "cm-mermaid-widget cm-mermaid-widget-preview cm-image-widget";
-    applyImageLayout(wrap, this.layout);
+    wrap.className = "cm-mermaid-widget cm-mermaid-widget-preview";
 
     const div = document.createElement("div");
     div.className = "cm-mermaid-block-preview";
+    applyLayoutAttrs(div, "diagram", this.layout);
     wrap.append(div);
     renderMermaidWidget(this.source, this.lang, div, () => view.requestMeasure());
     return wrap;
@@ -241,16 +240,16 @@ interface MermaidBlock {
   sourceFrom: number;
   sourceTo: number;
   source: string;
-  layout: ImageLayoutAttrs;
+  layout: LayoutAttrs;
 }
 
-function nextLayoutAttrsLine(doc: Text, sourceTo: number): { to: number; layout: ImageLayoutAttrs } | null {
+function nextLayoutAttrsLine(doc: Text, sourceTo: number): { to: number; layout: LayoutAttrs } | null {
   const currentLine = doc.lineAt(sourceTo);
   if (currentLine.number >= doc.lines) return null;
   const nextLine = doc.line(currentLine.number + 1);
   const attrs = readLayoutAttrsLine(nextLine.text);
   if (!attrs) return null;
-  return { to: nextLine.to, layout: imageLayoutFromAttrs(attrs.attrs) };
+  return { to: nextLine.to, layout: layoutFromAttrs(attrs.attrs) };
 }
 
 function collectMermaidBlocks(state: EditorState): readonly MermaidBlock[] {
@@ -278,7 +277,7 @@ function collectMermaidBlocks(state: EditorState): readonly MermaidBlock[] {
         sourceFrom: textNode ? textNode.from : node.to,
         sourceTo: textNode ? textNode.to : node.to,
         source: textNode ? doc.sliceString(textNode.from, textNode.to) : "",
-        layout: trailing?.layout ?? imageLayoutFromAttrs({}),
+        layout: trailing?.layout ?? layoutFromAttrs({}),
       });
       return false; // skip children
     },
@@ -286,13 +285,24 @@ function collectMermaidBlocks(state: EditorState): readonly MermaidBlock[] {
   return blocks;
 }
 
+const DIAGRAM_FENCE_OPENER_RE = /^[ \t]{0,3}(?:`{3,}|~{3,})\s*(?:mermaid|mindmap|marmind|markmind)\b/i;
+
+function docHasDiagramFence(doc: Text): boolean {
+  for (let lineNum = 1; lineNum <= doc.lines; lineNum++) {
+    if (DIAGRAM_FENCE_OPENER_RE.test(doc.line(lineNum).text)) return true;
+  }
+  return false;
+}
+
 const mermaidBlocksField = StateField.define<readonly MermaidBlock[]>({
   create: collectMermaidBlocks,
   update(blocks, tr) {
     if (tr.docChanged) {
-      return canMapMermaidBlocks(tr.startState.doc, blocks, tr.changes)
-        ? blocks.map((block) => mapMermaidBlock(block, tr.changes, tr.state.doc))
-        : collectMermaidBlocks(tr.state);
+      if (!canMapMermaidBlocks(tr.startState.doc, blocks, tr.changes)) {
+        if (blocks.length === 0 && !docHasDiagramFence(tr.state.doc)) return blocks;
+        return collectMermaidBlocks(tr.state);
+      }
+      return blocks.map((block) => mapMermaidBlock(block, tr.changes, tr.state.doc));
     }
     return blocks;
   },

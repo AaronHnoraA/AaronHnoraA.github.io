@@ -98,11 +98,25 @@ function canMapBlockMathRanges(
   return canMap;
 }
 
+function changedLinesMightOpenMathFence(state: EditorState, changes: ChangeSet): boolean {
+  let found = false;
+  changes.iterChanges((_fromA, _toA, fromB, toB) => {
+    if (found) return;
+    const lineFrom = state.doc.lineAt(fromB).number;
+    const lineTo = state.doc.lineAt(Math.min(toB, state.doc.length)).number;
+    for (let ln = lineFrom; ln <= lineTo && !found; ln++) {
+      if (BLOCK_MATH_FENCE_RE.test(state.doc.line(ln).text)) found = true;
+    }
+  });
+  return found;
+}
+
 export const blockMathRangesField = StateField.define<readonly BlockMathRange[]>({
   create: (state) => scanBlockMathRangesInDoc(state.doc),
   update(ranges, tr) {
     if (!tr.docChanged) return ranges;
     if (!canMapBlockMathRanges(tr.startState, ranges, tr.changes)) {
+      if (ranges.length === 0 && !changedLinesMightOpenMathFence(tr.state, tr.changes)) return ranges;
       return scanBlockMathRangesInDoc(tr.state.doc);
     }
     return ranges.map((range) => {

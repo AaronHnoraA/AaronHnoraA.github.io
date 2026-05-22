@@ -29,6 +29,9 @@ import { closeBrackets } from "@codemirror/autocomplete";
 import { syntaxTree } from "@codemirror/language";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { livePreviewExtension } from "./live-preview.ts";
+import { disposeHighlightWorker } from "../code-highlight-async.ts";
+import { disposeDiagramRuntime } from "../diagram-render.ts";
+import { disposeMathRuntime } from "../math-render.ts";
 import { mathExtension } from "./widgets/math.ts";
 import { fencedCodeExtension } from "./widgets/fenced-code.ts";
 import { taskListExtension } from "./widgets/task-list.ts";
@@ -91,6 +94,75 @@ function sourceAnchorForClick(source: HTMLElement, event: MouseEvent, from: numb
   if (rect.width <= 0 || innerTo <= innerFrom) return innerFrom;
   const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
   return Math.round(innerFrom + ratio * (innerTo - innerFrom));
+}
+
+function eventTargetElement(target: EventTarget | Node | null): Element | null {
+  if (target instanceof Element) return target;
+  if (target instanceof Text) return target.parentElement;
+  return null;
+}
+
+type NativeCaretPosition = { node: Node; offset: number };
+
+function nativeCaretPositionFromPoint(x: number, y: number): NativeCaretPosition | null {
+  const doc = document as Document & {
+    caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+    caretRangeFromPoint?: (x: number, y: number) => Range | null;
+  };
+  const caret = doc.caretPositionFromPoint?.(x, y);
+  if (caret?.offsetNode) return { node: caret.offsetNode, offset: caret.offset };
+  const range = doc.caretRangeFromPoint?.(x, y);
+  if (range) return { node: range.startContainer, offset: range.startOffset };
+  return null;
+}
+
+function hasWrappedLayout(view: EditorView): boolean {
+  return Boolean(view.dom.querySelector(".aaronnote-image-wrap, .aaronnote-table-wrap, .aaronnote-diagram-wrap"));
+}
+
+function realRectContainsY(el: Element, y: number): boolean {
+  const rects = Array.from(el.getClientRects()).filter((rect) => rect.width > 0 || rect.height > 0);
+  if (rects.length === 0) return true;
+  return rects.some((rect) => y >= rect.top - 4 && y <= rect.bottom + 4);
+}
+
+export function calibrateWrappedLayoutClick(view: EditorView, event: MouseEvent): boolean {
+  if (event.button !== 0 || event.shiftKey || event.metaKey || event.ctrlKey || event.altKey) return false;
+  const target = eventTargetElement(event.target);
+  if (
+    target?.closest("input, textarea, select, button, a, [contenteditable='true'], .cm-diagram-toolbar, .cm-diagram-interactive svg")
+    || sourceRangeElement(event.target)
+    || !hasWrappedLayout(view)
+  ) {
+    return false;
+  }
+
+  const caret = nativeCaretPositionFromPoint(event.clientX, event.clientY);
+  if (!caret || !view.contentDOM.contains(caret.node)) return false;
+  const line = eventTargetElement(caret.node)?.closest<HTMLElement>(".cm-line");
+  if (!line || !realRectContainsY(line, event.clientY)) return false;
+
+  let anchor: number;
+  try {
+    anchor = view.posAtDOM(caret.node, caret.offset);
+  } catch {
+    return false;
+  }
+  if (!Number.isFinite(anchor)) return false;
+
+  const mapped = view.posAtCoords({ x: event.clientX, y: event.clientY });
+  if (mapped != null && Math.abs(mapped - anchor) <= 1) return false;
+
+  event.preventDefault();
+  event.stopPropagation();
+  window.setTimeout(() => {
+    if (!view.dom.isConnected) return;
+    view.dispatch({ selection: { anchor } });
+    window.setTimeout(() => {
+      if (view.dom.isConnected) view.focus();
+    }, 0);
+  }, 0);
+  return true;
 }
 
 function hrefFromLinkNode(state: EditorState, from: number, to: number): string | null {
@@ -507,6 +579,9 @@ export function createEditorCM6(host: HTMLElement, options: EditorOptions): Edit
       view.destroy();
       caretFlash.remove();
       wrap.remove();
+      disposeHighlightWorker();
+      disposeDiagramRuntime();
+      disposeMathRuntime();
     },
 
     // Expose the CM6 EditorView as an escape hatch.
@@ -611,7 +686,7 @@ function buildExtensions(options: EditorOptions, previewCompartment: Compartment
   return [
     EditorState.allowMultipleSelections.of(true),
     EditorView.clickAddsSelectionRange.of((event) => event.altKey || event.metaKey || event.ctrlKey),
-    history(),
+    history({ minDepth: 200, newGroupDelay: 500 }),
     closeBrackets(),
     EditorView.inputHandler.of(wrapSelectedMarkdownInput),
     rectangularSelection(),
@@ -646,7 +721,10 @@ function buildExtensions(options: EditorOptions, previewCompartment: Compartment
       }
     }),
     EditorView.domEventHandlers({
-      mousedown: (event, eventView) => event.button === 0 && openMarkdownLinkFromEvent(eventView, event),
+      mousedown: (event, eventView) => event.button === 0 && (
+        openMarkdownLinkFromEvent(eventView, event)
+        || calibrateWrappedLayoutClick(eventView, event)
+      ),
       auxclick: (event, eventView) => event.button === 1 && openMarkdownLinkFromEvent(eventView, event),
       contextmenu: (event, eventView) => openAttachmentContextMenuFromEvent(eventView, event),
       focus: () => { options.onFocus?.(); return false; },

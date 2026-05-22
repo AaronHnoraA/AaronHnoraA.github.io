@@ -247,12 +247,12 @@ export function createGitPanel(options: GitPanelOptions): GitPanel {
     diffEl.replaceChildren(renderEmpty("Select a file or commit"));
   }
 
-  async function refresh(): Promise<void> {
+  async function refresh(refreshOptions: { beforeRefresh?: boolean } = {}): Promise<void> {
     active = true;
     const seq = ++refreshSeq;
     options.setStatus("Loading git state");
     try {
-      await options.beforeRefresh?.();
+      if (refreshOptions.beforeRefresh !== false) await options.beforeRefresh?.();
       if (seq !== refreshSeq || !active) return;
       const [statusMsg, changesMsg, historyMsg] = await Promise.all([
         api.roamTools.repoStatus(),
@@ -261,7 +261,10 @@ export function createGitPanel(options: GitPanelOptions): GitPanel {
       ]);
       if (seq !== refreshSeq || !active) return;
       status = statusMsg;
-      changes = (changesMsg.changes || []).slice().sort((a, b) => changeSortKey(a).localeCompare(changeSortKey(b)));
+      changes = (changesMsg.changes || [])
+        .filter((change) => change.isMarkdown)
+        .slice()
+        .sort((a, b) => changeSortKey(a).localeCompare(changeSortKey(b)));
       history = historyMsg.entries || [];
       renderStatus();
       renderChanges();
@@ -331,11 +334,14 @@ export function createGitPanel(options: GitPanelOptions): GitPanel {
   async function restoreSelectedFile(): Promise<void> {
     const change = selectedChange();
     if (!change?.file) return;
+    const isCurrentFile = change.file === options.getCurrentFile();
     options.setStatus("Restoring file");
     try {
       await api.roamTools.discardFileChanges(change.file);
-      await refresh();
-      if (change.file === options.getCurrentFile()) await options.openNote(change.file);
+      // Do not let the post-restore git refresh save stale editor content back
+      // over a file that was just restored on disk.
+      await refresh({ beforeRefresh: !isCurrentFile });
+      if (isCurrentFile) await options.openNote(change.file);
       options.setStatus("Restored file");
     } catch (err) {
       options.setStatus(err instanceof Error ? err.message : "Restore failed");

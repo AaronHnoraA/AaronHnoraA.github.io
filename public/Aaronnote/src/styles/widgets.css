@@ -286,21 +286,33 @@
 }
 .cm-editor .cm-image-widget {
   display: block;
-  width: 100%;
+  width: fit-content;
   max-width: 100%;
   text-align: center;
-  margin: 0.32rem 0 0.42rem;
+  margin: 0.32rem auto 0.42rem;
   vertical-align: bottom;
 }
-.cm-editor .cm-image-widget.aaronnote-image-align-left { text-align: left; }
-.cm-editor .cm-image-widget.aaronnote-image-align-right { text-align: right; }
+.cm-editor .cm-image-widget.aaronnote-image-align-left {
+  margin-left: 0;
+  margin-right: auto;
+  text-align: left;
+}
+.cm-editor .cm-image-widget.aaronnote-image-align-right {
+  margin-left: auto;
+  margin-right: 0;
+  text-align: right;
+}
 .cm-editor .cm-image-widget.aaronnote-image-wrap.aaronnote-image-align-left {
-  width: var(--aaronnote-image-width, min(42%, var(--note-image-max, 360px)));
-  margin: 0.25rem auto 0.7rem 0;
+  float: left;
+  width: fit-content;
+  max-width: var(--aaronnote-image-max-width, min(42%, var(--note-image-max, 360px)));
+  margin: 0.25rem 1rem 0.7rem 0;
 }
 .cm-editor .cm-image-widget.aaronnote-image-wrap.aaronnote-image-align-right {
-  width: var(--aaronnote-image-width, min(42%, var(--note-image-max, 360px)));
-  margin: 0.25rem 0 0.7rem auto;
+  float: right;
+  width: fit-content;
+  max-width: var(--aaronnote-image-max-width, min(42%, var(--note-image-max, 360px)));
+  margin: 0.25rem 0 0.7rem 1rem;
 }
 .cm-editor .cm-image-render {
   display: block;
@@ -318,7 +330,7 @@
 .cm-editor .cm-image-widget.aaronnote-image-align-left .cm-image-render { margin-left: 0; margin-right: auto; }
 .cm-editor .cm-image-widget.aaronnote-image-align-right .cm-image-render { margin-left: auto; margin-right: 0; }
 .cm-editor .cm-image-widget.aaronnote-image-wrap .cm-image-render {
-  width: 100%;
+  width: var(--aaronnote-image-width, auto);
   max-width: var(--aaronnote-image-max-width, 100%);
 }
 .cm-editor .cm-image-caption {
@@ -844,12 +856,21 @@
 .cm-editor .code-token-punctuation { color: #64748b; }
 
 /* ─── CM6 mermaid / diagram widgets ─────────────────────────────── */
+.cm-editor .cm-mermaid-widget {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 0.32rem 0 0.42rem;
+  padding: 0;
+}
 .cm-editor .cm-mermaid-block,
 .cm-editor .cm-mermaid-block-preview {
   display: block;
   box-sizing: border-box;
-  width: min(100%, var(--note-diagram-max, 600px));
-  max-height: 460px;
+  width: var(--aaronnote-diagram-width, min(100%, var(--note-diagram-max, 600px)));
+  max-width: var(--aaronnote-diagram-max-width, 100%);
+  height: var(--aaronnote-diagram-height, auto);
+  max-height: var(--aaronnote-diagram-max-height, 460px);
   margin: 0.6rem auto 0.82rem;
   padding: 14px 16px;
   border: 1px solid color-mix(in srgb, var(--aaron-paper-line, #ddd), var(--aaron-muted, #6c6358) 12%);
@@ -867,32 +888,10 @@
 .cm-editor .cm-mermaid-block-preview {
   cursor: default;
 }
-.cm-editor .cm-mermaid-widget.cm-image-widget {
-  margin: 0.32rem 0 0.42rem;
-}
-.cm-editor .cm-mermaid-widget .cm-mermaid-block,
-.cm-editor .cm-mermaid-widget .cm-mermaid-block-preview {
-  width: var(--aaronnote-image-width, min(100%, var(--note-diagram-max, 600px)));
-  max-width: var(--aaronnote-image-max-width, 100%);
-  height: var(--aaronnote-image-height, auto);
-  max-height: var(--aaronnote-image-height, 460px);
+.cm-editor .cm-mermaid-widget > .cm-mermaid-block,
+.cm-editor .cm-mermaid-widget > .cm-mermaid-block-preview {
   margin-top: 0;
   margin-bottom: 0;
-}
-.cm-editor .cm-mermaid-widget.aaronnote-image-align-left .cm-mermaid-block,
-.cm-editor .cm-mermaid-widget.aaronnote-image-align-left .cm-mermaid-block-preview {
-  margin-left: 0;
-  margin-right: auto;
-}
-.cm-editor .cm-mermaid-widget.aaronnote-image-align-right .cm-mermaid-block,
-.cm-editor .cm-mermaid-widget.aaronnote-image-align-right .cm-mermaid-block-preview {
-  margin-left: auto;
-  margin-right: 0;
-}
-.cm-editor .cm-mermaid-widget.aaronnote-image-wrap .cm-mermaid-block,
-.cm-editor .cm-mermaid-widget.aaronnote-image-wrap .cm-mermaid-block-preview {
-  width: 100%;
-  max-width: var(--aaronnote-image-max-width, 100%);
 }
 .cm-editor .cm-mermaid-block.aaronnote-diagram-align-left,
 .cm-editor .cm-mermaid-block-preview.aaronnote-diagram-align-left {
@@ -906,56 +905,97 @@
 }
 .cm-editor .cm-mermaid-block.aaronnote-diagram-wrap.aaronnote-diagram-align-left,
 .cm-editor .cm-mermaid-block-preview.aaronnote-diagram-wrap.aaronnote-diagram-align-left {
+  float: left;
   width: var(--aaronnote-diagram-width, min(48%, var(--note-diagram-max, 420px)));
-  margin: 0.25rem auto 0.7rem 0;
+  margin: 0.25rem 1rem 0.7rem 0;
 }
 .cm-editor .cm-mermaid-block.aaronnote-diagram-wrap.aaronnote-diagram-align-right,
 .cm-editor .cm-mermaid-block-preview.aaronnote-diagram-wrap.aaronnote-diagram-align-right {
+  float: right;
   width: var(--aaronnote-diagram-width, min(48%, var(--note-diagram-max, 420px)));
-  margin: 0.25rem 0 0.7rem auto;
+  margin: 0.25rem 0 0.7rem 1rem;
 }
 .cm-editor .cm-diagram-interactive {
   position: relative;
 }
-.cm-editor .cm-diagram-interactive::after {
-  content: "drag / ctrl+wheel";
-  position: sticky;
-  right: 0;
-  bottom: 0;
-  display: block;
-  width: fit-content;
-  margin: 6px 0 0 auto;
-  color: color-mix(in srgb, var(--aaron-muted, #6c6358), transparent 12%);
-  font: 700 10px/1 var(--aaron-font-sans, system-ui, sans-serif);
-  letter-spacing: 0.02em;
-  pointer-events: none;
+.cm-editor .cm-aaron-mindmap {
+  overflow: visible;
+  padding: 1.1rem 1.35rem;
+  border-color: color-mix(in srgb, var(--aaron-paper-line, #d8d0c2), var(--aaron-ink, #1e1a16) 10%);
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--aaron-paper, #f7f4ed), white 26%),
+      color-mix(in srgb, var(--aaron-paper-soft, #f8f4ea), white 7%)
+    );
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 64%),
+    0 8px 24px color-mix(in srgb, var(--aaron-ink, #1e1a16), transparent 95%);
+  cursor: default;
 }
-.cm-editor .cm-diagram-toolbar {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  display: flex;
-  justify-content: flex-end;
-  gap: 4px;
-  margin: -8px -10px 8px auto;
-  padding: 0 0 4px;
-  pointer-events: none;
+.cm-editor .cm-aaron-mindmap svg {
+  max-height: none !important;
+  cursor: default !important;
 }
-.cm-editor .cm-diagram-toolbar button {
-  min-width: 26px;
-  height: 24px;
-  border: 1px solid color-mix(in srgb, var(--aaron-paper-line, #d8d0c2), var(--aaron-muted, #6c6358) 16%);
-  border-radius: 3px;
-  background: color-mix(in srgb, var(--aaron-paper, #fff), white 24%);
-  color: var(--aaron-ink, #24201a);
-  cursor: pointer;
-  font: 800 11px/1 var(--aaron-font-sans, system-ui, sans-serif);
-  pointer-events: auto;
+.cm-editor .cm-aaron-mindmap svg :is(text, tspan) {
+  font-family: var(--aaron-font-sans, "Avenir Next", Inter, system-ui, sans-serif);
+  letter-spacing: 0;
 }
-.cm-editor .cm-diagram-toolbar button:hover {
-  border-color: color-mix(in srgb, var(--aaron-red, #b31b1b), transparent 28%);
-  color: var(--aaron-red-dark, #7b1113);
+.cm-editor .cm-aaron-mindmap svg :is(.edge, path.edge, line.edge) {
+  stroke: color-mix(in srgb, var(--aaron-muted, #6c6358), var(--aaron-red, #b31b1b) 10%) !important;
+  stroke-width: 2.25px !important;
 }
+.cm-editor .cm-aaron-mindmap svg .mindmap-node :is(rect, path, circle, polygon) {
+  stroke: color-mix(in srgb, var(--aaron-muted, #6c6358), transparent 14%) !important;
+  stroke-width: 1.5px;
+}
+.cm-editor .cm-aaron-mindmap svg .mindmap-node :is(text, tspan) {
+  fill: var(--aaron-ink, #1e1a16) !important;
+  font-weight: 520;
+}
+.cm-editor .cm-aaron-mindmap svg .mindmap-node.section-root :is(rect, path, circle, polygon) {
+  fill: color-mix(in srgb, var(--aaron-red, #b31b1b), var(--aaron-paper, #f7f4ed) 85%) !important;
+  stroke: color-mix(in srgb, var(--aaron-red, #b31b1b), var(--aaron-muted, #6c6358) 36%) !important;
+}
+.cm-editor .cm-aaron-mindmap svg .mindmap-node:is(.section-0, .section-3, .section-6, .section-9) :is(rect, path, circle, polygon) {
+  fill: color-mix(in srgb, var(--aaron-paper-line, #d8d0c2), white 38%) !important;
+}
+.cm-editor .cm-aaron-mindmap svg .mindmap-node:is(.section-1, .section-4, .section-7, .section-10) :is(rect, path, circle, polygon) {
+  fill: color-mix(in srgb, var(--aaron-accent-soft, #dce8df), white 31%) !important;
+}
+.cm-editor .cm-aaron-mindmap svg .mindmap-node:is(.section-2, .section-5, .section-8) :is(rect, path, circle, polygon) {
+  fill: color-mix(in srgb, var(--aaron-link-soft, #dbe7ee), white 34%) !important;
+}
+.cm-editor .cm-aaron-mindmap svg .mindmap-node line {
+  stroke: color-mix(in srgb, var(--aaron-muted, #6c6358), transparent 28%) !important;
+  stroke-width: 2px !important;
+}
+
+/* ── Aaron mindmap: foreignObject labels (Mermaid renders text via HTML div/p) */
+.cm-editor .cm-aaron-mindmap foreignObject {
+  overflow: visible;
+}
+.cm-editor .cm-aaron-mindmap .nodeLabel,
+.cm-editor .cm-aaron-mindmap foreignObject div,
+.cm-editor .cm-aaron-mindmap foreignObject p {
+  font-family: var(--aaron-font-sans, "Avenir Next", Inter, system-ui, sans-serif) !important;
+  font-size: 13px !important;
+  font-weight: 510 !important;
+  line-height: 1.42 !important;
+  color: var(--aaron-ink, #1e1a16) !important;
+  letter-spacing: 0 !important;
+  text-align: center !important;
+}
+.cm-editor .cm-aaron-mindmap .mindmap-node.section-root .nodeLabel,
+.cm-editor .cm-aaron-mindmap .mindmap-node.section-root foreignObject p {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+}
+/* Level-1 branches slightly bolder */
+.cm-editor .cm-aaron-mindmap .mindmap-node:is(.section-0, .section-1, .section-2) > foreignObject .nodeLabel {
+  font-weight: 540 !important;
+}
+
 .cm-editor .cm-diagram-interactive a {
   cursor: pointer;
 }
@@ -980,6 +1020,7 @@
   margin: 0 auto;
   touch-action: none;
   cursor: grab;
+  will-change: transform;
 }
 .cm-editor .cm-diagram-interactive.is-panning svg {
   cursor: grabbing;
@@ -1738,12 +1779,14 @@
   margin-right: 0;
 }
 .cm-editor pre.aaronnote-diagram-wrap.aaronnote-diagram-align-left {
+  float: left;
   width: var(--aaronnote-diagram-width, min(48%, var(--note-diagram-max, 420px)));
-  margin: 0.25rem auto 0.7rem 0;
+  margin: 0.25rem 1rem 0.7rem 0;
 }
 .cm-editor pre.aaronnote-diagram-wrap.aaronnote-diagram-align-right {
+  float: right;
   width: var(--aaronnote-diagram-width, min(48%, var(--note-diagram-max, 420px)));
-  margin: 0.25rem 0 0.7rem auto;
+  margin: 0.25rem 0 0.7rem 1rem;
 }
 .cm-editor pre .cb-diagram-preview svg {
   display: block;
@@ -1806,12 +1849,14 @@
   margin-right: 0;
 }
 .cm-editor table.aaronnote-table-wrap.aaronnote-table-align-left {
+  float: left;
   width: var(--aaronnote-table-width, min(56%, 520px));
-  margin: 0.25rem auto 0.7rem 0;
+  margin: 0.25rem 1rem 0.7rem 0;
 }
 .cm-editor table.aaronnote-table-wrap.aaronnote-table-align-right {
+  float: right;
   width: var(--aaronnote-table-width, min(56%, 520px));
-  margin: 0.25rem 0 0.7rem auto;
+  margin: 0.25rem 0 0.7rem 1rem;
 }
 .cm-editor table th,
 .cm-editor table td {
@@ -1867,13 +1912,15 @@
 }
 .cm-editor .cm-table-block.aaronnote-table-wrap.aaronnote-table-align-left,
 .cm-editor .cm-table-block-preview.aaronnote-table-wrap.aaronnote-table-align-left {
+  float: left;
   width: var(--aaronnote-table-width, min(56%, 520px));
-  margin: 0.25rem auto 0.7rem 0;
+  margin: 0.25rem 1rem 0.7rem 0;
 }
 .cm-editor .cm-table-block.aaronnote-table-wrap.aaronnote-table-align-right,
 .cm-editor .cm-table-block-preview.aaronnote-table-wrap.aaronnote-table-align-right {
+  float: right;
   width: var(--aaronnote-table-width, min(56%, 520px));
-  margin: 0.25rem 0 0.7rem auto;
+  margin: 0.25rem 0 0.7rem 1rem;
 }
 .cm-editor .cm-markdown-table-preview {
   margin-bottom: 0;
