@@ -18,6 +18,7 @@ import {
   tagIndexPayload,
   pathSuggestionsForFile,
   syncRoamDb,
+  queueRoamDbSync,
   maybeScheduleWeeklyFullSync,
   fileHistory,
   restoreFileFromCommit,
@@ -342,8 +343,8 @@ function registerApiIpc() {
     if (!file || !sha) throw Object.assign(new Error("Missing file or sha"), { statusCode: 400 });
     await restoreFileFromCommit(roamNoteRoot, file, sha);
     markNotesDirty(file);
-    const notes = await syncRoamDb(null, { changedFiles: [file] });
-    const index = await notesIndexPayload(notes);
+    queueRoamDbSync(null, [file]);
+    const index = await notesIndexPayload();
     return { type: "notes", ...index, root: noteRoot, db: join(noteRoot, "roam.db"), restoredFile: file };
   });
   registerApiHandler("aaronnote:api:roam-tools:repo-status", async () => {
@@ -371,6 +372,7 @@ function registerApiIpc() {
   });
   registerApiHandler("aaronnote:api:roam-tools:pull", async () => {
     const output = await pullRoam(roamNoteRoot);
+    markNotesDirty();
     return { type: "roam-pull-done", ok: true, output };
   });
   registerApiHandler("aaronnote:api:roam-tools:push", async () => {
@@ -1217,10 +1219,9 @@ app.whenReady().then(async () => {
   registerApiIpc();
   registerGlobalShortcuts();
   createWindow();
-  // Weekly full rebuild — runs in background 30s after cold start to not delay UI
   setTimeout(() => {
     void maybeScheduleWeeklyFullSync().catch((err) => {
-      console.error("[roam-sync] weekly check failed:", err?.message || err);
+      console.error("[roam-sync] weekly full-sync check failed:", err?.message || err);
     });
   }, 30_000);
 });

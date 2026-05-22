@@ -7,6 +7,7 @@ export {
   tagIndexPayload,
   pathSuggestionsForFile,
   syncRoamDb,
+  queueRoamDbSync,
   maybeScheduleWeeklyFullSync,
   fileHistory,
   restoreFileFromCommit,

@@ -118,11 +118,19 @@ async function gitRoot(noteRoot) {
   return cachedGitRootValue;
 }
 
+async function noteRootPathspec(noteRoot) {
+  const rootReal = await realResolve(await gitRoot(noteRoot));
+  const noteRootReal = await realResolve(noteRoot);
+  if (noteRootReal === rootReal) return ".";
+  if (!noteRootReal.startsWith(rootReal + sep)) return ".";
+  return `:(top)${slashPath(relative(rootReal, noteRootReal))}`;
+}
+
 // Resolves a git-output path (relative to git root) to an absolute path,
 // then returns it only if it lives inside noteRoot.
 async function resolveGitPath(noteRoot, gitRelPath) {
   const root = await gitRoot(noteRoot);
-  const abs = resolve(root, gitRelPath);
+  const abs = await realResolve(resolve(root, gitRelPath));
   // Must be inside noteRoot (which may be a symlink; git resolves real paths)
   const noteRootReal = await realResolve(noteRoot);
   return (abs === noteRootReal || abs.startsWith(noteRootReal + sep)) ? abs : null;
@@ -235,11 +243,9 @@ export async function roamRepoStatus(noteRoot) {
     } catch {}
   }
   try {
-    const out = await gitRaw(noteRoot, ["status", "--porcelain", "--"]);
-    uncommitted = out.split("\n").some((l) => {
-      const f = l.slice(3).trim();
-      return f && /\.(?:md|markdown)$/i.test(f);
-    });
+    const scope = await noteRootPathspec(noteRoot);
+    const out = await gitRaw(noteRoot, ["status", "--porcelain", "--untracked-files=all", "--", scope]);
+    uncommitted = out.split("\n").some((line) => line.trim());
   } catch {}
   return { branch, ahead, behind, uncommitted, hasRemote: Boolean(remoteUrl), remoteUrl };
 }
@@ -247,7 +253,8 @@ export async function roamRepoStatus(noteRoot) {
 export async function roamRepoChanges(noteRoot) {
   const root = await gitRoot(noteRoot);
   const noteRootAbs = await realResolve(noteRoot);
-  const out = await gitRaw(noteRoot, ["-c", "core.quotePath=false", "status", "--porcelain=v1", "--untracked-files=all", "--", "."]);
+  const scope = await noteRootPathspec(noteRoot);
+  const out = await gitRaw(noteRoot, ["-c", "core.quotePath=false", "status", "--porcelain=v1", "--untracked-files=all", "--", scope]);
   if (!out) return [];
   const changes = [];
   for (const line of out.split("\n")) {

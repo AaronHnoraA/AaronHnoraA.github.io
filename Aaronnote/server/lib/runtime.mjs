@@ -3394,12 +3394,21 @@ async function runIncrementalRoamSync(scanned, dbFile, changedFiles) {
 // options.mode: "auto" (default) | "full"
 // options.changedFiles: string[] — caller-supplied explicit changed file list (skip git detection)
 export async function syncRoamDb(notes = null, options = {}) {
-  const scanned = notes ?? await scanNotes();
+  if (roamSyncTimer) {
+    clearTimeout(roamSyncTimer);
+    roamSyncTimer = null;
+  }
+  const queuedNotes = notes ? null : queuedRoamSyncNotes;
+  const queuedFiles = queuedRoamSyncChangedFiles.splice(0);
+  queuedRoamSyncNotes = null;
+  const optionFiles = Array.isArray(options.changedFiles) ? options.changedFiles : [];
+  const pendingFiles = [...new Set([...optionFiles, ...queuedFiles])];
+  const scanned = notes ?? queuedNotes ?? await scanNotes();
   const previous = roamSyncInFlight ?? Promise.resolve();
   const current = previous.catch(() => {}).then(async () => {
     const dbFile = roamDbFile();
     const forceMode = options.mode === "full";
-    const explicitFiles = Array.isArray(options.changedFiles) ? options.changedFiles : null;
+    const explicitFiles = pendingFiles.length > 0 ? pendingFiles : null;
 
     const state = await readSyncState();
     const schemaOk = state.dbSchemaVersion === CURRENT_DB_SCHEMA;
@@ -3561,7 +3570,7 @@ export async function createNode(body) {
   markNotesDirty(file);
   const opened = await readNote(file, { includeIndex: true });
   if (selection) opened.selection = selection;
-  if (roam) await syncRoamDb(opened.notes, { changedFiles: [file] });
+  if (roam) queueRoamDbSync(opened.notes, [file]);
   return opened;
 }
 
@@ -3623,19 +3632,20 @@ async function moveToTrash(file) {
   return target;
 }
 
-function scheduleRoamDbSync(notes, changedFile) {
-  queuedRoamSyncNotes = notes;
-  if (changedFile) queuedRoamSyncChangedFiles.push(changedFile);
-  if (roamSyncTimer) clearTimeout(roamSyncTimer);
-  roamSyncTimer = setTimeout(() => {
-    const next = queuedRoamSyncNotes;
-    const changed = queuedRoamSyncChangedFiles.splice(0);
-    queuedRoamSyncNotes = null;
+export function queueRoamDbSync(notes = null, changedFiles = []) {
+  if (notes) queuedRoamSyncNotes = notes;
+  const files = Array.isArray(changedFiles) ? changedFiles : [changedFiles];
+  for (const file of files) {
+    if (file) queuedRoamSyncChangedFiles.push(file);
+  }
+  if (roamSyncTimer) {
+    clearTimeout(roamSyncTimer);
     roamSyncTimer = null;
-    void syncRoamDb(next, changed.length > 0 ? { changedFiles: changed } : {}).catch((err) => {
-      console.error("Aaronnote roam db sync failed:", err?.message || err);
-    });
-  }, 1800);
+  }
+}
+
+function scheduleRoamDbSync(notes, changedFile) {
+  queueRoamDbSync(notes, changedFile ? [changedFile] : []);
 }
 
 export async function deleteNote(body) {
@@ -3649,7 +3659,7 @@ export async function deleteNote(body) {
   }
   markNotesDirty(file);
   const index = await notesIndexPayload();
-  if (!standaloneFile(file)) await syncRoamDb(index.notes, { changedFiles: [file] });
+  if (!standaloneFile(file)) queueRoamDbSync(index.notes, [file]);
   return { type: "deleted", ok: true, file, trashedTo, ...index };
 }
 
@@ -3890,7 +3900,7 @@ export async function updateCurrentNoteMeta(body, action) {
     markNotesDirty(file);
   }
   const opened = await readNote(file, { includeIndex: true });
-  await syncRoamDb(opened.notes, { changedFiles: [file] });
+  if (next !== content) queueRoamDbSync(opened.notes, [file]);
   return opened;
 }
 
@@ -3916,7 +3926,7 @@ async function rewriteRoamMetaTags(updateTags) {
     changed.push({ file: note.file, path: note.path || "", title: note.title || "", tags: after });
   }
   const index = await notesIndexPayload();
-  if (changedFiles.length > 0) await syncRoamDb(index.notes, { changedFiles });
+  if (changedFiles.length > 0) queueRoamDbSync(index.notes, changedFiles);
   return { ok: true, changed, changedCount: changed.length, ...index };
 }
 
@@ -4113,7 +4123,7 @@ export async function rewriteMarkdownPathReferences(body) {
     changed.push({ file: note.file, path: note.path || "", title: note.title || "", count: result.count });
   }
   const index = dryRun ? await notesIndexPayload(scanned) : await notesIndexPayload();
-  if (!dryRun && changedFiles.length > 0) await syncRoamDb(index.notes, { changedFiles });
+  if (!dryRun && changedFiles.length > 0) queueRoamDbSync(index.notes, changedFiles);
   return { ok: true, dryRun, changed, changedCount: changed.length, referenceCount: changed.reduce((sum, item) => sum + item.count, 0), ...index };
 }
 

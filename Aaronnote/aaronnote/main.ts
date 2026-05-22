@@ -9,7 +9,6 @@ import { equationTagsFromText, getEquationTagHits } from "../src/equation-tags.t
 import { INLINE_MATH_RE, isLikelyInlineMath } from "../src/inline-math.ts";
 import { getBlockMathRanges, rangeAtPosition, rangeOverlapsAny } from "../src/cm6/math-ranges.ts";
 import { renderMathLazy } from "../src/math-render.ts";
-import { renderMarkdownHTML } from "../src/render-html.ts";
 import { safeHref } from "../src/url-safety.ts";
 import { createAgendaManager } from "./agenda.ts";
 import { createUnusedAssetsManager } from "./asset-cleanup.ts";
@@ -24,6 +23,7 @@ import {
 } from "./find.ts";
 import { createFloatingTocPanel, inlineTagAnchorsFromText, markdownHeadingsFromText } from "./floating-toc.ts";
 import { createGraphPanel } from "./graph-panel.ts";
+import { createLinkPreviewController, type LinkPreviewTarget } from "./link-preview.ts";
 import { createLocalGraphPanel } from "./local-graph.ts";
 import { clampCommandIndex, filterCommands, type AaronnoteCommand } from "./command-palette.ts";
 import { normalizePluginOverrideMap, pluginShouldRun, type PluginOverrideMap } from "./plugin-runtime.ts";
@@ -518,10 +518,17 @@ const relationBody = relationPanel.querySelector<HTMLElement>("[data-relation-bo
 const relationRefresh = relationPanel.querySelector<HTMLButtonElement>("[data-relation-refresh]")!;
 const relationClose = relationPanel.querySelector<HTMLButtonElement>("[data-relation-close]")!;
 
-const linkPreview = document.createElement("div");
-linkPreview.className = "aaronnote-link-preview";
-linkPreview.hidden = true;
-document.body.appendChild(linkPreview);
+const linkPreview = createLinkPreviewController({
+  resolveTarget: previewTargetFromHref,
+  openNoteContent: api.notes.open,
+  openNote,
+  openExternalUrl,
+  isSafeHref: safeHref,
+  noteTitle: relationNoteTitle,
+  resolveAssetUrl,
+  beforeShow: closeRelationPanel,
+  setStatus,
+});
 
 const vimCursor = createVimCursor();
 
@@ -561,8 +568,6 @@ let commandPaletteIndex = 0;
 let commandPaletteRenderKey = "";
 let relationRenderKey = "";
 let relationScanSeq = 0;
-let linkPreviewSeq = 0;
-let linkPreviewMoved = false;
 let snippetSession: SnippetSession;
 let mathPreviewKey = "";
 let mathPreviewUpdateRequested = false;
@@ -931,6 +936,7 @@ function activateGitPanel(): void {
           openNote,
           setStatus,
           syncRoamDb,
+          beforeRefresh: flushCurrentSaveForGit,
         });
         gitPanel = panel;
         return panel;
@@ -1692,6 +1698,13 @@ function save(): void {
     return;
   }
   void saveStandalone();
+}
+
+async function flushCurrentSaveForGit(): Promise<void> {
+  window.clearTimeout(saveTimer);
+  saveTimer = 0;
+  if (!currentFile || editRevision === savedRevision || saveConflictActive) return;
+  await saveStandalone();
 }
 
 function syncSourceUi(): void {
@@ -3795,7 +3808,7 @@ function showNotesPage(tab = "filesystem"): void {
   saveCursorPositionNow({ force: true });
   cleanupTransientUi();
   closeRelationPanel();
-  linkPreview.hidden = true;
+  linkPreview.hide();
   disposeGraph();
   host.hidden = true;
   notesPage.hidden = false;
@@ -4098,7 +4111,7 @@ function showPluginPage(): void {
   saveCursorPositionNow({ force: true });
   cleanupTransientUi();
   closeRelationPanel();
-  linkPreview.hidden = true;
+  linkPreview.hide();
   disposeGraph();
   deactivateGitPanel();
   host.hidden = true;
@@ -4459,7 +4472,7 @@ function completionDetail(snippet: SnippetSummary): string {
   if (snippet.group === "path") return snippet.source || "";
   if (snippet.group === "wikilink") return snippet.source ? `[[${snippet.source}]]` : "wikilink";
   if (snippet.group === "roam") return snippet.body ? `roam -> ${snippet.body}` : "roam";
-  if (snippet.group === "tag") return snippet.source ? `tag anchor in ${snippet.source}` : "tag anchor";
+  if (snippet.group === "tag") return snippet.source ? `inline tag in ${snippet.source}` : "inline tag";
   if (snippet.group === "dom") return snippet.source ? `DOM target in ${snippet.source}` : "DOM target";
   return snippetDetail(snippet);
 }
@@ -4528,8 +4541,8 @@ function domCompletionContext(before: string): { note: NoteSummary; domPrefix: s
   return null;
 }
 
-function noteTagsForCompletion(note: NoteSummary): string[] {
-  return [...new Set([...(note.inlineTags ?? []), ...(note.tags ?? [])]
+function noteInlineTagsForCompletion(note: NoteSummary): string[] {
+  return [...new Set((note.inlineTags ?? [])
     .map((tag) => String(tag || "").trim().replace(/^#/, ""))
     .filter(Boolean))]
     .sort((a, b) => a.localeCompare(b));
@@ -4537,7 +4550,7 @@ function noteTagsForCompletion(note: NoteSummary): string[] {
 
 function matchingTagCompletions(note: NoteSummary, prefix: string): SnippetSummary[] {
   const query = prefix.toLowerCase().replace(/^tag-/, "");
-  return noteTagsForCompletion(note)
+  return noteInlineTagsForCompletion(note)
     .filter((tag) => tag.toLowerCase().includes(query))
     .slice(0, 12)
     .map((tag) => ({
@@ -4701,7 +4714,7 @@ function hideEditorOverlays(options: { keepFind?: boolean; keepCommandPalette?: 
   mathPreview.hidden = true;
   mathPreviewKey = "";
   selectionTool.hidden = true;
-  linkPreview.hidden = true;
+  linkPreview.hide();
   if (!options.keepFind) findTool.hidden = true;
   if (!options.keepCommandPalette) closeCommandPalette(false);
 }
@@ -4955,7 +4968,7 @@ function openRelationPanel(): void {
     return;
   }
   hideEditorOverlays();
-  linkPreview.hidden = true;
+  linkPreview.hide();
   relationPanel.hidden = false;
   relationButton.classList.add("is-active");
   relationButton.setAttribute("aria-pressed", "true");
@@ -4979,16 +4992,7 @@ function primaryPointerModifier(event: MouseEvent): boolean {
   return !/Mac/.test(navigator.platform) && event.ctrlKey && !event.metaKey;
 }
 
-type PreviewTarget = {
-  href: string;
-  note?: NoteSummary;
-  equationTag?: string;
-  inlineTag?: string;
-  domTarget?: string;
-  external?: boolean;
-};
-
-function previewTargetFromHref(href: string): PreviewTarget {
+function previewTargetFromHref(href: string): LinkPreviewTarget {
   const roamLike = resolveRoamLikeNoteTarget(href);
   if (roamLike?.note) return { href, ...roamLike };
   if (markdownNoteHref(href)) {
@@ -5001,136 +5005,6 @@ function previewTargetFromHref(href: string): PreviewTarget {
     };
   }
   return { href, external: true };
-}
-
-function placeLinkPreview(x: number, y: number): void {
-  const margin = 10;
-  const width = Math.min(760, Math.max(420, window.innerWidth * 0.54), window.innerWidth - margin * 2);
-  linkPreview.style.width = `${width}px`;
-  const rect = linkPreview.getBoundingClientRect();
-  let left = x + 12;
-  let top = y + 12;
-  if (left + width > window.innerWidth - margin) left = Math.max(margin, x - width - 12);
-  if (top + rect.height > window.innerHeight - margin) top = Math.max(margin, y - rect.height - 12);
-  linkPreview.style.left = `${left}px`;
-  linkPreview.style.top = `${top}px`;
-}
-
-function makeLinkPreviewDraggable(handle: HTMLElement): void {
-  handle.addEventListener("pointerdown", (event) => {
-    if (event.button !== 0) return;
-    const target = event.target as Element | null;
-    if (target?.closest("button, a, input, textarea, select")) return;
-    event.preventDefault();
-    linkPreviewMoved = true;
-    const rect = linkPreview.getBoundingClientRect();
-    const startX = event.clientX;
-    const startY = event.clientY;
-    const startLeft = rect.left;
-    const startTop = rect.top;
-    const move = (moveEvent: PointerEvent) => {
-      const margin = 8;
-      const nextLeft = Math.min(Math.max(margin, startLeft + moveEvent.clientX - startX), Math.max(margin, window.innerWidth - linkPreview.offsetWidth - margin));
-      const nextTop = Math.min(Math.max(margin, startTop + moveEvent.clientY - startY), Math.max(margin, window.innerHeight - linkPreview.offsetHeight - margin));
-      linkPreview.style.left = `${nextLeft}px`;
-      linkPreview.style.top = `${nextTop}px`;
-    };
-    const up = () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up, { once: true });
-  });
-}
-
-function renderPreviewChrome(title: string, subtitle: string, body: string, onOpen: () => void, options: { html?: boolean } = {}): void {
-  linkPreview.replaceChildren();
-  const head = document.createElement("header");
-  head.className = "aaronnote-link-preview-head";
-  const titleEl = document.createElement("strong");
-  titleEl.textContent = title;
-  const subtitleEl = document.createElement("span");
-  subtitleEl.textContent = subtitle;
-  head.append(titleEl, subtitleEl);
-  makeLinkPreviewDraggable(head);
-  const content = document.createElement("div");
-  content.className = options.html ? "aaronnote-link-preview-body aaronnote-link-preview-rendered" : "aaronnote-link-preview-body";
-  if (options.html) content.innerHTML = body || "<p>No preview text</p>";
-  else content.textContent = body || "No preview text";
-  content.addEventListener("click", (event) => {
-    const anchor = (event.target as Element | null)?.closest<HTMLAnchorElement>("a[href]");
-    if (!anchor || !content.contains(anchor)) return;
-    event.preventDefault();
-    openExternalUrl(anchor.getAttribute("href") || anchor.href, { newWindow: (event as MouseEvent).metaKey || (event as MouseEvent).altKey });
-  });
-  const actions = document.createElement("div");
-  actions.className = "aaronnote-link-preview-actions";
-  const openButton = document.createElement("button");
-  openButton.type = "button";
-  openButton.textContent = "Open";
-  openButton.addEventListener("click", onOpen);
-  const closeButton = document.createElement("button");
-  closeButton.type = "button";
-  closeButton.textContent = "Close";
-  closeButton.addEventListener("click", () => {
-    linkPreview.hidden = true;
-  });
-  actions.append(openButton, closeButton);
-  linkPreview.append(head, content, actions);
-}
-
-function showLinkPreview(href: string, x: number, y: number): void {
-  const target = previewTargetFromHref(href);
-  const seq = ++linkPreviewSeq;
-  linkPreviewMoved = false;
-  closeRelationPanel();
-  linkPreview.hidden = false;
-  renderPreviewChrome("Loading", href, "Loading preview…", () => openExternalUrl(href, { newWindow: false }));
-  placeLinkPreview(x, y);
-
-  if (!target.note?.file) {
-    const safe = safeHref(href);
-    renderPreviewChrome(safe ? "External link" : "Blocked link", href, safe ? href : "Unsafe URL", () => {
-      if (safe) openExternalUrl(href, { newWindow: true });
-      else setStatus("Blocked unsafe link");
-    });
-    placeLinkPreview(x, y);
-    return;
-  }
-
-  const title = relationNoteTitle(target.note);
-  const subtitle = target.note.path || target.note.file || href;
-  void api.notes.open(target.note.file)
-    .then((msg) => {
-      if (seq !== linkPreviewSeq) return;
-      const html = renderMarkdownHTML(msg.content ?? "", {
-        assetResolver: (src) => resolveAssetUrl(src, target.note?.file || currentFile),
-      });
-      renderPreviewChrome(title, subtitle, html, () => {
-        openNote(target.note!, {
-          equationTag: target.equationTag,
-          inlineTag: target.inlineTag,
-          domTarget: target.domTarget,
-          recordJump: true,
-        });
-        linkPreview.hidden = true;
-      }, { html: true });
-      if (!linkPreviewMoved) placeLinkPreview(x, y);
-    })
-    .catch((err) => {
-      if (seq !== linkPreviewSeq) return;
-      renderPreviewChrome(title, subtitle, err instanceof Error ? err.message : "Preview failed", () => {
-        openNote(target.note!, {
-          equationTag: target.equationTag,
-          inlineTag: target.inlineTag,
-          domTarget: target.domTarget,
-          recordJump: true,
-        });
-        linkPreview.hidden = true;
-      });
-      placeLinkPreview(x, y);
-    });
 }
 
 function commandPaletteCommands(): AaronnoteCommand[] {
@@ -6805,7 +6679,7 @@ document.addEventListener("keydown", (event) => {
       || !mathPreview.hidden
       || !selectionTool.hidden
       || !findTool.hidden
-      || !linkPreview.hidden
+      || linkPreview.isOpen()
       || !relationPanel.hidden
     )
   ) {
@@ -6969,7 +6843,7 @@ document.addEventListener("aaronnote:preview-url", (event) => {
   const href = custom.detail?.href;
   if (!href) return;
   event.preventDefault();
-  showLinkPreview(href, Number(custom.detail?.x) || window.innerWidth / 2, Number(custom.detail?.y) || 80);
+  linkPreview.show(href, Number(custom.detail?.x) || window.innerWidth / 2, Number(custom.detail?.y) || 80);
 });
 
 host.addEventListener("contextmenu", (event) => {
@@ -6978,14 +6852,20 @@ host.addEventListener("contextmenu", (event) => {
   if (!anchor || !host.contains(anchor)) return;
   event.preventDefault();
   event.stopPropagation();
-  showLinkPreview(anchor.getAttribute("href") || anchor.href, event.clientX, event.clientY);
+  linkPreview.show(anchor.getAttribute("href") || anchor.href, event.clientX, event.clientY);
 });
 
 document.addEventListener("mousedown", (event) => {
   const target = event.target as Node | null;
   if (!target) return;
   if (!relationPanel.hidden && !relationPanel.contains(target) && !relationButton.contains(target)) closeRelationPanel();
-  if (!linkPreview.hidden && !linkPreview.contains(target)) linkPreview.hidden = true;
+  if (linkPreview.isOpen() && !linkPreview.element.contains(target)) linkPreview.dismissTransient();
+});
+
+document.addEventListener("focusin", (event) => {
+  const target = event.target as Node | null;
+  if (!target || linkPreview.element.contains(target)) return;
+  linkPreview.dismissTransient();
 });
 
 document.addEventListener("knowledge:apply-tag", (event) => {
@@ -7081,7 +6961,6 @@ tocToggle.addEventListener("click", () => {
 relationRefresh.addEventListener("click", () => renderRelationPanel(true));
 relationClose.addEventListener("click", closeRelationPanel);
 relationPanel.addEventListener("mousedown", (event) => event.stopPropagation());
-linkPreview.addEventListener("mousedown", (event) => event.stopPropagation());
 selectionTool.addEventListener("mousedown", (event) => event.preventDefault());
 selectionTool.addEventListener("click", (event) => {
   const button = (event.target as Element | null)?.closest<HTMLButtonElement>("[data-selection-command]");
@@ -7140,6 +7019,7 @@ agendaDone.addEventListener("change", scheduleRenderAgenda);
 agendaRefresh.addEventListener("click", () => void loadAgendaTodos(true));
 graphFilter.addEventListener("input", () => scheduleRenderGraph());
 document.addEventListener("keyup", (event) => {
+  linkPreview.dismissTransient();
   if (!editorSurfaceVisible()) return;
   if (event.key !== "Escape") snippetSuppressedPrefix = "";
   if (event.key !== "Escape") quickInsertSuppressedPrefix = "";
@@ -7161,12 +7041,14 @@ document.addEventListener("mousedown", (event) => {
   hideQuickInsertPopup();
 });
 document.addEventListener("selectionchange", () => {
+  linkPreview.dismissTransient();
   if (!editorSurfaceVisible()) return;
   updateVimCursorNow();
   scheduleCursorPositionSave();
   scheduleAssistUpdate({ mathPreview: true, selectionTool: true, cursor: true });
 });
 document.addEventListener("mouseup", () => {
+  linkPreview.dismissTransient();
   if (!editorSurfaceVisible()) return;
   scheduleCursorPositionSave();
   scheduleAssistUpdate({ mathPreview: true, selectionTool: true, cursor: true });

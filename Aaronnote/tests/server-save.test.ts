@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, test } from "@voidzero-dev/vite-plus-test";
+import { execFile } from "node:child_process";
 import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { promisify } from "node:util";
 
 // @ts-ignore The server is a Node ESM module outside the TS app graph.
 import { configure } from "../server/lib/state.mjs";
@@ -9,8 +11,16 @@ import { configure } from "../server/lib/state.mjs";
 import { getTodos, notesIndexPayload } from "../server/lib/index.mjs";
 // @ts-ignore The server is a Node ESM module outside the TS app graph.
 import { saveNote } from "../server/lib/save.mjs";
+// @ts-ignore The server is a Node ESM module outside the TS app graph.
+import { createNode } from "../server/lib/fs-ops.mjs";
 
 const roots: string[] = [];
+const execFileAsync = promisify(execFile);
+
+async function git(root: string, args: string[]): Promise<string> {
+  const { stdout } = await execFileAsync("git", ["-C", root, ...args]);
+  return stdout.trim();
+}
 
 afterEach(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
@@ -96,5 +106,51 @@ describe("server save API", () => {
     const second = await getTodos();
     expect((second.todos as Array<{ text?: string; status?: string }>).map((todo) => [todo.status, todo.text]))
       .toEqual([["done", "second"]]);
+  });
+
+  test("deferred save does not auto-sync or auto-commit roam db", async () => {
+    const { root, notes } = await setupRoot();
+    await git(root, ["init"]);
+    await git(root, ["config", "user.email", "test@example.com"]);
+    await git(root, ["config", "user.name", "Aaronnote Test"]);
+    const file = join(notes, "a.md");
+    await writeFile(file, "# A\n", "utf8");
+    await git(root, ["add", "."]);
+    await git(root, ["commit", "-m", "initial"]);
+    const base = await stat(file);
+
+    const saved = await saveNote({
+      file,
+      content: "# A\n\nNo auto commit\n",
+      clientId: "test",
+      seq: 1,
+      baseMtimeMs: base.mtimeMs,
+      refresh: "deferred",
+    }) as { ok?: boolean };
+    expect(saved.ok).toBe(true);
+
+    await new Promise((resolve) => setTimeout(resolve, 2100));
+    expect(await git(root, ["rev-list", "--count", "HEAD"])).toBe("1");
+    expect(await git(root, ["status", "--porcelain", "--", "."])).toContain("roam/a.md");
+  });
+
+  test("creating a roam node queues db sync without committing immediately", async () => {
+    const { root, notes } = await setupRoot();
+    await git(root, ["init"]);
+    await git(root, ["config", "user.email", "test@example.com"]);
+    await git(root, ["config", "user.name", "Aaronnote Test"]);
+    await writeFile(join(notes, "a.md"), "# A\n", "utf8");
+    await git(root, ["add", "."]);
+    await git(root, ["commit", "-m", "initial"]);
+
+    await createNode({
+      nodeType: "roam",
+      id: "queued-node",
+      title: "Queued Node",
+      path: "queued-node.md",
+    });
+
+    expect(await git(root, ["rev-list", "--count", "HEAD"])).toBe("1");
+    expect(await git(root, ["status", "--porcelain", "--", "."])).toContain("roam/queued-node.md");
   });
 });

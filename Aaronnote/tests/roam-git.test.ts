@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, test } from "@voidzero-dev/vite-plus-test";
 import { execFile } from "node:child_process";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
 // @ts-ignore The server is a Node ESM module outside the TS app graph.
-import { commitRoam, diffRoamCommit, diffRoamFile, roamRepoChanges } from "../server/lib/roam-git.mjs";
+import { commitRoam, diffRoamCommit, diffRoamFile, roamRepoChanges, roamRepoStatus } from "../server/lib/roam-git.mjs";
 
 const execFileAsync = promisify(execFile);
 const roots: string[] = [];
@@ -43,6 +43,7 @@ describe("roam git tools", () => {
     const changes = await roamRepoChanges(notes) as Array<{ path?: string; kind?: string; isMarkdown?: boolean }>;
     expect(changes).toContainEqual(expect.objectContaining({ path: "a.md", kind: "modified", isMarkdown: true }));
     expect(changes).toContainEqual(expect.objectContaining({ path: "b.md", kind: "untracked", isMarkdown: true }));
+    await expect(roamRepoStatus(notes)).resolves.toMatchObject({ uncommitted: true });
 
     const modifiedDiff = await diffRoamFile(notes, join(notes, "a.md")) as { diff?: string };
     expect(modifiedDiff.diff).toContain("+Changed");
@@ -50,6 +51,22 @@ describe("roam git tools", () => {
     const untrackedDiff = await diffRoamFile(notes, "b.md") as { diff?: string };
     expect(untrackedDiff.diff).toContain("new file mode");
     expect(untrackedDiff.diff).toContain("+# B");
+  });
+
+  test("detects working changes through a symlinked note root", async () => {
+    const { notes } = await setupRepo();
+    const linkedNotes = join(tmpdir(), `aaronnote-git-link-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+    roots.push(linkedNotes);
+    await symlink(notes, linkedNotes, "dir");
+    await writeFile(join(notes, "a.md"), "# A\n\nChanged through link\n", "utf8");
+
+    const changes = await roamRepoChanges(linkedNotes) as Array<{ path?: string; kind?: string }>;
+    expect(changes).toContainEqual(expect.objectContaining({ path: "a.md", kind: "modified" }));
+    await expect(roamRepoStatus(linkedNotes)).resolves.toMatchObject({ uncommitted: true });
+    await expect(diffRoamFile(linkedNotes, "a.md")).resolves.toMatchObject({
+      path: "a.md",
+      diff: expect.stringContaining("+Changed through link"),
+    });
   });
 
   test("commits scoped roam changes and exposes commit diff", async () => {

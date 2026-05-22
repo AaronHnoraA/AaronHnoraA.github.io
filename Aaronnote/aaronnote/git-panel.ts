@@ -12,6 +12,7 @@ type GitPanelOptions = {
   openNote: (file: string) => void | Promise<void>;
   setStatus: (message: string) => void;
   syncRoamDb: () => Promise<void>;
+  beforeRefresh?: () => Promise<void>;
 };
 
 type DiffTarget =
@@ -251,6 +252,8 @@ export function createGitPanel(options: GitPanelOptions): GitPanel {
     const seq = ++refreshSeq;
     options.setStatus("Loading git state");
     try {
+      await options.beforeRefresh?.();
+      if (seq !== refreshSeq || !active) return;
       const [statusMsg, changesMsg, historyMsg] = await Promise.all([
         api.roamTools.repoStatus(),
         api.roamTools.changes(),
@@ -302,7 +305,6 @@ export function createGitPanel(options: GitPanelOptions): GitPanel {
     options.setStatus("Pulling roam repo");
     try {
       await api.roamTools.pull();
-      await options.syncRoamDb();
       await refresh();
       options.setStatus("Pulled");
     } catch (err) {
