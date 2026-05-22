@@ -47775,6 +47775,15 @@ $$
 
 This is the source of the orbit formulation of many isomorphism problems.
 
+
+
+
+This is hard to understand
+
+
+
+
+
 ## 88.4. Isomorphism as an orbit problem
 
 Two tensors $T$ and $T'$ are isomorphic if they lie in the same orbit under
