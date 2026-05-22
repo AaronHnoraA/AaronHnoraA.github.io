@@ -8,6 +8,7 @@ export {
   pathSuggestionsForFile,
   syncRoamDb,
   queueRoamDbSync,
+  runtimeDebugSnapshot,
   maybeScheduleWeeklyFullSync,
   fileHistory,
   restoreFileFromCommit,

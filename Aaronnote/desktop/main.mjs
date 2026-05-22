@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, Notification, dialog, ipcMain, shell, protocol, net, globalShortcut } from "electron";
+import { app, BrowserWindow, Menu, Notification, dialog, ipcMain, shell, protocol, net, globalShortcut, powerMonitor } from "electron";
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { access, writeFile } from "node:fs/promises";
@@ -19,6 +19,7 @@ import {
   pathSuggestionsForFile,
   syncRoamDb,
   queueRoamDbSync,
+  runtimeDebugSnapshot,
   maybeScheduleWeeklyFullSync,
   fileHistory,
   restoreFileFromCommit,
@@ -83,6 +84,7 @@ const liuGongQuanFontCandidates = [
 ].filter(Boolean);
 
 let mainWindow = null;
+let debugPanel = null;
 let pendingOpenFile = process.argv.slice(1).find((arg) => /\.(?:md|markdown)$/i.test(arg)) || "";
 let allowQuit = false;
 
@@ -209,11 +211,31 @@ function errorPayload(err) {
 function registerApiHandler(channel, handler) {
   ipcMain.handle(channel, async (_event, ...args) => {
     try {
-      return await handler(...args);
+      if (!debugPanel) return await handler(...args);
+      return await debugPanel.trackTask(channel, () => handler(...args));
     } catch (err) {
       return errorPayload(err);
     }
   });
+}
+
+async function openDebugPanel() {
+  if (!debugPanel) {
+    const { createDebugPanel } = await import("./debug-panel.mjs");
+    debugPanel = createDebugPanel({
+      app,
+      BrowserWindow,
+      desktopDir,
+      ipcMain,
+      powerMonitor,
+      runtimeSnapshot: runtimeDebugSnapshot,
+      appWindows,
+      onClose: () => {
+        debugPanel = null;
+      },
+    });
+  }
+  debugPanel.show();
 }
 
 ipcMain.on("aaronnote:renderer-ready", (event) => {
@@ -540,6 +562,7 @@ function createWindow(options = {}) {
   win.aaronnoteAppWindow = true;
   win.aaronnoteRendererReady = false;
   win.aaronnotePendingOpenFile = "";
+  debugPanel?.observeWindow(win);
   scheduleApplyZoom(win);
   win.on("focus", () => scheduleApplyZoom(win));
   win.on("show", () => scheduleApplyZoom(win));
@@ -1087,6 +1110,15 @@ function buildMenu() {
       {
         label: "Plugin Manager",
         click: () => runInWindow(dispatchCommandScript("open-plugin-manager")),
+      },
+    ],
+  },
+  {
+    label: "Debug",
+    submenu: [
+      {
+        label: "Open Monitor",
+        click: () => void openDebugPanel(),
       },
     ],
   },

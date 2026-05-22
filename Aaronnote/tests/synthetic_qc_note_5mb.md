@@ -174453,6 +174453,17 @@ $$
 The following pseudocode is not intended to solve tensor isomorphism. It
 only gives a schematic form of an invariant-refinement strategy.
 
+
+
+this is hard to use as what I wabt to use 
+
+
+$x^4$ is some 
+
+
+
+
+
 ```python
 from dataclasses import dataclass
 from typing import Any, Dict

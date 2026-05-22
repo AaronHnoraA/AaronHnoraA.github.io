@@ -3644,6 +3644,31 @@ export function queueRoamDbSync(notes = null, changedFiles = []) {
   }
 }
 
+export function runtimeDebugSnapshot() {
+  return {
+    roamDbSync: {
+      queued: Boolean(queuedRoamSyncNotes) || queuedRoamSyncChangedFiles.length > 0,
+      changedFiles: queuedRoamSyncChangedFiles.length,
+      inFlight: Boolean(roamSyncInFlight),
+    },
+    saveWrites: {
+      queuedFiles: saveWriteQueues.size,
+    },
+    copilot: {
+      started: Boolean(copilotClient),
+      busy: Boolean(copilotClient?.status?.busy),
+      status: copilotClient?.status?.message || "Not started",
+    },
+    roamLookup: {
+      started: Boolean(roamLookupSession && !roamLookupSession.closed),
+      busy: Boolean(roamLookupSession?.busy),
+      status: roamLookupSession && !roamLookupSession.closed
+        ? roamLookupSession.status
+        : "Not started",
+    },
+  };
+}
+
 function scheduleRoamDbSync(notes, changedFile) {
   queueRoamDbSync(notes, changedFile ? [changedFile] : []);
 }
