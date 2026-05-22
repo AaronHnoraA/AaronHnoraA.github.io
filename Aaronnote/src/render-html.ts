@@ -5,6 +5,9 @@ import type StateBlock from "markdown-it/lib/rules_block/state_block.mjs";
 import type StateInline from "markdown-it/lib/rules_inline/state_inline.mjs";
 
 import { cleanEditorHTML } from "./export-html.ts";
+import { supportedDiagramLang } from "./diagram-langs.ts";
+import { imageLayoutClasses, imageLayoutFromAttrs, imageLayoutStyle, readImageTrailingAttrs } from "./image-attrs.ts";
+import { layoutClasses, layoutFromAttrs, layoutStyle, readLayoutAttrsLine, type LayoutAttrs } from "./layout-attrs.ts";
 import { renderMathHTML } from "./math-render.ts";
 import { safeHref } from "./url-safety.ts";
 
@@ -38,6 +41,8 @@ type OrgEnvTokenMeta = {
 };
 
 const ORG_ENV_OPEN_RE = /^\s*#\+begin\s+(\S+)(?:[ \t]+([^\n]*?))?[ \t]*$/i;
+const TABLE_ROW_LINE_RE = /^\s*\|.*\|\s*$/;
+const FENCE_CLOSE_LINE_RE = /^[ \t]{0,3}(`{3,}|~{3,})\s*$/;
 
 function escapeHtml(value: string): string {
   return value
@@ -81,6 +86,31 @@ export function metaTags(value: string): string[] {
 
 export function showMetaTag(tag: string): boolean {
   return !/[\\/_]/.test(tag);
+}
+
+function unquoteMetaScalar(value: string): string {
+  const trimmed = String(value || "").trim();
+  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
+export function cssHrefFromMetaPath(value: string): string {
+  const raw = unquoteMetaScalar(value).replace(/\\_/g, "_");
+  if (!raw) return "";
+  if (/^https?:\/\//i.test(raw) || /^file:\/\//i.test(raw)) return raw;
+  if (/^[A-Za-z]:[\\/]/.test(raw)) return encodeURI(`file:///${raw.replace(/\\/g, "/")}`);
+  if (raw.startsWith("/") && !raw.startsWith("//")) return encodeURI(`file://${raw}`);
+  return "";
+}
+
+export function noteCssHrefFromMarkdown(markdown: string): string {
+  const text = String(markdown || "");
+  const org = text.match(/^\s*#\+begin\s+meta\s*\r?\n([\s\S]*?)\r?\n\s*#\+end\s+meta\s*$/im);
+  const yaml = text.match(/^\s*---\s*\r?\n([\s\S]*?)\r?\n---\s*(?:\r?\n|$)/);
+  const entries = metaEntryMap(parseMetaEntries(org?.[1] ?? yaml?.[1] ?? ""));
+  return cssHrefFromMetaPath(entries.get("css") || "");
 }
 
 function renderMetaCover(body: string): string {
@@ -284,10 +314,87 @@ function isRoamCoreHref(href: string): boolean {
   return raw.includes("#") || raw.includes("@");
 }
 
+function joinTokenStyle(token: Token, style: string): void {
+  if (!style) return;
+  const current = token.attrGet("style");
+  token.attrSet("style", current ? `${current.trim().replace(/;?$/, ";")} ${style}` : style);
+}
+
+function applyImageAttrs(tokens: Token[], idx: number): void {
+  const token = tokens[idx]!;
+  const next = tokens[idx + 1];
+  if (!next || next.type !== "text") return;
+  const trailing = readImageTrailingAttrs(next.content, 0);
+  if (!trailing) return;
+  const layout = imageLayoutFromAttrs(trailing.attrs);
+  next.content = next.content.slice(trailing.to);
+  token.attrJoin("class", imageLayoutClasses(layout));
+  token.attrSet("data-aaronnote-image-align", layout.align);
+  token.attrSet("data-aaronnote-image-wrap", layout.wrap ? "true" : "false");
+  joinTokenStyle(token, imageLayoutStyle(layout));
+}
+
+function applyLayoutToToken(token: Token, kind: string, layout: LayoutAttrs): void {
+  token.attrJoin("class", layoutClasses(kind, layout));
+  token.attrSet("data-aaronnote-layout", kind);
+  token.attrSet("data-aaronnote-layout-align", layout.align);
+  token.attrSet("data-aaronnote-layout-wrap", layout.wrap ? "true" : "false");
+  joinTokenStyle(token, layoutStyle(kind, layout));
+}
+
+function consumeLayoutAttrsParagraph(tokens: Token[], idx: number): LayoutAttrs | null {
+  const open = tokens[idx];
+  const inline = tokens[idx + 1];
+  const close = tokens[idx + 2];
+  if (!open || !inline || !close) return null;
+  if (open.type !== "paragraph_open" || inline.type !== "inline" || close.type !== "paragraph_close") return null;
+  const trailing = readLayoutAttrsLine(inline.content);
+  if (!trailing) return null;
+  open.hidden = true;
+  inline.hidden = true;
+  inline.content = "";
+  inline.children = [];
+  close.hidden = true;
+  return layoutFromAttrs(trailing.attrs);
+}
+
+function findMatchingToken(tokens: Token[], idx: number, closeType: string): number {
+  let depth = 0;
+  for (let i = idx; i < tokens.length; i++) {
+    depth += tokens[i]!.nesting;
+    if (depth === 0 && tokens[i]!.type === closeType) return i;
+  }
+  return -1;
+}
+
+function applyTableAttrs(tokens: Token[], idx: number): void {
+  const closeIdx = findMatchingToken(tokens, idx, "table_close");
+  if (closeIdx < 0) return;
+  const layout = consumeLayoutAttrsParagraph(tokens, closeIdx + 1);
+  if (!layout) return;
+  applyLayoutToToken(tokens[idx]!, "table", layout);
+}
+
+function diagramLangFromInfo(info: string): string {
+  return String(info || "").trim().split(/\s+/, 1)[0] ?? "";
+}
+
+function renderDiagramFence(token: Token, layout: LayoutAttrs): string {
+  const lang = diagramLangFromInfo(token.info);
+  const cls = classList("aaronnote-diagram-code", layoutClasses("diagram", layout));
+  const style = layoutStyle("diagram", layout);
+  const styleAttr = style ? ` style="${escapeAttr(style)}"` : "";
+  const codeClass = lang ? ` class="language-${escapeAttr(lang)}"` : "";
+  return `<pre class="${escapeAttr(cls)}"${styleAttr}><code${codeClass}>${escapeHtml(token.content)}</code></pre>\n`;
+}
+
 function renderOrgEnv(md: MarkdownIt, tokens: Token[], idx: number): string {
   const meta = tokens[idx]!.meta as OrgEnvTokenMeta;
   const kind = meta.kind;
   if (kind.toLowerCase() === "meta") return renderMetaCover(meta.body);
+  if (kind.toLowerCase() === "html") {
+    return meta.body.trim() ? `<div class="aaronnote-html">${meta.body}</div>` : "";
+  }
   const title = meta.title;
   const label = envLabel(kind);
   const body = meta.body.trim() ? md.render(meta.body) : "";
@@ -311,6 +418,24 @@ function applyTaskCheckboxes(root: HTMLElement): void {
     box.dataset.checked = match[1]!.toLowerCase() === "x" ? "1" : "0";
     li.prepend(box);
   });
+}
+
+function isolateBlockLayoutAttrLines(markdown: string): string {
+  const lines = String(markdown || "").split(/\r?\n/);
+  const out: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    const prev = out[out.length - 1] ?? "";
+    if (
+      readLayoutAttrsLine(line) &&
+      prev.trim() &&
+      (TABLE_ROW_LINE_RE.test(prev) || FENCE_CLOSE_LINE_RE.test(prev))
+    ) {
+      out.push("");
+    }
+    out.push(line);
+  }
+  return out.join("\n");
 }
 
 function createMarkdownIt(options: RenderMarkdownHTMLOptions): MarkdownIt {
@@ -348,14 +473,32 @@ function createMarkdownIt(options: RenderMarkdownHTMLOptions): MarkdownIt {
     return originalLinkOpen(tokens, idx, opts, env, self);
   };
 
+  const originalTableOpen = md.renderer.rules.table_open ?? ((tokens, idx, opts, _env, self) => self.renderToken(tokens, idx, opts));
+  md.renderer.rules.table_open = (tokens, idx, opts, env, self) => {
+    applyTableAttrs(tokens, idx);
+    return originalTableOpen(tokens, idx, opts, env, self);
+  };
+
+  const originalFence = md.renderer.rules.fence ?? ((tokens, idx, opts, _env, self) => self.renderToken(tokens, idx, opts));
+  md.renderer.rules.fence = (tokens, idx, opts, env, self) => {
+    const token = tokens[idx]!;
+    if (supportedDiagramLang(token.info)) {
+      const layout = consumeLayoutAttrsParagraph(tokens, idx + 1);
+      if (layout) return renderDiagramFence(token, layout);
+    }
+    return originalFence(tokens, idx, opts, env, self);
+  };
+
   const originalImage = md.renderer.rules.image ?? ((tokens, idx, opts, _env, self) => self.renderToken(tokens, idx, opts));
   md.renderer.rules.image = (tokens, idx, opts, env, self) => {
-    const src = tokens[idx]!.attrGet("src");
+    const token = tokens[idx]!;
+    applyImageAttrs(tokens, idx);
+    const src = token.attrGet("src");
     if (src && !safeHref(src)) {
-      const attrIndex = tokens[idx]!.attrIndex("src");
-      if (attrIndex >= 0) tokens[idx]!.attrs?.splice(attrIndex, 1);
+      const attrIndex = token.attrIndex("src");
+      if (attrIndex >= 0) token.attrs?.splice(attrIndex, 1);
     } else if (src) {
-      tokens[idx]!.attrSet("src", resolveAssetSrc(src, options.assetResolver));
+      token.attrSet("src", resolveAssetSrc(src, options.assetResolver));
     }
     return originalImage(tokens, idx, opts, env, self);
   };
@@ -369,7 +512,7 @@ export function renderMarkdownHTML(
 ): string {
   const md = createMarkdownIt(options);
   const root = document.createElement("div");
-  root.innerHTML = md.render(markdown);
+  root.innerHTML = md.render(isolateBlockLayoutAttrLines(markdown));
   applyTaskCheckboxes(root);
   return cleanEditorHTML(root);
 }
@@ -399,6 +542,10 @@ export function renderPublishedNoteHTML(
     kind !== "default" && `note-kind-${kind}`,
   );
   const kindAssetsHtml = options.kindAssetsHtml ? `${options.kindAssetsHtml}\n` : "";
+  const noteCssHref = noteCssHrefFromMarkdown(markdown);
+  const noteCssHtml = noteCssHref
+    ? `  <link rel="stylesheet" data-aaronnote-note-css href="${escapeAttr(noteCssHref)}" />\n`
+    : "";
   const toolbarHtml = pdf ? "" : `    <header class="aaronnote-toolbar">
       <div class="aaronnote-title">
         <strong>Aaronnote</strong>
@@ -452,7 +599,7 @@ export function renderPublishedNoteHTML(
   <link rel="stylesheet" href="${assetRoot}Aaronnote/src/styles/widgets.css?v=${escapeAttr(version)}" />
   <link rel="stylesheet" href="${assetRoot}Aaronnote/src/styles/theme-typora.css?v=${escapeAttr(version)}" />
   <link rel="stylesheet" href="${assetRoot}css/aaronnote-published.css?v=${escapeAttr(version)}" />
-${kindAssetsHtml}</head>
+${kindAssetsHtml}${noteCssHtml}</head>
 <body class="${pdf ? "aaronnote-published-document aaronnote-pdf-document" : "aaronnote-published-document"}" data-note-kind="${escapeAttr(kind)}">
   <main class="${escapeAttr(shellClass)}" data-note-kind="${escapeAttr(kind)}">
 ${toolbarHtml}

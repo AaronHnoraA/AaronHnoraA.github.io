@@ -1,6 +1,6 @@
 import { describe, expect, test } from "@voidzero-dev/vite-plus-test";
 
-import { renderMarkdownHTML, renderPublishedNoteHTML } from "../src/render-html.ts";
+import { noteCssHrefFromMarkdown, renderMarkdownHTML, renderPublishedNoteHTML } from "../src/render-html.ts";
 
 describe("shared markdown HTML renderer", () => {
   test("renders math and org env blocks with editor DOM", () => {
@@ -47,6 +47,76 @@ $$
     expect(html).not.toContain("#internal_tag");
   });
 
+  test("renders html org env as sanitized html content", () => {
+    const html = renderMarkdownHTML([
+      "#+begin html",
+      '<section class="raw-panel" onclick="alert(1)"><strong>Raw HTML</strong></section>',
+      "<script>alert(2)</script>",
+      "#+end html",
+    ].join("\n"));
+
+    expect(html).toContain('class="aaronnote-html"');
+    expect(html).toContain('<section class="raw-panel"><strong>Raw HTML</strong></section>');
+    expect(html).not.toContain("&lt;section");
+    expect(html).not.toContain("onclick");
+    expect(html).not.toContain("<script");
+    expect(html).not.toContain("<org-env-block");
+  });
+
+  test("keeps resolved Aaronnote asset image URLs", () => {
+    const html = renderMarkdownHTML("![plot](./images/plot.png)", {
+      assetResolver: (src) => `aaronnote-asset://media/?file=${encodeURIComponent(src)}`,
+    });
+
+    expect(html).toContain('src="aaronnote-asset://media/?file=.%2Fimages%2Fplot.png"');
+    expect(html).toContain('alt="plot"');
+  });
+
+  test("applies Aaronnote image trailing attrs", () => {
+    const html = renderMarkdownHTML("![plot](./images/plot.png){size:300%; align:right; wrap:on}");
+
+    expect(html).toContain("aaronnote-image");
+    expect(html).toContain("aaronnote-image-align-right");
+    expect(html).toContain("aaronnote-image-wrap");
+    expect(html).toContain('data-aaronnote-image-align="right"');
+    expect(html).toContain('data-aaronnote-image-wrap="true"');
+    expect(html).toContain("--aaronnote-image-width: 300%");
+    expect(html).toContain("--aaronnote-image-max-width: none");
+    expect(html).toContain("--aaronnote-image-max-height: none");
+    expect(html).not.toContain("{size:300%");
+  });
+
+  test("applies Aaronnote table trailing attrs", () => {
+    const html = renderMarkdownHTML([
+      "| A | B |",
+      "| --- | --- |",
+      "| 1 | 2 |",
+      "{size:75%; align:right; wrap:on}",
+    ].join("\n"));
+
+    expect(html).toContain("<table");
+    expect(html).toContain("aaronnote-table-align-right");
+    expect(html).toContain("aaronnote-table-wrap");
+    expect(html).toContain("--aaronnote-table-width: 75%");
+    expect(html).not.toContain("{size:75%");
+  });
+
+  test("applies Aaronnote diagram trailing attrs", () => {
+    const html = renderMarkdownHTML([
+      "```marmind",
+      "graph LR",
+      "A --- B",
+      "```",
+      "{size:180%; align:left; wrap:on}",
+    ].join("\n"));
+
+    expect(html).toContain("aaronnote-diagram-code");
+    expect(html).toContain("aaronnote-diagram-align-left");
+    expect(html).toContain("aaronnote-diagram-wrap");
+    expect(html).toContain("--aaronnote-diagram-width: 180%");
+    expect(html).not.toContain("{size:180%");
+  });
+
   test("renders published notes with the Aaronnote preview shell", () => {
     const html = renderPublishedNoteHTML("Body", {
       title: "Preview Shell",
@@ -62,6 +132,32 @@ $$
     expect(html).toContain('<section class="aaronnote-editor" id="editor">');
     expect(html).toContain('<span class="aaronnote-vim-mode">READ</span>');
     expect(html).toContain("<p>Body</p>");
+  });
+
+  test("published notes append meta css after built-in and kind styles", () => {
+    const markdown = [
+      "#+begin meta",
+      "title: Styled Note",
+      "css: /Users/hc/HC/Org/css/note override.css",
+      "#+end meta",
+      "",
+      "Body",
+    ].join("\n");
+    const html = renderPublishedNoteHTML(markdown, {
+      title: "Styled Note",
+      root: "./",
+      kind: "slides",
+      kindAssetsHtml: '  <link rel="stylesheet" href="./kinds/slides/index.css" />',
+    });
+
+    expect(noteCssHrefFromMarkdown(markdown)).toBe("file:///Users/hc/HC/Org/css/note%20override.css");
+    expect(html).toContain('data-aaronnote-note-css href="file:///Users/hc/HC/Org/css/note%20override.css"');
+    expect(html.indexOf("./kinds/slides/index.css")).toBeLessThan(html.indexOf("data-aaronnote-note-css"));
+    expect(html.indexOf("css/aaronnote-published.css")).toBeLessThan(html.indexOf("data-aaronnote-note-css"));
+  });
+
+  test("ignores relative meta css paths", () => {
+    expect(noteCssHrefFromMarkdown("#+begin meta\ncss: ./local.css\n#+end meta")).toBe("");
   });
 
   test("published notes keep the preview-rendered body", () => {

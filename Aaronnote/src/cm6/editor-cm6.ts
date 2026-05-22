@@ -10,7 +10,7 @@
  * CM6 doc positions are the markdown source offsets used by the public API.
  */
 
-import { Compartment, EditorSelection, EditorState, type Extension } from "@codemirror/state";
+import { Compartment, EditorSelection, EditorState, Transaction, type Extension } from "@codemirror/state";
 import {
   EditorView,
   keymap,
@@ -57,6 +57,7 @@ import type {
   EditorOptions,
   QuickInsertItem,
   QuickInsertProvider,
+  SetMarkdownOptions,
   WritingModeOptions,
 } from "../editor-api.ts";
 
@@ -80,6 +81,10 @@ function mathBlockSourceAnchor(docText: string, from: number, to: number): numbe
 }
 
 function sourceAnchorForClick(source: HTMLElement, event: MouseEvent, from: number, to: number): number {
+  const explicit = Number(source.dataset.cmSourceAnchor);
+  if (Number.isFinite(explicit)) {
+    return Math.max(from, Math.min(to, explicit));
+  }
   const rect = source.getBoundingClientRect();
   const innerFrom = Math.min(to - 1, from + 1);
   const innerTo = Math.max(innerFrom, to - 1);
@@ -113,7 +118,7 @@ export function markdownHrefAt(state: EditorState, pos: number): string | null {
   for (const targetPos of positions) {
     let node: SyntaxNode | null = syntaxTree(state).resolveInner(targetPos, -1);
     while (node) {
-      if (node.name === "Link" || node.name === "Autolink") {
+      if (node.name === "Link" || node.name === "Autolink" || node.name === "Image") {
         const href = hrefFromLinkNode(state, node.from, node.to);
         if (href) return href;
       }
@@ -192,6 +197,34 @@ function previewMarkdownLinkFromEvent(view: EditorView, event: MouseEvent): bool
   return true;
 }
 
+function attachmentHref(href: string): boolean {
+  const raw = String(href || "").trim();
+  if (!raw || raw.startsWith("#")) return false;
+  const protocol = raw.match(/^([A-Za-z][\w+.-]*):/)?.[1]?.toLowerCase();
+  if (protocol && protocol !== "file") return false;
+  const path = raw
+    .replace(/^file:(?:\/\/)?/i, "")
+    .split(/[?#]/, 1)[0]
+    ?.trim() ?? "";
+  return Boolean(path) && !/\.(?:md|markdown|typ)$/i.test(path);
+}
+
+function openAttachmentContextMenuFromEvent(view: EditorView, event: MouseEvent): boolean {
+  if (primaryLinkModifier(event)) return previewMarkdownLinkFromEvent(view, event);
+  const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+  if (pos == null) return false;
+  const href = markdownHrefAt(view.state, pos);
+  if (!href || !attachmentHref(href)) return false;
+
+  event.preventDefault();
+  event.stopPropagation();
+  view.dom.dispatchEvent(new CustomEvent("aaronnote:attachment-context-menu", {
+    bubbles: true,
+    detail: { href },
+  }));
+  return true;
+}
+
 // ---------------------------------------------------------------------------
 // Public factory
 // ---------------------------------------------------------------------------
@@ -214,12 +247,13 @@ export function createEditorCM6(host: HTMLElement, options: EditorOptions): Edit
   document.body.append(caretFlash);
 
   const initialDoc = options.initialContent ?? "";
+  const createState = (doc: string): EditorState => EditorState.create({
+    doc,
+    extensions: buildExtensions(options, previewCompartment, () => inSource),
+  });
 
   const view = new EditorView({
-    state: EditorState.create({
-      doc: initialDoc,
-      extensions: buildExtensions(options, previewCompartment, () => inSource),
-    }),
+    state: createState(initialDoc),
     parent: editorHost,
   });
   void document.fonts?.ready.then(() => {
@@ -234,6 +268,12 @@ export function createEditorCM6(host: HTMLElement, options: EditorOptions): Edit
     if (
       target instanceof Element
       && target.closest("input, textarea, select, button, a")
+    ) {
+      return;
+    }
+    if (
+      target instanceof Element
+      && target.closest(".cm-diagram-toolbar, .cm-diagram-interactive svg")
     ) {
       return;
     }
@@ -300,12 +340,17 @@ export function createEditorCM6(host: HTMLElement, options: EditorOptions): Edit
       return renderMarkdownHTML(getMarkdown());
     },
 
-    setMarkdown(md: string): void {
+    setMarkdown(md: string, setOptions: SetMarkdownOptions = {}): void {
+      if (setOptions.history === "reset") {
+        view.setState(createState(md));
+        return;
+      }
       const len = view.state.doc.length;
       view.dispatch({
         changes: { from: 0, to: len, insert: md },
         selection: { anchor: 0 },
         scrollIntoView: true,
+        annotations: setOptions.history === "skip" ? [Transaction.addToHistory.of(false)] : undefined,
       });
     },
 
@@ -562,7 +607,7 @@ export function wrapSelectedMarkdownInput(view: EditorView, _from: number, _to: 
   return true;
 }
 
-function buildExtensions(options: EditorOptions, previewCompartment: Compartment, _isSourceMode: () => boolean) {
+function buildExtensions(options: EditorOptions, previewCompartment: Compartment, isSourceMode: () => boolean) {
   return [
     EditorState.allowMultipleSelections.of(true),
     EditorView.clickAddsSelectionRange.of((event) => event.altKey || event.metaKey || event.ctrlKey),
@@ -576,6 +621,8 @@ function buildExtensions(options: EditorOptions, previewCompartment: Compartment
       { key: "Tab", run: (view) => indentMarkdownList(view, 1) || indentWithTab.run?.(view) === true },
       { key: "Shift-Tab", run: (view) => indentMarkdownList(view, -1) },
       { key: "Mod-d", run: selectNextMarkdownOccurrence },
+      { key: "Mod-Shift-z", run: cmRedo },
+      { key: "Meta-Shift-z", run: cmRedo },
       indentWithTab,
       ...defaultKeymap,
       ...historyKeymap,
@@ -583,7 +630,7 @@ function buildExtensions(options: EditorOptions, previewCompartment: Compartment
     markdown({ base: markdownLanguage }),
     highlightActiveLine(),
     tocIndexExtension,
-    previewCompartment.of(previewExtensions()),
+    previewCompartment.of(isSourceMode() ? [] : previewExtensions()),
     findHighlightExtension,
     roamLinkStatusExtension,
     EditorView.lineWrapping,
@@ -600,7 +647,7 @@ function buildExtensions(options: EditorOptions, previewCompartment: Compartment
     EditorView.domEventHandlers({
       mousedown: (event, eventView) => event.button === 0 && openMarkdownLinkFromEvent(eventView, event),
       auxclick: (event, eventView) => event.button === 1 && openMarkdownLinkFromEvent(eventView, event),
-      contextmenu: (event, eventView) => previewMarkdownLinkFromEvent(eventView, event),
+      contextmenu: (event, eventView) => openAttachmentContextMenuFromEvent(eventView, event),
       focus: () => { options.onFocus?.(); return false; },
       blur: () => { options.onBlur?.(); return false; },
       paste: (event, pasteView) => {

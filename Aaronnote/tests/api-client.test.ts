@@ -103,6 +103,21 @@ describe("api client native bridge", () => {
     });
   });
 
+  test("uses native attachment context menu with its note base", async () => {
+    const calls: string[][] = [];
+    await withNativeBridge({
+      shell: {
+        showAttachmentMenu: async (file, base) => {
+          calls.push([file, base || ""]);
+          return { ok: true, file };
+        },
+      },
+    }, async () => {
+      await api.shell.showAttachmentMenu("./images/a.png", "notes/a.md");
+      expect(calls).toEqual([["./images/a.png", "notes/a.md"]]);
+    });
+  });
+
   test("fire-and-forget persistence uses IPC instead of beacon or fetch", async () => {
     const saves: unknown[] = [];
     const positions: unknown[] = [];

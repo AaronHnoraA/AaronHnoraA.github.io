@@ -286,6 +286,11 @@ export function builtInQuickInsertProvider(context: QuickInsertContext): QuickIn
     .filter((item) => quickMatches(item, context.query));
 }
 
+export type SetMarkdownOptions = {
+  /** How replacing the whole document should interact with the editor undo stack. */
+  history?: "record" | "skip" | "reset";
+};
+
 export interface Editor {
   /** Current markdown source. */
   getMarkdown(): string;
@@ -294,7 +299,7 @@ export interface Editor {
   /** Render the current document to HTML for clipboard/export integrations. */
   getHTML(): string;
   /** Replace the document. */
-  setMarkdown(md: string): void;
+  setMarkdown(md: string, options?: SetMarkdownOptions): void;
   /** Insert plain source text at the current selection, optionally replacing chars before point. */
   insertText(text: string, deleteBefore?: number): { from: number; to: number };
   /** Select a source range. */

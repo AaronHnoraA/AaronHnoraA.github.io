@@ -171,7 +171,7 @@ export function cleanEditorHTML(root: HTMLElement): string {
   const protectedHtml = protectMathML(clone.innerHTML);
   const sanitized = DOMPurify.sanitize(protectedHtml.html, {
     USE_PROFILES: { html: true, svg: true, mathMl: true },
-    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|file|zotero|roam):|[#/]|\.{0,2}\/|[^a-z])/i,
+    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|file|zotero|roam|aaronnote-asset):|[#/]|\.{0,2}\/|[^a-z])/i,
     ADD_TAGS: [
       "math",
       "mrow",

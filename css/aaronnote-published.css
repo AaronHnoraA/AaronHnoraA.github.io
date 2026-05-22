@@ -17,8 +17,10 @@
 
 .published-note-page .cm-editor {
   box-sizing: border-box;
-  --note-image-max: 520px;
-  --note-diagram-max: 600px;
+  --note-image-max: 420px;
+  --note-table-image-max: 180px;
+  --note-table-image-max-height: 160px;
+  --note-diagram-max: 480px;
 }
 
 .aaronnote-pdf-document {
@@ -111,18 +113,41 @@
 .published-note-page .cm-editor .cm-image-render,
 .published-note-page .cm-editor img.image-render {
   display: block;
-  height: auto;
-  max-width: min(100%, var(--note-image-max, 520px));
-  max-height: 340px;
-  margin: 0.72rem auto;
+  width: var(--aaronnote-image-width, auto);
+  height: var(--aaronnote-image-height, auto);
+  max-width: var(--aaronnote-image-max-width, min(100%, var(--note-image-max, 520px)));
+  max-height: var(--aaronnote-image-max-height, 280px);
+  margin: 0.38rem auto;
   border: 1px solid color-mix(in srgb, var(--aaron-paper-line), var(--aaron-muted) 12%);
   border-radius: 3px;
   background: color-mix(in srgb, var(--aaron-paper-soft), white 26%);
   object-fit: contain;
 }
 
+.published-note-page .cm-editor img.aaronnote-image-align-left {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+.published-note-page .cm-editor img.aaronnote-image-align-right {
+  margin-left: auto;
+  margin-right: 0;
+}
+
+.published-note-page .cm-editor img.aaronnote-image-wrap.aaronnote-image-align-left {
+  float: left;
+  width: var(--aaronnote-image-width, min(42%, var(--note-image-max, 360px)));
+  margin: 0.25rem 1rem 0.7rem 0;
+}
+
+.published-note-page .cm-editor img.aaronnote-image-wrap.aaronnote-image-align-right {
+  float: right;
+  width: var(--aaronnote-image-width, min(42%, var(--note-image-max, 360px)));
+  margin: 0.25rem 0 0.7rem 1rem;
+}
+
 .published-note-page .cm-editor figure {
-  margin: 1rem auto;
+  margin: 0.5rem auto;
   text-align: center;
 }
 
@@ -140,6 +165,65 @@
   text-align: center;
 }
 
+.published-note-page .cm-editor table img,
+.published-note-page .cm-editor table .cm-image-render,
+.published-note-page .cm-editor table img.image-render {
+  width: auto;
+  max-width: min(100%, var(--note-table-image-max, 180px));
+  max-height: var(--note-table-image-max-height, 160px);
+  margin: 0.2rem auto;
+}
+
+.published-note-page .cm-editor table figure {
+  max-width: min(100%, var(--note-table-image-max, 180px));
+  margin: 0.2rem auto;
+}
+
+.published-note-page .cm-editor table figcaption {
+  max-width: min(100%, var(--note-table-image-max, 180px));
+  font-size: 0.78em;
+}
+
+.published-note-page .cm-editor table.aaronnote-table,
+.published-note-page .cm-editor .cm-table-block {
+  width: var(--aaronnote-table-width, 100%);
+  max-width: var(--aaronnote-table-max-width, 100%);
+  height: var(--aaronnote-table-height, auto);
+  max-height: var(--aaronnote-table-max-height, none);
+}
+
+.published-note-page .cm-editor table.aaronnote-table-align-left,
+.published-note-page .cm-editor .cm-table-block.aaronnote-table-align-left {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+.published-note-page .cm-editor table.aaronnote-table-align-center,
+.published-note-page .cm-editor .cm-table-block.aaronnote-table-align-center {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.published-note-page .cm-editor table.aaronnote-table-align-right,
+.published-note-page .cm-editor .cm-table-block.aaronnote-table-align-right {
+  margin-left: auto;
+  margin-right: 0;
+}
+
+.published-note-page .cm-editor table.aaronnote-table-wrap.aaronnote-table-align-left,
+.published-note-page .cm-editor .cm-table-block.aaronnote-table-wrap.aaronnote-table-align-left {
+  float: left;
+  width: var(--aaronnote-table-width, min(56%, 520px));
+  margin: 0.25rem 1rem 0.7rem 0;
+}
+
+.published-note-page .cm-editor table.aaronnote-table-wrap.aaronnote-table-align-right,
+.published-note-page .cm-editor .cm-table-block.aaronnote-table-wrap.aaronnote-table-align-right {
+  float: right;
+  width: var(--aaronnote-table-width, min(56%, 520px));
+  margin: 0.25rem 0 0.7rem 1rem;
+}
+
 .published-note-page .cm-editor .mermaid,
 .published-note-page .cm-editor svg.mermaid-svg,
 .published-note-page .cm-editor pre.cb-diagram-preview,
@@ -148,15 +232,18 @@
 .published-note-page .cm-editor .cb-diagram-preview svg {
   display: block;
   max-width: min(100%, var(--note-diagram-max, 600px));
-  max-height: 460px;
   height: auto;
-  margin: 0.72rem auto;
-  overflow: auto;
+  margin: 0.4rem auto;
+  overflow: visible;
 }
 
 .published-note-page .cm-editor pre.cb-diagram-preview,
 .published-note-page .cm-editor pre.cb-diagram-rendered .cb-diagram-preview {
-  padding: 14px 16px;
+  width: var(--aaronnote-diagram-width, min(100%, var(--note-diagram-max, 600px)));
+  max-width: var(--aaronnote-diagram-max-width, 100%);
+  height: var(--aaronnote-diagram-height, auto);
+  max-height: var(--aaronnote-diagram-max-height, none);
+  padding: 8px 10px;
   border: 1px solid color-mix(in srgb, var(--aaron-paper-line), var(--aaron-muted) 12%);
   border-radius: 4px;
   background:
@@ -167,7 +254,58 @@
 .published-note-page .cm-editor svg.mermaid-svg,
 .published-note-page .cm-editor pre.cb-diagram-rendered svg,
 .published-note-page .cm-editor .cb-diagram-preview svg {
-  max-width: min(100%, var(--note-diagram-max, 600px));
-  max-height: 420px;
+  max-width: var(--aaronnote-diagram-max-width, min(100%, var(--note-diagram-max, 600px)));
+  max-height: var(--aaronnote-diagram-max-height, 330px);
+  width: auto;
+  height: auto;
   cursor: grab;
+}
+
+.published-note-page .cm-editor .cm-mermaid-block,
+.published-note-page .cm-editor .cm-mermaid-block-preview,
+.published-note-page .cm-editor pre.aaronnote-diagram {
+  width: var(--aaronnote-diagram-width, min(100%, var(--note-diagram-max, 600px)));
+  max-width: var(--aaronnote-diagram-max-width, 100%);
+  height: var(--aaronnote-diagram-height, auto);
+  max-height: var(--aaronnote-diagram-max-height, none);
+}
+
+.published-note-page .cm-editor .aaronnote-diagram-align-left {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+.published-note-page .cm-editor .aaronnote-diagram-align-center {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.published-note-page .cm-editor .aaronnote-diagram-align-right {
+  margin-left: auto;
+  margin-right: 0;
+}
+
+.published-note-page .cm-editor .aaronnote-diagram-wrap.aaronnote-diagram-align-left {
+  float: left;
+  width: var(--aaronnote-diagram-width, min(48%, var(--note-diagram-max, 420px)));
+  margin: 0.25rem 1rem 0.7rem 0;
+}
+
+.published-note-page .cm-editor .aaronnote-diagram-wrap.aaronnote-diagram-align-right {
+  float: right;
+  width: var(--aaronnote-diagram-width, min(48%, var(--note-diagram-max, 420px)));
+  margin: 0.25rem 0 0.7rem 1rem;
+}
+
+.published-note-page .cm-editor .cm-diagram-interactive a {
+  cursor: pointer;
+}
+
+.published-note-page .cm-editor .cm-diagram-selected {
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--aaron-red), transparent 18%));
+}
+
+.published-note-page .cm-editor .cm-diagram-selected text,
+.published-note-page .cm-editor text.cm-diagram-selected {
+  font-weight: 700;
 }

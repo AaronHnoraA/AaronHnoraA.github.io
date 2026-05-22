@@ -18,8 +18,10 @@
   font-kerning: normal;
   text-rendering: optimizeLegibility;
   font-feature-settings: "kern" 1, "liga" 1, "onum" 1;
-  --note-image-max: 520px;
-  --note-diagram-max: 600px;
+  --note-image-max: 420px;
+  --note-table-image-max: 180px;
+  --note-table-image-max-height: 160px;
+  --note-diagram-max: 480px;
   --orgenv-pad-left: 0.88rem;
   --orgenv-head-size: 0.9em;
 }

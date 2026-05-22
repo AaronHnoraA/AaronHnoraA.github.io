@@ -25,6 +25,10 @@ separate editor implementation.
 | `src/cm6/commands.ts` | Editing commands, block context, and quick insert registry. |
 | `src/cm6/widgets/*.ts` | Math, code fence, image, task, TOC, org-env, and related widgets. |
 | `src/render-html.ts` | Shared Markdown-to-HTML export/publish renderer. |
+| `src/attrs-syntax.ts` | Shared `{key: value}` trailing-attribute block parser used by command-syntax and image-attrs. |
+| `src/layout-attrs.ts` | Layout-attribute normalization (align, wrap, width, height) and CSS-class/style helpers. |
+| `src/image-attrs.ts` | Image-specific layout attr reader and DOM/token applicators, built on `layout-attrs.ts`. |
+| `src/command-syntax.ts` | Inline `@@cmd` and block `#+begin kind` command parser, now delegates to `attrs-syntax.ts`. |
 | `src/styles/*.css` | CM6 editor chrome and swappable Markdown themes. |
 
 ## Invariants

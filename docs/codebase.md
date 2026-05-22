@@ -16,23 +16,53 @@ For a finer breakdown of tech stack, core composition, and state machines, see [
 ### Top-level layout
 
 - `Aaronnote/src/`: editor core library
+- `Aaronnote/src/cm6/`: CM6 extensions, widgets, commands
+- `Aaronnote/src/cm6/widgets/`: per-feature widget files (math, fenced-code, image, task, block-extras, inline-commands)
+- `Aaronnote/src/styles/`: editor and theme CSS
 - `Aaronnote/specs/`: behavior specs and event scripts
 - `Aaronnote/tests/`: Vitest tests
+- `Aaronnote/tests/cm6/`: CM6-specific tests (roundtrip, commands)
 - `Aaronnote/website/`: web harness / demo
 - `Aaronnote/aaronnote/`: application shell and extra UI
-- `Aaronnote/server/lib/`: local service implementation and domain exports used by Electron IPC
-- `Aaronnote/desktop/`: Electron entry point
+- `Aaronnote/server/lib/`: service library — filesystem, index, save, Roam git, plugins, copilot, roamlookup
+- `Aaronnote/desktop/`: Electron entry points (`main.mjs`, `preload.cjs`)
+- `Aaronnote/snippets/`: Emacs-style snippet files for Aaronnote's snippet system
 - `plugin/`: local Aaronnote plugins; Vite loads entries via `plugin/*/plugin.json` and `index.ts`
 
 ### Core modules
 
 - `src/lib.ts`: public API entry point
 - `src/editor-api.ts`: `createEditor()` facade and public controller types
-- `src/cm6/editor-cm6.ts`: CM6 `EditorView` assembly and public API implementation
-- `src/cm6/live-preview.ts`: Markdown inline/line live-preview decorations
-- `src/cm6/commands.ts`: editing commands, block context, quick insert
-- `src/cm6/widgets/*.ts`: math/code/image/task/org-env/TOC and related CM6 widgets
-- `src/render-html.ts`: Markdown → HTML export/publish renderer
+- `src/cm6/editor-cm6.ts`: CM6 `EditorView` assembly, keymap, and public API implementation
+- `src/cm6/live-preview.ts`: inline/line live-preview decorations, editable table widget
+- `src/cm6/commands.ts`: editing commands (bold/italic/heading/list/etc.), block context, quick insert
+- `src/cm6/widgets/math.ts`: display and inline math widgets (temml)
+- `src/cm6/widgets/fenced-code.ts`: syntax-highlighted code and Mermaid/mindmap diagram widgets
+- `src/cm6/widgets/image.ts`: image preview widget with layout attrs
+- `src/cm6/widgets/task-list.ts`: interactive task checkbox widget
+- `src/cm6/widgets/block-extras.ts`: org-env blocks, `[toc]`, horizontal rules
+- `src/cm6/widgets/inline-commands.ts`: `@@cmd` inline command badge widgets
+- `src/cm6/math-ranges.ts`: display-math range index (StateField) used to suppress other decorations inside `$$`
+- `src/cm6/toc-index.ts`: heading/anchor index StateField for the floating TOC panel
+- `src/cm6/find-highlight.ts`: find/replace match highlight extension
+- `src/cm6/roam-link-status.ts`: marks broken Roam links based on the resolved note index
+- `src/attrs-syntax.ts`: shared `{key: value}` trailing-attribute block parser
+- `src/layout-attrs.ts`: layout-attribute normalization (align, wrap, width, height) and CSS helpers
+- `src/image-attrs.ts`: image-specific layout attr reader/applicator
+- `src/render-html.ts`: Markdown → HTML export/publish renderer (markdown-it based)
+- `src/export-html.ts`: DOM-to-clean-HTML export (DOMPurify-based, used for clipboard and PDF)
+- `src/command-syntax.ts`: `@@cmd` and `#+begin kind` block command parser
+- `src/clipboard.ts`: HTML→Markdown paste conversion (turndown)
+- `src/math-render.ts`: math rendering via temml
+- `src/code-highlight.ts`: syntax highlighting for the publish/export renderer
+- `src/code-highlight-async.ts`: async code highlighting bridge
+- `src/code-highlight-worker.ts`: Web Worker entry for long-block syntax highlighting
+- `src/url-safety.ts`: link href safety check (allows roam://, file://, relative, etc.)
+- `src/paste-html.ts`: HTML-to-Markdown paste path helpers
+- `src/diagram-render.ts`: Mermaid render helper
+- `src/inline-math.ts`: inline math scanner for the renderer
+- `src/date-syntax.ts`: date value parsing utilities
+- `src/equation-tags.ts`: equation tag management
 
 ### Feature organization
 
@@ -65,6 +95,33 @@ Benefits: more stable round-trip. Trade-offs:
 
 - New inline syntax must be compatible with `parseInline` / `normalize`.
 - Plugins that directly manipulate inline marks will normally be overwritten by normalize.
+
+### Service library (`Aaronnote/server/lib/`)
+
+Domain-specific modules imported directly by the Electron main process. No HTTP server.
+
+| Module | Purpose |
+| --- | --- |
+| `state.mjs` | Shared mutable state: `noteRoot`, `workspaceRoot`, `pluginRoot`, `noteCache`. `configure()` initializes from the main process. |
+| `save.mjs` | `saveNote(body)` — atomic write with mtime conflict detection. |
+| `index.mjs` | Notes scan, graph, tags, todos, snippets, templates, refs, Roam DB sync, git ops, tag rename/delete tools. |
+| `assets.mjs` | Paste asset storage (base64 upload), native-path copy, orphan scan/trash. |
+| `fs-ops.mjs` | `createNode`, `createFolder`, rename, move, duplicate, trash/delete. |
+| `session.mjs` | Recent notes and cursor position read/write. |
+| `meta.mjs` | Note metadata add/remove/tag operations. |
+| `media.mjs` | Resolve media file paths and content types for `aaronnote-asset://media`. |
+| `plugins.mjs` | Scan plugin descriptors, read/write overrides. |
+| `copilot.mjs` | GitHub Copilot LSP client lifecycle and inline completion. |
+| `roamlookup.mjs` | Codex lookup session lifecycle (start, query, close, idle-close). |
+| `roam-git.mjs` | Git operations on the roam repo: `headSha`, `changedRoamFilesSince`, `commitRoam`, `fileHistory`, `restoreFileFromCommit`. |
+| `runtime.mjs` | Backing implementation (~4,200 lines). Import domain modules above instead. |
+
+### Desktop shell (`Aaronnote/desktop/`)
+
+| File | Purpose |
+| --- | --- |
+| `main.mjs` | Electron main entry: window creation, IPC handlers, `aaronnote-asset://` protocol, menus, lifecycle. |
+| `preload.cjs` | `contextBridge.exposeInMainWorld("aaronnoteApi", {...})` — typed IPC bridge visible to the renderer. Also exposes `AaronnoteDesktop` for file pickers, PDF export, and open-file events. |
 
 ### Local plugins
 

@@ -167,6 +167,28 @@ maybeDescribe("cm6 kernel: getMarkdown / setMarkdown", () => {
     cleanup();
   });
 
+  test("setMarkdown records undo by default", () => {
+    const { editor, cleanup } = mountCM6("old content");
+    editor.setMarkdown("new content");
+    expect(editor.undo()).toBe(true);
+    expect(editor.getMarkdown()).toBe("old content");
+    cleanup();
+  });
+
+  test("setMarkdown can reset stale undo history when loading another document", () => {
+    const { editor, cleanup } = mountCM6("previous file");
+    editor.setMarkdownSelection(editor.getMarkdown().length);
+    editor.insertText(" edit");
+    expect(editor.undo()).toBe(true);
+    editor.redo();
+
+    editor.setMarkdown("current file", { history: "reset" });
+
+    expect(editor.undo()).toBe(false);
+    expect(editor.getMarkdown()).toBe("current file");
+    cleanup();
+  });
+
   test("getHTML renders current markdown through shared export pipeline", () => {
     const { editor, cleanup } = mountCM6("# Title\n\n**bold**\n\n$$\nx+1\n$$");
     const html = editor.getHTML();
@@ -240,11 +262,12 @@ $$
   });
 
   test("resolves markdown link hrefs at source positions", () => {
-    const md = "Go [there](target.md#eq-x), [roam](roam://node-id#eq-x), and https://example.com";
+    const md = "Go [there](target.md#eq-x), [roam](roam://node-id#eq-x), ![plot](./images/plot.png), and https://example.com";
     const { editor, cleanup } = mountCM6(md);
 
     expect(markdownHrefAt(editor.view.state, md.indexOf("there"))).toBe("target.md#eq-x");
     expect(markdownHrefAt(editor.view.state, md.indexOf("roam]"))).toBe("roam://node-id#eq-x");
+    expect(markdownHrefAt(editor.view.state, md.indexOf("plot"))).toBe("./images/plot.png");
     expect(markdownHrefAt(editor.view.state, md.indexOf("https://") + 3)).toBe("https://example.com");
 
     cleanup();
@@ -336,6 +359,70 @@ $$
     cleanup();
   });
 
+  test("right-click on a markdown attachment dispatches its context menu", () => {
+    const md = "P.S: ![IMG_6118.jpeg](./images/GraphTensor/IMG_6118.jpeg)";
+    const { editor, cleanup } = mountCM6(md);
+    const events: CustomEvent[] = [];
+    const listener = (event: Event) => events.push(event as CustomEvent);
+    const view = editor.view as typeof editor.view & {
+      contentDOM: HTMLElement;
+      posAtCoords: (coords: { x: number; y: number }) => number | null;
+    };
+    const originalDescriptor = Object.getOwnPropertyDescriptor(view, "posAtCoords");
+
+    document.addEventListener("aaronnote:attachment-context-menu", listener);
+    Object.defineProperty(view, "posAtCoords", {
+      configurable: true,
+      value: () => md.indexOf("IMG_6118.jpeg"),
+    });
+
+    const event = new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+      button: 2,
+      clientX: 1,
+      clientY: 1,
+    });
+    view.contentDOM.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(events[0]?.detail).toEqual({ href: "./images/GraphTensor/IMG_6118.jpeg" });
+
+    document.removeEventListener("aaronnote:attachment-context-menu", listener);
+    if (originalDescriptor) Object.defineProperty(view, "posAtCoords", originalDescriptor);
+    else delete (view as { posAtCoords?: unknown }).posAtCoords;
+    cleanup();
+  });
+
+  test("html env stays previewed until source mode", () => {
+    const md = [
+      "before",
+      "",
+      "#+begin html",
+      '<section class="raw-panel"><strong>Raw HTML</strong></section>',
+      "#+end html",
+      "",
+      "after",
+    ].join("\n");
+    const { editor, cleanup } = mountCM6(md);
+    const view = editor.view as typeof editor.view & { contentDOM: HTMLElement };
+    editor.setMarkdownSelection(md.length);
+
+    expect(document.querySelector(".cm-html-env-widget .raw-panel strong")?.textContent).toBe("Raw HTML");
+    expect(view.contentDOM.textContent).not.toContain("#+begin html");
+    expect(document.querySelector('.cm-org-env-rail[data-org-env-kind="html"]')).toBeNull();
+
+    editor.setMarkdownSelection(md.indexOf("<section") + 2);
+    expect(document.querySelector(".cm-html-env-widget .raw-panel strong")?.textContent).toBe("Raw HTML");
+    expect(view.contentDOM.textContent).not.toContain("<section");
+    expect(document.querySelector(".cm-org-env-heading-widget[data-org-env-kind='html']")).toBeNull();
+
+    editor.toggleSource();
+    expect(view.contentDOM.textContent).toContain("#+begin html");
+    expect(view.contentDOM.textContent).toContain("<section");
+    cleanup();
+  });
+
   test("clicking org-env display math uses the same source opening as outside", () => {
     const md = String.raw`#+begin theorem
 Before
@@ -362,6 +449,43 @@ $$
     expect(document.querySelector(".cm-table-toolbar")).toBeTruthy();
     expect(document.querySelectorAll(".cm-table-block td, .cm-table-block th")).toHaveLength(4);
     expect(document.querySelector(".cm-table-block-preview")).toBeNull();
+    cleanup();
+  });
+
+  test("table widgets consume trailing layout attrs", () => {
+    const md = "| A | B |\n| --- | --- |\n| 1 | 2 |\n{size:75%; align:right; wrap:on}\n\nDone";
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection(md.length);
+
+    const tableBlock = document.querySelector<HTMLElement>(".cm-table-block");
+    expect(tableBlock).toBeTruthy();
+    expect(tableBlock!.classList.contains("aaronnote-table-align-right")).toBe(true);
+    expect(tableBlock!.classList.contains("aaronnote-table-wrap")).toBe(true);
+    expect(tableBlock!.style.getPropertyValue("--aaronnote-table-width")).toBe("75%");
+    expect((editor.view as unknown as { contentDOM: HTMLElement }).contentDOM.textContent)
+      .not.toContain("{size:75%");
+
+    editor.setMarkdownSelection(md.indexOf("size"));
+    expect((editor.view as unknown as { contentDOM: HTMLElement }).contentDOM.textContent)
+      .toContain("{size:75%; align:right; wrap:on}");
+    cleanup();
+  });
+
+  test("aligned table widget clicks do not use visual coords as cursor offsets", () => {
+    const md = "| A | B |\n| --- | --- |\n| 1 | 2 |\n{size:75%; align:right}\n\nDone";
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection(md.length);
+    const before = editor.getMarkdownSelection().from;
+
+    const tableBlock = document.querySelector<HTMLElement>(".cm-table-block");
+    expect(tableBlock).toBeTruthy();
+    tableBlock!.dispatchEvent(new MouseEvent("mousedown", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 10_000,
+    }));
+
+    expect(editor.getMarkdownSelection().from).toBe(before);
     cleanup();
   });
 
@@ -555,6 +679,42 @@ $$
     editor.insertText("x");
 
     expect(document.querySelector(".cm-mermaid-block")).toBe(mermaidBlock);
+    cleanup();
+  });
+
+  test("mermaid widgets consume trailing image-style layout attrs", () => {
+    const md = "```mermaid\ngraph LR\nA --- B\n```\n{size:180; align: right, wrap: on}\n\nDone";
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection(md.length);
+
+    const diagram = document.querySelector<HTMLElement>(".cm-mermaid-widget");
+    expect(diagram).toBeTruthy();
+    expect(diagram!.classList.contains("aaronnote-image-align-right")).toBe(true);
+    expect(diagram!.classList.contains("aaronnote-image-wrap")).toBe(true);
+    expect(diagram!.style.getPropertyValue("--aaronnote-image-width")).toBe("180px");
+    expect((editor.view as unknown as { contentDOM: HTMLElement }).contentDOM.textContent)
+      .not.toContain("{size:180");
+
+    editor.setMarkdownSelection(md.indexOf("size"));
+    expect((editor.view as unknown as { contentDOM: HTMLElement }).contentDOM.textContent)
+      .toContain("{size:180; align: right, wrap: on}");
+    cleanup();
+  });
+
+  test("aligned marmind widgets open source at the diagram body anchor", () => {
+    const md = "```marmind\ngraph LR\nA --- B\n```\n{size:180%; align:right}\n\nDone";
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection(md.length);
+
+    const diagram = document.querySelector<HTMLElement>(".cm-mermaid-widget");
+    expect(diagram).toBeTruthy();
+    diagram!.dispatchEvent(new MouseEvent("mousedown", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 10_000,
+    }));
+
+    expect(editor.getMarkdownSelection().from).toBe(md.indexOf("graph LR"));
     cleanup();
   });
 
@@ -1080,6 +1240,44 @@ after
     cleanup();
   });
 
+  test("image widgets consume trailing layout attrs", () => {
+    const md = "![Diagram title](missing.png){size:300%; align:left; wrap:on}\n\ntext";
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection(md.length);
+
+    const figure = document.querySelector<HTMLElement>(".cm-image-widget");
+    expect(figure).toBeTruthy();
+    expect(figure!.classList.contains("aaronnote-image-align-left")).toBe(true);
+    expect(figure!.classList.contains("aaronnote-image-wrap")).toBe(true);
+    expect(figure!.style.getPropertyValue("--aaronnote-image-width")).toBe("300%");
+    expect(figure!.style.getPropertyValue("--aaronnote-image-max-width")).toBe("none");
+    expect(figure!.style.getPropertyValue("--aaronnote-image-max-height")).toBe("none");
+    expect((editor.view as unknown as { contentDOM: HTMLElement }).contentDOM.textContent)
+      .not.toContain("{size:300%");
+
+    editor.setMarkdownSelection(md.indexOf("size"));
+    expect((editor.view as unknown as { contentDOM: HTMLElement }).contentDOM.textContent)
+      .toContain("{size:300%; align:left; wrap:on}");
+    cleanup();
+  });
+
+  test("aligned image widgets open source at a stable anchor", () => {
+    const md = "![Diagram title](missing.png){size:300%; align:right}\n\ntext";
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection(md.length);
+
+    const figure = document.querySelector<HTMLElement>(".cm-image-widget");
+    expect(figure).toBeTruthy();
+    figure!.dispatchEvent(new MouseEvent("mousedown", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 10_000,
+    }));
+
+    expect(editor.getMarkdownSelection().from).toBe(md.indexOf("![Diagram title]") + 1);
+    cleanup();
+  });
+
   test("clicking task checkbox toggles its checked state directly", () => {
     // Use a header line to park the cursor away from both task lines,
     // so both checkboxes render (task-list hides raw marker only on the cursor line).
@@ -1110,6 +1308,7 @@ after
     const comment = document.querySelector<HTMLElement>('org-env-block[data-kind="comment"]');
     expect(comment).toBeTruthy();
     expect(comment!.classList.contains("cm-org-env-comment-widget")).toBe(true);
+    expect(document.querySelector('.cm-org-env-rail[data-org-env-kind="comment"]')).toBeNull();
 
     const button = comment!.querySelector<HTMLButtonElement>(".org-env-comment-button");
     const content = comment!.querySelector<HTMLElement>(".org-env-content");
@@ -1127,6 +1326,49 @@ after
     expect(document.querySelector('org-env-block[data-kind="comment"]')).toBeNull();
     expect((editor.view as unknown as { contentDOM: HTMLElement }).contentDOM.textContent)
       .toContain("Hidden **note**");
+    cleanup();
+  });
+
+  test("renders diagram fences inside collapsed comment content", () => {
+    const md = [
+      "#+begin comment diagram",
+      "```marmind",
+      "graph LR",
+      "  A --- B",
+      "```",
+      "#+end comment",
+      "",
+      "After",
+    ].join("\n");
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection(md.length);
+
+    const button = document.querySelector<HTMLButtonElement>(".org-env-comment-button");
+    button!.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+
+    const content = document.querySelector<HTMLElement>(".cm-org-env-comment-widget .org-env-content");
+    expect(content?.querySelector(".cm-mermaid-block-preview")).toBeTruthy();
+    expect(content?.querySelector("pre > code.language-marmind")).toBeNull();
+    cleanup();
+  });
+
+  test("html org-env keeps embedded controls interactive", () => {
+    const md = [
+      "#+begin html",
+      '<input class="raw-input" value="x">',
+      "#+end html",
+    ].join("\n");
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection(md.length);
+
+    const input = document.querySelector<HTMLInputElement>(".cm-html-env-widget .raw-input");
+    expect(input).toBeTruthy();
+    input!.focus();
+    const event = new KeyboardEvent("keydown", { key: "a", bubbles: true, cancelable: true });
+    input!.dispatchEvent(event);
+
+    expect(document.activeElement).toBe(input);
+    expect(event.defaultPrevented).toBe(false);
     cleanup();
   });
 });
@@ -1320,6 +1562,26 @@ maybeDescribe("cm6 kernel: undo/redo", () => {
     expect(editor.getMarkdown()).toBe("hello world");
     cleanup();
   });
+
+  test("Mod-Shift-z re-applies after undo", () => {
+    const { editor, cleanup } = mountCM6("hello");
+    editor.setMarkdownSelection(5, 5);
+    editor.insertText(" world");
+    editor.undo();
+
+    const event = new KeyboardEvent("keydown", {
+      key: "z",
+      bubbles: true,
+      cancelable: true,
+      metaKey: true,
+      shiftKey: true,
+    });
+    editor.view.contentDOM.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(editor.getMarkdown()).toBe("hello world");
+    cleanup();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1364,6 +1626,18 @@ maybeDescribe("cm6 kernel: surface", () => {
     editor.toggleSource();
     expect(editor.isSourceMode()).toBe(false);
     expect(document.querySelector(".cm-horizontal-rule")).toBeTruthy();
+    cleanup();
+  });
+
+  test("resetting the document keeps source mode source-only", () => {
+    const { editor, cleanup } = mountCM6("**old**");
+    editor.toggleSource();
+    editor.setMarkdown("**new**", { history: "reset" });
+
+    expect(editor.isSourceMode()).toBe(true);
+    expect(document.querySelector(".syntax-hidden")).toBeNull();
+    expect((editor.view as unknown as { contentDOM: HTMLElement }).contentDOM.textContent)
+      .toContain("**new**");
     cleanup();
   });
 

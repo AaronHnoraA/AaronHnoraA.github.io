@@ -50,6 +50,7 @@ type NativeApi = {
     rewritePathRefs?: (body: Record<string, unknown>) => Promise<unknown>;
     fileHistory?: (file: string) => Promise<unknown>;
     restoreFileVersion?: (body: { file: string; sha: string }) => Promise<unknown>;
+    discardFileChanges?: (file: string) => Promise<unknown>;
     repoStatus?: () => Promise<unknown>;
     repoHistory?: (limit?: number) => Promise<unknown>;
     changes?: () => Promise<unknown>;
@@ -92,6 +93,7 @@ type NativeApi = {
   shell?: {
     showInFolder?: (file: string) => Promise<unknown>;
     openPath?: (file: string) => Promise<unknown>;
+    showAttachmentMenu?: (file: string, base?: string) => Promise<unknown>;
   };
   copilot?: {
     request?: (action: string, body?: unknown) => Promise<unknown>;
@@ -253,6 +255,11 @@ export const api = {
     async restoreFileVersion(body: { file: string; sha: string }): Promise<IndexPayload & { restoredFile?: string; message?: string }> {
       const native = requireMethod(requireNative().roamTools?.restoreFileVersion, "File version restore");
       return ensureOk(await native(body) as IndexPayload & { restoredFile?: string; message?: string }, "File version restore failed");
+    },
+
+    async discardFileChanges(file: string): Promise<IndexPayload & { restoredFile?: string; discarded?: boolean; message?: string }> {
+      const native = requireMethod(requireNative().roamTools?.discardFileChanges, "File restore");
+      return ensureOk(await native(file) as IndexPayload & { restoredFile?: string; discarded?: boolean; message?: string }, "File restore failed");
     },
 
     async repoStatus(): Promise<GitRepoStatus> {
@@ -419,6 +426,11 @@ export const api = {
     async openPath(file: string): Promise<void> {
       const native = requireMethod(requireNative().shell?.openPath, "Native shell integration");
       ensureOk(await native(file), "Open failed");
+    },
+
+    async showAttachmentMenu(file: string, base = ""): Promise<void> {
+      const native = requireMethod(requireNative().shell?.showAttachmentMenu, "Native shell integration");
+      ensureOk(await native(file, base), "Attachment menu failed");
     },
   },
 };

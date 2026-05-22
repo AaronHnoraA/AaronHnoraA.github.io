@@ -280,18 +280,34 @@
 }
 
 /* ─── CM6 image widget ───────────────────────────────────────────── */
+.cm-editor img {
+  max-width: min(100%, var(--note-image-max, 560px));
+  height: auto;
+}
 .cm-editor .cm-image-widget {
   display: block;
   width: 100%;
   max-width: 100%;
   text-align: center;
-  margin: 0.52rem 0 0.72rem;
+  margin: 0.32rem 0 0.42rem;
   vertical-align: bottom;
+}
+.cm-editor .cm-image-widget.aaronnote-image-align-left { text-align: left; }
+.cm-editor .cm-image-widget.aaronnote-image-align-right { text-align: right; }
+.cm-editor .cm-image-widget.aaronnote-image-wrap.aaronnote-image-align-left {
+  width: var(--aaronnote-image-width, min(42%, var(--note-image-max, 360px)));
+  margin: 0.25rem auto 0.7rem 0;
+}
+.cm-editor .cm-image-widget.aaronnote-image-wrap.aaronnote-image-align-right {
+  width: var(--aaronnote-image-width, min(42%, var(--note-image-max, 360px)));
+  margin: 0.25rem 0 0.7rem auto;
 }
 .cm-editor .cm-image-render {
   display: block;
-  max-width: min(100%, var(--note-image-max, 560px));
-  max-height: 340px;
+  width: var(--aaronnote-image-width, auto);
+  height: var(--aaronnote-image-height, auto);
+  max-width: var(--aaronnote-image-max-width, min(100%, var(--note-image-max, 560px)));
+  max-height: var(--aaronnote-image-max-height, 280px);
   margin: 0 auto;
   object-fit: contain;
   border: 1px solid color-mix(in srgb, var(--aaron-paper-line, #d8d0c2), var(--aaron-muted, #6c6358) 12%);
@@ -299,13 +315,21 @@
   background: color-mix(in srgb, var(--aaron-paper-soft, #f8f4ea), white 26%);
   cursor: pointer;
 }
+.cm-editor .cm-image-widget.aaronnote-image-align-left .cm-image-render { margin-left: 0; margin-right: auto; }
+.cm-editor .cm-image-widget.aaronnote-image-align-right .cm-image-render { margin-left: auto; margin-right: 0; }
+.cm-editor .cm-image-widget.aaronnote-image-wrap .cm-image-render {
+  width: 100%;
+  max-width: var(--aaronnote-image-max-width, 100%);
+}
 .cm-editor .cm-image-caption {
   max-width: min(100%, var(--note-image-max, 560px));
-  margin: 0.34rem auto 0;
+  margin: 0.2rem auto 0;
   color: color-mix(in srgb, var(--aaron-muted, #6c6358), var(--aaron-ink, #1f2937) 18%);
   font: 600 0.82em/1.35 var(--aaron-font-sans, system-ui, sans-serif);
   text-align: center;
 }
+.cm-editor .cm-image-widget.aaronnote-image-align-left .cm-image-caption { margin-left: 0; text-align: left; }
+.cm-editor .cm-image-widget.aaronnote-image-align-right .cm-image-caption { margin-right: 0; text-align: right; }
 .cm-editor .cm-image-broken {
   display: inline-block;
   padding: 2px 6px;
@@ -843,6 +867,53 @@
 .cm-editor .cm-mermaid-block-preview {
   cursor: default;
 }
+.cm-editor .cm-mermaid-widget.cm-image-widget {
+  margin: 0.32rem 0 0.42rem;
+}
+.cm-editor .cm-mermaid-widget .cm-mermaid-block,
+.cm-editor .cm-mermaid-widget .cm-mermaid-block-preview {
+  width: var(--aaronnote-image-width, min(100%, var(--note-diagram-max, 600px)));
+  max-width: var(--aaronnote-image-max-width, 100%);
+  height: var(--aaronnote-image-height, auto);
+  max-height: var(--aaronnote-image-height, 460px);
+  margin-top: 0;
+  margin-bottom: 0;
+}
+.cm-editor .cm-mermaid-widget.aaronnote-image-align-left .cm-mermaid-block,
+.cm-editor .cm-mermaid-widget.aaronnote-image-align-left .cm-mermaid-block-preview {
+  margin-left: 0;
+  margin-right: auto;
+}
+.cm-editor .cm-mermaid-widget.aaronnote-image-align-right .cm-mermaid-block,
+.cm-editor .cm-mermaid-widget.aaronnote-image-align-right .cm-mermaid-block-preview {
+  margin-left: auto;
+  margin-right: 0;
+}
+.cm-editor .cm-mermaid-widget.aaronnote-image-wrap .cm-mermaid-block,
+.cm-editor .cm-mermaid-widget.aaronnote-image-wrap .cm-mermaid-block-preview {
+  width: 100%;
+  max-width: var(--aaronnote-image-max-width, 100%);
+}
+.cm-editor .cm-mermaid-block.aaronnote-diagram-align-left,
+.cm-editor .cm-mermaid-block-preview.aaronnote-diagram-align-left {
+  margin-left: 0;
+  margin-right: auto;
+}
+.cm-editor .cm-mermaid-block.aaronnote-diagram-align-right,
+.cm-editor .cm-mermaid-block-preview.aaronnote-diagram-align-right {
+  margin-left: auto;
+  margin-right: 0;
+}
+.cm-editor .cm-mermaid-block.aaronnote-diagram-wrap.aaronnote-diagram-align-left,
+.cm-editor .cm-mermaid-block-preview.aaronnote-diagram-wrap.aaronnote-diagram-align-left {
+  width: var(--aaronnote-diagram-width, min(48%, var(--note-diagram-max, 420px)));
+  margin: 0.25rem auto 0.7rem 0;
+}
+.cm-editor .cm-mermaid-block.aaronnote-diagram-wrap.aaronnote-diagram-align-right,
+.cm-editor .cm-mermaid-block-preview.aaronnote-diagram-wrap.aaronnote-diagram-align-right {
+  width: var(--aaronnote-diagram-width, min(48%, var(--note-diagram-max, 420px)));
+  margin: 0.25rem 0 0.7rem auto;
+}
 .cm-editor .cm-diagram-interactive {
   position: relative;
 }
@@ -884,6 +955,16 @@
 .cm-editor .cm-diagram-toolbar button:hover {
   border-color: color-mix(in srgb, var(--aaron-red, #b31b1b), transparent 28%);
   color: var(--aaron-red-dark, #7b1113);
+}
+.cm-editor .cm-diagram-interactive a {
+  cursor: pointer;
+}
+.cm-editor .cm-diagram-selected {
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--aaron-red, #b31b1b), transparent 18%));
+}
+.cm-editor .cm-diagram-selected text,
+.cm-editor text.cm-diagram-selected {
+  font-weight: 700;
 }
 .cm-editor .cm-mermaid-block svg,
 .cm-editor .cm-mermaid-block-preview svg,
@@ -1620,26 +1701,55 @@
 .cm-editor pre .cb-diagram-preview {
   display: none;
   box-sizing: border-box;
-  width: min(100%, var(--note-diagram-max, 600px));
+  width: var(--aaronnote-diagram-width, min(100%, var(--note-diagram-max, 600px)));
+  max-width: var(--aaronnote-diagram-max-width, 100%);
+  height: var(--aaronnote-diagram-height, auto);
+  max-height: var(--aaronnote-diagram-max-height, none);
   min-height: 120px;
-  max-height: 460px;
-  margin: 0.6rem auto 0.82rem;
-  padding: 14px 16px;
+  margin: 0.36rem auto 0.5rem;
+  padding: 8px 10px;
   border: 1px solid color-mix(in srgb, var(--aaron-paper-line, #ddd), var(--aaron-muted, #6c6358) 12%);
   border-radius: 4px;
   background:
     linear-gradient(color-mix(in srgb, var(--aaron-paper, #fff), white 34%), color-mix(in srgb, var(--aaron-paper-soft, #f8f4ea), white 28%)),
     var(--aaron-paper, #fff);
   color: var(--aaron-muted, #666);
-  overflow: auto;
+  overflow: visible;
   text-align: center;
   white-space: normal;
   scrollbar-gutter: stable;
 }
+.cm-editor pre.aaronnote-diagram-code {
+  width: var(--aaronnote-diagram-width, min(100%, var(--note-diagram-max, 600px)));
+  max-width: var(--aaronnote-diagram-max-width, 100%);
+  height: var(--aaronnote-diagram-height, auto);
+  max-height: var(--aaronnote-diagram-max-height, none);
+}
+.cm-editor pre.aaronnote-diagram-align-left {
+  margin-left: 0;
+  margin-right: auto;
+}
+.cm-editor pre.aaronnote-diagram-align-center {
+  margin-left: auto;
+  margin-right: auto;
+}
+.cm-editor pre.aaronnote-diagram-align-right {
+  margin-left: auto;
+  margin-right: 0;
+}
+.cm-editor pre.aaronnote-diagram-wrap.aaronnote-diagram-align-left {
+  width: var(--aaronnote-diagram-width, min(48%, var(--note-diagram-max, 420px)));
+  margin: 0.25rem auto 0.7rem 0;
+}
+.cm-editor pre.aaronnote-diagram-wrap.aaronnote-diagram-align-right {
+  width: var(--aaronnote-diagram-width, min(48%, var(--note-diagram-max, 420px)));
+  margin: 0.25rem 0 0.7rem auto;
+}
 .cm-editor pre .cb-diagram-preview svg {
   display: block;
-  max-width: min(100%, var(--note-diagram-max, 600px));
-  max-height: 420px;
+  max-width: var(--aaronnote-diagram-max-width, min(100%, var(--note-diagram-max, 600px)));
+  max-height: var(--aaronnote-diagram-max-height, 330px);
+  width: auto;
   height: auto;
   margin: 0 auto;
   touch-action: none;
@@ -1675,23 +1785,95 @@
  * are predictable and the toolbar's anchor rect spans the editor.
  * The cell border / padding / header bg come from the theme. */
 .cm-editor table {
-  width: 100%;
+  width: var(--aaronnote-table-width, 100%);
+  max-width: var(--aaronnote-table-max-width, 100%);
+  height: var(--aaronnote-table-height, auto);
+  max-height: var(--aaronnote-table-max-height, none);
   table-layout: fixed;
   border-collapse: collapse;
   margin: 0 0 12px;
+}
+.cm-editor table.aaronnote-table-align-left {
+  margin-left: 0;
+  margin-right: auto;
+}
+.cm-editor table.aaronnote-table-align-center {
+  margin-left: auto;
+  margin-right: auto;
+}
+.cm-editor table.aaronnote-table-align-right {
+  margin-left: auto;
+  margin-right: 0;
+}
+.cm-editor table.aaronnote-table-wrap.aaronnote-table-align-left {
+  width: var(--aaronnote-table-width, min(56%, 520px));
+  margin: 0.25rem auto 0.7rem 0;
+}
+.cm-editor table.aaronnote-table-wrap.aaronnote-table-align-right {
+  width: var(--aaronnote-table-width, min(56%, 520px));
+  margin: 0.25rem 0 0.7rem auto;
 }
 .cm-editor table th,
 .cm-editor table td {
   word-break: break-word;
 }
+.cm-editor table img,
+.cm-editor table .cm-image-render,
+.cm-editor table img.image-render {
+  display: block;
+  width: auto;
+  max-width: min(100%, var(--note-table-image-max, 180px));
+  max-height: var(--note-table-image-max-height, 160px);
+  margin: 0.2rem auto;
+  object-fit: contain;
+}
+.cm-editor table figure,
+.cm-editor table .cm-image-widget {
+  max-width: min(100%, var(--note-table-image-max, 180px));
+  margin: 0.2rem auto;
+}
+.cm-editor table figcaption,
+.cm-editor table .cm-image-caption {
+  max-width: min(100%, var(--note-table-image-max, 180px));
+  font-size: 0.78em;
+  line-height: 1.3;
+}
 .cm-editor .cm-table-block,
 .cm-editor .cm-table-block-preview {
   display: block;
   box-sizing: border-box;
-  width: 100%;
+  width: var(--aaronnote-table-width, 100%);
+  max-width: var(--aaronnote-table-max-width, 100%);
+  height: var(--aaronnote-table-height, auto);
+  max-height: var(--aaronnote-table-max-height, none);
   margin: 0;
   padding: 4px 0 16px;
   overflow-x: auto;
+}
+.cm-editor .cm-table-block.aaronnote-table-align-left,
+.cm-editor .cm-table-block-preview.aaronnote-table-align-left {
+  margin-left: 0;
+  margin-right: auto;
+}
+.cm-editor .cm-table-block.aaronnote-table-align-center,
+.cm-editor .cm-table-block-preview.aaronnote-table-align-center {
+  margin-left: auto;
+  margin-right: auto;
+}
+.cm-editor .cm-table-block.aaronnote-table-align-right,
+.cm-editor .cm-table-block-preview.aaronnote-table-align-right {
+  margin-left: auto;
+  margin-right: 0;
+}
+.cm-editor .cm-table-block.aaronnote-table-wrap.aaronnote-table-align-left,
+.cm-editor .cm-table-block-preview.aaronnote-table-wrap.aaronnote-table-align-left {
+  width: var(--aaronnote-table-width, min(56%, 520px));
+  margin: 0.25rem auto 0.7rem 0;
+}
+.cm-editor .cm-table-block.aaronnote-table-wrap.aaronnote-table-align-right,
+.cm-editor .cm-table-block-preview.aaronnote-table-wrap.aaronnote-table-align-right {
+  width: var(--aaronnote-table-width, min(56%, 520px));
+  margin: 0.25rem 0 0.7rem auto;
 }
 .cm-editor .cm-markdown-table-preview {
   margin-bottom: 0;

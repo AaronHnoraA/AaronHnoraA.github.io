@@ -23,6 +23,7 @@ import {
   maybeScheduleWeeklyFullSync,
   fileHistory,
   restoreFileFromCommit,
+  discardFileChanges,
   roamRepoStatus,
   roamRepoChanges,
   diffRoamFile,
@@ -369,6 +370,14 @@ function registerApiIpc() {
     const index = await notesIndexPayload();
     return { type: "notes", ...index, root: noteRoot, db: join(noteRoot, "roam.db"), restoredFile: file };
   });
+  registerApiHandler("aaronnote:api:roam-tools:discard-file-changes", async (file) => {
+    if (!file) throw Object.assign(new Error("Missing file"), { statusCode: 400 });
+    const result = await discardFileChanges(roamNoteRoot, file);
+    markNotesDirty(result.file || file);
+    queueRoamDbSync(null, [result.file || file]);
+    const index = await notesIndexPayload();
+    return { type: "notes", ...index, root: noteRoot, db: join(noteRoot, "roam.db"), restoredFile: result.file || file, discarded: result.changed !== false };
+  });
   registerApiHandler("aaronnote:api:roam-tools:repo-status", async () => {
     const status = await roamRepoStatus(roamNoteRoot);
     return { type: "roam-repo-status", ...status };
@@ -462,6 +471,16 @@ function registerApiIpc() {
     const target = resolveShellPath(file);
     const message = await shell.openPath(target);
     return message ? { ok: false, file: target, message } : { ok: true, file: target };
+  });
+  registerApiHandler("aaronnote:api:shell:show-attachment-menu", (file, base) => {
+    const target = resolveMediaFile(file, base);
+    Menu.buildFromTemplate([
+      {
+        label: "System Open",
+        click: () => void shell.openPath(target),
+      },
+    ]).popup();
+    return { ok: true, file: target };
   });
   registerApiHandler("aaronnote:api:copilot:request", (action, body) => handleCopilotRequest(String(action || ""), body || {}));
   registerApiHandler("aaronnote:api:roamlookup:request", (action, body) => handleRoamLookupRequest(String(action || ""), body || {}));
@@ -1125,8 +1144,16 @@ function buildMenu() {
   {
     label: "Edit",
     submenu: [
-      { role: "undo" },
-      { role: "redo" },
+      {
+        label: "Undo",
+        accelerator: "CmdOrCtrl+Z",
+        click: () => runInWindow(dispatchCommandScript("undo")),
+      },
+      {
+        label: "Redo",
+        accelerator: "CmdOrCtrl+Shift+Z",
+        click: () => runInWindow(dispatchCommandScript("redo")),
+      },
       { type: "separator" },
       { role: "cut" },
       { role: "copy" },

@@ -43,6 +43,12 @@ import { StateField, type ChangeSet, type EditorState, type Text } from "@codemi
 import type { Range } from "@codemirror/state";
 import { getBlockMathRanges, rangeInsideAny, rangeOverlapsAny } from "./math-ranges.ts";
 import { renderMarkdownHTML } from "../render-html.ts";
+import {
+  applyLayoutAttrs,
+  layoutFromAttrs,
+  readLayoutAttrsLine,
+  type LayoutAttrs,
+} from "../layout-attrs.ts";
 
 // ---------------------------------------------------------------------------
 // Node name sets
@@ -370,7 +376,9 @@ const CODE_FENCE_LINE_RE = /^[ \t]{0,3}(`{3,}|~{3,})/;
 interface MarkdownTable {
   from: number;
   to: number;
+  sourceTo: number;
   source: string;
+  layout: LayoutAttrs;
 }
 
 interface MarkdownTableData {
@@ -418,6 +426,15 @@ function isCodeFenceLine(line: string): boolean {
   return CODE_FENCE_LINE_RE.test(line);
 }
 
+function nextLayoutAttrsLine(doc: Text, sourceTo: number): { to: number; layout: LayoutAttrs } | null {
+  const currentLine = doc.lineAt(sourceTo);
+  if (currentLine.number >= doc.lines) return null;
+  const nextLine = doc.line(currentLine.number + 1);
+  const attrs = readLayoutAttrsLine(nextLine.text);
+  if (!attrs) return null;
+  return { to: nextLine.to, layout: layoutFromAttrs(attrs.attrs) };
+}
+
 function collectMarkdownTablesInLineRange(
   state: EditorState,
   startLine: number,
@@ -451,10 +468,13 @@ function collectMarkdownTablesInLineRange(
     }
 
     const end = doc.line(endLine).to;
+    const trailing = nextLayoutAttrsLine(doc, end);
     tables.push({
       from: header.from,
-      to: end,
+      to: trailing?.to ?? end,
+      sourceTo: end,
       source: doc.sliceString(header.from, end),
+      layout: trailing?.layout ?? layoutFromAttrs({}),
     });
     lineNum = endLine + 1;
   }
@@ -475,6 +495,7 @@ function mapMarkdownTables(tables: readonly MarkdownTable[], changes: ChangeSet)
     ...table,
     from: changes.mapPos(table.from),
     to: changes.mapPos(table.to),
+    sourceTo: changes.mapPos(table.sourceTo),
   }));
 }
 
@@ -624,19 +645,28 @@ type TableFocusResolver = TableFocusTarget | ((data: MarkdownTableData) => Table
 class TableWidget extends WidgetType {
   source: string;
   from: number;
+  sourceTo: number;
   to: number;
+  layout: LayoutAttrs;
 
-  constructor(source: string, from: number, to: number) {
+  constructor(source: string, from: number, sourceTo: number, to: number, layout: LayoutAttrs) {
     super();
     this.source = source;
     this.from = from;
+    this.sourceTo = sourceTo;
     this.to = to;
+    this.layout = layout;
   }
 
   eq(other: TableWidget): boolean {
     return this.source === other.source
       && this.from === other.from
-      && this.to === other.to;
+      && this.sourceTo === other.sourceTo
+      && this.to === other.to
+      && this.layout.align === other.layout.align
+      && this.layout.wrap === other.layout.wrap
+      && this.layout.width === other.layout.width
+      && this.layout.height === other.layout.height;
   }
 
   toDOM(view: EditorView): HTMLElement {
@@ -646,6 +676,7 @@ class TableWidget extends WidgetType {
     wrap.dataset.cmSourceFrom = String(this.from);
     wrap.dataset.cmSourceTo = String(this.to);
     wrap.dataset.cmOpenSource = "false";
+    applyLayoutAttrs(wrap, "table", this.layout);
     const stopWidgetMouseEvent = (event: Event): void => {
       event.stopPropagation();
     };
@@ -669,7 +700,7 @@ class TableWidget extends WidgetType {
       if (rows.length === 0) return;
       const nextSource = buildMarkdownTableSource({ rows, aligns: data.aligns.slice(0, rows[0]!.length) });
       if (nextSource !== this.source) {
-        view.dispatch({ changes: { from: this.from, to: this.to, insert: nextSource } });
+        view.dispatch({ changes: { from: this.from, to: this.sourceTo, insert: nextSource } });
         focusTableCellAfterRender(view, this.from, focusTarget);
       } else {
         focusTableCellInTable(table, focusTarget);
@@ -694,7 +725,7 @@ class TableWidget extends WidgetType {
       mutate(next);
       const nextSource = buildMarkdownTableSource(next);
       const target = typeof focusTarget === "function" ? focusTarget(next) : focusTarget;
-      view.dispatch({ changes: { from: this.from, to: this.to, insert: nextSource } });
+      view.dispatch({ changes: { from: this.from, to: this.sourceTo, insert: nextSource } });
       focusTableCellAfterRender(view, this.from, target);
       view.requestMeasure();
     };
@@ -1004,12 +1035,14 @@ function buildTableDecoRanges(
 ): Range<Decoration>[] {
   const decos: Range<Decoration>[] = [];
   const tables = markdownTablesFromState(state);
+  const sel = state.selection.main;
 
   for (const table of tables) {
     if (table.to < from || table.from > to) continue;
+    if (table.sourceTo < table.to && sel.from <= table.to && sel.to >= table.sourceTo) continue;
     decos.push(
       Decoration.replace({
-        widget: new TableWidget(table.source, table.from, table.to),
+        widget: new TableWidget(table.source, table.from, table.sourceTo, table.to, table.layout),
         block: true,
       }).range(table.from, table.to),
     );
@@ -1022,6 +1055,17 @@ function buildTableDecos(state: EditorState): DecorationSet {
   return Decoration.set(buildTableDecoRanges(state), true);
 }
 
+function activeTableAttrsKey(state: EditorState): string {
+  const sel = state.selection.main;
+  const tables = markdownTablesFromState(state);
+  for (const table of tables) {
+    if (table.sourceTo < table.to && sel.from <= table.to && sel.to >= table.sourceTo) {
+      return `${table.from}:${table.to}`;
+    }
+  }
+  return "";
+}
+
 const tableDecoField = StateField.define<DecorationSet>({
   create: (state) => buildTableDecos(state),
   update(value, tr) {
@@ -1030,6 +1074,9 @@ const tableDecoField = StateField.define<DecorationSet>({
       return canMapMarkdownTables(tr.startState.doc, tables, tr.changes)
         ? value.map(tr.changes)
         : patchTableDecosNearChanges(tr.state, value.map(tr.changes), tr.changes);
+    }
+    if (tr.selection != null && activeTableAttrsKey(tr.startState) !== activeTableAttrsKey(tr.state)) {
+      return buildTableDecos(tr.state);
     }
     return value.map(tr.changes);
   },

@@ -36,6 +36,7 @@ import {
   renderMarkdownHTML,
   showMetaTag,
 } from "../../render-html.ts";
+import { supportedDiagramLang } from "../../diagram-langs.ts";
 
 // ---------------------------------------------------------------------------
 // Regexes / parsers
@@ -210,6 +211,45 @@ function parseOrgEnvOpenLine(line: string): OrgEnvOpenLineInfo | null {
 
 function stopEditorPropagation(event: Event): void {
   event.stopPropagation();
+}
+
+function renderDiagramPreview(source: string, lang: string, div: HTMLElement): void {
+  const key = `mermaid\n${lang}\n${source.trim()}`;
+  div.dataset.diagramRenderKey = key;
+  div.textContent = "Loading diagram renderer...";
+  void import("../../diagram-render.ts")
+    .then(({ renderMermaidLazy }) => {
+      if (div.dataset.diagramRenderKey !== key) return;
+      renderMermaidLazy(source, div, (err) => {
+        div.classList.add("cm-diagram-error");
+        div.textContent = err;
+      }, { lang });
+    })
+    .catch((err: unknown) => {
+      if (div.dataset.diagramRenderKey !== key) return;
+      div.classList.add("cm-diagram-error");
+      div.textContent = err instanceof Error ? err.message : String(err);
+    });
+}
+
+function enhanceRenderedMarkdown(root: HTMLElement): void {
+  root.querySelectorAll<HTMLElement>("pre > code[class*='language-']").forEach((code) => {
+    const langClass = Array.from(code.classList).find((cls) => cls.startsWith("language-")) ?? "";
+    const lang = langClass.slice("language-".length);
+    if (!supportedDiagramLang(lang)) return;
+    const pre = code.parentElement;
+    if (!(pre instanceof HTMLPreElement)) return;
+    const div = document.createElement("div");
+    div.className = "cm-mermaid-block-preview";
+    renderDiagramPreview(code.textContent ?? "", lang, div);
+    pre.replaceWith(div);
+  });
+}
+
+function stopInteractiveWidgetEvents(root: HTMLElement): void {
+  for (const type of ["mousedown", "mouseup", "click", "dblclick", "keydown", "keyup", "beforeinput", "input"]) {
+    root.addEventListener(type, stopEditorPropagation);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -546,6 +586,7 @@ class OrgEnvEndWidget extends WidgetType {
 
 function envLabel(kind: string): string {
   const labels: Record<string, string> = {
+    html: "HTML",
     meta: "Meta",
     theorem: "Theorem",
     thm: "Theorem",
@@ -660,12 +701,42 @@ class CommentWidget extends WidgetType {
     content.className = "org-env-content";
     content.hidden = true;
     content.innerHTML = renderMarkdownHTML(this.body.trim());
+    enhanceRenderedMarkdown(content);
+    stopInteractiveWidgetEvents(content);
 
     block.append(button, content);
     return block;
   }
 
   ignoreEvent(): boolean { return false; }
+}
+
+class HtmlWidget extends WidgetType {
+  body: string;
+  from: number;
+  to: number;
+
+  constructor(body: string, from: number, to: number) {
+    super();
+    this.body = body;
+    this.from = from;
+    this.to = to;
+  }
+
+  eq(other: HtmlWidget): boolean {
+    return this.body === other.body && this.from === other.from && this.to === other.to;
+  }
+
+  toDOM(): HTMLElement {
+    const div = document.createElement("div");
+    div.className = "cm-html-env-widget";
+    setSourceRange(div, this.from, this.to);
+    div.innerHTML = renderMarkdownHTML(buildOrgEnvSource("html", "", this.body));
+    stopInteractiveWidgetEvents(div);
+    return div;
+  }
+
+  ignoreEvent(): boolean { return true; }
 }
 
 function renderMetaWidget(
@@ -927,7 +998,7 @@ const orgEnvBlocksField = StateField.define<readonly OrgEnvBlock[]>({
       return patchOrgEnvBlocksForTitleChange(tr.startState.doc, tr.state.doc, blocks, tr.changes)?.blocks
         ?? scanOrgEnvBlocks(tr.state.doc.toString(), 0, 0, getBlockMathRanges(tr.state));
     }
-    return blocks.map((block) => mapOrgEnvBlock(block, tr.changes));
+    return blocks.map((block) => mapOrgEnvBlock(block, tr.changes, tr.state.doc));
   },
 });
 
@@ -959,17 +1030,20 @@ function canMapOrgEnvBlocks(doc: Text, blocks: readonly OrgEnvBlock[], changes: 
   return canMap;
 }
 
-function mapOrgEnvBlock(block: OrgEnvBlock, changes: ChangeSet): OrgEnvBlock {
+function mapOrgEnvBlock(block: OrgEnvBlock, changes: ChangeSet, doc: Text): OrgEnvBlock {
+  const bodyFrom = changes.mapPos(block.bodyFrom);
+  const bodyTo = changes.mapPos(block.bodyTo);
   return {
     ...block,
     from: changes.mapPos(block.from),
     to: changes.mapPos(block.to),
     openFrom: changes.mapPos(block.openFrom),
     openTo: changes.mapPos(block.openTo),
-    bodyFrom: changes.mapPos(block.bodyFrom),
-    bodyTo: changes.mapPos(block.bodyTo),
+    bodyFrom,
+    bodyTo,
     closeFrom: changes.mapPos(block.closeFrom),
     closeTo: changes.mapPos(block.closeTo),
+    body: doc.sliceString(bodyFrom, bodyTo),
     titleAnchor: changes.mapPos(block.titleAnchor),
   };
 }
@@ -1021,7 +1095,7 @@ function patchOrgEnvBlocksForTitleChange(
     return null;
   }
 
-  const mappedBlocks = blocks.map((block) => mapOrgEnvBlock(block, changes));
+  const mappedBlocks = blocks.map((block) => mapOrgEnvBlock(block, changes, newDoc));
   const touchedIndex = blocks.indexOf(oldBlock);
   const mappedBlock = mappedBlocks[touchedIndex]!;
   const newLine = newDoc.lineAt(mappedBlock.openFrom);
@@ -1199,6 +1273,8 @@ function measureOrgEnvRails(view: EditorView): OrgEnvRailMeasure[] {
   return orgEnvBlocksFromState(view.state)
     .filter((block) => (
       block.kind !== "meta"
+      && block.kind !== "comment"
+      && block.kind !== "html"
       && block.openFrom <= visibleTo
       && block.closeTo >= visibleFrom
     ))
@@ -1233,6 +1309,16 @@ function addOrgEnvBlockExtraDecos(
     decos.push(
       Decoration.replace({
         widget: new MetaWidget(block.body, block.from, block.to),
+        block: true,
+      }).range(block.from, block.to),
+    );
+    occupied?.push([block.from, block.to]);
+    return;
+  }
+  if (block.kind === "html") {
+    decos.push(
+      Decoration.replace({
+        widget: new HtmlWidget(block.body, block.from, block.to),
         block: true,
       }).range(block.from, block.to),
     );
@@ -1370,7 +1456,7 @@ function canMapBlockExtraDecos(state: EditorState, changes: ChangeSet): boolean 
   if (ranges.hrs.some((range) => changesTouchRange(changes, range.from, range.to))) return false;
   if (ranges.frontMatter && changesTouchRange(changes, ranges.frontMatter.from, ranges.frontMatter.to)) return false;
   if (blocks.some((block) => (
-    (block.kind === "meta" || block.kind === "comment") && changesTouchRange(changes, block.from, block.to)
+    (block.kind === "meta" || block.kind === "comment" || block.kind === "html") && changesTouchRange(changes, block.from, block.to)
   ))) {
     return false;
   }

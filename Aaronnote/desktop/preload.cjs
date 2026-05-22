@@ -54,6 +54,7 @@ contextBridge.exposeInMainWorld("aaronnoteApi", {
     rewritePathRefs: (body = {}) => invoke("aaronnote:api:roam-tools:rewrite-path-refs", body),
     fileHistory: (file = "") => invoke("aaronnote:api:roam-tools:file-history", String(file || "")),
     restoreFileVersion: (body = {}) => invoke("aaronnote:api:roam-tools:restore-file-version", body),
+    discardFileChanges: (file = "") => invoke("aaronnote:api:roam-tools:discard-file-changes", String(file || "")),
     repoStatus: () => invoke("aaronnote:api:roam-tools:repo-status"),
     repoHistory: (limit = 30) => invoke("aaronnote:api:roam-tools:repo-history", Number(limit) || 30),
     changes: () => invoke("aaronnote:api:roam-tools:changes"),
@@ -96,6 +97,11 @@ contextBridge.exposeInMainWorld("aaronnoteApi", {
   shell: {
     showInFolder: (file = "") => invoke("aaronnote:api:shell:show-in-folder", String(file || "")),
     openPath: (file = "") => invoke("aaronnote:api:shell:open-path", String(file || "")),
+    showAttachmentMenu: (file = "", base = "") => invoke(
+      "aaronnote:api:shell:show-attachment-menu",
+      String(file || ""),
+      String(base || ""),
+    ),
   },
   copilot: {
     request: (action = "", body = {}) => invoke("aaronnote:api:copilot:request", String(action || ""), body),

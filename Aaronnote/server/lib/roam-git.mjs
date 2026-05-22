@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { readFile, realpath, writeFile } from "node:fs/promises";
+import { readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
 const execFileAsync = promisify(execFile);
@@ -381,4 +381,34 @@ export async function restoreFileFromCommit(noteRoot, absFile, sha) {
   const gitRel = relative(root, absFile);
   const content = await git(noteRoot, ["show", `${sha}:${gitRel}`]);
   await writeFile(absFile, content, "utf8");
+}
+
+export async function discardFileChanges(noteRoot, pathValue) {
+  const info = await resolveNotePathInfo(noteRoot, pathValue);
+  const changes = await roamRepoChanges(noteRoot);
+  const change = changes.find((item) =>
+    item.file === info.abs
+    || item.path === info.noteRel
+    || item.gitPath === info.gitRel
+  );
+  if (!change) return { file: info.abs, path: info.noteRel, changed: false };
+
+  const pathspecs = [`:(top)${info.gitRel}`];
+
+  if (change.kind === "untracked" || change.kind === "added" || change.kind === "copied") {
+    await gitOutput(noteRoot, ["restore", "--staged", "--", ...pathspecs]);
+    await rm(info.abs, { force: true, recursive: false });
+    return { file: info.abs, path: info.noteRel, changed: true };
+  }
+
+  if (change.kind === "renamed" && change.oldPath) {
+    const out = await gitOutput(noteRoot, ["restore", "--source=HEAD", "--staged", "--worktree", "--", `:(top)${slashPath(change.oldPath)}`]);
+    if (!out.ok) throw new Error(out.stderr || out.stdout || out.message || "Git restore failed");
+    await rm(info.abs, { force: true, recursive: false });
+    return { file: info.abs, path: info.noteRel, changed: true };
+  }
+
+  const out = await gitOutput(noteRoot, ["restore", "--source=HEAD", "--staged", "--worktree", "--", ...pathspecs]);
+  if (!out.ok) throw new Error(out.stderr || out.stdout || out.message || "Git restore failed");
+  return { file: info.abs, path: info.noteRel, changed: true };
 }

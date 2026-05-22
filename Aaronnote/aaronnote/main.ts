@@ -9,6 +9,7 @@ import { equationTagsFromText, getEquationTagHits } from "../src/equation-tags.t
 import { INLINE_MATH_RE, isLikelyInlineMath } from "../src/inline-math.ts";
 import { getBlockMathRanges, rangeAtPosition, rangeOverlapsAny } from "../src/cm6/math-ranges.ts";
 import { renderMathLazy } from "../src/math-render.ts";
+import { noteCssHrefFromMarkdown } from "../src/render-html.ts";
 import { safeHref } from "../src/url-safety.ts";
 import { createAgendaManager } from "./agenda.ts";
 import { createUnusedAssetsManager } from "./asset-cleanup.ts";
@@ -537,6 +538,7 @@ window.AaronnoteCurrentFile = () => currentFile;
 let currentMode: "markdown" | "source" = "markdown";
 const LARGE_RENDERED_OPEN_BYTES = 1_000_000;
 let currentStandalone = false;
+let noteCssUpdateTimer = 0;
 let saveTimer = 0;
 let notes: NoteSummary[] = [];
 let directories: DirectorySummary[] = [];
@@ -763,6 +765,7 @@ const editor = createEditor(host, {
     }
     snippetMouseSuppressed = false;
     scheduleAssistUpdate({ snippets: true, mathPreview: true, toc: true });
+    scheduleNoteCssUpdate();
     if (!findTool.hidden) scheduleFindRefresh();
     if (applyingRemoteContent) return;
     markDirty();
@@ -933,7 +936,7 @@ function activateGitPanel(): void {
         const panel = createGitPanel({
           root: gitRoot,
           getCurrentFile: () => currentFile,
-          openNote,
+          openNote: (file) => openNote({ file }),
           setStatus,
           syncRoamDb,
           beforeRefresh: flushCurrentSaveForGit,
@@ -1612,6 +1615,29 @@ function resolveAssetUrl(src: string, baseFile = currentFile): string {
 }
 
 window.AaronnoteResolveAssetUrl = resolveAssetUrl;
+
+function setNoteCssHref(href: string): void {
+  const existing = document.querySelector<HTMLLinkElement>("link[data-aaronnote-note-css]");
+  if (!href) {
+    existing?.remove();
+    return;
+  }
+  const link = existing ?? document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = href;
+  link.dataset.aaronnoteNoteCss = "true";
+  if (!existing) document.head.appendChild(link);
+  else document.head.appendChild(link);
+}
+
+function updateNoteCss(markdown = editor.getMarkdown()): void {
+  setNoteCssHref(noteCssHrefFromMarkdown(markdown));
+}
+
+function scheduleNoteCssUpdate(): void {
+  window.clearTimeout(noteCssUpdateTimer);
+  noteCssUpdateTimer = window.setTimeout(() => updateNoteCss(), 120);
+}
 
 function fileNameFromPath(path: string): string {
   return path.split(/[\\/]/).filter(Boolean).at(-1) || "attachment";
@@ -2696,7 +2722,7 @@ async function deleteCurrentNote(): Promise<void> {
     saveCursorPositionsLocalNow();
     currentFile = "";
     fileLabel.textContent = "Scratch";
-    editor.setMarkdown("");
+    editor.setMarkdown("", { history: "reset" });
     renderNotes();
     focusFilesystemRangerSoon();
     if (graphToolVisible()) renderGraph();
@@ -2736,7 +2762,7 @@ async function deleteNoteFromBrowser(note: NoteSummary): Promise<void> {
     if (fileToDelete === currentFile) {
       currentFile = "";
       fileLabel.textContent = "Scratch";
-      editor.setMarkdown("");
+      editor.setMarkdown("", { history: "reset" });
     }
     renderNotes();
     focusFilesystemRangerSoon();
@@ -6517,6 +6543,7 @@ async function openStandaloneFile(file: string): Promise<void> {
 function applyOpen(msg: Extract<Inbound, { type: "open" }>, options: { preserveFocus?: boolean } = {}): void {
   saveCursorPositionNow({ force: true });
   window.clearTimeout(saveTimer);
+  window.clearTimeout(noteCssUpdateTimer);
   saveAbortController?.abort();
   saveAbortController = null;
   saveConflictActive = false;
@@ -6559,14 +6586,15 @@ function applyOpen(msg: Extract<Inbound, { type: "open" }>, options: { preserveF
   syncSourceUi();
   const kindValue = msg.kind ?? currentNote()?.kind ?? noteKindFromMarkdown(msg.content ?? "");
   prepareNoteKindRender(kindValue);
+  updateNoteCss(msg.content ?? "");
   applyingRemoteContent = true;
   try {
-    editor.setMarkdown(msg.content ?? "");
+    editor.setMarkdown(msg.content ?? "", { history: "reset" });
   } finally {
     applyingRemoteContent = false;
   }
   offerDraftRecovery(currentFile, msg.content ?? "");
-  void applyNoteKindAssets(kindValue);
+  void applyNoteKindAssets(kindValue).finally(() => updateNoteCss());
   const equationTag = normalizeEquationTag(pendingEquationTag);
   pendingEquationTag = "";
   const inlineTag = normalizeInlineTag(pendingInlineTag);
@@ -6631,6 +6659,13 @@ function editorOwnsEventTarget(event: Event): boolean {
   return editorSurfaceVisible() && !!target && host.contains(target);
 }
 
+function editorOwnsKeyTarget(event: KeyboardEvent): boolean {
+  if (!editorOwnsEventTarget(event)) return false;
+  const target = event.target instanceof Element ? event.target : event.target instanceof Text ? event.target.parentElement : null;
+  const editable = target?.closest<HTMLElement>("input, textarea, select, [contenteditable='true']");
+  return !editable || editable.classList.contains("cm-content");
+}
+
 function runEditorCommand(command: EditorCommand, value = ""): void {
   if (!editor.runCommand(command, value)) return;
   scheduleAssistUpdate();
@@ -6638,10 +6673,47 @@ function runEditorCommand(command: EditorCommand, value = ""): void {
   setStatus(command.replace(/-/g, " "));
 }
 
-document.addEventListener("keydown", (event) => {
-  const primaryMod = /Mac/.test(navigator.platform)
+function runHistoryCommand(kind: "undo" | "redo"): void {
+  const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  const editable = active?.closest<HTMLElement>("input, textarea, select, [contenteditable='true']");
+  if (editable && !editable.classList.contains("cm-content")) {
+    document.execCommand(kind);
+    return;
+  }
+  const ok = kind === "undo" ? editor.undo() : editor.redo();
+  if (!ok) return;
+  scheduleAssistUpdate();
+  scheduleCursorPositionSave();
+}
+
+function primaryShortcutModifier(event: KeyboardEvent): boolean {
+  return /Mac/.test(navigator.platform)
     ? event.metaKey && !event.ctrlKey
     : event.ctrlKey && !event.metaKey;
+}
+
+function historyShortcutKind(event: KeyboardEvent): "undo" | "redo" | null {
+  if (!primaryShortcutModifier(event) || event.altKey) return null;
+  const key = event.key.toLowerCase();
+  if (key === "z" && !event.shiftKey) return "undo";
+  if (key === "z" && event.shiftKey) return "redo";
+  if (key === "y" && !event.shiftKey) return "redo";
+  return null;
+}
+
+document.addEventListener("keydown", (event) => {
+  const kind = historyShortcutKind(event);
+  if (!kind || !editorOwnsKeyTarget(event)) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  const ok = kind === "undo" ? editor.undo() : editor.redo();
+  if (!ok) return;
+  scheduleAssistUpdate();
+  scheduleCursorPositionSave();
+}, { capture: true });
+
+document.addEventListener("keydown", (event) => {
+  const primaryMod = primaryShortcutModifier(event);
   if (handleCommandPaletteKey(event)) {
     event.stopPropagation();
     return;
@@ -6846,6 +6918,15 @@ document.addEventListener("aaronnote:preview-url", (event) => {
   linkPreview.show(href, Number(custom.detail?.x) || window.innerWidth / 2, Number(custom.detail?.y) || 80);
 });
 
+document.addEventListener("aaronnote:attachment-context-menu", (event) => {
+  const custom = event as CustomEvent<{ href?: string }>;
+  const href = custom.detail?.href;
+  if (!href) return;
+  event.preventDefault();
+  void api.shell.showAttachmentMenu(hrefPath(href), currentFile)
+    .catch((err) => setStatus(err instanceof Error ? err.message : "Attachment menu failed"));
+});
+
 host.addEventListener("contextmenu", (event) => {
   if (!primaryPointerModifier(event)) return;
   const anchor = (event.target as Element | null)?.closest<HTMLAnchorElement>("a[href]");
@@ -6906,6 +6987,8 @@ window.addEventListener("aaronnote:command", (event) => {
   if (command === "roam-git-status") void roamGitStatus();
   if (command === "roam-commit-now") void roamCommitNow();
   if (command === "roam-push") void roamPush();
+  if (command === "undo") runHistoryCommand("undo");
+  if (command === "redo") runHistoryCommand("redo");
   if (command === "reload-snippets") void reloadSnippets();
   if (command === "enable-snippet-suggestions") setSnippetSuggestionsEnabled(true);
   if (command === "disable-snippet-suggestions") setSnippetSuggestionsEnabled(false);

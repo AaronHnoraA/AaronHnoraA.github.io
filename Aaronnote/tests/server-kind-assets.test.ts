@@ -33,4 +33,11 @@ describe("server note kind assets", () => {
     expect(slide?.mode).toBe("markdown-mode");
     expect(slide?.body).toContain("# ${1:Slide title}");
   });
+
+  test("loads the html org env snippet", async () => {
+    const snippets = await scanSnippets({ force: true }) as ServerSnippet[];
+    const html = snippets.find((snippet) => snippet.kind === "" && snippet.key === "html");
+    expect(html?.mode).toBe("markdown-mode");
+    expect(html?.body).toContain("#+begin html\n$1\n#+end html");
+  });
 });

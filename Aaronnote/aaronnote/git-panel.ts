@@ -331,17 +331,12 @@ export function createGitPanel(options: GitPanelOptions): GitPanel {
   async function restoreSelectedFile(): Promise<void> {
     const change = selectedChange();
     if (!change?.file) return;
-    options.setStatus("Loading file history");
+    options.setStatus("Restoring file");
     try {
-      const msg = await api.roamTools.fileHistory(change.file);
-      const first = msg.entries?.[0];
-      if (!first) {
-        options.setStatus("No committed version for this file");
-        return;
-      }
-      await api.roamTools.restoreFileVersion({ file: change.file, sha: first.sha });
+      await api.roamTools.discardFileChanges(change.file);
       await refresh();
-      options.setStatus("Restored file from " + shortSha(first.sha));
+      if (change.file === options.getCurrentFile()) await options.openNote(change.file);
+      options.setStatus("Restored file");
     } catch (err) {
       options.setStatus(err instanceof Error ? err.message : "Restore failed");
     }

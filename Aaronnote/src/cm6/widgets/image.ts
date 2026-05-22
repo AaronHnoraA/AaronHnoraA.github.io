@@ -24,6 +24,7 @@ import {
 import { syntaxTree } from "@codemirror/language";
 import type { Range } from "@codemirror/state";
 import { getBlockMathRanges, rangeInsideAny } from "../math-ranges.ts";
+import { applyImageLayout, imageLayoutFromAttrs, readImageTrailingAttrs, type ImageLayoutAttrs } from "../../image-attrs.ts";
 
 declare global {
   interface Window {
@@ -34,6 +35,7 @@ declare global {
 function setSourceRange(el: HTMLElement, from: number, to: number): void {
   el.dataset.cmSourceFrom = String(from);
   el.dataset.cmSourceTo = String(to);
+  el.dataset.cmSourceAnchor = String(Math.min(to, from + 1));
   el.dataset.cmOpenSource = "true";
 }
 
@@ -52,23 +54,33 @@ class ImageWidget extends WidgetType {
   alt: string;
   from: number;
   to: number;
+  layout: ImageLayoutAttrs;
 
-  constructor(src: string, alt: string, from: number, to: number) {
+  constructor(src: string, alt: string, from: number, to: number, layout: ImageLayoutAttrs) {
     super();
     this.src = src;
     this.alt = alt;
     this.from = from;
     this.to = to;
+    this.layout = layout;
   }
 
   eq(other: ImageWidget): boolean {
-    return this.src === other.src && this.alt === other.alt && this.from === other.from && this.to === other.to;
+    return this.src === other.src &&
+      this.alt === other.alt &&
+      this.from === other.from &&
+      this.to === other.to &&
+      this.layout.align === other.layout.align &&
+      this.layout.wrap === other.layout.wrap &&
+      this.layout.width === other.layout.width &&
+      this.layout.height === other.layout.height;
   }
 
   toDOM(): HTMLElement {
     const wrap = document.createElement("figure");
     wrap.className = "cm-image-widget";
     setSourceRange(wrap, this.from, this.to);
+    applyImageLayout(wrap, this.layout);
 
     if (this.src) {
       const img = document.createElement("img");
@@ -118,7 +130,10 @@ function buildImageDecorations(view: EditorView): DecorationSet {
       enter(node) {
         if (rangeInsideAny(node.from, node.to, blockMathRanges)) return false;
         if (node.name !== "Image") return;
-        const cursorInside = sel.from <= node.to && sel.to >= node.from;
+        const line = doc.lineAt(node.to);
+        const trailing = readImageTrailingAttrs(doc.sliceString(node.to, line.to), 0);
+        const fullTo = trailing ? node.to + trailing.to : node.to;
+        const cursorInside = sel.from <= fullTo && sel.to >= node.from;
         if (cursorInside) return false; // editable source
 
         const raw = doc.sliceString(node.from, node.to);
@@ -127,11 +142,12 @@ function buildImageDecorations(view: EditorView): DecorationSet {
         // src may include optional title; strip the title part and trim
         const srcFull = m?.[2] ?? "";
         const src = srcFull.replace(/\s+"[^"]*"\s*$/, "").replace(/\s+'[^']*'\s*$/, "").trim();
+        const layout = imageLayoutFromAttrs(trailing?.attrs ?? {});
 
         decos.push(
           Decoration.replace({
-            widget: new ImageWidget(src, alt, node.from, node.to),
-          }).range(node.from, node.to),
+            widget: new ImageWidget(src, alt, node.from, fullTo, layout),
+          }).range(node.from, fullTo),
         );
         return false;
       },

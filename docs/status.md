@@ -2,7 +2,7 @@
 
 ## Current State
 
-As of 2026-05-19, the repository has a working development pipeline:
+As of 2026-05-22, the repository has a working development pipeline:
 
 - `Aaronnote` can be developed, tested, and built.
 - The publish script can convert the Markdown source into a static site.
@@ -19,18 +19,22 @@ Recent project evolution milestones:
 - 2026-05-19: Viewport range plugin added; decorations, fenced code, ref-def, and image probe in large documents prioritize the visible area.
 - 2026-05-19: Snippet target-block lookup changed to insertion-point / viewport window; equation tag builds an incremental CM6 index; jump and suggestion no longer temporarily read the full Markdown.
 - 2026-05-19: PM → CM6 migration completed; CM6 is now the only runtime core.
+- 2026-05-21: HTTP → Electron IPC migration completed (Phases 0–3). Desktop runtime no longer starts a local HTTP server; all save/open/fs/meta/session/plugin/copilot/roamlookup calls go through Electron IPC. `aaronnote-asset://` custom protocol replaces HTTP server for media, fonts, note-kind assets, and roam-tools. Server tests migrated from HTTP to direct lib imports.
+- 2026-05-21: Batch locality passes for render paths (math, Mermaid, tables, headings, org-env, TOC index, shared server scan) completed; see [performance-optimization.md](performance-optimization.md).
+- 2026-05-22: Layout trailing attrs: `![alt](src){align: right; w: 300px; wrap: true}` controls image layout, and standalone attrs lines after Markdown tables / supported diagram fences control table and diagram layout. Shared attr-parsing module (`attrs-syntax.ts`) extracted; `layout-attrs.ts` generalizes the layout model for image/table/diagram reuse.
+- 2026-05-22: Diagram previews gained interactive pan/zoom/fit/node-highlight/link handling. `marmind` / `markmind` fences now accept plain indented trees or Markdown-ish lists and normalize them into Mermaid `mindmap` source, while full Mermaid sources still render unchanged.
+- 2026-05-22: `#+begin html ... #+end html` org-env block now renders as a DOMPurify-sanitized `<div class="aaronnote-html">` in both editor and publish pipeline.
+- 2026-05-22: Per-note CSS: `css:` field in `#+begin meta` loads a note-specific stylesheet after all app/kind styles. `noteCssHrefFromMarkdown()` exported from `render-html.ts` for use by the publish pipeline and the editor shell.
+- 2026-05-22: HTML snippet added (`snippets/markdown-mode/html`) for quick `#+begin html` block insertion.
 
 ## CM6 Core
 
-- Current state: **CM6 is the sole runtime core**
+- Current state: **CM6 is the sole runtime core** (migration completed 2026-05-19)
 - `EditorOptions.kernel` kept for backward call compatibility but the type only accepts `cm6`
-- Full test run: 628 passing / 0 failing / 0 skipped
+- Full test run: 628 passing / 0 failing / 0 skipped (as of 2026-05-19; layout attrs tests added 2026-05-22)
 - Recent milestones: CM6 `getHTML()` hooked into the shared HTML export pipeline; CM6 parser switched to GFM-capable `markdownLanguage`; CM6 paste path reuses the kernel-agnostic clipboard helper; CM6 org-env widget body rendered via Markdown HTML renderer (inline math in blocks now parses); Chinese font unified to heading-font priority; CM6 block context and table row/column commands aligned with public API; CM6 table rows have baseline visual styles; CM6 `[toc]` renders real heading list with jump support; snippet org-env / math tabstop path avoids old view API; paste/source/snippet public API tests continue migrating to default CM6; CM6 Source/Preview button can dynamically disable/restore live preview; CM6 block and inline widget click returns to source editing; horizontal rule renders; Vim-lite core normal/visual commands hooked into CM6 selection.
 - Remaining work: continue filling in CM6 detail regressions and visual polish
 - Open blockers: 0
-- Detailed plan: [pm-to-cm-plan.md](pm-to-cm-plan.md)
-- Progress log: [pm-to-cm-progress.md](pm-to-cm-progress.md)
-- Blockers and open questions: [pm-to-cm-issues.md](pm-to-cm-issues.md)
 
 ## Test Status
 

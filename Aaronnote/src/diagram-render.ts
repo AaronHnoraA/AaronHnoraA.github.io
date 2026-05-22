@@ -1,4 +1,5 @@
 import DOMPurify from "dompurify";
+import { safeHref } from "./url-safety.ts";
 export { supportedDiagramLang } from "./diagram-langs.ts";
 
 type DiagramCacheValue = { html: string; error?: string };
@@ -36,23 +37,133 @@ export function diagramRenderCacheSize(): number {
 function sanitizeSvg(svg: string): string {
   return DOMPurify.sanitize(svg, {
     USE_PROFILES: { svg: true, svgFilters: true },
+    ADD_ATTR: ["href", "xlink:href", "target", "title"],
   });
 }
 
-function enableDiagramInteraction(element: HTMLElement): void {
+function sanitizeDiagramLinks(element: HTMLElement): void {
+  element.querySelectorAll<SVGElement>("a").forEach((anchor) => {
+    const href = anchor.getAttribute("href")
+      || anchor.getAttribute("xlink:href")
+      || anchor.getAttributeNS("http://www.w3.org/1999/xlink", "href")
+      || "";
+    if (!href || !safeHref(href)) {
+      anchor.removeAttribute("href");
+      anchor.removeAttribute("xlink:href");
+      anchor.removeAttributeNS("http://www.w3.org/1999/xlink", "href");
+      return;
+    }
+    anchor.setAttribute("href", href);
+    anchor.setAttribute("target", "_blank");
+    anchor.setAttribute("rel", "noopener noreferrer");
+  });
+}
+
+const MERMAID_START_RE = /^(?:mindmap|flowchart|graph|sequenceDiagram|classDiagram|stateDiagram(?:-v2)?|erDiagram|journey|gantt|pie|gitGraph|timeline|quadrantChart|sankey-beta|xychart-beta|block-beta|packet-beta)\b/i;
+const MINDMAP_LANGS = new Set(["mindmap", "marmind", "markmind"]);
+
+function diagramLang(info = ""): string {
+  return String(info || "").trim().toLowerCase().split(/\s+/, 1)[0] ?? "";
+}
+
+function cleanMindmapText(value: string): string {
+  return value
+    .trim()
+    .replace(/^#{1,6}\s+/, "")
+    .replace(/^[-*+]\s+/, "")
+    .replace(/^\d+[.)]\s+/, "")
+    .trim();
+}
+
+function normalizeMindmapSource(source: string): string {
+  const lines = String(source || "").replace(/\t/g, "  ").split(/\r?\n/);
+  const meaningful = lines.filter((line) => line.trim());
+  if (meaningful.length === 0) return "";
+  if (MERMAID_START_RE.test(meaningful[0]!.trim())) return source.trim();
+
+  const normalized = meaningful.map((line, index) => {
+    const rawIndent = line.match(/^\s*/)?.[0].length ?? 0;
+    const heading = line.match(/^\s*(#{1,6})\s+(.+)$/);
+    const bullet = line.match(/^(\s*)(?:[-*+]|\d+[.)])\s+(.+)$/);
+    const level = heading
+      ? heading[1]!.length - 1
+      : bullet
+        ? Math.floor((bullet[1]?.length ?? 0) / 2)
+        : Math.floor(rawIndent / 2);
+    const text = cleanMindmapText(heading?.[2] ?? bullet?.[2] ?? line);
+    return `${"  ".repeat(Math.max(1, level + 1))}${text || `Node ${index + 1}`}`;
+  });
+  return ["mindmap", ...normalized].join("\n");
+}
+
+export function normalizeMermaidSource(source: string, info = ""): string {
+  return MINDMAP_LANGS.has(diagramLang(info)) ? normalizeMindmapSource(source) : source;
+}
+
+function diagramHrefFromAnchor(anchor: SVGElement): string {
+  return anchor.getAttribute("href")
+    || anchor.getAttribute("xlink:href")
+    || anchor.getAttributeNS("http://www.w3.org/1999/xlink", "href")
+    || "";
+}
+
+function primaryLinkModifier(event: MouseEvent): boolean {
+  if (event.metaKey && !event.ctrlKey) return true;
+  return !/Mac/.test(navigator.platform) && event.ctrlKey && !event.metaKey;
+}
+
+function dispatchDiagramLink(element: HTMLElement, event: MouseEvent, href: string): void {
+  if (!safeHref(href)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const openEvent = new CustomEvent("aaronnote:open-url", {
+    bubbles: true,
+    cancelable: true,
+    detail: { href, newWindow: event.button === 1 || primaryLinkModifier(event) },
+  });
+  element.dispatchEvent(openEvent);
+  if (!openEvent.defaultPrevented) {
+    window.open(href, "_blank", "noopener,noreferrer");
+  }
+}
+
+function selectedDiagramNode(target: EventTarget | null): SVGElement | null {
+  if (!(target instanceof SVGElement)) return null;
+  return target.closest<SVGElement>("a, g.node, g.mindmap-node, g[class*='node'], g[id]")
+    ?? target.closest<SVGElement>("text");
+}
+
+export function enableDiagramInteraction(element: HTMLElement): void {
   const svg = element.querySelector<SVGSVGElement>("svg");
   if (!svg || element.querySelector(".cm-diagram-toolbar")) return;
 
   element.classList.add("cm-diagram-interactive");
+  element.style.overflow = "auto";
   svg.style.maxWidth = "none";
   svg.style.transformOrigin = "0 0";
+  sanitizeDiagramLinks(element);
 
   let scale = 1;
-  let drag: { x: number; y: number; left: number; top: number } | null = null;
+  let drag: { x: number; y: number; left: number; top: number; moved: boolean } | null = null;
+  let suppressNextClick = false;
 
   const applyScale = (next: number): void => {
     scale = Math.min(2.4, Math.max(0.55, next));
     svg.style.width = `${scale * 100}%`;
+  };
+  const fitWidth = (): void => {
+    try {
+      const box = svg.getBBox();
+      if (box.width > 0 && element.clientWidth > 0) {
+        applyScale(element.clientWidth / box.width);
+      } else {
+        applyScale(1);
+      }
+    } catch {
+      applyScale(1);
+    }
+    element.scrollLeft = 0;
+    element.scrollTop = 0;
   };
 
   const toolbar = document.createElement("div");
@@ -60,6 +171,7 @@ function enableDiagramInteraction(element: HTMLElement): void {
   const controls: Array<[string, string, () => void]> = [
     ["+", "Zoom in", () => applyScale(scale + 0.15)],
     ["-", "Zoom out", () => applyScale(scale - 0.15)],
+    ["Fit", "Fit width", fitWidth],
     ["1:1", "Reset zoom", () => applyScale(1)],
   ];
   for (const [text, label, action] of controls) {
@@ -76,25 +188,72 @@ function enableDiagramInteraction(element: HTMLElement): void {
   }
   element.prepend(toolbar);
 
+  element.addEventListener("mousedown", (event) => {
+    const target = event.target;
+    if (
+      target instanceof Element
+      && target.closest(".cm-diagram-toolbar, svg")
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  });
+
   svg.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
-    drag = { x: event.clientX, y: event.clientY, left: element.scrollLeft, top: element.scrollTop };
+    drag = { x: event.clientX, y: event.clientY, left: element.scrollLeft, top: element.scrollTop, moved: false };
     svg.setPointerCapture(event.pointerId);
     element.classList.add("is-panning");
   });
   svg.addEventListener("pointermove", (event) => {
     if (!drag) return;
+    const dx = event.clientX - drag.x;
+    const dy = event.clientY - drag.y;
+    if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
     element.scrollLeft = drag.left - (event.clientX - drag.x);
     element.scrollTop = drag.top - (event.clientY - drag.y);
   });
   const endDrag = (): void => {
+    suppressNextClick = Boolean(drag?.moved);
     drag = null;
     element.classList.remove("is-panning");
+    if (suppressNextClick) window.setTimeout(() => { suppressNextClick = false; }, 0);
   };
   svg.addEventListener("pointerup", endDrag);
   svg.addEventListener("pointercancel", endDrag);
+  element.addEventListener("click", (event) => {
+    if (suppressNextClick) {
+      event.preventDefault();
+      event.stopPropagation();
+      suppressNextClick = false;
+      return;
+    }
+    const anchor = (event.target as Element | null)?.closest<SVGElement>("a");
+    if (anchor) {
+      const href = diagramHrefFromAnchor(anchor);
+      if (href) dispatchDiagramLink(element, event, href);
+      return;
+    }
+    const node = selectedDiagramNode(event.target);
+    if (!node) return;
+    element.querySelectorAll(".cm-diagram-selected").forEach((selected) => {
+      selected.classList.remove("cm-diagram-selected");
+    });
+    node.classList.add("cm-diagram-selected");
+  });
+  element.addEventListener("dblclick", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    fitWidth();
+  });
   element.addEventListener("wheel", (event) => {
-    if (!event.ctrlKey && !event.metaKey) return;
+    if (!event.ctrlKey && !event.metaKey) {
+      if (event.shiftKey) {
+        event.preventDefault();
+        element.scrollLeft += event.deltaY || event.deltaX;
+      }
+      return;
+    }
     event.preventDefault();
     applyScale(scale + (event.deltaY < 0 ? 0.12 : -0.12));
   }, { passive: false });
@@ -104,26 +263,32 @@ export function renderMermaidLazy(
   source: string,
   element: HTMLElement,
   onError: (message: string) => void,
+  options: { lang?: string; onRender?: () => void } = {},
 ): void {
-  const trimmed = source.trim();
+  const trimmed = normalizeMermaidSource(source, options.lang).trim();
   const key = `mermaid\n${trimmed}`;
   element.setAttribute("data-diagram-render-key", key);
   element.classList.remove("aaronnote-diagram-error");
   if (!trimmed) {
     element.replaceChildren();
+    options.onRender?.();
     return;
   }
   if (trimmed.length > MAX_MERMAID_SOURCE_CHARS) {
     onError("Diagram is too large to render inline");
+    options.onRender?.();
     return;
   }
 
   const cached = cachedMermaid(key);
   if (cached) {
-    if (cached.error) onError(cached.error);
-    else {
+    if (cached.error) {
+      onError(cached.error);
+      options.onRender?.();
+    } else {
       element.innerHTML = cached.html;
       enableDiagramInteraction(element);
+      options.onRender?.();
     }
     return;
   }
@@ -150,11 +315,13 @@ export function renderMermaidLazy(
       rememberMermaid(key, { html });
       element.innerHTML = html;
       enableDiagramInteraction(element);
+      options.onRender?.();
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       rememberMermaid(key, { html: "", error: message });
       if (element.getAttribute("data-diagram-render-key") !== key) return;
       onError(message);
+      options.onRender?.();
     }
   })();
 }

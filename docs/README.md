@@ -6,15 +6,14 @@ Developer and maintainer documentation. Not about note content.
 - [codebase.md](codebase.md): Code layout for `Aaronnote` and the publish pipeline
 - [architecture.md](architecture.md): Tech stack, core composition, state machines, runtime logic
 - [software-design.md](software-design.md): Aaronnote product/runtime design, Roam link model, UX, performance, reliability
-- [api.md](api.md): Editor facade, server endpoints, frontend events, plugin contract, Roam link conventions
+- [api.md](api.md): Editor facade (all commands, block context, quick insert, StateEffects), renderer API, snippet system, plugin contract, Roam link conventions, layout attrs
 - [maintenance.md](maintenance.md): Setup, tests, safety checks, Roam-link maintenance, release/build notes
 - [status.md](status.md): Progress, test state, known bugs / limitations, next steps
-- [performance-optimization.md](performance-optimization.md): Large-file performance ledger, priorities, and refactor notes
-- [aaronnote-audit-2026-05.md](aaronnote-audit-2026-05.md): 2026-05 snapshot audit — performance, editing feel, and Roam system (findings + priorities)
+- [performance-optimization.md](performance-optimization.md): Performance ledger, numeric thresholds, StateField locality decision table, edge cases, future design
+- [aaronnote-html-controls.md](aaronnote-html-controls.md): Note-level CSS, layout attrs, HTML blocks, and common DOM shapes
 - [aaronnote-kinds.md](aaronnote-kinds.md): `kind` lazy-load extension, asset layout, and slides demo
-- [pm-to-cm-plan.md](pm-to-cm-plan.md): Editor core migration plan (ProseMirror → CodeMirror 6)
-- [pm-to-cm-progress.md](pm-to-cm-progress.md): PM → CM6 migration timeline
-- [pm-to-cm-issues.md](pm-to-cm-issues.md): PM → CM6 blockers, open questions, and research backlog
+- [app-native-migration-plan.md](app-native-migration-plan.md): HTTP → Electron IPC migration plan and progress (Phases 0–4, completed)
+- [roam-db-incremental-sync.md](roam-db-incremental-sync.md): Roam DB incremental sync + Git version management design
 - [../plugin/README.md](../plugin/README.md): Local plugin directory and command syntax conventions
 
 Recommended reading order:
@@ -26,6 +25,7 @@ Recommended reading order:
 5. `api.md`
 6. `maintenance.md`
 7. `performance-optimization.md`
-8. `aaronnote-kinds.md`
-9. `../plugin/README.md`
-10. `status.md`
+8. `aaronnote-html-controls.md`
+9. `aaronnote-kinds.md`
+10. `../plugin/README.md`
+11. `status.md`

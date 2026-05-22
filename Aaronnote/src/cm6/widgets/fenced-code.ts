@@ -29,10 +29,14 @@ import type { Range } from "@codemirror/state";
 import { highlightCodeForEditor, onCodeHighlightReady } from "../../code-highlight-async.ts";
 import { supportedDiagramLang } from "../../diagram-langs.ts";
 import { getBlockMathRanges, rangeInsideAny, rangeOverlapsAny } from "../math-ranges.ts";
+import { readLayoutAttrsLine } from "../../layout-attrs.ts";
+import { applyImageLayout, imageLayoutFromAttrs, type ImageLayoutAttrs } from "../../image-attrs.ts";
 
-function setSourceRange(el: HTMLElement, from: number, to: number): void {
+function setSourceRange(el: HTMLElement, from: number, to: number, anchor?: number, openSource = false): void {
   el.dataset.cmSourceFrom = String(from);
   el.dataset.cmSourceTo = String(to);
+  if (anchor != null) el.dataset.cmSourceAnchor = String(anchor);
+  if (openSource) el.dataset.cmOpenSource = "true";
 }
 
 // ---------------------------------------------------------------------------
@@ -126,50 +130,88 @@ async function copyText(text: string): Promise<boolean> {
 
 class MermaidWidget extends WidgetType {
   source: string;
+  lang: string;
   from: number;
   to: number;
+  sourceFrom: number;
+  layout: ImageLayoutAttrs;
 
-  constructor(source: string, from: number, to: number) {
+  constructor(source: string, lang: string, from: number, to: number, sourceFrom: number, layout: ImageLayoutAttrs) {
     super();
     this.source = source;
+    this.lang = lang;
     this.from = from;
     this.to = to;
+    this.sourceFrom = sourceFrom;
+    this.layout = layout;
   }
 
   eq(other: MermaidWidget): boolean {
-    return this.source === other.source && this.from === other.from && this.to === other.to;
+    return this.source === other.source &&
+      this.lang === other.lang &&
+      this.from === other.from &&
+      this.to === other.to &&
+      this.sourceFrom === other.sourceFrom &&
+      this.layout.align === other.layout.align &&
+      this.layout.wrap === other.layout.wrap &&
+      this.layout.width === other.layout.width &&
+      this.layout.height === other.layout.height;
   }
 
-  toDOM(): HTMLElement {
+  toDOM(view: EditorView): HTMLElement {
+    const wrap = document.createElement("figure");
+    wrap.className = "cm-mermaid-widget cm-image-widget";
+    setSourceRange(wrap, this.from, this.to, this.sourceFrom, true);
+    applyImageLayout(wrap, this.layout);
+
     const div = document.createElement("div");
     div.className = "cm-mermaid-block";
-    setSourceRange(div, this.from, this.to);
-    renderMermaidWidget(this.source, div);
-    return div;
-  }
-
-  ignoreEvent(): boolean { return false; }
-}
-
-class MermaidPreviewWidget extends WidgetType {
-  source: string;
-
-  constructor(source: string) { super(); this.source = source; }
-
-  eq(other: MermaidPreviewWidget): boolean { return this.source === other.source; }
-
-  toDOM(): HTMLElement {
-    const div = document.createElement("div");
-    div.className = "cm-mermaid-block-preview";
-    renderMermaidWidget(this.source, div);
-    return div;
+    wrap.append(div);
+    renderMermaidWidget(this.source, this.lang, div, () => view.requestMeasure());
+    return wrap;
   }
 
   ignoreEvent(): boolean { return true; }
 }
 
-function renderMermaidWidget(source: string, div: HTMLElement): void {
-  const key = `mermaid\n${source.trim()}`;
+class MermaidPreviewWidget extends WidgetType {
+  source: string;
+  lang: string;
+  layout: ImageLayoutAttrs;
+
+  constructor(source: string, lang: string, layout: ImageLayoutAttrs) {
+    super();
+    this.source = source;
+    this.lang = lang;
+    this.layout = layout;
+  }
+
+  eq(other: MermaidPreviewWidget): boolean {
+    return this.source === other.source &&
+      this.lang === other.lang &&
+      this.layout.align === other.layout.align &&
+      this.layout.wrap === other.layout.wrap &&
+      this.layout.width === other.layout.width &&
+      this.layout.height === other.layout.height;
+  }
+
+  toDOM(view: EditorView): HTMLElement {
+    const wrap = document.createElement("figure");
+    wrap.className = "cm-mermaid-widget cm-mermaid-widget-preview cm-image-widget";
+    applyImageLayout(wrap, this.layout);
+
+    const div = document.createElement("div");
+    div.className = "cm-mermaid-block-preview";
+    wrap.append(div);
+    renderMermaidWidget(this.source, this.lang, div, () => view.requestMeasure());
+    return wrap;
+  }
+
+  ignoreEvent(): boolean { return true; }
+}
+
+function renderMermaidWidget(source: string, lang: string, div: HTMLElement, onRender?: () => void): void {
+  const key = `mermaid\n${lang}\n${source.trim()}`;
   div.dataset.diagramRenderKey = key;
   div.textContent = "Loading diagram renderer...";
   void import("../../diagram-render.ts")
@@ -178,12 +220,13 @@ function renderMermaidWidget(source: string, div: HTMLElement): void {
       renderMermaidLazy(source, div, (err) => {
         div.classList.add("cm-diagram-error");
         div.textContent = err;
-      });
+      }, { lang, onRender });
     })
     .catch((err: unknown) => {
       if (div.dataset.diagramRenderKey !== key) return;
       div.classList.add("cm-diagram-error");
       div.textContent = err instanceof Error ? err.message : String(err);
+      onRender?.();
     });
 }
 
@@ -194,9 +237,20 @@ function renderMermaidWidget(source: string, div: HTMLElement): void {
 interface MermaidBlock {
   from: number;
   to: number;
+  lang: string;
   sourceFrom: number;
   sourceTo: number;
   source: string;
+  layout: ImageLayoutAttrs;
+}
+
+function nextLayoutAttrsLine(doc: Text, sourceTo: number): { to: number; layout: ImageLayoutAttrs } | null {
+  const currentLine = doc.lineAt(sourceTo);
+  if (currentLine.number >= doc.lines) return null;
+  const nextLine = doc.line(currentLine.number + 1);
+  const attrs = readLayoutAttrsLine(nextLine.text);
+  if (!attrs) return null;
+  return { to: nextLine.to, layout: imageLayoutFromAttrs(attrs.attrs) };
 }
 
 function collectMermaidBlocks(state: EditorState): readonly MermaidBlock[] {
@@ -215,13 +269,16 @@ function collectMermaidBlocks(state: EditorState): readonly MermaidBlock[] {
       const lang = infoNode ? doc.sliceString(infoNode.from, infoNode.to).trim() : "";
 
       if (!supportedDiagramLang(lang)) return; // handled by ViewPlugin
+      const trailing = nextLayoutAttrsLine(doc, node.to);
 
       blocks.push({
         from: node.from,
-        to: node.to,
+        to: trailing?.to ?? node.to,
+        lang,
         sourceFrom: textNode ? textNode.from : node.to,
         sourceTo: textNode ? textNode.to : node.to,
         source: textNode ? doc.sliceString(textNode.from, textNode.to) : "",
+        layout: trailing?.layout ?? imageLayoutFromAttrs({}),
       });
       return false; // skip children
     },
@@ -300,14 +357,14 @@ function buildMermaidDecoRanges(
     if (!cursorInBlock) {
       decos.push(
         Decoration.replace({
-          widget: new MermaidWidget(block.source, block.from, block.to),
+          widget: new MermaidWidget(block.source, block.lang, block.from, block.to, block.sourceFrom, block.layout),
           block: true,
         }).range(block.from, block.to),
       );
     } else {
       decos.push(
         Decoration.widget({
-          widget: new MermaidPreviewWidget(block.source),
+          widget: new MermaidPreviewWidget(block.source, block.lang, block.layout),
           block: true,
           side: 1,
         }).range(block.to),

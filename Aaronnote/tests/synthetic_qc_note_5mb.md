@@ -1715,6 +1715,24 @@ $$
 
 In computational complexity, the representation matters because algorithms
 operate on encodings, not on abstract objects directly.
+
+
+
+asdasd sad a
+
+
+
+#+begin proof
+adadasdas
+
+
+#+end proof
+sadasd
+
+
+
+this is 
+
 #+end summary
 
 ## 4.1. Quantum states and density operators
@@ -2370,6 +2388,15 @@ does not uniquely determine the ensemble $\{p_j,|\psi_j\rangle\}_j$.
 
 Different classical preparation procedures may induce the same density
 operator. Operationally, the density operator is the object that determines
+
+
+
+
+this is useful to use 
+
+
+
+
 all measurement statistics.
 #+end important
 
@@ -175182,6 +175209,21 @@ $$
 ## 322.2. Mixed states and ensemble decompositions
 
 A mixed state represents classical uncertainty over quantum states. Suppose
+
+
+
+
+
+
+
+
+
+this is hard to use 
+
+
+
+
+
 the system is prepared in state $|\psi_j\rangle$ with probability $p_j$.
 The probability constraints are
 

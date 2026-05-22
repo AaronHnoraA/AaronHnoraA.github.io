@@ -12,6 +12,7 @@ export {
   maybeScheduleWeeklyFullSync,
   fileHistory,
   restoreFileFromCommit,
+  discardFileChanges,
   roamRepoStatus,
   roamRepoChanges,
   diffRoamFile,
