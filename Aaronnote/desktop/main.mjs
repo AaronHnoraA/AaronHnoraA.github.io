@@ -22,6 +22,10 @@ import {
   fileHistory,
   restoreFileFromCommit,
   roamRepoStatus,
+  roamRepoChanges,
+  diffRoamFile,
+  diffRoamCommit,
+  pullRoam,
   pushRoam,
   repoHistory,
   roamNoteRoot,
@@ -349,6 +353,25 @@ function registerApiIpc() {
   registerApiHandler("aaronnote:api:roam-tools:repo-history", async (limit) => {
     const entries = await repoHistory(roamNoteRoot, typeof limit === "number" ? limit : 30);
     return { type: "roam-repo-history", entries };
+  });
+  registerApiHandler("aaronnote:api:roam-tools:changes", async () => {
+    const changes = await roamRepoChanges(roamNoteRoot);
+    return { type: "roam-repo-changes", changes };
+  });
+  registerApiHandler("aaronnote:api:roam-tools:diff", async (body) => {
+    const { file, path, scope, sha } = body || {};
+    const target = file || path;
+    if (!target) throw Object.assign(new Error("Missing file"), { statusCode: 400 });
+    return { type: "roam-repo-diff", ...await diffRoamFile(roamNoteRoot, target, { scope, sha }) };
+  });
+  registerApiHandler("aaronnote:api:roam-tools:commit-diff", async (sha) => {
+    const cleanSha = String(sha || "").trim();
+    if (!cleanSha) throw Object.assign(new Error("Missing commit"), { statusCode: 400 });
+    return { type: "roam-commit-diff", ...await diffRoamCommit(roamNoteRoot, cleanSha) };
+  });
+  registerApiHandler("aaronnote:api:roam-tools:pull", async () => {
+    const output = await pullRoam(roamNoteRoot);
+    return { type: "roam-pull-done", ok: true, output };
   });
   registerApiHandler("aaronnote:api:roam-tools:push", async () => {
     await pushRoam(roamNoteRoot);

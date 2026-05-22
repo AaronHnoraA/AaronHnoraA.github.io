@@ -5,7 +5,7 @@ import { homedir, tmpdir } from "node:os";
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { changedRoamFilesSince, commitRoam, fileHistory, restoreFileFromCommit, roamRepoStatus, pushRoam, repoHistory } from "./roam-git.mjs";
+import { changedRoamFilesSince, commitRoam, fileHistory, restoreFileFromCommit, roamRepoStatus, roamRepoChanges, diffRoamFile, diffRoamCommit, pullRoam, pushRoam, repoHistory } from "./roam-git.mjs";
 
 const appDir = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 let workspaceRoot = resolve(process.env.AARONNOTE_WORKSPACE_ROOT || resolve(appDir, ".."));
@@ -3473,7 +3473,7 @@ export async function maybeScheduleWeeklyFullSync() {
 }
 
 // Exported for version control features
-export { fileHistory, restoreFileFromCommit, roamRepoStatus, pushRoam, repoHistory, noteRoot as roamNoteRoot };
+export { fileHistory, restoreFileFromCommit, roamRepoStatus, roamRepoChanges, diffRoamFile, diffRoamCommit, pullRoam, pushRoam, repoHistory, noteRoot as roamNoteRoot };
 
 export async function createNode(body) {
   const title = String(body.title || "Untitled").trim() || "Untitled";

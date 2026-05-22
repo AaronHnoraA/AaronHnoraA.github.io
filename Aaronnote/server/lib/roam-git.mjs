@@ -293,6 +293,14 @@ export async function diffRoamFile(noteRoot, pathValue, options = {}) {
   return { file: info.abs, path: info.noteRel, diff: sections.join("\n\n"), scope };
 }
 
+export async function diffRoamCommit(noteRoot, sha) {
+  const cleanSha = String(sha || "").trim();
+  if (!cleanSha) throw new Error("Missing commit");
+  const out = await gitOutput(noteRoot, ["show", "--no-ext-diff", "--unified=80", "--format=fuller", cleanSha, "--", "."]);
+  if (!out.ok && out.code !== 1) throw new Error(out.stderr || out.stdout || out.message);
+  return { sha: cleanSha, diff: out.stdout };
+}
+
 export async function pullRoam(noteRoot) {
   return git(noteRoot, ["pull", "--ff-only"]);
 }

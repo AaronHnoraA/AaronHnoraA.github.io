@@ -1195,9 +1195,11 @@ input {
 }
 
 #app[data-standalone="true"] [data-notes-tab="graph"],
+#app[data-standalone="true"] [data-notes-tab="git"],
 #app[data-standalone="true"] [data-notes-tab="management"],
 #app[data-standalone="true"] [data-notes-tab="roamlookup"],
 #app[data-standalone="true"] [data-notes-panel="graph"],
+#app[data-standalone="true"] [data-notes-panel="git"],
 #app[data-standalone="true"] [data-notes-panel="management"],
 #app[data-standalone="true"] [data-notes-panel="roamlookup"] {
   display: none !important;
@@ -2968,5 +2970,251 @@ input {
 
   .aaronnote-relation-list {
     grid-template-columns: 1fr;
+  }
+}
+
+.aaronnote-git {
+  display: grid;
+  gap: 12px;
+}
+
+.aaronnote-git-top {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.4fr) minmax(260px, 1.3fr);
+  gap: 10px;
+}
+
+.aaronnote-git-status-card,
+.aaronnote-git-commit-box,
+.aaronnote-git-list-panel,
+.aaronnote-git-diff-panel {
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 3px;
+  background: var(--aaron-paper-soft);
+}
+
+.aaronnote-git-status-card {
+  min-height: 78px;
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  padding: 12px;
+}
+
+.aaronnote-git-status-card span,
+.aaronnote-git-status-card small,
+.aaronnote-git-diff-panel header span,
+.aaronnote-git-change-body span,
+.aaronnote-git-commit span {
+  color: var(--aaron-muted);
+  font-size: 11px;
+}
+
+.aaronnote-git-status-card strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--aaron-red-dark);
+  font-size: 18px;
+}
+
+.aaronnote-git-commit-box {
+  min-height: 78px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: center;
+  gap: 8px;
+  padding: 12px;
+}
+
+.aaronnote-git-commit-box input {
+  height: 34px;
+  min-width: 0;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 3px;
+  padding: 0 9px;
+  background: var(--aaron-paper);
+  color: var(--aaron-ink);
+}
+
+.aaronnote-git-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.aaronnote-git-actions button,
+.aaronnote-git-commit-box button {
+  min-height: 32px;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 3px;
+  padding: 0 10px;
+  background: var(--aaron-paper);
+  color: var(--aaron-ink);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.aaronnote-git-actions button:disabled,
+.aaronnote-git-commit-box button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.aaronnote-git-grid {
+  min-height: 560px;
+  display: grid;
+  grid-template-columns: minmax(220px, 0.95fr) minmax(240px, 1.05fr) minmax(0, 2.2fr);
+  border: 1px solid var(--aaron-paper-line);
+  background: var(--aaron-paper);
+}
+
+.aaronnote-git-list-panel,
+.aaronnote-git-diff-panel {
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.aaronnote-git-list-panel {
+  border-right: 1px solid var(--aaron-paper-line);
+}
+
+.aaronnote-git-list-panel header,
+.aaronnote-git-diff-panel header {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--aaron-paper-line);
+  color: var(--aaron-red-dark);
+  font-weight: 750;
+}
+
+.aaronnote-git-list {
+  max-height: 520px;
+  overflow: auto;
+  display: grid;
+  align-content: start;
+  gap: 1px;
+  padding: 8px;
+}
+
+.aaronnote-git-change,
+.aaronnote-git-commit {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: var(--aaron-paper-soft);
+  color: var(--aaron-ink);
+  cursor: pointer;
+  text-align: left;
+}
+
+.aaronnote-git-change {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+}
+
+.aaronnote-git-commit {
+  display: grid;
+  gap: 3px;
+  padding: 7px 8px;
+}
+
+.aaronnote-git-change:hover,
+.aaronnote-git-commit:hover,
+.aaronnote-git-change.is-active,
+.aaronnote-git-commit.is-active {
+  border-color: var(--aaron-red);
+  background: color-mix(in srgb, var(--aaron-red), var(--aaron-paper) 88%);
+}
+
+.aaronnote-git-badge {
+  min-height: 22px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--aaron-red), var(--aaron-paper-line) 45%);
+  border-radius: 3px;
+  padding: 0 6px;
+  color: var(--aaron-red-dark);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.aaronnote-git-change-body,
+.aaronnote-git-commit strong,
+.aaronnote-git-commit span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aaronnote-git-change-body {
+  display: grid;
+  gap: 3px;
+}
+
+.aaronnote-git-diff {
+  height: 520px;
+  margin: 0;
+  overflow: auto;
+  background: color-mix(in srgb, var(--aaron-paper), #ffffff 35%);
+  color: var(--aaron-ink);
+  font: 12px/1.45 var(--aaron-font-mono);
+  white-space: pre;
+}
+
+.aaronnote-git-diff-line {
+  min-height: 18px;
+  padding: 0 10px;
+}
+
+.aaronnote-git-diff-line.is-add {
+  background: #ecfdf3;
+  color: #166534;
+}
+
+.aaronnote-git-diff-line.is-del {
+  background: #fff1f2;
+  color: #991b1b;
+}
+
+.aaronnote-git-diff-line.is-hunk {
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 700;
+}
+
+.aaronnote-git-diff-line.is-head {
+  background: var(--aaron-paper-soft);
+  color: var(--aaron-red-dark);
+  font-weight: 800;
+}
+
+@media (max-width: 980px) {
+  .aaronnote-git-top,
+  .aaronnote-git-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .aaronnote-git-list-panel {
+    border-right: 0;
+    border-bottom: 1px solid var(--aaron-paper-line);
+  }
+
+  .aaronnote-git-list,
+  .aaronnote-git-diff {
+    max-height: 320px;
+    height: 320px;
   }
 }

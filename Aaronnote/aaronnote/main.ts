@@ -24,6 +24,7 @@ import {
 } from "./find.ts";
 import { createFloatingTocPanel, inlineTagAnchorsFromText, markdownHeadingsFromText } from "./floating-toc.ts";
 import { createGraphPanel } from "./graph-panel.ts";
+import { createGitPanel } from "./git-panel.ts";
 import { createLocalGraphPanel } from "./local-graph.ts";
 import { clampCommandIndex, filterCommands, type AaronnoteCommand } from "./command-palette.ts";
 import { normalizePluginOverrideMap, pluginShouldRun, type PluginOverrideMap } from "./plugin-runtime.ts";
@@ -133,6 +134,7 @@ root.innerHTML = `
             <button type="button" data-notes-tab="agenda">Agenda</button>
             <button type="button" data-notes-tab="filesystem" class="is-active">Filesystem</button>
             <button type="button" data-notes-tab="graph">Roam graph</button>
+            <button type="button" data-notes-tab="git">Git</button>
             <button type="button" data-notes-tab="management">Roam management</button>
           </div>
           <div data-notes-panel="recent" hidden>
@@ -181,6 +183,51 @@ root.innerHTML = `
               <div id="graph-container" class="aaronnote-graph-canvas graph-container" data-graph-canvas></div>
               <aside class="aaronnote-graph-focus graph-focus empty" data-graph-focus></aside>
             </div>
+          </div>
+          <div data-notes-panel="git" hidden>
+            <section class="aaronnote-git" data-git-root>
+              <div class="aaronnote-git-top">
+                <section class="aaronnote-git-status-card">
+                  <span>Branch</span>
+                  <strong data-git-branch>No branch</strong>
+                  <small data-git-summary>Not loaded</small>
+                </section>
+                <section class="aaronnote-git-status-card">
+                  <span>Remote</span>
+                  <strong data-git-remote>No remote</strong>
+                  <small data-git-counts>0 files</small>
+                </section>
+                <section class="aaronnote-git-commit-box">
+                  <input data-git-message type="text" placeholder="Commit message" />
+                  <button type="button" data-action="git-commit">Commit all</button>
+                </section>
+              </div>
+              <div class="aaronnote-git-actions">
+                <button type="button" data-action="git-refresh">Refresh</button>
+                <button type="button" data-action="git-pull">Pull</button>
+                <button type="button" data-action="git-push">Push</button>
+                <button type="button" data-action="git-sync">Sync roamdb</button>
+                <button type="button" data-action="git-open-file" disabled>Open file</button>
+                <button type="button" data-action="git-restore-file" disabled>Restore latest</button>
+              </div>
+              <div class="aaronnote-git-grid">
+                <section class="aaronnote-git-list-panel">
+                  <header>Working tree</header>
+                  <div class="aaronnote-git-list" data-git-changes></div>
+                </section>
+                <section class="aaronnote-git-list-panel">
+                  <header>History</header>
+                  <div class="aaronnote-git-list" data-git-history></div>
+                </section>
+                <section class="aaronnote-git-diff-panel">
+                  <header>
+                    <strong data-git-diff-title>Diff</strong>
+                    <span data-git-diff-meta>No target selected</span>
+                  </header>
+                  <pre class="aaronnote-git-diff" data-git-diff></pre>
+                </section>
+              </div>
+            </section>
           </div>
           <div data-notes-panel="management" hidden>
             <div class="aaronnote-management-grid">
@@ -266,6 +313,7 @@ const pluginPage = document.querySelector<HTMLElement>("[data-plugin-page]")!;
 const pluginList = document.querySelector<HTMLElement>("[data-plugin-list]")!;
 const pluginCount = document.querySelector<HTMLElement>("[data-plugin-count]")!;
 const graphPage = document.querySelector<HTMLElement>("[data-graph-page]")!;
+const gitRoot = document.querySelector<HTMLElement>("[data-git-root]")!;
 const syncButton = document.querySelector<HTMLButtonElement>("[data-action='sync']")!;
 const renameRoamTagButton = document.querySelector<HTMLButtonElement>("[data-action='rename-roam-tag']")!;
 const deleteRoamTagButton = document.querySelector<HTMLButtonElement>("[data-action='delete-roam-tag']")!;
@@ -344,7 +392,7 @@ function graphToolVisible(): boolean {
 }
 
 function standaloneHiddenNotesTool(tab: string): boolean {
-  return currentStandalone && ["graph", "management", "roamlookup"].includes(tab);
+  return currentStandalone && ["graph", "git", "management", "roamlookup"].includes(tab);
 }
 
 for (const button of [
@@ -855,6 +903,14 @@ const graphPanel = createGraphPanel({
   focusPanel: graphFocus,
   getNotes: () => notes,
   openNote,
+});
+
+const gitPanel = createGitPanel({
+  root: gitRoot,
+  getCurrentFile: () => currentFile,
+  openNote,
+  setStatus,
+  syncRoamDb,
 });
 
 host.addEventListener("aaronnote:insert-files", (event) => {
@@ -4049,6 +4105,8 @@ function showNotesTool(tab: string): void {
     agendaFilter.focus();
   } else if (tab === "recent") {
     renderRecentNotes();
+  } else if (tab === "git") {
+    gitPanel.refresh();
   } else if (tab === "filesystem") {
     expandFilesystemGroups();
     focusFilesystemRangerSoon();
@@ -5064,6 +5122,7 @@ function commandPaletteCommands(): AaronnoteCommand[] {
     { id: "open-today-daily", title: "Open today's daily note", group: "Roam", keywords: ["daily", "journal", "today"], enabled: () => !currentStandalone, run: () => void openTodayDaily() },
     { id: "open-roam-node", title: "Open roam node", group: "Roam", keywords: ["idlink", "switch"], enabled: () => !currentStandalone, run: () => void openRoamNode() },
     { id: "graph", title: "Open roam graph", group: "Roam", keywords: ["network"], enabled: () => !currentStandalone, run: () => showNotesPage("graph") },
+    { id: "git", title: "Open git control", group: "Roam", keywords: ["version", "commit", "diff"], enabled: () => !currentStandalone, run: () => showNotesPage("git") },
     { id: "sync", title: "Sync roamdb", group: "Roam", keywords: ["index"], enabled: () => !currentStandalone, run: () => void syncRoamDb() },
     { id: "ensure-roam-id", title: "Generate or copy Roam ID", group: "Roam", keywords: ["id", "clipboard"], enabled: () => !currentStandalone && !!currentFile, run: () => void ensureRoamId() },
     { id: "insert-roam-idlink", title: "Insert roam idlink", group: "Roam", keywords: ["link", "reference"], enabled: () => !currentStandalone, run: () => void insertRoamIdLink() },

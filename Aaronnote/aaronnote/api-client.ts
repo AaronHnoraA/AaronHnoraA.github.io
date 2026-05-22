@@ -6,6 +6,7 @@ import type {
   SnippetSummary, Inbound,
   UnusedAsset, CursorPosition, RecentNote,
   UploadedAsset, PluginSummary,
+  GitChange, GitCommitEntry, GitRepoStatus,
 } from "./types.ts";
 
 type IndexPayload = { notes?: NoteSummary[]; directories?: DirectorySummary[]; files?: FileSummary[] };
@@ -51,6 +52,10 @@ type NativeApi = {
     restoreFileVersion?: (body: { file: string; sha: string }) => Promise<unknown>;
     repoStatus?: () => Promise<unknown>;
     repoHistory?: (limit?: number) => Promise<unknown>;
+    changes?: () => Promise<unknown>;
+    diff?: (body: { file?: string; path?: string; scope?: string; sha?: string }) => Promise<unknown>;
+    commitDiff?: (sha: string) => Promise<unknown>;
+    pull?: () => Promise<unknown>;
     push?: () => Promise<unknown>;
     commit?: (message: string) => Promise<unknown>;
   };
@@ -240,9 +245,9 @@ export const api = {
       return ensureOk(await native(body) as IndexPayload & { ok?: boolean; changedCount?: number; referenceCount?: number; changed?: unknown[]; message?: string }, "Roam path reference rewrite failed");
     },
 
-    async fileHistory(file: string): Promise<{ entries?: Array<{ sha: string; date: string; subject: string }>; message?: string }> {
+    async fileHistory(file: string): Promise<{ entries?: GitCommitEntry[]; message?: string }> {
       const native = requireMethod(requireNative().roamTools?.fileHistory, "File history");
-      return ensureOk(await native(file) as { entries?: Array<{ sha: string; date: string; subject: string }>; message?: string }, "File history failed");
+      return ensureOk(await native(file) as { entries?: GitCommitEntry[]; message?: string }, "File history failed");
     },
 
     async restoreFileVersion(body: { file: string; sha: string }): Promise<IndexPayload & { restoredFile?: string; message?: string }> {
@@ -250,14 +255,34 @@ export const api = {
       return ensureOk(await native(body) as IndexPayload & { restoredFile?: string; message?: string }, "File version restore failed");
     },
 
-    async repoStatus(): Promise<{ branch?: string; ahead?: number; behind?: number; uncommitted?: boolean; hasRemote?: boolean; remoteUrl?: string; message?: string }> {
+    async repoStatus(): Promise<GitRepoStatus> {
       const native = requireMethod(requireNative().roamTools?.repoStatus, "Repo status");
-      return ensureOk(await native() as { branch?: string; ahead?: number; behind?: number; uncommitted?: boolean; hasRemote?: boolean; remoteUrl?: string; message?: string }, "Repo status failed");
+      return ensureOk(await native() as GitRepoStatus, "Repo status failed");
     },
 
-    async repoHistory(limit = 30): Promise<{ entries?: Array<{ sha: string; date: string; subject: string }>; message?: string }> {
+    async repoHistory(limit = 30): Promise<{ entries?: GitCommitEntry[]; message?: string }> {
       const native = requireMethod(requireNative().roamTools?.repoHistory, "Repo history");
-      return ensureOk(await native(limit) as { entries?: Array<{ sha: string; date: string; subject: string }>; message?: string }, "Repo history failed");
+      return ensureOk(await native(limit) as { entries?: GitCommitEntry[]; message?: string }, "Repo history failed");
+    },
+
+    async changes(): Promise<{ changes?: GitChange[]; message?: string }> {
+      const native = requireMethod(requireNative().roamTools?.changes, "Repo changes");
+      return ensureOk(await native() as { changes?: GitChange[]; message?: string }, "Repo changes failed");
+    },
+
+    async diff(body: { file?: string; path?: string; scope?: string; sha?: string }): Promise<{ file?: string; path?: string; diff?: string; scope?: string; sha?: string; message?: string }> {
+      const native = requireMethod(requireNative().roamTools?.diff, "Repo diff");
+      return ensureOk(await native(body) as { file?: string; path?: string; diff?: string; scope?: string; sha?: string; message?: string }, "Repo diff failed");
+    },
+
+    async commitDiff(sha: string): Promise<{ sha?: string; diff?: string; message?: string }> {
+      const native = requireMethod(requireNative().roamTools?.commitDiff, "Commit diff");
+      return ensureOk(await native(sha) as { sha?: string; diff?: string; message?: string }, "Commit diff failed");
+    },
+
+    async pull(): Promise<{ ok?: boolean; output?: string; message?: string }> {
+      const native = requireMethod(requireNative().roamTools?.pull, "Roam pull");
+      return ensureOk(await native() as { ok?: boolean; output?: string; message?: string }, "Roam pull failed");
     },
 
     async push(): Promise<{ ok?: boolean; message?: string }> {

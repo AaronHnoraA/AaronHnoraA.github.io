@@ -65,6 +65,16 @@ def sealed_mask(value: str) -> str:
     return f"sealed-{digest}"
 
 
+def sealed_tag_mask(value: str) -> str:
+    digest = hashlib.blake2s(value.encode("utf-8"), digest_size=6, person=b"tagmask").hexdigest()
+    return f"sealed-tag-{digest}"
+
+
+def sealed_group_mask(value: str) -> str:
+    digest = hashlib.blake2s(value.encode("utf-8"), digest_size=6, person=b"group").hexdigest()
+    return f"sealed-group-{digest}"
+
+
 @dataclass
 class Note:
     path: Path
@@ -83,9 +93,9 @@ class Note:
 
     @property
     def link(self) -> str:
-        path = Path(self.rel_path).with_suffix(".html")
         if self.private:
-            path = path.with_name(f"{self.public_title}.html")
+            return (Path("roam") / "sealed" / f"{self.public_title}.html").as_posix()
+        path = Path(self.rel_path).with_suffix(".html")
         return path.as_posix()
 
     @property
@@ -104,11 +114,17 @@ class Note:
 
     @property
     def group_key(self) -> str:
+        if self.private:
+            parent = Path(self.rel_path).parent.as_posix()
+            return (Path("roam") / "sealed" / sealed_group_mask(parent)).as_posix()
         parent = Path(self.rel_path).parent.as_posix()
         return "Root" if parent == "." else parent
 
     @property
     def group_label(self) -> str:
+        if self.private:
+            parent = Path(self.rel_path).parent.as_posix()
+            return sealed_group_mask(parent)
         leaf = self.group_key.rsplit("/", 1)[-1]
         if leaf == "Root":
             return "Root"
@@ -260,10 +276,63 @@ SENSITIVE_TAGS: frozenset[str] = _load_sensitive_tags()
 
 
 def filter_sensitive_tags(tags: list[str]) -> list[str]:
-    """Strip tags that match the sensitive-tags.json list from published output."""
+    """Mask tags that match sensitive-tags.json while preserving tag graph edges."""
     if not SENSITIVE_TAGS:
         return tags
-    return [t for t in tags if t.strip().lower() not in SENSITIVE_TAGS]
+    return [
+        sealed_tag_mask(t.strip().lower()) if t.strip().lower() in SENSITIVE_TAGS else t
+        for t in tags
+    ]
+
+
+def sanitize_published_metadata_tags(text: str) -> str:
+    if not SENSITIVE_TAGS:
+        return text
+
+    def mask_csv(value: str) -> str:
+        return ", ".join(filter_sensitive_tags([part.strip() for part in value.split(",") if part.strip()]))
+
+    org_match = ORG_META_RE.match(text)
+    if org_match:
+        body = org_match.group(1)
+
+        def replace_org_tags(match: re.Match[str]) -> str:
+            return f"{match.group(1)}{mask_csv(match.group(2))}"
+
+        masked = re.sub(r"(?im)^([ \t]*tags:[ \t]*)(.*?)$", replace_org_tags, body)
+        return text[:org_match.start(1)] + masked + text[org_match.end(1):]
+
+    yaml_match = FRONT_MATTER_RE.match(text)
+    if yaml_match:
+        body = yaml_match.group(1)
+        lines = body.splitlines()
+        out: list[str] = []
+        in_tags_list = False
+        tag_indent = ""
+        for line in lines:
+            tag_line = re.match(r"^([ \t]*tags:[ \t]*)(.*?)$", line, flags=re.I)
+            if tag_line:
+                value = tag_line.group(2)
+                if value:
+                    out.append(f"{tag_line.group(1)}{mask_csv(value)}")
+                    in_tags_list = False
+                else:
+                    out.append(line)
+                    in_tags_list = True
+                    tag_indent = tag_line.group(1).split("tags:", 1)[0]
+                continue
+            item = re.match(r"^([ \t]*)-[ \t]*(.*?)[ \t]*$", line)
+            if in_tags_list and item and item.group(1).startswith(tag_indent):
+                tag = item.group(2)
+                out.append(f"{item.group(1)}- {filter_sensitive_tags([tag])[0] if tag else tag}")
+                continue
+            if in_tags_list and line.strip() and not line.startswith((" ", "\t")):
+                in_tags_list = False
+            out.append(line)
+        masked = "\n".join(out)
+        return text[:yaml_match.start(1)] + masked + text[yaml_match.end(1):]
+
+    return text
 
 
 def clean_markdown_text(text: str) -> str:
@@ -602,6 +671,8 @@ def render_note_html(
     output_file.parent.mkdir(parents=True, exist_ok=True)
     deps_file.parent.mkdir(parents=True, exist_ok=True)
     markdown_text = note.path.read_text(encoding="utf-8")
+    if not include_private_content:
+        markdown_text = sanitize_published_metadata_tags(markdown_text)
     output_file.write_text(
         note_page_html(
             note,

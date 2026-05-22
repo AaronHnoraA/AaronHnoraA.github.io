@@ -132,6 +132,36 @@ export type PluginSummary = {
   settings?: PluginSetting[];
 };
 
+export type GitChange = {
+  path: string;
+  file: string;
+  gitPath?: string;
+  oldPath?: string;
+  status: string;
+  staged?: boolean;
+  unstaged?: boolean;
+  tracked?: boolean;
+  kind?: string;
+  summary?: string;
+  isMarkdown?: boolean;
+};
+
+export type GitCommitEntry = {
+  sha: string;
+  date: string;
+  subject: string;
+};
+
+export type GitRepoStatus = {
+  branch?: string;
+  ahead?: number;
+  behind?: number;
+  uncommitted?: boolean;
+  hasRemote?: boolean;
+  remoteUrl?: string;
+  message?: string;
+};
+
 export type Inbound =
   | { type: "open"; file?: string; title?: string; content?: string; kind?: string; mode?: "markdown" | "source"; standalone?: boolean; mtimeMs?: number; size?: number; notes?: NoteSummary[]; directories?: DirectorySummary[]; files?: FileSummary[]; snippets?: SnippetSummary[]; templates?: TemplateSummary[]; selection?: { from?: number; to?: number } }
   | { type: "saved"; ok?: boolean; message?: string; file?: string; kind?: string; standalone?: boolean; stale?: boolean; conflict?: boolean; mtimeMs?: number; size?: number; note?: NoteSummary; notes?: NoteSummary[]; directories?: DirectorySummary[]; files?: FileSummary[]; notesRefresh?: "full" | "deferred" }
