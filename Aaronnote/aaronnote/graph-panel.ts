@@ -114,6 +114,7 @@ export function createGraphPanel(options: {
 
   function render(): void {
     window.clearTimeout(renderTimer);
+    if (options.page.hidden) return;
     const nextDataKey = currentDataKey();
     updatePublishData();
     if (api?.setSearchQuery && dataKey === nextDataKey) {
@@ -148,11 +149,13 @@ export function createGraphPanel(options: {
         });
       })
       .catch((err) => {
+        if (options.page.hidden) return;
         renderError(options.canvas, err instanceof Error ? err.message : "Graph failed");
       });
   }
 
   function scheduleRender(delay = 120): void {
+    if (options.page.hidden) return;
     window.clearTimeout(renderTimer);
     renderTimer = window.setTimeout(render, delay);
   }

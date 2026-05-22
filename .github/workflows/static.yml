@@ -19,7 +19,6 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Single deploy job since we're just deploying
   deploy:
     environment:
       name: github-pages
@@ -28,16 +27,32 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Verify static site artifact
+        run: |
+          if [ ! -f public/index.html ]; then
+            echo "::error::public/index.html is missing. Run make publish locally and commit the generated public/ files before deploying."
+            exit 1
+          fi
+          if [ ! -d public/roam ]; then
+            echo "::error::public/roam is missing. Run make publish locally and commit the generated note HTML files."
+            exit 1
+          fi
+          note_count="$(find public/roam -type f -name '*.html' | wc -l | tr -d ' ')"
+          if [ "$note_count" -eq 0 ]; then
+            echo "::error::No static note HTML files found under public/roam."
+            exit 1
+          fi
+          echo "Deploying $note_count prebuilt note pages from public/roam."
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload entire repository
-          path: './public'
+          path: public
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-        with:
-          # Upload entire repository
-          path: './public'

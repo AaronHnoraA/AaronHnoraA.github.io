@@ -199,7 +199,9 @@ export function createLocalGraphPanel(options: LocalGraphPanelOptions): LocalGra
 
   function clearGraph(): void {
     window.cancelAnimationFrame(animationFrame);
+    window.clearTimeout(resizeTimer);
     animationFrame = 0;
+    resizeTimer = 0;
     options.canvas.replaceChildren();
   }
 

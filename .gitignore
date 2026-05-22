@@ -88,4 +88,7 @@ var/
 
 # Publish acceleration state; records the last successfully built git HEAD.
 public/.publish-state.json
-roam
+
+# Local note repo symlink. Keep this anchored so generated public/roam files
+# remain visible to git for static GitHub Pages deployment.
+/roam

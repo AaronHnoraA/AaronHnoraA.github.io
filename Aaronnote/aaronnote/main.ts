@@ -841,6 +841,7 @@ const agendaManager = createAgendaManager({
   done: agendaDone,
   count: agendaCount,
   list: agendaList,
+  isVisible: () => notesToolVisible("agenda"),
   getNotes: () => notes,
   getCurrentFile: () => currentFile,
   getAgendaScopeFile: () => currentStandalone ? currentFile : "",
@@ -6517,7 +6518,7 @@ function saveCursorPositionNow(options: { keepalive?: boolean; force?: boolean }
 }
 
 function scheduleCursorPositionSave(delay = 500): void {
-  if (!currentFile) return;
+  if (!currentFile || !editorSurfaceVisible()) return;
   window.clearTimeout(cursorSaveTimer);
   cursorSaveTimer = window.setTimeout(() => saveCursorPositionNow(), delay);
 }
@@ -6747,9 +6748,13 @@ window.AaronnoteDesktop?.onOpenFile?.((file) => {
 });
 window.AaronnoteDesktop?.ready?.();
 
+function editorSurfaceVisible(): boolean {
+  return !host.hidden;
+}
+
 function editorOwnsEventTarget(event: Event): boolean {
   const target = event.target as Node | null;
-  return !!target && host.contains(target);
+  return editorSurfaceVisible() && !!target && host.contains(target);
 }
 
 function runEditorCommand(command: EditorCommand, value = ""): void {
@@ -6845,7 +6850,7 @@ document.addEventListener("keydown", (event) => {
       return;
     }
   }
-  if (runPluginKeyHandlers(event)) {
+  if (editorOwnsEventTarget(event) && runPluginKeyHandlers(event)) {
     event.stopPropagation();
     return;
   }
@@ -7135,6 +7140,7 @@ agendaDone.addEventListener("change", scheduleRenderAgenda);
 agendaRefresh.addEventListener("click", () => void loadAgendaTodos(true));
 graphFilter.addEventListener("input", () => scheduleRenderGraph());
 document.addEventListener("keyup", (event) => {
+  if (!editorSurfaceVisible()) return;
   if (event.key !== "Escape") snippetSuppressedPrefix = "";
   if (event.key !== "Escape") quickInsertSuppressedPrefix = "";
   scheduleCursorPositionSave();
@@ -7155,15 +7161,18 @@ document.addEventListener("mousedown", (event) => {
   hideQuickInsertPopup();
 });
 document.addEventListener("selectionchange", () => {
+  if (!editorSurfaceVisible()) return;
   updateVimCursorNow();
   scheduleCursorPositionSave();
   scheduleAssistUpdate({ mathPreview: true, selectionTool: true, cursor: true });
 });
 document.addEventListener("mouseup", () => {
+  if (!editorSurfaceVisible()) return;
   scheduleCursorPositionSave();
   scheduleAssistUpdate({ mathPreview: true, selectionTool: true, cursor: true });
 });
 window.addEventListener("resize", () => {
+  if (!editorSurfaceVisible()) return;
   updateVimCursorNow();
   if (!jumpStackPanel.hidden) positionJumpStackPanel();
   scheduleAssistUpdate({
@@ -7177,6 +7186,7 @@ window.addEventListener("resize", () => {
 window.addEventListener("scroll", () => {
   if (jumpMode) hideJumpOverlay();
   if (!jumpStackPanel.hidden) jumpStackPanel.hidden = true;
+  if (!editorSurfaceVisible()) return;
   updateVimCursorNow();
   scheduleCursorPositionSave(700);
   scheduleAssistUpdate({

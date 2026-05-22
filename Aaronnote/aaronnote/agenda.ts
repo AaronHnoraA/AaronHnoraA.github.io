@@ -84,6 +84,7 @@ export function createAgendaManager(options: {
   done: HTMLInputElement;
   count: HTMLElement;
   list: HTMLElement;
+  isVisible: () => boolean;
   getNotes: () => NoteSummary[];
   getCurrentFile: () => string;
   getAgendaScopeFile: () => string;
@@ -144,6 +145,7 @@ export function createAgendaManager(options: {
   }
 
   async function load(force = false): Promise<void> {
+    if (!options.isVisible()) return;
     const scopeFile = options.getAgendaScopeFile();
     if (loading) return;
     if (!force && todos.length > 0 && loadedScopeFile === scopeFile) {
@@ -157,8 +159,9 @@ export function createAgendaManager(options: {
       if (!Array.isArray(msg.todos)) throw new Error(msg.message || "Todo scan failed");
       todos = msg.todos as AgendaTodo[];
       loadedScopeFile = scopeFile;
-      render();
+      if (options.isVisible()) render();
     } catch (err) {
+      if (!options.isVisible()) return;
       const empty = document.createElement("div");
       empty.className = "aaronnote-empty";
       empty.textContent = err instanceof Error ? err.message : "Todo scan failed";
@@ -170,11 +173,13 @@ export function createAgendaManager(options: {
   }
 
   function scheduleRender(): void {
+    if (!options.isVisible()) return;
     window.cancelAnimationFrame(renderFrame);
     renderFrame = window.requestAnimationFrame(render);
   }
 
   function render(): void {
+    if (!options.isVisible()) return;
     const shown = shownTodos();
     const active = shown.filter((todo) => todo.status !== "done").length;
     const done = todos.filter((todo) => todo.status === "done").length;
