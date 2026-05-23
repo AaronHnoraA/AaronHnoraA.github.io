@@ -127,6 +127,7 @@ contextBridge.exposeInMainWorld("aaronnoteApi", {
     getTermGoal: (body = {}) => invoke("aaronnote:api:lean:request", "get-term-goal", body),
     getHover: (body = {}) => invoke("aaronnote:api:lean:request", "get-hover", body),
     getCompletions: (body = {}) => invoke("aaronnote:api:lean:request", "get-completions", body),
+    rpcCall: (body = {}) => invoke("aaronnote:api:lean:request", "rpc-call", body),
     getDefinition: (body = {}) => invoke("aaronnote:api:lean:request", "get-definition", body),
     getDiagnostics: (body = {}) => invoke("aaronnote:api:lean:request", "get-diagnostics", body),
     cacheStatus: () => invoke("aaronnote:api:lean:request", "cache-status", {}),

@@ -88,7 +88,15 @@ function installNativeFontFace(): void {
     local("方正柳公权楷书 简繁");
   font-style: normal;
   font-weight: 400;
-  font-display: swap;
+  font-display: block;
+  unicode-range:
+    U+2E80-2EFF,
+    U+3000-303F,
+    U+31C0-31EF,
+    U+3400-4DBF,
+    U+4E00-9FFF,
+    U+F900-FAFF,
+    U+FF00-FFEF;
 }
 `;
   document.head.appendChild(style);
@@ -5795,6 +5803,7 @@ function renderSnippetPopup(prefix: string, rect: { left: number; top: number; b
 }
 
 function snippetContextMode(ctx: ReturnType<typeof editor.cursorContext>): string {
+  if (currentFile.toLowerCase().endsWith(".lean")) return "lean4-mode";
   if (mathAtCursor(ctx)) return "tex-mode";
   return "markdown-mode";
 }

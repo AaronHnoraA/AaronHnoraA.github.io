@@ -10,7 +10,14 @@
 import { api } from "./api-client.ts";
 import type { Editor } from "../src/lib.ts";
 import { getLeanGoalState, leanSpliceField, type LeanGoalState } from "../src/cm6/widgets/lean-block.ts";
-import { leanPositionToOffset, leanOffsetToNote, type LeanSplice } from "../src/lean-splice.ts";
+import {
+  leanPositionToOffset,
+  leanOffsetToNote,
+  leanOffsetToPosition,
+  noteOffsetToLean,
+  type LeanSplice,
+} from "../src/lean-splice.ts";
+import { renderLeanMarkdown } from "../src/lean-render.ts";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -62,8 +69,11 @@ type LeanRegionInfoviewEvent = CustomEvent<{
   notePath?: string;
   tag?: string;
   leanPath?: string;
+  line?: number;
+  character?: number;
   goals?: string | null;
   termGoal?: string | null;
+  goalsAccomplished?: boolean;
 }>;
 
 type LeanPanelLayout = {
@@ -75,8 +85,8 @@ const noteLayouts = new Map<string, LeanPanelLayout>();
 const DEFAULT_WIDTH = 340;
 const MIN_WIDTH = 260;
 const MAX_WIDTH = 720;
-const DEFAULT_SPLIT_RATIO = 0.45;
-const MIN_PANE_HEIGHT = 110;
+const DEFAULT_SPLIT_RATIO = 0.60;
+const LSP_UI_IDLE_MS = 420;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -96,26 +106,29 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
 <div class="lean-panel-header">
   <span class="lean-panel-title">Lean 4</span>
   <span class="lean-panel-status lean-panel-status--inactive" data-lean-status>Not started</span>
+  <button class="lean-panel-btn lean-panel-btn--icon" data-lean-pin title="Pin current infoview position">⌖</button>
+  <button class="lean-panel-btn lean-panel-btn--icon" data-lean-pause title="Pause infoview updates">Ⅱ</button>
+  <button class="lean-panel-btn lean-panel-btn--icon" data-lean-refresh title="Refresh infoview">⟳</button>
+  <button class="lean-panel-btn lean-panel-btn--icon" data-lean-copy title="Copy infoview">⧉</button>
   <button class="lean-panel-btn lean-panel-btn--text" data-lean-cache title="Download Mathlib binary cache">Cache</button>
   <button class="lean-panel-btn lean-panel-btn--icon" data-lean-restart title="Restart Lean server">↺</button>
   <button class="lean-panel-btn lean-panel-btn--text" data-lean-stop title="Stop Lean LSP">Stop</button>
   <button class="lean-panel-btn lean-panel-btn--icon lean-panel-close" data-lean-close title="Close panel">✕</button>
 </div>
 <div class="lean-panel-body" data-lean-panel-body>
-  <section class="lean-panel-pane lean-panel-pane--messages" data-lean-messages-pane>
-    <div class="lean-panel-pane-title">LSP Messages</div>
-    <div class="lean-messages-list" data-lean-messages-list></div>
-  </section>
-  <div class="lean-panel-splitter" data-lean-splitter role="separator" aria-orientation="horizontal" title="Resize Lean messages and infoview"></div>
   <section class="lean-panel-pane lean-panel-pane--info" data-lean-info-pane>
     <div class="lean-panel-pane-title">Infoview</div>
     <section class="lean-panel-section lean-panel-goals" data-lean-goals-section>
-      <div class="lean-panel-section-title">Goals</div>
+      <div class="lean-panel-section-title" data-lean-goals-title>Tactic state</div>
       <div class="lean-panel-code lean-goals-text" data-lean-goals></div>
     </section>
     <section class="lean-panel-section lean-panel-term-goal" data-lean-term-section>
       <div class="lean-panel-section-title">Expected type</div>
       <div class="lean-panel-code lean-term-goal-text" data-lean-term-goal></div>
+    </section>
+    <section class="lean-panel-section lean-panel-messages-section" data-lean-messages-pane>
+      <div class="lean-panel-section-title">All Messages</div>
+      <div class="lean-messages-list" data-lean-messages-list></div>
     </section>
   </section>
 </div>
@@ -124,15 +137,19 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
 
   const statusEl = requireEl<HTMLElement>(root, "[data-lean-status]");
   const bodyEl = requireEl<HTMLElement>(root, "[data-lean-panel-body]");
-  const messagesPane = requireEl<HTMLElement>(root, "[data-lean-messages-pane]");
   const infoPane = requireEl<HTMLElement>(root, "[data-lean-info-pane]");
+  const messagesPane = requireEl<HTMLElement>(root, "[data-lean-messages-pane]");
   const goalsSection = requireEl<HTMLElement>(root, "[data-lean-goals-section]");
+  const goalsTitle = requireEl<HTMLElement>(root, "[data-lean-goals-title]");
   const goalsEl = requireEl<HTMLElement>(root, "[data-lean-goals]");
   const termSection = requireEl<HTMLElement>(root, "[data-lean-term-section]");
   const termGoalEl = requireEl<HTMLElement>(root, "[data-lean-term-goal]");
   const messagesList = requireEl<HTMLElement>(root, "[data-lean-messages-list]");
-  const splitter = requireEl<HTMLElement>(root, "[data-lean-splitter]");
   const widthResizer = requireEl<HTMLElement>(root, "[data-lean-width-resizer]");
+  const pinBtn = requireEl<HTMLButtonElement>(root, "[data-lean-pin]");
+  const pauseBtn = requireEl<HTMLButtonElement>(root, "[data-lean-pause]");
+  const refreshBtn = requireEl<HTMLButtonElement>(root, "[data-lean-refresh]");
+  const copyBtn = requireEl<HTMLButtonElement>(root, "[data-lean-copy]");
   const cacheBtn = requireEl<HTMLButtonElement>(root, "[data-lean-cache]");
   const restartBtn = requireEl<HTMLButtonElement>(root, "[data-lean-restart]");
   const stopBtn = requireEl<HTMLButtonElement>(root, "[data-lean-stop]");
@@ -145,19 +162,40 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
   let currentNotesRoot = "";
   let currentDiagnostics: unknown[] = [];
   let currentDiagnosticsUri = "";
+  const diagnosticsByUri = new Map<string, unknown[]>();
+  const diagnosticVersionsByUri = new Map<string, number>();
+  let activeLeanPosition: { line: number; character: number } | null = null;
   let _visible = false;
   let currentLayout: LeanPanelLayout = { width: DEFAULT_WIDTH, splitRatio: DEFAULT_SPLIT_RATIO };
   let activeRegionTag = "";
   let activeRegionLeanPath = "";
+  let pinned = false;
+  let paused = false;
+  let currentGoalState: LeanGoalState = { goals: null, termGoal: null, blockIndex: null };
+  let currentGoalsAccomplished = false;
+  // Content-address renders to avoid replaceChildren on every Lean server push.
+  let lastGoalsSig = "";
+  let lastMessagesSig = "";
+  let renderMessagesTimer: ReturnType<typeof setTimeout> | null = null;
 
   // -------------------------------------------------------------------------
   // Push subscriptions
   // -------------------------------------------------------------------------
   const unsubDiag = api.lean.onDiagnostics((raw) => {
-    const data = raw as { uri?: string; diagnostics?: unknown[] };
+    const data = raw as { uri?: string; version?: number; diagnostics?: unknown[] };
     currentDiagnosticsUri = String(data.uri ?? "");
     currentDiagnostics = data.diagnostics ?? [];
-    renderMessages(currentDiagnostics);
+    if (currentDiagnosticsUri) {
+      const version = typeof data.version === "number" ? data.version : null;
+      const previousVersion = diagnosticVersionsByUri.get(currentDiagnosticsUri);
+      if (version !== null && previousVersion !== undefined && version < previousVersion) return;
+      if (version !== null) diagnosticVersionsByUri.set(currentDiagnosticsUri, version);
+      diagnosticsByUri.set(currentDiagnosticsUri, currentDiagnostics);
+    } else {
+      diagnosticsByUri.clear();
+      diagnosticVersionsByUri.clear();
+    }
+    renderMessagesForActive();
   });
 
   const unsubStatus = api.lean.onStatus((raw) => {
@@ -170,11 +208,18 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
     if (!detail || detail.notePath !== currentNotePath) return;
     activeRegionTag = String(detail.tag ?? activeRegionTag);
     activeRegionLeanPath = String(detail.leanPath ?? activeRegionLeanPath);
+    if (typeof detail.line === "number") {
+      activeLeanPosition = {
+        line: detail.line,
+        character: Number(detail.character ?? 0),
+      };
+    }
     renderGoals({
       goals: detail.goals ?? null,
       termGoal: detail.termGoal ?? null,
       blockIndex: null,
-    });
+    }, detail.goalsAccomplished === true);
+    renderMessagesForActive();
   };
   window.addEventListener("aaronnote:lean-region-infoview", onRegionInfoview);
 
@@ -189,29 +234,70 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
     statusEl.className = `lean-panel-status lean-panel-status--${kind.toLowerCase()}`;
   }
 
-  function renderGoals(goalState: LeanGoalState): void {
+  function renderGoals(goalState: LeanGoalState, accomplished = false): void {
+    if (paused) return;
+    if (pinned && lastGoalsSig) return;
+    currentGoalState = goalState;
+    currentGoalsAccomplished = accomplished;
+    const sig = `${goalState.goals ?? ""}|${goalState.termGoal ?? ""}|${accomplished}`;
+    if (sig === lastGoalsSig) return;
+    lastGoalsSig = sig;
+
     const hasGoals = Boolean(goalState.goals);
     const hasTerm = Boolean(goalState.termGoal);
 
-    goalsSection.hidden = !hasGoals;
+    goalsSection.hidden = false;
     termSection.hidden = !hasTerm;
 
-    renderInfoBlock(goalsEl, goalState.goals ?? "");
+    if (hasGoals) {
+      goalsTitle.textContent = goalCountLabel(goalState.goals ?? "");
+      renderInfoBlock(goalsEl, goalState.goals ?? "");
+    } else if (accomplished) {
+      goalsTitle.textContent = "Tactic state";
+      goalsEl.replaceChildren(el("div", "lean-goals-done", "No goals"));
+    } else {
+      goalsTitle.textContent = "Tactic state";
+      goalsEl.replaceChildren(el("div", "lean-panel-empty lean-panel-empty--goal", activeLeanPosition ? "No tactic state at cursor" : "Move the cursor into Lean code"));
+    }
     renderInfoBlock(termGoalEl, goalState.termGoal ?? "");
 
-    root.classList.toggle("lean-panel--has-goals", hasGoals || hasTerm);
+    root.classList.toggle("lean-panel--has-goals", hasGoals || accomplished || hasTerm);
   }
 
   function renderMessages(diags: unknown[]): void {
+    if (paused) return;
+    const activeLine = activeLeanPosition?.line ?? null;
+    const sig = Array.isArray(diags) && diags.length > 0
+      ? `${activeLine}|${(diags as LeanDiagnosticLike[]).map((d) => `${diagLeanStart(d).line}:${diagLeanStart(d).character}:${d.severity}:${d.message ?? ""}`).join("\n")}`
+      : "__empty__";
+    if (sig === lastMessagesSig) return;
+    lastMessagesSig = sig;
+
     if (!Array.isArray(diags) || diags.length === 0) {
       messagesList.replaceChildren(el("div", "lean-panel-empty", "No messages"));
       return;
     }
-    messagesList.replaceChildren(
+    const sorted = [...diags].sort((a, b) => {
+      const pa = diagLeanStart(a as LeanDiagnosticLike);
+      const pb = diagLeanStart(b as LeanDiagnosticLike);
+      return pa.line - pb.line || pa.character - pb.character;
+    });
+    messagesList.replaceChildren(renderMessageSection("All messages", sorted, activeLine));
+  }
+
+  function renderMessageSection(title: string, diags: unknown[], activeLine: number | null): HTMLElement {
+    const section = el("section", "lean-msg-section");
+    section.append(el("div", "lean-msg-section-title", `${title} (${diags.length})`));
+    if (diags.length === 0) {
+      section.append(el("div", "lean-panel-empty lean-panel-empty--small", "No messages"));
+      return section;
+    }
+    section.append(
       ...diags.map((d) => {
         const diag = d as LeanDiagnosticLike;
         const sevClass = diag.severity === 1 ? "error" : diag.severity === 2 ? "warning" : "info";
-        const row = el("div", `lean-msg lean-msg--${sevClass}`);
+        const isHere = activeLine !== null && diagLeanStart(diag).line === activeLine;
+        const row = el("div", `lean-msg lean-msg--${sevClass}${isHere ? " lean-msg--here" : ""}`);
         const loc = el("span", "lean-msg-loc");
         loc.textContent = diagLocationLabel(diag);
         const text = el("span", "lean-msg-text");
@@ -221,6 +307,15 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
         return row;
       }),
     );
+    return section;
+  }
+
+  function goalCountLabel(raw: string): string {
+    const text = raw.trim();
+    if (!text) return "Tactic state";
+    const goalMatches = text.match(/(?:^|\n)\s*⊢/g);
+    const count = Math.max(1, goalMatches?.length ?? 1);
+    return count === 1 ? "Tactic state · 1 goal" : `Tactic state · ${count} goals`;
   }
 
   function layoutKey(): string {
@@ -238,8 +333,8 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
     };
     root.style.setProperty("--lean-panel-width", `${currentLayout.width}px`);
     document.body.style.setProperty("--lean-panel-width", `${currentLayout.width}px`);
-    messagesPane.style.flexBasis = `${currentLayout.splitRatio * 100}%`;
-    infoPane.style.flexBasis = `${(1 - currentLayout.splitRatio) * 100}%`;
+    void infoPane;
+    void messagesPane;
   }
 
   function restoreLayoutForCurrentNote(): void {
@@ -278,6 +373,7 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
     window.dispatchEvent(new CustomEvent("aaronnote:lean-region-jump", {
       detail: {
         notePath: currentNotePath,
+        leanPath: activeRegionLeanPath || fileUriToPath(currentDiagnosticsUri),
         line: leanStart.line,
         character: leanStart.character,
       },
@@ -300,33 +396,34 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
     }
   }
 
-  function stripLeanFence(text: string): string {
-    const trimmed = text.trim();
-    const match = /^```(?:lean)?\s*\n([\s\S]*?)\n?```\s*$/.exec(trimmed);
-    return match ? match[1].trimEnd() : trimmed;
+  function filePathToUri(path: string): string {
+    if (!path) return "";
+    return `file://${path.split("/").map((part) => encodeURIComponent(part)).join("/")}`;
   }
 
   function renderInfoBlock(rootEl: HTMLElement, raw: string): void {
-    rootEl.replaceChildren();
-    const text = stripLeanFence(raw);
-    if (!text.trim()) return;
-    const lines = text.split("\n");
-    const block = el("div", "lean-info-block");
-    for (const line of lines) {
-      const row = el("div", "lean-info-line");
-      if (/^\s*⊢/.test(line)) row.classList.add("lean-info-line--target");
-      const nameMatch = /^(\s*[\w'_.✝⁰¹²³⁴⁵⁶⁷⁸⁹₀-₉]+)\s*:(.*)$/.exec(line);
-      if (nameMatch) {
-        const name = el("span", "lean-info-name", nameMatch[1]?.trim() ?? "");
-        const colon = el("span", "lean-info-colon", " : ");
-        const type = el("span", "lean-info-type", nameMatch[2]?.trimStart() ?? "");
-        row.append(name, colon, type);
-      } else {
-        row.textContent = line || " ";
-      }
-      block.append(row);
-    }
-    rootEl.append(block);
+    renderLeanMarkdown(rootEl, raw);
+  }
+
+  function activeLeanUri(): string {
+    if (activeRegionLeanPath) return filePathToUri(activeRegionLeanPath);
+    const editor = getEditor();
+    const splice = editor?.view.state.field(leanSpliceField, false);
+    return splice ? filePathToUri(splice.leanPath) : currentDiagnosticsUri;
+  }
+
+  function activeDiagnostics(): unknown[] {
+    const uri = activeLeanUri();
+    if (uri && diagnosticsByUri.has(uri)) return diagnosticsByUri.get(uri) ?? [];
+    return currentDiagnostics;
+  }
+
+  function renderMessagesForActive(): void {
+    if (renderMessagesTimer) clearTimeout(renderMessagesTimer);
+    renderMessagesTimer = setTimeout(() => {
+      renderMessagesTimer = null;
+      renderMessages(activeDiagnostics());
+    }, LSP_UI_IDLE_MS);
   }
 
   // -------------------------------------------------------------------------
@@ -362,10 +459,24 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
 
   function refresh(): void {
     if (!_visible) return;
+    if (paused || pinned) return;
     const editor = getEditor();
     if (!editor) return;
+    if (activeRegionTag && activeRegionLeanPath) {
+      renderMessagesForActive();
+      return;
+    }
+    const splice = editor.view.state.field(leanSpliceField, false);
+    if (splice) {
+      const notePos = editor.view.state.selection.main.from;
+      const leanOff = noteOffsetToLean(splice, notePos);
+      activeLeanPosition = leanOff == null ? null : leanOffsetToPosition(splice.leanText, leanOff);
+    } else {
+      activeLeanPosition = null;
+    }
     const goalState = getLeanGoalState(editor.view.state);
     renderGoals(goalState);
+    renderMessagesForActive();
   }
 
   // -------------------------------------------------------------------------
@@ -439,7 +550,16 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
     stopBtn.disabled = true;
     void api.lean.request("stop")
       .then(() => {
+        activeRegionTag = "";
         activeRegionLeanPath = "";
+        activeLeanPosition = null;
+        currentDiagnostics = [];
+        currentDiagnosticsUri = "";
+        diagnosticsByUri.clear();
+        diagnosticVersionsByUri.clear();
+        lastGoalsSig = "";
+        lastMessagesSig = "";
+        renderMessages([]);
         renderStatus({ message: "Lean stopped", kind: "Inactive" });
       })
       .catch((err) => {
@@ -452,28 +572,51 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
 
   closeBtn.addEventListener("click", () => hide());
 
-  splitter.addEventListener("pointerdown", (event) => {
-    event.preventDefault();
-    splitter.setPointerCapture(event.pointerId);
-    root.classList.add("lean-panel--resizing");
-    const move = (moveEvent: PointerEvent): void => {
-      const rect = bodyEl.getBoundingClientRect();
-      const available = rect.height - splitter.offsetHeight;
-      if (available <= MIN_PANE_HEIGHT * 2) return;
-      const top = clamp(moveEvent.clientY - rect.top, MIN_PANE_HEIGHT, available - MIN_PANE_HEIGHT);
-      currentLayout = { ...currentLayout, splitRatio: top / available };
-      applyLayout();
-      saveLayout();
-    };
-    const up = (upEvent: PointerEvent): void => {
-      splitter.releasePointerCapture(upEvent.pointerId);
-      root.classList.remove("lean-panel--resizing");
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-      saveLayout();
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
+  void bodyEl;
+
+  pinBtn.addEventListener("click", () => {
+    pinned = !pinned;
+    pinBtn.classList.toggle("is-active", pinned);
+    pinBtn.title = pinned ? "Unpin infoview" : "Pin current infoview position";
+    if (!pinned) {
+      lastGoalsSig = "";
+      lastMessagesSig = "";
+      refresh();
+    }
+  });
+
+  pauseBtn.addEventListener("click", () => {
+    paused = !paused;
+    pauseBtn.classList.toggle("is-active", paused);
+    pauseBtn.textContent = paused ? "▶" : "Ⅱ";
+    pauseBtn.title = paused ? "Resume infoview updates" : "Pause infoview updates";
+    if (!paused) {
+      lastGoalsSig = "";
+      lastMessagesSig = "";
+      renderGoals(currentGoalState, currentGoalsAccomplished);
+      renderMessagesForActive();
+    }
+  });
+
+  refreshBtn.addEventListener("click", () => {
+    paused = false;
+    pinned = false;
+    pauseBtn.classList.remove("is-active");
+    pinBtn.classList.remove("is-active");
+    pauseBtn.textContent = "Ⅱ";
+    lastGoalsSig = "";
+    lastMessagesSig = "";
+    refresh();
+    renderMessagesForActive();
+  });
+
+  copyBtn.addEventListener("click", () => {
+    const text = [
+      currentGoalState.goals ?? "",
+      currentGoalState.termGoal ? `Expected type:\n${currentGoalState.termGoal}` : "",
+      messagesList.textContent ?? "",
+    ].filter(Boolean).join("\n\n");
+    void navigator.clipboard?.writeText(text).catch(() => {});
   });
 
   widthResizer.addEventListener("pointerdown", (event) => {
@@ -500,6 +643,31 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
   applyLayout(currentLayout);
 
   // -------------------------------------------------------------------------
+  // Collapsible sections (VSCode / lean4web infoview style)
+  // -------------------------------------------------------------------------
+  function makeCollapsible(titleEl: HTMLElement, section: HTMLElement): void {
+    titleEl.classList.add("lean-collapsible");
+    titleEl.setAttribute("role", "button");
+    titleEl.setAttribute("tabindex", "0");
+    const toggle = (): void => {
+      section.classList.toggle("lean-section--collapsed");
+    };
+    titleEl.addEventListener("click", toggle);
+    titleEl.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        toggle();
+      }
+    });
+  }
+
+  const termTitle = termSection.querySelector<HTMLElement>(".lean-panel-section-title");
+  const messagesTitle = messagesPane.querySelector<HTMLElement>(".lean-panel-section-title");
+  makeCollapsible(goalsTitle, goalsSection);
+  if (termTitle) makeCollapsible(termTitle, termSection);
+  if (messagesTitle) makeCollapsible(messagesTitle, messagesPane);
+
+  // -------------------------------------------------------------------------
   // Public API
   // -------------------------------------------------------------------------
 
@@ -519,13 +687,27 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
       currentNotesRoot = notesRoot;
       activeRegionTag = "";
       activeRegionLeanPath = "";
+      activeLeanPosition = null;
+      pinned = false;
+      paused = false;
+      pinBtn.classList.remove("is-active");
+      pauseBtn.classList.remove("is-active");
+      pauseBtn.textContent = "Ⅱ";
+      currentGoalState = { goals: null, termGoal: null, blockIndex: null };
+      currentGoalsAccomplished = false;
       currentLayout = noteLayouts.get(layoutKey()) ?? { width: DEFAULT_WIDTH, splitRatio: DEFAULT_SPLIT_RATIO };
       restoreLayoutForCurrentNote();
       currentDiagnostics = [];
+      currentDiagnosticsUri = "";
+      diagnosticsByUri.clear();
+      diagnosticVersionsByUri.clear();
+      lastGoalsSig = "";
+      lastMessagesSig = "";
       renderMessages([]);
       renderGoals({ goals: null, termGoal: null, blockIndex: null });
     },
     destroy() {
+      if (renderMessagesTimer) clearTimeout(renderMessagesTimer);
       unsubDiag();
       unsubStatus();
       window.removeEventListener("aaronnote:lean-region-infoview", onRegionInfoview);

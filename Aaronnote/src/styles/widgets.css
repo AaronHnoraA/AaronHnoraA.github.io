@@ -675,6 +675,66 @@
 .cm-editor .cm-lean-token-property { color: #cdd6f4; }
 .cm-editor .cm-lean-token-operator { color: #bac2de; }
 
+.cm-lean-hover-tooltip {
+  max-width: 620px;
+  padding: 6px 9px;
+  background: #171615;
+  color: #f4eee7;
+  border: 1px solid #4a433d;
+  box-shadow: 0 14px 34px rgb(0 0 0 / 36%);
+  font: 12px/1.45 var(--aaron-font-mono);
+}
+
+.cm-lean-hover-tooltip .lean-render-code {
+  display: grid;
+  gap: 2px;
+  white-space: pre-wrap;
+}
+
+.cm-lean-hover-tooltip .lean-render-line--target {
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px solid #4a433d;
+  color: #fecaca;
+  font-weight: 650;
+}
+
+.cm-lean-hover-tooltip .lean-render-paragraph {
+  margin: 0 0 6px;
+  color: #e7ded4;
+  white-space: normal;
+}
+
+.cm-lean-hover-tooltip .lean-render-paragraph:last-child {
+  margin-bottom: 0;
+}
+
+.cm-lean-hover-tooltip .lean-render-inline-code {
+  color: #93c5fd;
+  background: #25211d;
+  border-radius: 3px;
+  padding: 0 3px;
+}
+
+.cm-lean-hover-tooltip .lean-render-name { color: #93c5fd; font-weight: 700; }
+.cm-lean-hover-tooltip .lean-render-punct,
+.cm-lean-hover-tooltip .cm-lean-ts-punctuation,
+.cm-lean-hover-tooltip .cm-lean-ts-punctuation-bracket,
+.cm-lean-hover-tooltip .cm-lean-ts-punctuation-delimiter,
+.cm-lean-hover-tooltip .cm-lean-ts-operator { color: #a7b0bd; }
+.cm-lean-hover-tooltip .cm-lean-ts-keyword { color: #f0b45f; font-weight: 650; }
+.cm-lean-hover-tooltip .cm-lean-ts-function,
+.cm-lean-hover-tooltip .cm-lean-ts-function-builtin,
+.cm-lean-hover-tooltip .cm-lean-ts-function-definition { color: #d6b36a; font-weight: 650; }
+.cm-lean-hover-tooltip .cm-lean-ts-variable,
+.cm-lean-hover-tooltip .cm-lean-ts-variable-parameter { color: #f4eee7; }
+.cm-lean-hover-tooltip .cm-lean-ts-type,
+.cm-lean-hover-tooltip .cm-lean-ts-constructor,
+.cm-lean-hover-tooltip .cm-lean-ts-constant { color: #a7d39b; }
+.cm-lean-hover-tooltip .cm-lean-ts-string { color: #9fd18b; }
+.cm-lean-hover-tooltip .cm-lean-ts-comment { color: #6fa878; font-style: italic; }
+.cm-lean-hover-tooltip .cm-lean-ts-number { color: #93c5fd; }
+
 .cm-editor .cm-org-env-content {
   display: block;
   min-height: 1.35em;

@@ -35,6 +35,7 @@ import {
   noteOffsetToLean,
   type LeanSplice,
 } from "../../lean-splice.ts";
+import { renderLeanMarkdown } from "../../lean-render.ts";
 import { api } from "../../../aaronnote/api-client.ts";
 import type { OrgEnvBlock } from "./block-extras.ts";
 
@@ -441,7 +442,8 @@ class LeanCellOutputWidget extends WidgetType {
 // ---------------------------------------------------------------------------
 
 const DEBOUNCE_MS = 400;
-const GOAL_DEBOUNCE_MS = 200;
+const GOAL_DEBOUNCE_MS = 420;
+const LSP_VISUAL_IDLE_MS = 420;
 
 class LeanBlockPlugin {
   decorations: DecorationSet;
@@ -455,9 +457,18 @@ class LeanBlockPlugin {
   private unsubStatus: (() => void) | null = null;
   private isOpen = false;
   private syncSeq = 0;
+  private goalSeq = 0;
+  private lspVersion = 0;
   private syncedNotePath = "";
   private openNotePath = "";
   private openLeanPath = "";
+  private visualTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingDiagnostics: { uri: string; raw: unknown[] } | null = null;
+  private pendingProgress: { uri: string; raw: unknown[] } | null = null;
+  private pendingSemanticTokens: { uri: string; legend: unknown; data: unknown[] } | null = null;
+  private lastDiagnosticsSig = "";
+  private lastProgressSig = "";
+  private lastSemanticTokensSig = "";
 
   constructor(view: EditorView) {
     this.view = view;
@@ -468,29 +479,37 @@ class LeanBlockPlugin {
 
   setupPushListeners(): void {
     this.unsubDiag = api.lean.onDiagnostics((raw) => {
-      const data = raw as { uri?: string; diagnostics?: unknown[] };
+      const data = raw as { uri?: string; version?: number; diagnostics?: unknown[] };
       const splice = this.view.state.field(leanSpliceField, false);
       if (!splice) return;
       const expectedUris = new Set([fileUri(splice.leanPath), this.openLeanPath ? fileUri(this.openLeanPath) : ""]);
       if (!data.uri || !expectedUris.has(data.uri)) return;
-      this.view.dispatch({
-        effects: [
-          SetDiagnosticsEffect.of({ splice, rawDiags: data.diagnostics ?? [] }),
-        ],
-      });
+      if (typeof data.version === "number") {
+        if (this.lspVersion > 0 && data.version < this.lspVersion) return;
+        this.lspVersion = data.version;
+      }
+      const rawDiags = data.diagnostics ?? [];
+      const sig = this.diagnosticsSignature(rawDiags);
+      if (sig === this.lastDiagnosticsSig) return;
+      this.pendingDiagnostics = { uri: data.uri, raw: rawDiags };
+      this.scheduleVisualFlush();
     });
 
     this.unsubProgress = api.lean.onProgress((raw) => {
-      const data = raw as { uri?: string; processing?: unknown[] };
+      const data = raw as { uri?: string; version?: number; processing?: unknown[] };
       const splice = this.view.state.field(leanSpliceField, false);
       if (!splice) return;
       const expectedUris = new Set([fileUri(splice.leanPath), this.openLeanPath ? fileUri(this.openLeanPath) : ""]);
       if (!data.uri || !expectedUris.has(data.uri)) return;
-      this.view.dispatch({
-        effects: [
-          SetProgressEffect.of({ splice, rawProgress: data.processing ?? [] }),
-        ],
-      });
+      if (typeof data.version === "number") {
+        if (this.lspVersion > 0 && data.version < this.lspVersion) return;
+        this.lspVersion = data.version;
+      }
+      const rawProgress = data.processing ?? [];
+      const sig = this.progressSignature(rawProgress);
+      if (sig === this.lastProgressSig) return;
+      this.pendingProgress = { uri: data.uri, raw: rawProgress };
+      this.scheduleVisualFlush();
     });
 
     this.unsubSemanticTokens = api.lean.onSemanticTokens((raw) => {
@@ -499,16 +518,80 @@ class LeanBlockPlugin {
       if (!splice) return;
       const expectedUris = new Set([fileUri(splice.leanPath), this.openLeanPath ? fileUri(this.openLeanPath) : ""]);
       if (!data.uri || !expectedUris.has(data.uri)) return;
-      this.view.dispatch({
-        effects: [
-          SetSemanticTokensEffect.of({ splice, legend: data.legend, data: data.data ?? [] }),
-        ],
-      });
+      const tokenData = data.data ?? [];
+      const sig = this.semanticTokensSignature(tokenData);
+      if (sig === this.lastSemanticTokensSig) return;
+      this.pendingSemanticTokens = { uri: data.uri, legend: data.legend, data: tokenData };
+      this.scheduleVisualFlush();
     });
 
     this.unsubStatus = api.lean.onStatus((_data) => {
       // Status updates are handled by the panel; nothing to do in the editor.
     });
+  }
+
+  diagnosticsSignature(rawDiags: unknown[]): string {
+    return rawDiags.map((item) => {
+      const diag = item as {
+        range?: { start?: { line?: number; character?: number }; end?: { line?: number; character?: number } };
+        severity?: number;
+        message?: string;
+      };
+      const start = diag.range?.start ?? {};
+      const end = diag.range?.end ?? {};
+      return `${start.line ?? 0}:${start.character ?? 0}:${end.line ?? 0}:${end.character ?? 0}:${diag.severity ?? 0}:${diag.message ?? ""}`;
+    }).join("\n");
+  }
+
+  progressSignature(rawProgress: unknown[]): string {
+    return rawProgress.map((item) => {
+      const progress = item as {
+        range?: { start?: { line?: number; character?: number }; end?: { line?: number; character?: number } };
+        kind?: number;
+      };
+      const start = progress.range?.start ?? {};
+      const end = progress.range?.end ?? {};
+      return `${start.line ?? 0}:${start.character ?? 0}:${end.line ?? 0}:${end.character ?? 0}:${progress.kind ?? 0}`;
+    }).join("\n");
+  }
+
+  semanticTokensSignature(data: unknown[]): string {
+    return `${data.length}:${String(data[0] ?? "")}:${String(data.at(-1) ?? "")}`;
+  }
+
+  scheduleVisualFlush(): void {
+    if (this.visualTimer) clearTimeout(this.visualTimer);
+    this.visualTimer = setTimeout(() => {
+      this.visualTimer = null;
+      this.flushVisualState();
+    }, LSP_VISUAL_IDLE_MS);
+  }
+
+  flushVisualState(): void {
+    const splice = this.view.state.field(leanSpliceField, false);
+    if (!splice) return;
+    const expectedUris = new Set([fileUri(splice.leanPath), this.openLeanPath ? fileUri(this.openLeanPath) : ""]);
+    const effects: StateEffect<unknown>[] = [];
+    if (this.pendingDiagnostics && expectedUris.has(this.pendingDiagnostics.uri)) {
+      this.lastDiagnosticsSig = this.diagnosticsSignature(this.pendingDiagnostics.raw);
+      effects.push(SetDiagnosticsEffect.of({ splice, rawDiags: this.pendingDiagnostics.raw }));
+    }
+    if (this.pendingProgress && expectedUris.has(this.pendingProgress.uri)) {
+      this.lastProgressSig = this.progressSignature(this.pendingProgress.raw);
+      effects.push(SetProgressEffect.of({ splice, rawProgress: this.pendingProgress.raw }));
+    }
+    if (this.pendingSemanticTokens && expectedUris.has(this.pendingSemanticTokens.uri)) {
+      this.lastSemanticTokensSig = this.semanticTokensSignature(this.pendingSemanticTokens.data);
+      effects.push(SetSemanticTokensEffect.of({
+        splice,
+        legend: this.pendingSemanticTokens.legend,
+        data: this.pendingSemanticTokens.data,
+      }));
+    }
+    this.pendingDiagnostics = null;
+    this.pendingProgress = null;
+    this.pendingSemanticTokens = null;
+    if (effects.length > 0) this.view.dispatch({ effects });
   }
 
   buildDecorations(): DecorationSet {
@@ -590,6 +673,7 @@ class LeanBlockPlugin {
           }, GOAL_DEBOUNCE_MS);
         } else {
           // Clear goals immediately when cursor leaves a lean4 block
+          this.goalSeq++;
           this.view.dispatch({ effects: SetGoalEffect.of({ goals: null, termGoal: null, blockIndex: null }) });
         }
       }
@@ -652,8 +736,9 @@ class LeanBlockPlugin {
           leanText: splice.leanText,
         });
       if (seq !== this.syncSeq) return;
-      const response = result as { ok?: boolean; leanPath?: string; message?: string } | null;
+      const response = result as { ok?: boolean; leanPath?: string; message?: string; lspVersion?: number } | null;
       if (response?.ok === false) throw new Error(response.message || "Lean sync failed");
+      if (typeof response?.lspVersion === "number") this.lspVersion = response.lspVersion;
       this.isOpen = true;
       this.openNotePath = noteInfo.notePath;
       this.openLeanPath = response?.leanPath || splice.leanPath;
@@ -673,6 +758,7 @@ class LeanBlockPlugin {
       void api.lean.closeNote({ leanPath });
     }
     this.isOpen = false;
+    this.lspVersion = 0;
     this.openNotePath = "";
     this.openLeanPath = "";
   }
@@ -689,11 +775,13 @@ class LeanBlockPlugin {
     }
     const leanPos = leanOffsetToPosition(splice.leanText, leanOff);
     const blockIndex = splice.blocks.findIndex((b) => pos >= b.noteBodyFrom && pos <= b.noteBodyTo);
+    const seq = ++this.goalSeq;
 
     const [goalsRes, termRes] = await Promise.all([
       api.lean.getGoals({ leanPath: splice.leanPath, line: leanPos.line, character: leanPos.character }),
       api.lean.getTermGoal({ leanPath: splice.leanPath, line: leanPos.line, character: leanPos.character }),
     ]);
+    if (seq !== this.goalSeq) return;
     const goals = (goalsRes as { result?: { rendered?: string } } | null)?.result?.rendered ?? null;
     const termGoal = (termRes as { result?: { rendered?: string } } | null)?.result?.rendered ?? null;
     this.view.dispatch({
@@ -704,6 +792,7 @@ class LeanBlockPlugin {
   destroy(): void {
     if (this.changeTimer) clearTimeout(this.changeTimer);
     if (this.goalTimer) clearTimeout(this.goalTimer);
+    if (this.visualTimer) clearTimeout(this.visualTimer);
     this.unsubDiag?.();
     this.unsubProgress?.();
     this.unsubSemanticTokens?.();
@@ -740,21 +829,13 @@ const leanHoverTooltip = hoverTooltip(async (view, pos) => {
   const raw = typeof contents === "string" ? contents : (contents as { value?: string })?.value ?? "";
   if (!raw.trim()) return null;
 
-  // Lean hover responses wrap content in ```lean ... ``` — strip the fences for display.
-  const FENCE_RE = /^```[\w]*\n([\s\S]*?)```\s*$/;
-  const fenceMatch = FENCE_RE.exec(raw.trim());
-  const codeText = fenceMatch ? fenceMatch[1].trimEnd() : raw.trim();
-
   return {
     pos,
     above: true,
     create() {
       const dom = document.createElement("div");
       dom.className = "cm-lean-hover-tooltip";
-      const pre = document.createElement("pre");
-      pre.className = "cm-lean-hover-text";
-      pre.textContent = codeText;
-      dom.append(pre);
+      renderLeanMarkdown(dom, raw);
       return { dom };
     },
   };

@@ -38,12 +38,27 @@ let pushSemanticTokens = null;
 let leanLog = [];
 let cacheTask = null;
 let cacheStatus = { state: "idle", message: "Mathlib cache idle", startedAt: 0, finishedAt: 0, code: null, projectDir: "" };
+let regionUpdateQueues = new Map();
 
 function log(type, data = {}) {
   const entry = { type, ...data, ts: Date.now() };
   leanLog.push(entry);
   if (leanLog.length > 300) leanLog = leanLog.slice(-300);
   pushLog?.(entry);
+}
+
+function clearDocumentState(uri, version = undefined) {
+  diagnosticsCache.set(uri, []);
+  progressCache.set(uri, []);
+  pushDiagnostics?.({ uri, version, diagnostics: [] });
+  pushProgress?.({ uri, version, processing: [] });
+}
+
+function clearAllDocumentState() {
+  diagnosticsCache.clear();
+  progressCache.clear();
+  pushDiagnostics?.({ uri: "", diagnostics: [] });
+  pushProgress?.({ uri: "", processing: [] });
 }
 
 // ---------------------------------------------------------------------------
@@ -125,36 +140,59 @@ function runCommand(command, args, { cwd, env, timeoutMs = 0, logType = "lean-co
 }
 
 // ---------------------------------------------------------------------------
-// Incremental diff helper (line-granularity)
+// Incremental diff helper (character-granularity)
 // ---------------------------------------------------------------------------
 
-function computeLineDiff(oldText, newText) {
+/** LSP position (0-based line + UTF-16 character) for a code-unit offset into text. */
+function offsetToLspPosition(text, offset) {
+  let line = 0;
+  let lineStart = 0;
+  const limit = Math.min(offset, text.length);
+  for (let i = 0; i < limit; i++) {
+    if (text.charCodeAt(i) === 10 /* \n */) {
+      line++;
+      lineStart = i + 1;
+    }
+  }
+  return { line, character: limit - lineStart };
+}
+
+/**
+ * Single-range incremental edit from `oldText` to `newText`.
+ *
+ * Computes the common prefix and suffix in UTF-16 code units (which is also
+ * how CM6 / JS string indices and LSP characters are measured), then emits one
+ * replacement over the differing middle. The resulting range is always valid
+ * (start <= end, both in bounds) — unlike a naive line-based diff, which can
+ * emit inverted or out-of-bounds ranges on append/prepend and silently corrupt
+ * the server's document model.
+ */
+function computeIncrementalChange(oldText, newText) {
   if (oldText === newText) return null;
-  const oldLines = oldText.split("\n");
-  const newLines = newText.split("\n");
 
-  let prefixLines = 0;
-  while (prefixLines < oldLines.length && prefixLines < newLines.length &&
-         oldLines[prefixLines] === newLines[prefixLines]) {
-    prefixLines++;
+  const maxPrefix = Math.min(oldText.length, newText.length);
+  let prefix = 0;
+  while (prefix < maxPrefix && oldText.charCodeAt(prefix) === newText.charCodeAt(prefix)) {
+    prefix++;
   }
 
-  let oldSuffix = oldLines.length;
-  let newSuffix = newLines.length;
-  while (oldSuffix > prefixLines && newSuffix > prefixLines &&
-         oldLines[oldSuffix - 1] === newLines[newSuffix - 1]) {
-    oldSuffix--;
-    newSuffix--;
+  const maxSuffix = Math.min(oldText.length - prefix, newText.length - prefix);
+  let suffix = 0;
+  while (
+    suffix < maxSuffix &&
+    oldText.charCodeAt(oldText.length - 1 - suffix) === newText.charCodeAt(newText.length - 1 - suffix)
+  ) {
+    suffix++;
   }
 
-  const endLine = oldSuffix < oldLines.length ? oldSuffix : oldLines.length - 1;
-  const endChar = oldSuffix < oldLines.length ? 0 : (oldLines[oldLines.length - 1] ?? "").length;
-  const newChunk = newLines.slice(prefixLines, newSuffix).join("\n");
-  const text = oldSuffix < oldLines.length ? newChunk + "\n" : newChunk;
-
+  const startOffset = prefix;
+  const endOffset = oldText.length - suffix;
   return {
-    range: { start: { line: prefixLines, character: 0 }, end: { line: endLine, character: endChar } },
-    text,
+    range: {
+      start: offsetToLspPosition(oldText, startOffset),
+      end: offsetToLspPosition(oldText, endOffset),
+    },
+    text: newText.slice(prefix, newText.length - suffix),
   };
 }
 
@@ -193,6 +231,9 @@ class LeanLspClient extends LspClient {
     log("lean-exit", { code, signal });
     this.setStatus(`Lean server exited (${signal ?? code ?? "unknown"})`, "Error", false);
     this.documents.clear();
+    for (const timer of this.semanticTokenTimers.values()) clearTimeout(timer);
+    this.semanticTokenTimers.clear();
+    clearAllDocumentState();
     openCount = 0;
   }
 
@@ -200,17 +241,19 @@ class LeanLspClient extends LspClient {
     if (method === "textDocument/publishDiagnostics") {
       const uri = params?.uri ?? "";
       const diagnostics = params?.diagnostics ?? [];
+      const version = typeof params?.version === "number" ? params.version : undefined;
       diagnosticsCache.set(uri, diagnostics);
-      log("lean-diagnostics", { uri, count: diagnostics.length });
-      pushDiagnostics?.({ uri, diagnostics });
-      this.scheduleSemanticTokensForUri(uri, 250);
+      log("lean-diagnostics", { uri, version, count: diagnostics.length });
+      pushDiagnostics?.({ uri, version, diagnostics });
+      this.scheduleSemanticTokensForUri(uri, 700);
       return;
     }
     if (method === "$/lean/fileProgress") {
       const uri = params?.textDocument?.uri ?? "";
+      const version = typeof params?.version === "number" ? params.version : undefined;
       progressCache.set(uri, params?.processing ?? []);
-      pushProgress?.({ uri, processing: params?.processing ?? [] });
-      this.scheduleSemanticTokensForUri(uri, 250);
+      pushProgress?.({ uri, version, processing: params?.processing ?? [] });
+      this.scheduleSemanticTokensForUri(uri, 700);
       return;
     }
     if (method === "window/logMessage") {
@@ -301,6 +344,18 @@ class LeanLspClient extends LspClient {
         textDocument: {
           synchronization: { dynamicRegistration: false, didSave: false },
           publishDiagnostics: { relatedInformation: true },
+          completion: {
+            dynamicRegistration: false,
+            contextSupport: true,
+            completionItem: {
+              snippetSupport: true,
+              labelDetailsSupport: true,
+              documentationFormat: ["markdown", "plaintext"],
+              resolveSupport: {
+                properties: ["documentation", "detail", "additionalTextEdits"],
+              },
+            },
+          },
           semanticTokens: {
             dynamicRegistration: false,
             requests: { full: true, range: false },
@@ -338,46 +393,51 @@ class LeanLspClient extends LspClient {
   // ---------------------------------------------------------------------------
 
   openDocument(leanPath, leanText) {
-    if (!this.initialized) return false;
+    if (!this.initialized) return { opened: false, version: 0, changed: false };
     const uri = pathToFileURL(leanPath).href;
     const existing = this.documents.get(uri);
     if (existing) {
       if (existing.content !== leanText) {
         const version = existing.version + 1;
         this.documents.set(uri, { version, content: leanText });
+        clearDocumentState(uri, version);
         this.notify("textDocument/didChange", {
           textDocument: { uri, version },
           contentChanges: [{ text: leanText }],
         });
+        this.scheduleSemanticTokens(leanPath);
+        return { opened: false, version, changed: true };
       }
-      return false;
+      return { opened: false, version: existing.version, changed: false };
     }
     const version = 1;
     this.documents.set(uri, { version, content: leanText });
+    clearDocumentState(uri, version);
     this.notify("textDocument/didOpen", {
       textDocument: { uri, languageId: "lean4", version, text: leanText },
     });
     this.scheduleSemanticTokens(leanPath);
-    return true;
+    return { opened: true, version, changed: true };
   }
 
   changeDocument(leanPath, leanText) {
-    if (!this.initialized) return;
+    if (!this.initialized) return { opened: false, version: 0, changed: false };
     const uri = pathToFileURL(leanPath).href;
     const existing = this.documents.get(uri);
     if (!existing) {
-      this.openDocument(leanPath, leanText);
-      return;
+      return this.openDocument(leanPath, leanText);
     }
-    if (existing.content === leanText) return;
+    if (existing.content === leanText) return { opened: false, version: existing.version, changed: false };
     const version = existing.version + 1;
-    const diff = computeLineDiff(existing.content, leanText);
+    const diff = computeIncrementalChange(existing.content, leanText);
     this.documents.set(uri, { version, content: leanText });
+    clearDocumentState(uri, version);
     this.notify("textDocument/didChange", {
       textDocument: { uri, version },
       contentChanges: diff ? [diff] : [{ text: leanText }],
     });
     this.scheduleSemanticTokens(leanPath);
+    return { opened: false, version, changed: true };
   }
 
   closeDocument(leanPath) {
@@ -386,15 +446,17 @@ class LeanLspClient extends LspClient {
     this.documents.delete(uri);
     diagnosticsCache.delete(uri);
     progressCache.delete(uri);
+    pushDiagnostics?.({ uri, diagnostics: [] });
+    pushProgress?.({ uri, processing: [] });
     this.notify("textDocument/didClose", { textDocument: { uri } });
     return true;
   }
 
-  scheduleSemanticTokens(leanPath, delay = 150) {
+  scheduleSemanticTokens(leanPath, delay = 700) {
     this.scheduleSemanticTokensForUri(pathToFileURL(leanPath).href, delay);
   }
 
-  scheduleSemanticTokensForUri(uri, delay = 150) {
+  scheduleSemanticTokensForUri(uri, delay = 700) {
     if (!this.semanticTokensLegend) return;
     if (!this.documents.has(uri)) return;
     const existing = this.semanticTokenTimers.get(uri);
@@ -481,6 +543,20 @@ class LeanLspClient extends LspClient {
     } catch {
       return null;
     }
+  }
+
+  async resolveCompletionItem(item) {
+    await this.ensureReady();
+    try {
+      return await this.request("completionItem/resolve", item, 10_000);
+    } catch {
+      return item;
+    }
+  }
+
+  async rpcCall(method, params, timeoutMs = 10_000) {
+    await this.ensureReady();
+    return this.request(String(method || ""), params ?? {}, timeoutMs);
   }
 
   async getDefinition(leanPath, line, character) {
@@ -750,6 +826,17 @@ async function getRegionNeighbors(notePath, tag) {
   return { afterTag, beforeTag };
 }
 
+function queueRegionUpdate(notePath, tag, task) {
+  const key = `${resolve(String(notePath))}#${normalizeLeanTag(String(tag))}`;
+  const previous = regionUpdateQueues.get(key) ?? Promise.resolve();
+  const next = previous.catch(() => undefined).then(task);
+  regionUpdateQueues.set(key, next);
+  next.finally(() => {
+    if (regionUpdateQueues.get(key) === next) regionUpdateQueues.delete(key);
+  }).catch(() => {});
+  return next;
+}
+
 export function setNotesRoot(root) {
   notesRoot = resolve(root);
 }
@@ -791,6 +878,8 @@ export async function handleLeanRequest(action, body = {}) {
     if (idleTimer) clearTimeout(idleTimer);
     idleTimer = null;
     openCount = 0;
+    regionUpdateQueues = new Map();
+    clearAllDocumentState();
     log("lean-stop");
     leanClient?.stop();
     leanClient = null;
@@ -838,10 +927,11 @@ export async function handleLeanRequest(action, body = {}) {
       const client = getClient();
       await client.ensureReady();
       client.setStatus("Opening Lean document...", "Busy", true);
-      if (client.openDocument(leanPath, leanText)) openCount++;
+      const documentState = client.openDocument(leanPath, leanText);
+      if (documentState.opened) openCount++;
       client.setStatus("Ready", "Normal", false);
       rescheduleIdle();
-      return { ok: true, leanPath };
+      return { ok: true, leanPath, lspVersion: documentState.version };
     } catch (err) {
       const message = String(err?.message || err);
       log("lean-open-error", { notePath, leanPath, message });
@@ -876,25 +966,29 @@ export async function handleLeanRequest(action, body = {}) {
     }
     const client = getClient();
     await client.ensureReady();
-    if (client.openDocument(result.leanPath, result.text)) openCount++;
+    const documentState = client.openDocument(result.leanPath, result.text);
+    if (documentState.opened) openCount++;
     rescheduleIdle();
-    return { ok: true, ...result };
+    return { ok: true, ...result, lspVersion: documentState.version };
   }
 
   if (action === "update-region") {
     const { notePath, tag, body: regionBody } = body;
     if (!notePath || !tag || typeof regionBody !== "string") return { ok: false, message: "Missing params" };
-    const result = await updateLeanRegion({
-      notePath: String(notePath),
-      notesRoot,
-      tag: String(tag),
-      body: regionBody,
+    return queueRegionUpdate(notePath, tag, async () => {
+      const result = await updateLeanRegion({
+        notePath: String(notePath),
+        notesRoot,
+        tag: String(tag),
+        body: regionBody,
+      });
+      const client = leanClient;
+      let lspVersion = 0;
+      if (client?.running) {
+        lspVersion = client.changeDocument(result.leanPath, result.text).version;
+      }
+      return { ok: true, ...result, lspVersion };
     });
-    const client = leanClient;
-    if (client?.running) {
-      client.changeDocument(result.leanPath, result.text);
-    }
-    return { ok: true, ...result };
   }
 
   if (action === "get-region-meta") {
@@ -917,7 +1011,7 @@ export async function handleLeanRequest(action, body = {}) {
       log("lean-change-error", { leanPath, message: "Lean server not running" });
       return { ok: false, message: "Lean server not running" };
     }
-    client.changeDocument(leanPath, leanText);
+    const documentState = client.changeDocument(leanPath, leanText);
     if (notePath && !String(notePath).toLowerCase().endsWith(".lean")) {
       try {
         await writeMirror(String(notePath), leanText, notesRoot);
@@ -927,7 +1021,7 @@ export async function handleLeanRequest(action, body = {}) {
         return { ok: false, message };
       }
     }
-    return { ok: true };
+    return { ok: true, lspVersion: documentState.version };
   }
 
   if (action === "close-note") {
@@ -997,6 +1091,23 @@ export async function handleLeanRequest(action, body = {}) {
     const client = leanClient;
     if (!client?.running) return { ok: false, result: null };
     const result = await client.getCompletions(leanPath, Number(line ?? 0), Number(character ?? 0));
+    return { ok: true, result };
+  }
+
+  if (action === "resolve-completion") {
+    const { item } = body;
+    const client = leanClient;
+    if (!client?.running || !item) return { ok: false, result: item ?? null };
+    const result = await client.resolveCompletionItem(item);
+    return { ok: true, result };
+  }
+
+  if (action === "rpc-call") {
+    const { method, params, timeoutMs } = body;
+    const client = leanClient;
+    if (!client?.running) return { ok: false, result: null, message: "Lean server not running" };
+    if (!method) return { ok: false, message: "Missing RPC method" };
+    const result = await client.rpcCall(String(method), params ?? {}, Number(timeoutMs ?? 10_000));
     return { ok: true, result };
   }
 

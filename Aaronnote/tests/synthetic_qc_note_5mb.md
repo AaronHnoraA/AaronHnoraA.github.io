@@ -35013,7 +35013,7 @@ the invariant object it represents.
 
 #+begin summary Section overview
 This section discusses a synthetic but mathematically coherent collection
-of ideas around density operators, tensor encodings, graph-like reductions,
+of ideas around density operators, tensor encodings, graph-like reductions, this is hard to use 
 and algebraic isomorphism problems.
 
 The running theme is that a mathematical object may have several equivalent
@@ -35293,6 +35293,12 @@ over the alphabet must be classified.
 Let $A$ and $B$ be promise problems. A polynomial-time many-one reduction
 from $A$ to $B$ is a polynomial-time computable function $f$ such that
 
+
+
+
+
+
+
 $$
 x \in A_{\mathrm{yes}}
 \Longrightarrow
@@ -35481,7 +35487,7 @@ $$
 ## 65.9. Algorithmic skeleton
 
 The following pseudocode is not intended to solve tensor isomorphism. It
-only gives a schematic form of an invariant-refinement strategy.
+only gives a schematic form of an invariant-refinement strategy. this is hard to use my my food this is hard 
 
 ```python
 from dataclasses import dataclass

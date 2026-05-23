@@ -126,6 +126,7 @@ type NativeApi = {
     getTermGoal?: (body?: unknown) => Promise<unknown>;
     getHover?: (body?: unknown) => Promise<unknown>;
     getCompletions?: (body?: unknown) => Promise<unknown>;
+    rpcCall?: (body?: unknown) => Promise<unknown>;
     getDefinition?: (body?: unknown) => Promise<unknown>;
     getDiagnostics?: (body?: unknown) => Promise<unknown>;
     cacheStatus?: () => Promise<unknown>;
@@ -556,6 +557,12 @@ export const api = {
       const lean = nativeApi()?.lean;
       if (!lean?.getCompletions) return { ok: false };
       return lean.getCompletions(body);
+    },
+
+    async rpcCall(body: Record<string, unknown>): Promise<unknown> {
+      const lean = nativeApi()?.lean;
+      if (!lean?.rpcCall) return api.lean.request("rpc-call", body);
+      return lean.rpcCall(body);
     },
 
     async getDefinition(body: Record<string, unknown>): Promise<unknown> {

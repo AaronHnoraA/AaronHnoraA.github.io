@@ -174,6 +174,14 @@ function moveWord(editor: Editor, dir: -1 | 1): void {
   setPos(editor, pos);
 }
 
+function searchChar(editor: Editor, ch: string, dir: -1 | 1): void {
+  const text = doc(editor).toString();
+  const pos = editor.getMarkdownSelection().from;
+  let next = dir > 0 ? text.indexOf(ch, pos + 1) : text.lastIndexOf(ch, pos - 1);
+  if (next < 0) next = dir > 0 ? text.indexOf(ch, 0) : text.lastIndexOf(ch);
+  if (next >= 0) setPos(editor, next);
+}
+
 function deleteChar(editor: Editor): string {
   const text = doc(editor);
   const { from, to } = editor.getMarkdownSelection();
@@ -462,6 +470,15 @@ export function createVimLite(
       }
       return true;
     }
+    if (pending === "s" || pending === "S") {
+      const dir = pending === "s" ? 1 : -1;
+      pending = "";
+      if (key.length === 1) {
+        resetMotionMemory();
+        searchChar(editor, key, dir);
+      }
+      return true;
+    }
 
     switch (key) {
       case "h":
@@ -551,6 +568,10 @@ export function createVimLite(
         return true;
       case "P":
         paste("before");
+        return true;
+      case "s":
+      case "S":
+        pending = key;
         return true;
       case "r":
         pending = "r";

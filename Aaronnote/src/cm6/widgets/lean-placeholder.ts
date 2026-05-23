@@ -32,9 +32,12 @@ import type { Range } from "@codemirror/state";
 import initLeanTreeSitter, { create_session, free_session, parse_utf16, set_text, type LeanTreeSitterSpan } from "@arborium/lean";
 import leanTreeSitterWasmUrl from "@arborium/lean/grammar_bg.wasm?url";
 import { scanInlineCommands, type InlineCommand } from "../../command-syntax.ts";
+import { leanSummary, renderLeanMarkdown, stripLeanMarkdownFence } from "../../lean-render.ts";
 import { api } from "../../../aaronnote/api-client.ts";
 import { getLeanNoteInfo } from "./lean-block.ts";
 import leanAbbreviationsRaw from "../../lean4-abbreviations.json";
+import { expandSnippetBody } from "../../../aaronnote/snippets.ts";
+import type { SnippetSummary } from "../../../aaronnote/types.ts";
 
 type LeanPlaceholder = {
   from: number;
@@ -61,6 +64,7 @@ type LeanContext = {
   tag: string;
   leanPath: string;
   leanText: string;
+  lspVersion?: number;
   region: LeanRegionMeta | null;
   syncForLsp?: () => Promise<void>;
   jumpToFullPosition?: (line: number, character: number) => void;
@@ -79,8 +83,11 @@ type LeanRegionInfoviewEvent = {
   notePath: string;
   tag: string;
   leanPath?: string;
+  line?: number;
+  character?: number;
   goals: string | null;
   termGoal: string | null;
+  goalsAccomplished?: boolean;
 };
 
 type LeanRegionJumpEvent = CustomEvent<{
@@ -155,9 +162,7 @@ function fullOffsetToLocal(ctx: LeanContext, offset: number): number | null {
 }
 
 function stripHoverFence(raw: string): string {
-  const trimmed = raw.trim();
-  const match = /^```[\w-]*\n([\s\S]*?)```\s*$/.exec(trimmed);
-  return match ? match[1].trimEnd() : trimmed;
+  return stripLeanMarkdownFence(raw);
 }
 
 function severityName(sev: number | undefined): LeanDiagnosticMark["severity"] {
@@ -249,9 +254,24 @@ function buildSemanticTokenDecorations(text: string, region: LeanRegionMeta | nu
 
 function cleanSnippetText(value: string): string {
   return value
+    .replace(/\$\{(\d+)\|([^}]*)\|\}/g, (_match, _idx, choices: string) => choices.split(",")[0] ?? "")
     .replace(/\$\{(\d+):([^}]*)\}/g, "$2")
+    .replace(/\$\{(\d+)\}/g, "")
     .replace(/\$\d+/g, "");
 }
+
+type LspCompletionItem = {
+  label?: string;
+  labelDetails?: { detail?: string; description?: string };
+  detail?: string;
+  documentation?: string | { kind?: string; value?: string };
+  filterText?: string;
+  insertText?: string;
+  insertTextFormat?: number;
+  kind?: number;
+  textEdit?: { newText?: string };
+  data?: unknown;
+};
 
 function completionType(kind: number | undefined): Completion["type"] {
   if (kind === 3) return "function";
@@ -271,6 +291,103 @@ function completionKindName(kind: number | undefined): string {
     23: "enum member", 24: "event", 25: "operator", 26: "type param",
   };
   return names[kind ?? 0] ?? "identifier";
+}
+
+let leanSnippetPromise: Promise<SnippetSummary[]> | null = null;
+
+function loadLeanSnippets(): Promise<SnippetSummary[]> {
+  leanSnippetPromise ??= api.notes.snippets()
+    .then((msg) => Array.isArray(msg.snippets)
+      ? msg.snippets.filter((snippet) => snippet.mode === "lean4-mode")
+      : [])
+    .catch(() => []);
+  return leanSnippetPromise;
+}
+
+function completionDocumentation(item: LspCompletionItem): string {
+  const doc = item.documentation;
+  return typeof doc === "string" ? doc : doc?.value ?? "";
+}
+
+function completionDetailText(item: LspCompletionItem): string {
+  return [
+    item.labelDetails?.detail,
+    item.labelDetails?.description,
+    item.detail,
+  ].map((part) => String(part ?? "").trim()).filter(Boolean).join(" ");
+}
+
+function completionApplyText(item: LspCompletionItem): string | undefined {
+  const text = item.textEdit?.newText ?? item.insertText;
+  if (!text) return undefined;
+  return item.insertTextFormat === 2 ? cleanSnippetText(String(text)) : String(text);
+}
+
+async function resolveCompletion(item: LspCompletionItem): Promise<LspCompletionItem> {
+  if (!item?.data && item.documentation && item.detail) return item;
+  try {
+    const raw = await api.lean.request("resolve-completion", { item });
+    const resolved = (raw as { result?: LspCompletionItem } | null)?.result;
+    return resolved?.label ? resolved : item;
+  } catch {
+    return item;
+  }
+}
+
+function renderCompletionInfo(kind: string, detail: string, doc: string): HTMLElement | null {
+  if (!detail.trim() && !doc.trim()) return null;
+  const dom = document.createElement("div");
+  dom.className = "cm-lean-completion-info";
+  const kindSpan = document.createElement("span");
+  kindSpan.className = "cm-lean-completion-kind";
+  kindSpan.textContent = kind;
+  dom.append(kindSpan);
+  if (detail.trim()) {
+    const detailEl = document.createElement("div");
+    detailEl.className = "cm-lean-completion-type";
+    renderLeanMarkdown(detailEl, detail);
+    dom.append(detailEl);
+  }
+  if (doc.trim()) {
+    const docEl = document.createElement("div");
+    docEl.className = "cm-lean-completion-doc";
+    renderLeanMarkdown(docEl, doc);
+    dom.append(docEl);
+  }
+  return dom;
+}
+
+async function leanSnippetCompletions(): Promise<Completion[]> {
+  const snippets = await loadLeanSnippets();
+  const completions: Completion[] = [];
+  for (const snippet of snippets) {
+    const expanded = expandSnippetBody(snippet);
+    const label = String(snippet.key || snippet.name || "").trim();
+    const name = String(snippet.name || label || "snippet").trim();
+    if (!label) continue;
+    const detail = name !== label ? name : "lean4-mode snippet";
+    completions.push({
+      label,
+      apply: expanded.text,
+      detail,
+      type: "text",
+      section: "Snippets",
+      boost: -1,
+      info: () => {
+        const dom = document.createElement("div");
+        dom.className = "cm-lean-completion-info";
+        const kind = document.createElement("span");
+        kind.className = "cm-lean-completion-kind";
+        kind.textContent = "snippet";
+        const pre = document.createElement("div");
+        pre.className = "cm-lean-completion-type";
+        renderLeanMarkdown(pre, expanded.text || String(snippet.body ?? ""));
+        dom.append(kind, pre);
+        return dom;
+      },
+    });
+  }
+  return completions;
 }
 
 function leanAbbreviationBefore(view: EditorView, pos: number, typed: string): { from: number; key: string } | null {
@@ -483,9 +600,11 @@ function shadowStyles(): HTMLStyleElement {
       border: 1px solid #4a433d !important;
       box-shadow: 0 14px 34px rgb(0 0 0 / 36%) !important;
     }
-    .cm-tooltip * {
-      color: inherit !important;
-      background: transparent !important;
+    .cm-tooltip .cm-completionLabel,
+    .cm-tooltip .cm-completionDetail,
+    .cm-tooltip .cm-completionIcon {
+      color: inherit;
+      background: transparent;
     }
     .cm-tooltip-hover,
     .cm-tooltip.cm-tooltip-hover,
@@ -630,6 +749,51 @@ function shadowStyles(): HTMLStyleElement {
     .cm-lean-completion-info .cm-lean-completion-type:only-child {
       margin-bottom: 0;
     }
+    .lean-render-code {
+      display: grid;
+      gap: 2px;
+      white-space: pre-wrap;
+      color: #f4eee7;
+    }
+    .lean-render-line--target {
+      margin-top: 5px;
+      padding-top: 5px;
+      border-top: 1px solid #4a433d;
+      color: #fecaca;
+      font-weight: 650;
+    }
+    .lean-render-paragraph {
+      margin: 0 0 6px;
+      color: #e7ded4;
+      white-space: normal;
+    }
+    .lean-render-paragraph:last-child {
+      margin-bottom: 0;
+    }
+    .lean-render-inline-code {
+      color: #93c5fd;
+      background: #25211d;
+      border-radius: 3px;
+      padding: 0 3px;
+    }
+    .lean-render-name { color: #93c5fd; font-weight: 700; }
+    .lean-render-punct,
+    .cm-lean-ts-punctuation,
+    .cm-lean-ts-punctuation-bracket,
+    .cm-lean-ts-punctuation-delimiter,
+    .cm-lean-ts-operator { color: #a7b0bd; }
+    .cm-lean-ts-keyword { color: #f0b45f; font-weight: 650; }
+    .cm-lean-ts-function,
+    .cm-lean-ts-function-builtin,
+    .cm-lean-ts-function-definition { color: #d6b36a; font-weight: 650; }
+    .cm-lean-ts-variable,
+    .cm-lean-ts-variable-parameter { color: #f4eee7; }
+    .cm-lean-ts-type,
+    .cm-lean-ts-constructor,
+    .cm-lean-ts-constant { color: #a7d39b; }
+    .cm-lean-ts-string { color: #9fd18b; }
+    .cm-lean-ts-comment { color: #6fa878; font-style: italic; }
+    .cm-lean-ts-number { color: #93c5fd; }
   `;
   return style;
 }
@@ -657,7 +821,11 @@ function ensureGlobalTooltipStyles(): void {
       font-family: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       z-index: 99999 !important;
     }
-    .lean-editor-tooltips .cm-tooltip * { color: inherit !important; }
+    .lean-editor-tooltips .cm-tooltip-autocomplete .cm-completionLabel,
+    .lean-editor-tooltips .cm-tooltip-autocomplete .cm-completionDetail,
+    .lean-editor-tooltips .cm-tooltip-autocomplete .cm-completionIcon {
+      color: inherit;
+    }
     .lean-editor-tooltips .cm-tooltip-autocomplete {
       box-sizing: border-box;
       max-width: min(760px, calc(100vw - 32px));
@@ -736,6 +904,49 @@ function ensureGlobalTooltipStyles(): void {
       color: #a78bfa;
       margin-bottom: 5px;
     }
+    .lean-editor-tooltips .lean-render-code {
+      display: grid;
+      gap: 2px;
+      white-space: pre-wrap;
+      color: #f4eee7;
+    }
+    .lean-editor-tooltips .lean-render-line--target {
+      margin-top: 5px;
+      padding-top: 5px;
+      border-top: 1px solid #4a433d;
+      color: #fecaca;
+      font-weight: 650;
+    }
+    .lean-editor-tooltips .lean-render-paragraph {
+      margin: 0 0 6px;
+      color: #e7ded4;
+      white-space: normal;
+    }
+    .lean-editor-tooltips .lean-render-paragraph:last-child { margin-bottom: 0; }
+    .lean-editor-tooltips .lean-render-inline-code {
+      color: #93c5fd;
+      background: #25211d;
+      border-radius: 3px;
+      padding: 0 3px;
+    }
+    .lean-editor-tooltips .lean-render-name { color: #93c5fd; font-weight: 700; }
+    .lean-editor-tooltips .lean-render-punct,
+    .lean-editor-tooltips .cm-lean-ts-punctuation,
+    .lean-editor-tooltips .cm-lean-ts-punctuation-bracket,
+    .lean-editor-tooltips .cm-lean-ts-punctuation-delimiter,
+    .lean-editor-tooltips .cm-lean-ts-operator { color: #a7b0bd; }
+    .lean-editor-tooltips .cm-lean-ts-keyword { color: #f0b45f; font-weight: 650; }
+    .lean-editor-tooltips .cm-lean-ts-function,
+    .lean-editor-tooltips .cm-lean-ts-function-builtin,
+    .lean-editor-tooltips .cm-lean-ts-function-definition { color: #d6b36a; font-weight: 650; }
+    .lean-editor-tooltips .cm-lean-ts-variable,
+    .lean-editor-tooltips .cm-lean-ts-variable-parameter { color: #f4eee7; }
+    .lean-editor-tooltips .cm-lean-ts-type,
+    .lean-editor-tooltips .cm-lean-ts-constructor,
+    .lean-editor-tooltips .cm-lean-ts-constant { color: #a7d39b; }
+    .lean-editor-tooltips .cm-lean-ts-string { color: #9fd18b; }
+    .lean-editor-tooltips .cm-lean-ts-comment { color: #6fa878; font-style: italic; }
+    .lean-editor-tooltips .cm-lean-ts-number { color: #93c5fd; }
   `;
   document.head.append(style);
   globalTooltipStyle = style;
@@ -912,7 +1123,7 @@ function leanTreeSitterHighlight(): Extension {
 function leanCompletionSource(ctx: LeanContext) {
   return async (context: CompletionContext) => {
     if (!ctx.leanPath || !ctx.region) return null;
-    const token = context.matchBefore(/[#A-Za-z0-9_.'?!]+/);
+    const token = context.matchBefore(/[\\#A-Za-z0-9_.'?!<>\-]+/);
     if (!context.explicit && !token) return null;
     await ctx.syncForLsp?.();
     if (context.aborted) return null;
@@ -928,62 +1139,31 @@ function leanCompletionSource(ctx: LeanContext) {
     if (context.aborted) return null;
     const result = (raw as { result?: { items?: unknown[] } | unknown[] } | null)?.result;
     const items = Array.isArray(result) ? result : Array.isArray((result as { items?: unknown[] } | null)?.items) ? (result as { items: unknown[] }).items : [];
-    const options: Completion[] = items.map((item) => {
-      const c = item as {
-        label?: string;
-        detail?: string;
-        documentation?: string | { value?: string };
-        filterText?: string;
-        insertText?: string;
-        insertTextFormat?: number;
-        kind?: number;
-      };
+    const lspOptions: Completion[] = items.map((item) => {
+      const c = item as LspCompletionItem;
       const label = String(c.label ?? "");
-      const apply = c.insertText
-        ? (c.insertTextFormat === 2 ? cleanSnippetText(String(c.insertText)) : String(c.insertText))
-        : undefined;
-      const typeDetail = c.detail ? String(c.detail) : "";
-      const docText = typeof c.documentation === "string"
-        ? c.documentation
-        : (c.documentation as { value?: string } | undefined)?.value ?? "";
-      const cleanType = stripHoverFence(typeDetail);
-      const cleanDoc = stripHoverFence(docText);
-      const hasInfo = !!(cleanType || cleanDoc);
+      const typeDetail = stripHoverFence(completionDetailText(c));
+      const docText = stripHoverFence(completionDocumentation(c));
       return {
         label,
-        apply,
+        apply: completionApplyText(c),
         boost: c.filterText && c.filterText !== label ? 1 : undefined,
-        detail: cleanType ? (cleanType.length > 60 ? `${cleanType.slice(0, 57)}…` : cleanType) : undefined,
-        info: hasInfo
-          ? () => {
-            const dom = document.createElement("div");
-            dom.className = "cm-lean-completion-info";
-            const kindSpan = document.createElement("span");
-            kindSpan.className = "cm-lean-completion-kind";
-            kindSpan.textContent = completionKindName(c.kind);
-            dom.append(kindSpan);
-            if (cleanType) {
-              const pre = document.createElement("pre");
-              pre.className = "cm-lean-completion-type";
-              pre.textContent = cleanType;
-              dom.append(pre);
-            }
-            if (cleanDoc) {
-              const p = document.createElement("p");
-              p.className = "cm-lean-completion-doc";
-              p.textContent = cleanDoc;
-              dom.append(p);
-            }
-            return dom;
-          }
-          : undefined,
+        detail: typeDetail ? leanSummary(typeDetail, 120) : undefined,
+        info: async () => {
+          const resolved = await resolveCompletion(c);
+          const cleanType = stripHoverFence(completionDetailText(resolved));
+          const cleanDoc = stripHoverFence(completionDocumentation(resolved));
+          return renderCompletionInfo(completionKindName(resolved.kind ?? c.kind), cleanType || typeDetail, cleanDoc || docText);
+        },
         type: completionType(c.kind),
       };
     }).filter((item) => item.label);
+    const snippets = await leanSnippetCompletions();
+    if (context.aborted) return null;
     return {
       from: token?.from ?? context.pos,
-      validFor: /^[#A-Za-z0-9_.'?!]*$/,
-      options,
+      validFor: /^[\\#A-Za-z0-9_.'?!<>\-]*$/,
+      options: [...lspOptions, ...snippets],
     };
   };
 }
@@ -1009,9 +1189,7 @@ function leanHover(ctx: LeanContext): Extension {
       create() {
         const dom = document.createElement("div");
         dom.className = "cm-lean-hover-tooltip";
-        const pre = document.createElement("pre");
-        pre.textContent = stripHoverFence(text);
-        dom.append(pre);
+        renderLeanMarkdown(dom, text);
         return { dom };
       },
     };
@@ -1791,8 +1969,25 @@ class LeanPlaceholderWidget extends WidgetType {
     let loaded = false;
     let saveTimer: ReturnType<typeof setTimeout> | null = null;
     let goalTimer: ReturnType<typeof setTimeout> | null = null;
+    let goalSeq = 0;
+    let syncSeq = 0;
     let pendingBody: string | null = null;
     let syncPromise: Promise<void> | null = null;
+    // The region body the Lean server is known to already hold. Lets us skip the
+    // file-write + IPC round-trip that updateRegion costs when nothing changed
+    // (e.g. cursor moves and completion requests that flush "to be safe").
+    let lastSyncedBody: string | null = null;
+    // Track what we last published to the infoview so we can skip redundant DOM rebuilds.
+    let lastPublishedKey = "";
+    let lastPublishedGoals: string | null = null;
+    let lastPublishedTerm: string | null = null;
+    let lastPublishedAccomplished = false;
+    let lastPushRetryKey = "";
+    let goalRetryTimer: ReturnType<typeof setTimeout> | null = null;
+    let diagnosticsTimer: ReturnType<typeof setTimeout> | null = null;
+    let semanticTokensTimer: ReturnType<typeof setTimeout> | null = null;
+    let lastDiagnosticsSig = "";
+    let lastSemanticTokensSig = "";
     const ctx: LeanContext = {
       notePath: noteInfo.notePath,
       tag,
@@ -1803,37 +1998,56 @@ class LeanPlaceholderWidget extends WidgetType {
 
     const syncRegion = (body: string, mode: "lsp" | "save"): Promise<void> => {
       if (!loaded) return Promise.resolve();
+      if (body === lastSyncedBody) {
+        status.textContent = mode === "save" ? "Saved" : "Ready";
+        return syncPromise ?? Promise.resolve();
+      }
+      const seq = ++syncSeq;
       pendingBody = body;
       if (ctx.region) ctx.leanText = spliceRegionText(ctx.leanText, ctx.region, body);
       status.textContent = mode === "save" ? "Saving" : "Checking";
       syncPromise = api.lean.updateRegion({ notePath: noteInfo.notePath, tag, body })
         .then((raw) => {
-          const res = raw as { ok?: boolean; message?: string; text?: string; region?: LeanRegionMeta; leanPath?: string };
+          const res = raw as { ok?: boolean; message?: string; text?: string; region?: LeanRegionMeta; leanPath?: string; lspVersion?: number };
           if (res?.ok === false) throw new Error(res.message || "Lean sync failed");
+          if (seq !== syncSeq) return;
           ctx.leanText = String(res.text ?? ctx.leanText);
           ctx.region = res.region ?? ctx.region;
           ctx.leanPath = String(res.leanPath ?? ctx.leanPath);
+          if (typeof res.lspVersion === "number") ctx.lspVersion = res.lspVersion;
+          lastSyncedBody = body;
           if (pendingBody === body) pendingBody = null;
+          // Reset so push-triggered re-query fires after the edit is elaborated.
+          lastPublishedGoals = null;
+          lastPublishedTerm = null;
+          lastPublishedAccomplished = false;
+          lastPushRetryKey = "";
           status.textContent = mode === "save" ? "Saved" : "Ready";
           card.classList.remove("is-error");
         })
         .catch((err) => {
+          if (seq !== syncSeq) return;
           status.textContent = err instanceof Error ? err.message : "Error";
           card.classList.add("is-error");
         })
         .finally(() => {
-          if (syncPromise) syncPromise = null;
+          if (seq === syncSeq) syncPromise = null;
         });
       return syncPromise;
     };
 
     ctx.syncForLsp = async () => {
       const body = child.state.doc.toString();
+      if (body === lastSyncedBody) {
+        if (syncPromise) await syncPromise;
+        return;
+      }
       if (pendingBody === body && syncPromise) {
         await syncPromise;
         return;
       }
-      if (!pendingBody && syncPromise) await syncPromise;
+      if (syncPromise) await syncPromise;
+      if (body === lastSyncedBody) return;
       await syncRegion(body, "lsp");
     };
 
@@ -1866,29 +2080,75 @@ class LeanPlaceholderWidget extends WidgetType {
       child.focus();
     };
 
-    const renderGoals = (view: EditorView): void => {
+    const renderGoals = (view: EditorView, flush = false): void => {
       if (!loaded || !ctx.leanPath || !ctx.region) return;
       if (goalTimer) clearTimeout(goalTimer);
+      const seq = ++goalSeq;
       goalTimer = setTimeout(() => {
         goalTimer = null;
-        const fullOffset = localOffsetToFull(ctx, view.state.selection.main.from);
-        if (fullOffset == null) return;
-        const pos = offsetToPosition(ctx.leanText, fullOffset);
-        void Promise.all([
-          api.lean.getGoals({ leanPath: ctx.leanPath, line: pos.line, character: pos.character }),
-          api.lean.getTermGoal({ leanPath: ctx.leanPath, line: pos.line, character: pos.character }),
-        ]).then(([goalRaw, termRaw]) => {
-          const goal = (goalRaw as { result?: { rendered?: string } } | null)?.result?.rendered ?? "";
+        void (async () => {
+          // Flush pending edits first so the queried position matches the text the
+          // server holds; cheap no-op when nothing changed (see lastSyncedBody).
+          if (flush) {
+            try { await ctx.syncForLsp?.(); } catch {}
+            if (seq !== goalSeq) return;
+          }
+          const fullOffset = localOffsetToFull(ctx, view.state.selection.main.from);
+          if (fullOffset == null) return;
+          const pos = offsetToPosition(ctx.leanText, fullOffset);
+          const [goalRaw, termRaw] = await Promise.all([
+            api.lean.getGoals({ leanPath: ctx.leanPath, line: pos.line, character: pos.character }),
+            api.lean.getTermGoal({ leanPath: ctx.leanPath, line: pos.line, character: pos.character }),
+          ]);
+          if (seq !== goalSeq) return;
+          const goalResult = (goalRaw as { result?: { rendered?: string; goals?: unknown[] } } | null)?.result ?? null;
           const term = (termRaw as { result?: { rendered?: string } } | null)?.result?.rendered ?? "";
+          const goalText = String(goalResult?.rendered ?? "");
+          const goalCount = Array.isArray(goalResult?.goals) ? goalResult.goals.length : (goalText ? 1 : 0);
+          const newKey = `${pos.line}:${pos.character}`;
+          const newGoals = goalText || null;
+          const newTerm = term || null;
+          const newAccomplished = goalResult != null && goalCount === 0;
+          // Skip publish when content is identical — prevents lean-panel from calling
+          // replaceChildren on every Lean elaboration push (the main flicker source).
+          if (newKey === lastPublishedKey && newGoals === lastPublishedGoals && newTerm === lastPublishedTerm && newAccomplished === lastPublishedAccomplished) return;
+          lastPublishedKey = newKey;
+          lastPublishedGoals = newGoals;
+          lastPublishedTerm = newTerm;
+          lastPublishedAccomplished = newAccomplished;
           publishLeanRegionInfoview({
             notePath: noteInfo.notePath,
             tag,
             leanPath: ctx.leanPath,
-            goals: goal || null,
-            termGoal: term || null,
+            line: pos.line,
+            character: pos.character,
+            goals: newGoals,
+            termGoal: newTerm,
+            goalsAccomplished: newAccomplished,
           });
-        }).catch(() => {});
+        })().catch(() => {});
       }, 180);
+    };
+
+    const scheduleGoalRetryFromPush = (): void => {
+      if (!lastPublishedKey || lastPublishedGoals !== null || lastPublishedAccomplished) return;
+      if (lastPushRetryKey === lastPublishedKey) return;
+      lastPushRetryKey = lastPublishedKey;
+      if (goalRetryTimer) clearTimeout(goalRetryTimer);
+      goalRetryTimer = setTimeout(() => {
+        goalRetryTimer = null;
+        renderGoals(child);
+      }, 550);
+    };
+
+    const diagnosticSignature = (marks: LeanDiagnosticMark[]): string =>
+      marks.map((mark) => `${mark.from}:${mark.to}:${mark.severity}:${mark.message}`).join("\n");
+
+    const semanticTokensSignature = (raw: unknown): string => {
+      const data = Array.isArray((raw as { data?: unknown[] } | null)?.data)
+        ? (raw as { data: unknown[] }).data
+        : [];
+      return `${data.length}:${String(data[0] ?? "")}:${String(data.at(-1) ?? "")}`;
     };
 
     const child = new EditorView({
@@ -1897,13 +2157,17 @@ class LeanPlaceholderWidget extends WidgetType {
         extensions: leanEditorExtensions(ctx, tooltipContainer, (text) => {
           if (!loaded) return;
           pendingBody = text;
+          lastPushRetryKey = "";
           if (ctx.region) ctx.leanText = spliceRegionText(ctx.leanText, ctx.region, text);
           if (saveTimer) clearTimeout(saveTimer);
           saveTimer = setTimeout(() => {
             saveTimer = null;
             void syncRegion(text, "save");
-          }, 160);
-        }, renderGoals),
+          }, 420);
+        }, (view) => {
+          lastPushRetryKey = "";
+          renderGoals(view, true);
+        }),
       }),
       parent: host,
       root: shadow,
@@ -1919,8 +2183,12 @@ class LeanPlaceholderWidget extends WidgetType {
     };
 
     const unsubDiag = api.lean.onDiagnostics((raw) => {
-      const data = raw as { uri?: string; diagnostics?: unknown[] };
+      const data = raw as { uri?: string; version?: number; diagnostics?: unknown[] };
       if (!ctx.leanPath || data.uri !== fileUri(ctx.leanPath)) return;
+      if (typeof data.version === "number") {
+        if (typeof ctx.lspVersion === "number" && data.version < ctx.lspVersion) return;
+        ctx.lspVersion = data.version;
+      }
       const marks: LeanDiagnosticMark[] = [];
       for (const item of data.diagnostics ?? []) {
         const diag = item as { range?: { start?: { line?: number; character?: number }; end?: { line?: number; character?: number } }; severity?: number; message?: string };
@@ -1936,19 +2204,44 @@ class LeanPlaceholderWidget extends WidgetType {
           message: String(diag.message ?? ""),
         });
       }
-      child.dispatch({ effects: SetLeanDiagnostics.of(marks) });
+      const sig = diagnosticSignature(marks);
+      if (sig !== lastDiagnosticsSig) {
+        if (diagnosticsTimer) clearTimeout(diagnosticsTimer);
+        diagnosticsTimer = setTimeout(() => {
+          diagnosticsTimer = null;
+          lastDiagnosticsSig = sig;
+          child.dispatch({ effects: SetLeanDiagnostics.of(marks) });
+        }, 420);
+      }
+      scheduleGoalRetryFromPush();
+    });
+    const unsubProgress = api.lean.onProgress((raw) => {
+      const data = raw as { uri?: string; version?: number };
+      if (!ctx.leanPath || data.uri !== fileUri(ctx.leanPath)) return;
+      if (typeof data.version === "number") {
+        if (typeof ctx.lspVersion === "number" && data.version < ctx.lspVersion) return;
+        ctx.lspVersion = data.version;
+      }
+      scheduleGoalRetryFromPush();
     });
     const unsubSemanticTokens = api.lean.onSemanticTokens((raw) => {
       const data = raw as { uri?: string; legend?: unknown; data?: unknown[] };
       if (!ctx.leanPath || data.uri !== fileUri(ctx.leanPath)) return;
-      child.dispatch({
-        effects: SetLeanSemanticTokens.of({
-          text: ctx.leanText,
-          region: ctx.region,
-          legend: data.legend,
-          data: data.data ?? [],
-        }),
-      });
+      const sig = semanticTokensSignature(data);
+      if (sig === lastSemanticTokensSig) return;
+      if (semanticTokensTimer) clearTimeout(semanticTokensTimer);
+      semanticTokensTimer = setTimeout(() => {
+        semanticTokensTimer = null;
+        lastSemanticTokensSig = sig;
+        child.dispatch({
+          effects: SetLeanSemanticTokens.of({
+            text: ctx.leanText,
+            region: ctx.region,
+            legend: data.legend,
+            data: data.data ?? [],
+          }),
+        });
+      }, 420);
     });
     const onRegionJump = (event: Event): void => {
       const detail = (event as LeanRegionJumpEvent).detail;
@@ -1960,7 +2253,11 @@ class LeanPlaceholderWidget extends WidgetType {
     window.addEventListener("aaronnote:lean-region-jump", onRegionJump);
     (outer as HTMLElement & { __leanChild?: EditorView; __leanUnsub?: () => void }).__leanUnsub = () => {
       unsubDiag();
+      unsubProgress();
       unsubSemanticTokens();
+      if (goalRetryTimer) clearTimeout(goalRetryTimer);
+      if (diagnosticsTimer) clearTimeout(diagnosticsTimer);
+      if (semanticTokensTimer) clearTimeout(semanticTokensTimer);
       window.removeEventListener("aaronnote:lean-region-jump", onRegionJump);
     };
 
@@ -1976,13 +2273,21 @@ class LeanPlaceholderWidget extends WidgetType {
           annotations: Transaction.addToHistory.of(false),
         });
         loaded = true;
+        // openRegionFile opens the current .lean file, so the server already holds
+        // this region's body verbatim — record it to avoid a redundant first sync.
+        lastSyncedBody = String(res.body ?? "");
         void api.lean.openRegionFile({ notePath: noteInfo.notePath, tag })
-          .then(() => {
+          .then((openRaw) => {
+            const openRes = openRaw as { lspVersion?: number; leanPath?: string } | null;
+            if (typeof openRes?.lspVersion === "number") ctx.lspVersion = openRes.lspVersion;
+            if (openRes?.leanPath) ctx.leanPath = String(openRes.leanPath);
             status.textContent = "Ready";
             publishLeanRegionInfoview({
               notePath: noteInfo.notePath,
               tag,
               leanPath: ctx.leanPath,
+              line: 0,
+              character: 0,
               goals: null,
               termGoal: null,
             });

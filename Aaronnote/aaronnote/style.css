@@ -15,7 +15,7 @@
     local("方正柳公权楷书 简繁");
   font-style: normal;
   font-weight: 400;
-  font-display: swap;
+  font-display: block;
   unicode-range:
     U+2E80-2EFF,
     U+3000-303F,
@@ -36,7 +36,7 @@
 :root {
   --aaron-font-english: "New Computer Modern", "Libertinus Serif", "Times New Roman", "Iowan Old Style", "New York", Georgia;
   --aaron-font-chinese: "Aaron LiuGongQuan", "FZLiuGongQuanKaiShuJF", "方正柳公权楷书 简繁";
-  --aaron-font-body: var(--aaron-font-english), var(--aaron-font-chinese), serif;
+  --aaron-font-body: var(--aaron-font-chinese), var(--aaron-font-english), serif;
   --aaron-font-title: "Aaron Excalifont", "Excalifont", var(--aaron-font-chinese), "New Computer Modern", "Times New Roman", serif;
   --aaron-font-heading: "Aaron Excalifont", "Excalifont", var(--aaron-font-chinese), "New Computer Modern", "Times New Roman", serif;
   --aaron-font-math: "Aaron GFS Neohellenic Math", "GFS Neohellenic Math", KaTeX_Main, "New Computer Modern", "Times New Roman", serif;
@@ -3401,7 +3401,7 @@ body.lean-panel-open .aaronnote-editor {
   flex-direction: column;
   overflow: hidden;
   border-right: 1px solid var(--aaron-paper-line);
-  background: color-mix(in srgb, var(--aaron-paper), transparent 4%);
+  background: #f4efe6;
   box-shadow: 2px 0 12px rgb(52 39 22 / 8%);
   backdrop-filter: blur(8px);
   font-family: var(--aaron-font-sans);
@@ -3436,7 +3436,7 @@ body.lean-panel-open .aaronnote-editor {
   height: 34px;
   padding: 0 8px 0 10px;
   border-bottom: 1px solid var(--aaron-paper-line);
-  background: var(--aaron-paper-soft);
+  background: #f9f5ed;
 }
 
 .lean-panel-title {
@@ -3467,8 +3467,8 @@ body.lean-panel-open .aaronnote-editor {
   padding: 0 4px;
   border: 1px solid var(--aaron-paper-line);
   border-radius: 3px;
-  background: var(--aaron-paper);
-  color: var(--aaron-muted);
+  background: #fffdf8;
+  color: #2d241b;
   cursor: pointer;
   font-size: 12px;
   line-height: 1;
@@ -3477,6 +3477,12 @@ body.lean-panel-open .aaronnote-editor {
 .lean-panel-btn:hover {
   border-color: var(--aaron-red);
   color: var(--aaron-red-dark);
+}
+
+.lean-panel-btn.is-active {
+  border-color: #0f5ea8;
+  background: #e4f0ff;
+  color: #0f5ea8;
 }
 
 .lean-panel-btn--icon {
@@ -3508,13 +3514,13 @@ body.lean-panel-open .aaronnote-editor {
 }
 
 .lean-panel-pane--messages {
-  flex: 0 0 45%;
-  border-bottom: 1px solid var(--aaron-paper-line);
+  flex: 0 0 40%;
   padding: 8px 10px;
 }
 
 .lean-panel-pane--info {
   flex: 1 1 auto;
+  padding: 0;  /* sections have their own padding */
 }
 
 .lean-panel-pane-title {
@@ -3523,6 +3529,18 @@ body.lean-panel-open .aaronnote-editor {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--aaron-red-dark);
+}
+
+.lean-panel-pane--info > .lean-panel-pane-title {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 0;
+  border-bottom: 1px solid #d4c8b6;
+  padding: 9px 12px 7px;
+  background: #f4efe6;
+  color: #94151b;
+  font-size: 12px;
 }
 
 .lean-panel-splitter {
@@ -3568,8 +3586,8 @@ body.lean-panel-open .aaronnote-editor {
 
 /* Section */
 .lean-panel-section {
-  border-bottom: 1px solid var(--aaron-paper-line);
-  padding: 8px 10px;
+  border-bottom: 1px solid #d4c8b6;
+  padding: 12px 14px;
 }
 
 .lean-panel-section[hidden] {
@@ -3577,24 +3595,29 @@ body.lean-panel-open .aaronnote-editor {
 }
 
 .lean-panel-section-title {
-  margin-bottom: 5px;
-  font: 700 10px/1 var(--aaron-font-sans);
-  letter-spacing: 0.08em;
+  margin-bottom: 9px;
+  font: 800 13px/1 var(--aaron-font-sans);
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--aaron-muted);
+  color: #51483f;
 }
 
 .lean-panel-code {
   margin: 0;
   white-space: normal;
   word-break: break-word;
-  font: 12px/1.55 var(--aaron-font-mono);
-  color: var(--aaron-ink);
-  background: color-mix(in srgb, var(--aaron-paper-bg), transparent 30%);
-  border-radius: 3px;
-  padding: 6px 8px;
-  max-height: 240px;
-  overflow: auto;
+  font: 14px/1.65 var(--aaron-font-mono);
+  color: #211b16;
+  background: #fffdf8;
+  border: 1px solid #cdbfa9;
+  border-radius: 6px;
+  padding: 14px 16px;
+  box-shadow: 0 1px 0 rgb(255 255 255 / 70%) inset;
+}
+
+.lean-goals-done {
+  font: 700 13px/1.5 var(--aaron-font-sans);
+  color: #17633d;
 }
 
 .lean-info-block {
@@ -3629,27 +3652,145 @@ body.lean-panel-open .aaronnote-editor {
   color: var(--aaron-ink);
 }
 
+.lean-panel-code .lean-render-code {
+  display: grid;
+  gap: 2px;
+  white-space: pre-wrap;
+}
+
+.lean-panel-code .lean-render-code--goal {
+  gap: 6px;
+}
+
+.lean-panel-code .lean-render-line {
+  min-height: 1.45em;
+  color: #211b16;
+}
+
+.lean-panel-code .lean-render-line--hypothesis {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.lean-panel-code .lean-render-line--target {
+  margin-top: 12px;
+  padding: 9px 12px 9px 13px;
+  border-left: 5px solid #b20d22;
+  border-radius: 4px;
+  background: #fae9eb;
+  color: #7d101d;
+  font-weight: 800;
+}
+
+.lean-panel-code .lean-render-paragraph {
+  margin: 0 0 8px;
+  padding: 0 0 8px;
+  border-bottom: 1px solid #e2d8c9;
+  color: #211b16;
+}
+
+.lean-panel-code .lean-render-paragraph:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.lean-panel-code .lean-render-inline-code {
+  border-radius: 3px;
+  padding: 0 3px;
+  background: color-mix(in srgb, var(--aaron-paper-line), transparent 45%);
+  color: #145c8c;
+}
+
+.lean-panel-code .lean-render-name {
+  color: #111827;
+  font-weight: 800;
+}
+
+.lean-panel-code .lean-render-punct,
+.lean-panel-code .cm-lean-ts-punctuation,
+.lean-panel-code .cm-lean-ts-punctuation-bracket,
+.lean-panel-code .cm-lean-ts-punctuation-delimiter,
+.lean-panel-code .cm-lean-ts-operator {
+  color: #6b5f53;
+}
+
+.lean-panel-code .cm-lean-ts-keyword {
+  color: #9a3412;
+  font-weight: 750;
+}
+
+.lean-panel-code .cm-lean-ts-function,
+.lean-panel-code .cm-lean-ts-function-builtin,
+.lean-panel-code .cm-lean-ts-function-definition {
+  color: #7f1d1d;
+  font-weight: 750;
+}
+
+.lean-panel-code .cm-lean-ts-type,
+.lean-panel-code .cm-lean-ts-constructor,
+.lean-panel-code .cm-lean-ts-constant {
+  color: #14532d;
+  font-weight: 750;
+}
+
+.lean-panel-code .cm-lean-ts-string {
+  color: #8a3c0f;
+}
+
+.lean-panel-code .cm-lean-ts-comment {
+  color: #52675a;
+  font-style: italic;
+}
+
+.lean-panel-code .cm-lean-ts-number {
+  color: #145c8c;
+}
+
 /* Messages list */
 .lean-messages-list {
+  display: grid;
+  gap: 8px;
+}
+
+.lean-msg-section {
   display: grid;
   gap: 4px;
 }
 
+.lean-msg-section-title {
+  font: 800 12px/1 var(--aaron-font-sans);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #51483f;
+}
+
 .lean-panel-empty {
-  padding: 7px 2px;
-  color: var(--aaron-muted);
-  font: 11px/1.4 var(--aaron-font-sans);
+  padding: 9px 2px;
+  color: #655b51;
+  font: 700 12px/1.4 var(--aaron-font-sans);
+}
+
+.lean-panel-empty--goal {
+  color: #655b51;
+  font-family: var(--aaron-font-sans);
+}
+
+.lean-panel-empty--small {
+  padding: 2px 2px 4px;
+  font-size: 10px;
 }
 
 .lean-msg {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 6px;
+  grid-template-columns: 1fr;
+  gap: 8px;
   align-items: baseline;
-  padding: 4px 6px;
-  border-radius: 3px;
+  padding: 10px 12px;
+  border-radius: 6px;
   cursor: pointer;
-  border: 1px solid transparent;
+  border: 1px solid #dbcfc0;
+  background: #fffdf8;
 }
 
 .lean-msg:hover {
@@ -3657,17 +3798,17 @@ body.lean-panel-open .aaronnote-editor {
   background: var(--aaron-paper-soft);
 }
 
-.lean-msg--error   { background: #fff1f2; }
-.lean-msg--warning { background: #fffbeb; }
-.lean-msg--info    { background: #eff6ff; }
+.lean-msg--error   { background: #fff7f7; }
+.lean-msg--warning { background: #fffaf0; }
+.lean-msg--info    { background: #f4f8ff; }
 
 .lean-msg--error:hover   { border-color: #fecaca; }
 .lean-msg--warning:hover { border-color: #fed7aa; }
 .lean-msg--info:hover    { border-color: #bfdbfe; }
 
 .lean-msg-loc {
-  font: 700 10px/1.4 var(--aaron-font-mono);
-  color: var(--aaron-muted);
+  font: 800 12px/1.4 var(--aaron-font-sans);
+  color: #51483f;
   white-space: nowrap;
   padding-top: 1px;
 }
@@ -3677,9 +3818,50 @@ body.lean-panel-open .aaronnote-editor {
 .lean-msg--info .lean-msg-loc    { color: #1d4ed8; }
 
 .lean-msg-text {
-  font: 11px/1.5 var(--aaron-font-mono);
-  color: var(--aaron-ink);
+  font: 13.5px/1.65 var(--aaron-font-mono);
+  color: #111827;
+  white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* Message(s) on the current cursor line — accented like the VSCode infoview */
+.lean-msg--here {
+  box-shadow: inset 2px 0 0 var(--aaron-red);
+}
+
+.lean-msg--here.lean-msg--error   { background: #ffe4e6; }
+.lean-msg--here.lean-msg--warning { background: #fef3c7; }
+.lean-msg--here.lean-msg--info    { background: #dbeafe; }
+
+/* Collapsible section headers (Goals / Expected type / LSP Messages) */
+.lean-collapsible {
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.lean-collapsible::before {
+  content: "▾";
+  display: inline-block;
+  font-size: 9px;
+  line-height: 1;
+  color: var(--aaron-muted);
+  transition: transform 120ms ease;
+}
+
+.lean-collapsible:hover {
+  color: var(--aaron-red-dark);
+}
+
+.lean-section--collapsed .lean-collapsible::before {
+  transform: rotate(-90deg);
+}
+
+.lean-section--collapsed .lean-panel-code,
+.lean-section--collapsed .lean-messages-list {
+  display: none;
 }
 
 /* Log section */
@@ -3775,14 +3957,49 @@ body.lean-panel-open .aaronnote-editor {
 .cm-lean-hover-tooltip {
   max-width: 440px;
   padding: 6px 10px;
-  border: 1px solid var(--aaron-paper-line);
+  border: 1px solid #4a433d;
   border-radius: 4px;
-  background: var(--aaron-paper);
-  box-shadow: var(--aaron-shadow);
+  background: #171615;
+  box-shadow: 0 14px 34px rgb(0 0 0 / 36%);
   font: 12px/1.5 var(--aaron-font-mono);
-  color: var(--aaron-ink);
+  color: #f4eee7;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.cm-tooltip-autocomplete,
+.cm-completionInfo {
+  background: #171615 !important;
+  color: #f4eee7 !important;
+  border: 1px solid #4a433d !important;
+  box-shadow: 0 14px 34px rgb(0 0 0 / 36%) !important;
+}
+
+.cm-tooltip-autocomplete ul {
+  background: #1f1d1a !important;
+  color: #f4eee7 !important;
+}
+
+.cm-tooltip-autocomplete ul li {
+  background: #1f1d1a !important;
+  color: #f4eee7 !important;
+  opacity: 1 !important;
+}
+
+.cm-tooltip-autocomplete ul li[aria-selected] {
+  background: #1f5fbf !important;
+  color: #ffffff !important;
+}
+
+.cm-tooltip-autocomplete .cm-completionLabel,
+.cm-tooltip-autocomplete .cm-completionDetail,
+.cm-tooltip-autocomplete .cm-completionIcon {
+  color: inherit !important;
+  opacity: 1 !important;
+}
+
+.cm-tooltip-autocomplete .cm-completionDetail {
+  color: #c8c1b8 !important;
 }
 
 /* lean4 org-env block styling is fully defined in src/styles/widgets.css */
