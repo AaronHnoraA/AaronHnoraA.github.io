@@ -842,12 +842,25 @@ export function createFilesystemBrowser(options: {
     return `file:${entry.note.file || entry.note.path || entry.note.id || ""}`;
   }
 
+  function isLeanEntry(entry: RangerEntry): boolean {
+    if (entry.type !== "file") return false;
+    return entry.note.file?.endsWith(".lean") ?? false;
+  }
+
+  function leanFileIcon(entry: RangerEntry, currentFile: string): string {
+    if (entry.type !== "file") return entry.type === "dir" ? ">" : "-";
+    if (entry.note.file?.endsWith(".lean")) return "⊢";
+    if (entry.note.file === currentFile) return "*";
+    return ".";
+  }
+
   function renderRangerRow(optionsArg: {
     label: string;
     meta?: string;
     icon: string;
     active?: boolean;
     title?: string;
+    extraClass?: string;
     onClick: (event: MouseEvent) => void;
     onDoubleClick?: (event: MouseEvent) => void;
     onAuxClick?: (event: MouseEvent) => void;
@@ -856,6 +869,7 @@ export function createFilesystemBrowser(options: {
     button.type = "button";
     button.className = "aaronnote-ranger-row";
     if (optionsArg.active) button.classList.add("is-active");
+    if (optionsArg.extraClass) button.classList.add(optionsArg.extraClass);
     button.title = optionsArg.title || optionsArg.label;
     const icon = document.createElement("span");
     icon.className = "aaronnote-ranger-icon";
@@ -1219,8 +1233,9 @@ export function createFilesystemBrowser(options: {
       dirs.appendChild(renderRangerRow({
         label: entry.label,
         meta: entry.type === "dir" ? String(entry.count) : entry.meta,
-        icon: entry.type === "dir" ? ">" : entry.type === "asset" ? "-" : ".",
+        icon: entry.type === "dir" ? ">" : entry.type === "asset" ? "-" : leanFileIcon(entry, options.getCurrentFile()),
         active,
+        extraClass: isLeanEntry(entry) ? "is-lean-file" : undefined,
         title: entry.type === "dir" ? entry.path : entry.type === "asset" ? entry.file.path || entry.file.file || "" : entry.note.file || "",
         onClick: (event) => {
           activePane = "parent";
@@ -1239,8 +1254,9 @@ export function createFilesystemBrowser(options: {
       files.appendChild(renderRangerRow({
         label: entry.label,
         meta: entry.type === "dir" ? String(entry.count) : entry.meta,
-        icon: entry.type === "dir" ? ">" : entry.type === "asset" ? "-" : entry.note.file === options.getCurrentFile() ? "*" : ".",
+        icon: entry.type === "dir" ? ">" : entry.type === "asset" ? "-" : leanFileIcon(entry, options.getCurrentFile()),
         active,
+        extraClass: isLeanEntry(entry) ? "is-lean-file" : undefined,
         title: entry.type === "dir" ? entry.path : entry.type === "asset" ? entry.file.path || entry.file.file || "" : entry.note.file || entry.note.path || entry.note.id || "",
         onClick: (event) => {
           activePane = "current";

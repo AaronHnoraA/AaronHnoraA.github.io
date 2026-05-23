@@ -17,7 +17,7 @@ let noteRoot = resolveUserPath(process.env.AARONNOTE_ROOT || join(appDir, "..", 
 let noteScanRoot = noteRoot;
 const excludedDirs = new Set(["_typst", "public", "var", ".git", ".direnv", ".venv", "node_modules"]);
 const generatedAttachmentDirs = new Set(["asset", "assets", "attachment", "attachments", "file", "files", "img", "imgs", "image", "images", "media", "pdf", "pdfs"]);
-const noteExts = new Set([".typ", ".md", ".markdown"]);
+const noteExts = new Set([".typ", ".md", ".markdown", ".lean"]);
 const hiddenRoamTag = "roam-hidden";
 const defaultNoteKind = "default";
 const defaultNoteKindAliases = new Set(["", "default", "note"]);
@@ -67,6 +67,7 @@ const contentTypes = new Map([
   [".txt", "text/plain; charset=utf-8"],
   [".md", "text/markdown; charset=utf-8"],
   [".markdown", "text/markdown; charset=utf-8"],
+  [".lean", "text/x-lean4; charset=utf-8"],
   [".mp3", "audio/mpeg"],
   [".mp4", "video/mp4"],
   [".mov", "video/quicktime"],
@@ -537,7 +538,8 @@ export async function touchCursorPosition(body) {
 
 function modeForFile(file) {
   const lower = file.toLowerCase();
-  return lower.endsWith(".md") || lower.endsWith(".markdown") ? "markdown" : "source";
+  if (lower.endsWith(".md") || lower.endsWith(".markdown")) return "markdown";
+  return "source";
 }
 
 function parseListValue(value) {

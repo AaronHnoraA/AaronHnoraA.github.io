@@ -42,6 +42,7 @@ import {
 import { StateField, type ChangeSet, type EditorState, type Text } from "@codemirror/state";
 import type { Range } from "@codemirror/state";
 import { getBlockMathRanges, rangeInsideAny, rangeOverlapsAny } from "./math-ranges.ts";
+import { getLean4OrgEnvBodyRanges } from "./widgets/lean-block.ts";
 import { renderMarkdownHTML } from "../render-html.ts";
 import {
   applyLayoutAttrs,
@@ -125,16 +126,18 @@ function collectLivePreviewTokens(
   const tokens: LivePreviewToken[] = [];
   const doc = view.state.doc;
   const blockMathRanges = getBlockMathRanges(view.state);
+  const lean4Ranges = getLean4OrgEnvBodyRanges(view.state);
+  const excludedRanges = lean4Ranges.length > 0 ? [...blockMathRanges, ...lean4Ranges] : blockMathRanges;
 
-  addCjkTextTokens(tokens, doc, ranges, blockMathRanges);
-  addWikilinkTokens(tokens, doc, ranges, blockMathRanges);
+  addCjkTextTokens(tokens, doc, ranges, excludedRanges);
+  addWikilinkTokens(tokens, doc, ranges, excludedRanges);
 
   for (const { from, to } of ranges) {
     syntaxTree(view.state).iterate({
       from,
       to,
       enter(node) {
-        if (rangeInsideAny(node.from, node.to, blockMathRanges)) return false;
+        if (rangeInsideAny(node.from, node.to, excludedRanges)) return false;
 
         // ── Span styling: bold / italic / code / strike ────────────────────
         // Applied to the whole parent span so the visible content gets
@@ -1194,6 +1197,8 @@ function buildLineDecoRanges(
   const decos: Range<Decoration>[] = [];
   const doc = state.doc;
   const blockMathRanges = getBlockMathRanges(state);
+  const lean4BodyRanges = getLean4OrgEnvBodyRanges(state);
+  const lineExcludedRanges = lean4BodyRanges.length > 0 ? [...blockMathRanges, ...lean4BodyRanges] : blockMathRanges;
   const firstLine = Math.max(1, startLine);
   const lastWindowLine = Math.min(doc.lines, endLine);
   if (firstLine > lastWindowLine) return decos;
@@ -1213,7 +1218,7 @@ function buildLineDecoRanges(
     from: windowFrom,
     to: windowTo,
     enter(node) {
-      if (rangeInsideAny(node.from, node.to, blockMathRanges)) return false;
+      if (rangeInsideAny(node.from, node.to, lineExcludedRanges)) return false;
 
       const hm = node.name.match(HEADING_RE);
       if (hm) {

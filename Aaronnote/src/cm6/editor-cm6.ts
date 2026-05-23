@@ -39,6 +39,7 @@ import { imageExtension } from "./widgets/image.ts";
 import { blockExtrasExtension, orgEnvExitTarget } from "./widgets/block-extras.ts";
 import { inlineCommandsExtension } from "./widgets/inline-commands.ts";
 import { leanExtension } from "./widgets/lean-block.ts";
+import { leanPlaceholderExtension } from "./widgets/lean-placeholder.ts";
 import {
   runCommandCM6,
   getBlockContextCM6,
@@ -626,6 +627,7 @@ function previewExtensions(): Extension[] {
     fencedCodeExtension,
     taskListExtension,
     imageExtension,
+    leanPlaceholderExtension,
     inlineCommandsExtension,
     leanExtension,
   ];
@@ -700,7 +702,6 @@ function buildExtensions(options: EditorOptions, previewCompartment: Compartment
       { key: "Mod-d", run: selectNextMarkdownOccurrence },
       { key: "Mod-Shift-z", run: cmRedo },
       { key: "Meta-Shift-z", run: cmRedo },
-      { mac: "Ctrl-z", run: cmRedo },
       indentWithTab,
       ...defaultKeymap,
       ...historyKeymap,

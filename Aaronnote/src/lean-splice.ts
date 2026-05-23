@@ -164,6 +164,25 @@ export function buildLeanSplice(notePath: string, mdText: string, notesRoot: str
   return { notePath, leanPath, blocks, leanText: parts.join("") };
 }
 
+/**
+ * Build a trivial splice for a standalone `.lean` file.
+ *
+ * The whole file content IS the lean text — no header, no cell markers,
+ * and leanPath = notePath (no mirror write needed).
+ * The single block maps note offsets 1:1 to lean offsets.
+ */
+export function buildFullFileLeanSplice(notePath: string, fileText: string): LeanSplice {
+  const block: LeanBlockSlice = {
+    index: 0,
+    title: "",
+    noteBodyFrom: 0,
+    noteBodyTo: fileText.length,
+    leanFrom: 0,
+    leanTo: fileText.length,
+  };
+  return { notePath, leanPath: notePath, blocks: [block], leanText: fileText };
+}
+
 // ---------------------------------------------------------------------------
 // Offset mapping helpers
 // ---------------------------------------------------------------------------

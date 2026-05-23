@@ -28,7 +28,7 @@ import {
 } from "@codemirror/state";
 import type { Range } from "@codemirror/state";
 import {
-  buildLeanSplice,
+  buildFullFileLeanSplice,
   leanOffsetToNote,
   leanOffsetToPosition,
   leanPositionToOffset,
@@ -97,6 +97,56 @@ function scanLean4OrgEnvBlocks(state: EditorState): OrgEnvBlock[] {
   return results;
 }
 
+// Cached scan — only re-scans when doc changes affect lean4 syntax.
+// For typical edits (typing outside lean4 blocks), positions are remapped without re-scanning.
+const lean4OrgEnvBlocksField = StateField.define<OrgEnvBlock[]>({
+  create: (state) => scanLean4OrgEnvBlocks(state),
+  update(value, tr) {
+    if (!tr.docChanged) return value;
+
+    let needRescan = false;
+    tr.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
+      if (needRescan) return;
+      const removed = tr.startState.doc.sliceString(fromA, toA);
+      const ins = inserted.toString();
+      if (
+        removed.includes("lean4") || ins.includes("lean4") ||
+        removed.includes("#+") || ins.includes("#+") ||
+        removed.includes("\n") || ins.includes("\n") ||
+        value.some((b) => fromA < b.to && toA > b.from)
+      ) needRescan = true;
+    });
+    if (needRescan) return scanLean4OrgEnvBlocks(tr.state);
+
+    if (value.length === 0) return value;
+    return value.map((b) => ({
+      ...b,
+      from: tr.changes.mapPos(b.from),
+      to: tr.changes.mapPos(b.to),
+      openFrom: tr.changes.mapPos(b.openFrom),
+      openTo: tr.changes.mapPos(b.openTo),
+      bodyFrom: tr.changes.mapPos(b.bodyFrom),
+      bodyTo: tr.changes.mapPos(b.bodyTo),
+      closeFrom: tr.changes.mapPos(b.closeFrom),
+      closeTo: tr.changes.mapPos(b.closeTo),
+      titleAnchor: tr.changes.mapPos(b.titleAnchor),
+    }));
+  },
+});
+
+/** Returns body offset ranges for all lean4 org-env blocks — used by live-preview to suppress markdown decoration. */
+export function getLean4OrgEnvBodyRanges(state: EditorState): { from: number; to: number }[] {
+  const blocks = state.field(lean4OrgEnvBlocksField, false) ?? scanLean4OrgEnvBlocks(state);
+  return blocks.map((b) => ({ from: b.bodyFrom, to: b.bodyTo }));
+}
+
+/** Returns true when the primary cursor is inside a lean4 org-env block body. */
+function isCursorInLean4Block(state: EditorState): boolean {
+  const pos = state.selection.main.from;
+  const blocks = state.field(lean4OrgEnvBlocksField, false) ?? scanLean4OrgEnvBlocks(state);
+  return blocks.some((b) => pos >= b.bodyFrom && pos <= b.bodyTo);
+}
+
 // ---------------------------------------------------------------------------
 // Lean note path (injected via EditorView facet or editor options)
 // ---------------------------------------------------------------------------
@@ -110,6 +160,7 @@ const viewNotesRoots = new WeakMap<EditorView, string>();
 export function setLeanNotePath(view: EditorView, notePath: string, notesRoot: string): void {
   viewNotePaths.set(view, notePath);
   viewNotesRoots.set(view, notesRoot);
+  view.dispatch({});
 }
 
 function getNoteInfo(view: EditorView): { notePath: string; notesRoot: string } | null {
@@ -117,6 +168,14 @@ function getNoteInfo(view: EditorView): { notePath: string; notesRoot: string } 
   const notesRoot = viewNotesRoots.get(view);
   if (!notePath || !notesRoot) return null;
   return { notePath, notesRoot };
+}
+
+export function getLeanNoteInfo(view: EditorView): { notePath: string; notesRoot: string } | null {
+  return getNoteInfo(view);
+}
+
+function fileUri(path: string): string {
+  return `file://${path.split("/").map((part) => encodeURIComponent(part)).join("/")}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -148,6 +207,7 @@ export interface LeanGoalState {
 
 const SetDiagnosticsEffect = StateEffect.define<{ splice: LeanSplice; rawDiags: unknown[] }>();
 const SetProgressEffect = StateEffect.define<{ splice: LeanSplice; rawProgress: unknown[] }>();
+const SetSemanticTokensEffect = StateEffect.define<{ splice: LeanSplice; legend: unknown; data: unknown[] }>();
 const SetGoalEffect = StateEffect.define<LeanGoalState>();
 const SetSpliceEffect = StateEffect.define<LeanSplice | null>();
 
@@ -195,6 +255,18 @@ const leanProgressField = StateField.define<LeanProgressRange[]>({
     }
     return value;
   },
+});
+
+const leanSemanticTokensField = StateField.define<DecorationSet>({
+  create: () => Decoration.none,
+  update(value, tr) {
+    for (const e of tr.effects) {
+      if (e.is(SetSemanticTokensEffect)) return buildSemanticTokenDecorations(e.value.splice, e.value.legend, e.value.data);
+      if (e.is(SetSpliceEffect) && e.value === null) return Decoration.none;
+    }
+    return tr.docChanged ? value.map(tr.changes) : value;
+  },
+  provide: (f) => EditorView.decorations.from(f),
 });
 
 // Goal field — read by the lean panel
@@ -289,6 +361,41 @@ function mapProgress(splice: LeanSplice, rawProgress: unknown[]): LeanProgressRa
   return out;
 }
 
+function semanticTokenClass(tokenType: string): string {
+  const safe = String(tokenType || "unknown").replace(/[^A-Za-z0-9_-]/g, "-").toLowerCase();
+  return `cm-lean-token cm-lean-token-${safe}`;
+}
+
+function buildSemanticTokenDecorations(splice: LeanSplice, legend: unknown, data: unknown[]): DecorationSet {
+  const tokenTypes = Array.isArray((legend as { tokenTypes?: unknown[] } | null)?.tokenTypes)
+    ? (legend as { tokenTypes: unknown[] }).tokenTypes.map(String)
+    : [];
+  const raw = data.map((value) => Number(value));
+  const out: Range<Decoration>[] = [];
+  let line = 0;
+  let character = 0;
+
+  for (let i = 0; i + 4 < raw.length; i += 5) {
+    const deltaLine = raw[i] ?? 0;
+    const deltaStart = raw[i + 1] ?? 0;
+    const length = raw[i + 2] ?? 0;
+    const tokenTypeIndex = raw[i + 3] ?? -1;
+    if (!Number.isFinite(deltaLine) || !Number.isFinite(deltaStart) || !Number.isFinite(length) || length <= 0) continue;
+
+    line += deltaLine;
+    character = deltaLine === 0 ? character + deltaStart : deltaStart;
+
+    const leanFrom = leanPositionToOffset(splice.leanText, line, character);
+    const leanTo = leanPositionToOffset(splice.leanText, line, character + length);
+    const noteFrom = leanOffsetToNote(splice, leanFrom);
+    const noteTo = leanOffsetToNote(splice, leanTo);
+    if (noteFrom == null || noteTo == null || noteFrom >= noteTo) continue;
+    out.push(Decoration.mark({ class: semanticTokenClass(tokenTypes[tokenTypeIndex] ?? "unknown") }).range(noteFrom, noteTo));
+  }
+  out.sort((a, b) => a.from - b.from || (a.value.startSide - b.value.startSide));
+  return Decoration.set(out, true);
+}
+
 // ---------------------------------------------------------------------------
 // Cell output widget
 // ---------------------------------------------------------------------------
@@ -344,13 +451,19 @@ class LeanBlockPlugin {
   private lastSplice: LeanSplice | null = null;
   private unsubDiag: (() => void) | null = null;
   private unsubProgress: (() => void) | null = null;
+  private unsubSemanticTokens: (() => void) | null = null;
   private unsubStatus: (() => void) | null = null;
   private isOpen = false;
+  private syncSeq = 0;
+  private syncedNotePath = "";
+  private openNotePath = "";
+  private openLeanPath = "";
 
   constructor(view: EditorView) {
     this.view = view;
-    this.decorations = Decoration.none;
+    this.decorations = this.buildDecorations();
     this.setupPushListeners();
+    this.syncToLean();
   }
 
   setupPushListeners(): void {
@@ -358,8 +471,8 @@ class LeanBlockPlugin {
       const data = raw as { uri?: string; diagnostics?: unknown[] };
       const splice = this.view.state.field(leanSpliceField, false);
       if (!splice) return;
-      const expectedUri = "file://" + splice.leanPath;
-      if (data.uri !== expectedUri) return;
+      const expectedUris = new Set([fileUri(splice.leanPath), this.openLeanPath ? fileUri(this.openLeanPath) : ""]);
+      if (!data.uri || !expectedUris.has(data.uri)) return;
       this.view.dispatch({
         effects: [
           SetDiagnosticsEffect.of({ splice, rawDiags: data.diagnostics ?? [] }),
@@ -371,11 +484,24 @@ class LeanBlockPlugin {
       const data = raw as { uri?: string; processing?: unknown[] };
       const splice = this.view.state.field(leanSpliceField, false);
       if (!splice) return;
-      const expectedUri = "file://" + splice.leanPath;
-      if (data.uri !== expectedUri) return;
+      const expectedUris = new Set([fileUri(splice.leanPath), this.openLeanPath ? fileUri(this.openLeanPath) : ""]);
+      if (!data.uri || !expectedUris.has(data.uri)) return;
       this.view.dispatch({
         effects: [
           SetProgressEffect.of({ splice, rawProgress: data.processing ?? [] }),
+        ],
+      });
+    });
+
+    this.unsubSemanticTokens = api.lean.onSemanticTokens((raw) => {
+      const data = raw as { uri?: string; legend?: unknown; data?: unknown[] };
+      const splice = this.view.state.field(leanSpliceField, false);
+      if (!splice) return;
+      const expectedUris = new Set([fileUri(splice.leanPath), this.openLeanPath ? fileUri(this.openLeanPath) : ""]);
+      if (!data.uri || !expectedUris.has(data.uri)) return;
+      this.view.dispatch({
+        effects: [
+          SetSemanticTokensEffect.of({ splice, legend: data.legend, data: data.data ?? [] }),
         ],
       });
     });
@@ -390,7 +516,7 @@ class LeanBlockPlugin {
     const diagnostics = state.field(leanDiagnosticsField, false) ?? [];
     const progress = state.field(leanProgressField, false) ?? [];
     const cellOutputs = state.field(leanCellOutputField, false) ?? [];
-    const blocks = scanLean4OrgEnvBlocks(state);
+    const blocks = state.field(lean4OrgEnvBlocksField, false) ?? [];
     const decos: Range<Decoration>[] = [];
 
     // Diagnostic underlines
@@ -407,17 +533,21 @@ class LeanBlockPlugin {
       decos.push(Decoration.mark({ class: "cm-lean-processing" }).range(r.from, r.to));
     }
 
-    // Cell output widgets (one after each #+end lean4 line)
-    for (const block of blocks) {
-      const output = cellOutputs.find((o) => o.blockIndex === blocks.indexOf(block));
-      if (!output) continue;
-      decos.push(
-        Decoration.widget({
-          widget: new LeanCellOutputWidget(output),
-          block: true,
-          side: 1,
-        }).range(block.closeTo),
-      );
+    // Cell output widgets (one after each #+end lean4 line) — only for markdown notes
+    const noteInfo = getNoteInfo(this.view);
+    const isLeanFile = noteInfo?.notePath.toLowerCase().endsWith(".lean") ?? false;
+    if (!isLeanFile) {
+      for (const block of blocks) {
+        const output = cellOutputs.find((o) => o.blockIndex === blocks.indexOf(block));
+        if (!output) continue;
+        decos.push(
+          Decoration.widget({
+            widget: new LeanCellOutputWidget(output),
+            block: true,
+            side: 1,
+          }).range(block.closeTo),
+        );
+      }
     }
 
     decos.sort((a, b) => a.from - b.from || (a.value.startSide - b.value.startSide));
@@ -425,61 +555,126 @@ class LeanBlockPlugin {
   }
 
   update(update: ViewUpdate): void {
-    if (update.docChanged || update.viewportChanged || update.transactions.some((t) => t.effects.length > 0)) {
+    const notePath = getNoteInfo(update.view)?.notePath ?? "";
+    const notePathChanged = notePath !== this.syncedNotePath;
+
+    // Only rebuild decorations when lean-visible state actually changes.
+    // selectionSet and viewportChanged do NOT affect lean decorations.
+    const hasLeanVisualEffect = update.transactions.some((t) =>
+      t.effects.some((e) =>
+        e.is(SetDiagnosticsEffect) || e.is(SetProgressEffect) ||
+        e.is(SetSemanticTokensEffect) || e.is(SetSpliceEffect)
+      )
+    );
+    if (update.docChanged || notePathChanged || hasLeanVisualEffect) {
       this.decorations = this.buildDecorations();
     }
 
-    if (update.docChanged) {
+    if (update.docChanged || notePathChanged) {
       if (this.changeTimer) clearTimeout(this.changeTimer);
       this.changeTimer = setTimeout(() => {
         this.changeTimer = null;
         this.syncToLean();
-      }, DEBOUNCE_MS);
+      }, update.docChanged ? DEBOUNCE_MS : 0);
     }
 
     if (update.selectionSet || update.docChanged) {
       if (this.goalTimer) clearTimeout(this.goalTimer);
-      this.goalTimer = setTimeout(() => {
-        this.goalTimer = null;
-        this.queryGoals();
-      }, GOAL_DEBOUNCE_MS);
+      // Skip goal queries entirely when lean is not active (no splice = no lean content).
+      const splice = update.view.state.field(leanSpliceField, false);
+      if (splice) {
+        if (isCursorInLean4Block(update.view.state)) {
+          this.goalTimer = setTimeout(() => {
+            this.goalTimer = null;
+            void this.queryGoals();
+          }, GOAL_DEBOUNCE_MS);
+        } else {
+          // Clear goals immediately when cursor leaves a lean4 block
+          this.view.dispatch({ effects: SetGoalEffect.of({ goals: null, termGoal: null, blockIndex: null }) });
+        }
+      }
     }
   }
 
   syncToLean(): void {
     if (!api.lean.available()) return;
     const noteInfo = getNoteInfo(this.view);
-    if (!noteInfo) return;
-    const mdText = this.view.state.doc.toString();
-    const splice = buildLeanSplice(noteInfo.notePath, mdText, noteInfo.notesRoot);
-    if (!splice) {
+    const currentSplice = this.view.state.field(leanSpliceField, false);
+    if (!noteInfo) {
+      this.syncedNotePath = "";
+      this.syncSeq++;
+      if (currentSplice !== null) this.view.dispatch({ effects: SetSpliceEffect.of(null) });
       if (this.isOpen) this.closeLean();
       return;
     }
-    this.lastSplice = splice;
+    this.syncedNotePath = noteInfo.notePath;
+    const isLeanFile = noteInfo.notePath.toLowerCase().endsWith(".lean");
+    if (!isLeanFile) {
+      // .md files: lean integration handled via @@lean4 region widgets, not this plugin.
+      this.syncSeq++;
+      if (currentSplice !== null) this.view.dispatch({ effects: SetSpliceEffect.of(null) });
+      if (this.isOpen) this.closeLean();
+      return;
+    }
+    const mdText = this.view.state.doc.toString();
+    const splice = buildFullFileLeanSplice(noteInfo.notePath, mdText);
+    if (!splice) {
+      this.syncSeq++;
+      if (currentSplice !== null) this.view.dispatch({ effects: SetSpliceEffect.of(null) });
+      if (this.isOpen) this.closeLean();
+      return;
+    }
     this.view.dispatch({ effects: SetSpliceEffect.of(splice) });
 
-    if (!this.isOpen) {
-      void api.lean.openNote({
-        notePath: noteInfo.notePath,
-        leanPath: splice.leanPath,
-        leanText: splice.leanText,
-      });
+    if (this.isOpen && this.openNotePath && this.openNotePath !== noteInfo.notePath) {
+      this.closeLean();
+    }
+    this.lastSplice = splice;
+
+    void this.sendLeanSync(noteInfo, splice);
+  }
+
+  async sendLeanSync(noteInfo: { notePath: string; notesRoot: string }, splice: LeanSplice): Promise<void> {
+    const seq = ++this.syncSeq;
+    const opening = !this.isOpen;
+    try {
+      const leanPath = opening ? splice.leanPath : (this.openLeanPath || splice.leanPath);
+      const result = opening
+        ? await api.lean.openNote({
+          notePath: noteInfo.notePath,
+          notesRoot: noteInfo.notesRoot,
+          leanPath: splice.leanPath,
+          leanText: splice.leanText,
+        })
+        : await api.lean.changeNote({
+          notePath: noteInfo.notePath,
+          leanPath,
+          leanText: splice.leanText,
+        });
+      if (seq !== this.syncSeq) return;
+      const response = result as { ok?: boolean; leanPath?: string; message?: string } | null;
+      if (response?.ok === false) throw new Error(response.message || "Lean sync failed");
       this.isOpen = true;
-    } else {
-      void api.lean.changeNote({
-        leanPath: splice.leanPath,
-        leanText: splice.leanText,
-      });
+      this.openNotePath = noteInfo.notePath;
+      this.openLeanPath = response?.leanPath || splice.leanPath;
+    } catch (err) {
+      if (seq !== this.syncSeq) return;
+      this.isOpen = false;
+      this.openNotePath = "";
+      this.openLeanPath = "";
+      console.warn("[lean] sync failed", err);
     }
   }
 
   closeLean(): void {
-    const splice = this.lastSplice;
-    if (splice && this.isOpen) {
-      void api.lean.closeNote({ leanPath: splice.leanPath });
+    this.syncSeq++;
+    const leanPath = this.openLeanPath || this.lastSplice?.leanPath || "";
+    if (leanPath && this.isOpen) {
+      void api.lean.closeNote({ leanPath });
     }
     this.isOpen = false;
+    this.openNotePath = "";
+    this.openLeanPath = "";
   }
 
   async queryGoals(): Promise<void> {
@@ -511,6 +706,7 @@ class LeanBlockPlugin {
     if (this.goalTimer) clearTimeout(this.goalTimer);
     this.unsubDiag?.();
     this.unsubProgress?.();
+    this.unsubSemanticTokens?.();
     this.unsubStatus?.();
     this.closeLean();
   }
@@ -541,8 +737,13 @@ const leanHoverTooltip = hoverTooltip(async (view, pos) => {
   if (!hover?.result) return null;
 
   const contents = hover.result.contents;
-  const text = typeof contents === "string" ? contents : (contents as { value?: string })?.value ?? "";
-  if (!text.trim()) return null;
+  const raw = typeof contents === "string" ? contents : (contents as { value?: string })?.value ?? "";
+  if (!raw.trim()) return null;
+
+  // Lean hover responses wrap content in ```lean ... ``` — strip the fences for display.
+  const FENCE_RE = /^```[\w]*\n([\s\S]*?)```\s*$/;
+  const fenceMatch = FENCE_RE.exec(raw.trim());
+  const codeText = fenceMatch ? fenceMatch[1].trimEnd() : raw.trim();
 
   return {
     pos,
@@ -552,7 +753,7 @@ const leanHoverTooltip = hoverTooltip(async (view, pos) => {
       dom.className = "cm-lean-hover-tooltip";
       const pre = document.createElement("pre");
       pre.className = "cm-lean-hover-text";
-      pre.textContent = text;
+      pre.textContent = codeText;
       dom.append(pre);
       return { dom };
     },
@@ -564,9 +765,11 @@ const leanHoverTooltip = hoverTooltip(async (view, pos) => {
 // ---------------------------------------------------------------------------
 
 export const leanExtension: Extension = [
+  lean4OrgEnvBlocksField,
   leanSpliceField,
   leanDiagnosticsField,
   leanProgressField,
+  leanSemanticTokensField,
   leanGoalField,
   leanCellOutputField,
   leanBlockViewPlugin,

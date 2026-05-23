@@ -388,6 +388,17 @@ function renderDiagramFence(token: Token, layout: LayoutAttrs): string {
   return `<pre class="${escapeAttr(cls)}"${styleAttr}><code${codeClass}>${escapeHtml(token.content)}</code></pre>\n`;
 }
 
+function renderLeanOrgEnv(meta: OrgEnvTokenMeta): string {
+  const title = meta.title;
+  const label = "Lean 4";
+  return [
+    `<org-env-block class="cm-org-env-block org-env-block org-env-lean4" data-kind="lean4" data-title="${escapeAttr(title)}" data-label="${escapeAttr(label)}" data-comment-open="false">`,
+    `<span class="org-env-heading cm-org-env-heading-widget" data-org-env-kind="lean4"><span class="org-env-heading-label cm-org-env-label">${escapeHtml(label)}</span><span class="org-env-heading-title" data-empty="${title ? "false" : "true"}">${escapeHtml(title)}</span></span>`,
+    `<div class="org-env-content"><pre class="aaronnote-lean-code"><code class="language-lean4">${escapeHtml(meta.body)}</code></pre></div>`,
+    "</org-env-block>",
+  ].join("");
+}
+
 function renderOrgEnv(md: MarkdownIt, tokens: Token[], idx: number): string {
   const meta = tokens[idx]!.meta as OrgEnvTokenMeta;
   const kind = meta.kind;
@@ -395,6 +406,7 @@ function renderOrgEnv(md: MarkdownIt, tokens: Token[], idx: number): string {
   if (kind.toLowerCase() === "html") {
     return meta.body.trim() ? `<div class="aaronnote-html">${meta.body}</div>` : "";
   }
+  if (kind.toLowerCase() === "lean4") return renderLeanOrgEnv(meta);
   const title = meta.title;
   const label = envLabel(kind);
   const body = meta.body.trim() ? md.render(meta.body) : "";

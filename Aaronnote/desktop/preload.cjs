@@ -126,7 +126,11 @@ contextBridge.exposeInMainWorld("aaronnoteApi", {
     getGoals: (body = {}) => invoke("aaronnote:api:lean:request", "get-goals", body),
     getTermGoal: (body = {}) => invoke("aaronnote:api:lean:request", "get-term-goal", body),
     getHover: (body = {}) => invoke("aaronnote:api:lean:request", "get-hover", body),
+    getCompletions: (body = {}) => invoke("aaronnote:api:lean:request", "get-completions", body),
+    getDefinition: (body = {}) => invoke("aaronnote:api:lean:request", "get-definition", body),
     getDiagnostics: (body = {}) => invoke("aaronnote:api:lean:request", "get-diagnostics", body),
+    cacheStatus: () => invoke("aaronnote:api:lean:request", "cache-status", {}),
+    cacheGet: (body = {}) => invoke("aaronnote:api:lean:request", "cache-get", body),
     onDiagnostics: (handler) => {
       if (typeof handler !== "function") return () => {};
       const listener = (_event, data) => handler(data);
@@ -138,6 +142,12 @@ contextBridge.exposeInMainWorld("aaronnoteApi", {
       const listener = (_event, data) => handler(data);
       ipcRenderer.on("aaronnote:lean:progress", listener);
       return () => ipcRenderer.removeListener("aaronnote:lean:progress", listener);
+    },
+    onSemanticTokens: (handler) => {
+      if (typeof handler !== "function") return () => {};
+      const listener = (_event, data) => handler(data);
+      ipcRenderer.on("aaronnote:lean:semantic-tokens", listener);
+      return () => ipcRenderer.removeListener("aaronnote:lean:semantic-tokens", listener);
     },
     onStatus: (handler) => {
       if (typeof handler !== "function") return () => {};

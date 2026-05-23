@@ -7015,6 +7015,14 @@ maps around an indecomposable component, one obtains endomorphisms. The
 locality of endomorphism rings forces at least one component map to be
 invertible. This identifies one matching pair of summands. Removing that
 pair and applying induction proves the result.
+
+
+#+begin proof
+asdasdasd this is hard to use 
+#+end proof
+
+
+
 #+end proof
 
 中文直觉：如果整体分解成不可再拆的小块，那么同构不能把“小块类型”凭空改变，只能重排。
@@ -7057,7 +7065,7 @@ $$
 $$
 
 #+begin example Computational basis measurement
-For a qubit state $\rho$, measurement in the computational basis has
+For a qubit state $\rho$, measurement in the computational basis has this is hard to use 
 measurement operators
 
 $$
@@ -49797,7 +49805,9 @@ $$
 |\psi\rangle\langle \psi|.
 $$
 
-This operator is positive semidefinite, Hermitian, trace-one, and idempotent.
+This operator is positive semidefinite, Hermitian, trace-one, and idempotent. this is hard 
+
+this is hard to use 
 
 $$
 \rho_\psi^\dagger = \rho_\psi.
@@ -49914,6 +49924,11 @@ $$
 ## 92.3. Tensor viewpoint
 
 A bilinear map
+
+
+this is hard to use 
+
+
 
 $$
 \mu : V \times V \to W
@@ -50512,6 +50527,14 @@ This is the source of the orbit formulation of many isomorphism problems.
 ## 93.4. Isomorphism as an orbit problem
 
 Two tensors $T$ and $T'$ are isomorphic if they lie in the same orbit under
+
+
+this is asda asd ad a asd  sada ad asd asd  asd as as d as d asd 
+
+
+this is hard to use 
+
+
 a suitable group action. For example, in a three-tensor setting one often
 considers an action of
 
@@ -50925,6 +50948,11 @@ In finite-dimensional quantum theory, positivity already implies
 self-adjointness. However, listing Hermitian symmetry explicitly is often
 pedagogically useful because it reminds us that observables and density
 operators belong to the real vector space of Hermitian operators.
+
+
+
+
+this is hard t o
 
 中文直觉：正半定保证测量概率非负；迹为一保证总概率为一。
 #+end note
@@ -234810,6 +234838,27 @@ The forward direction says that an isomorphism induces a change of
 coordinates. The backward direction says that a valid change of coordinates
 preserves the defining structure and therefore gives an isomorphism.
 
+
+
+
+
+
+
+
+
+
+It is eaasy to use 
+
+
+
+
+
+
+
+
+
+
+
 In formulas, the equivalence has the form
 
 $$
@@ -234821,6 +234870,21 @@ g\cdot x_A=x_B.
 $$
 
 Thus the classification problem becomes an orbit-membership problem.
+
+
+
+this is hard use 
+
+
+
+#+begin proof
+asdasdasdasd this is 
+#+end proof
+
+
+
+
+
 #+end proof
 
 ## 431.5. Promise problems and reductions
@@ -234874,7 +234938,11 @@ $$
 
 #+begin warning Promise preservation
 For promise problems, it is not enough to map yes-instances to yes-instances.
-One must also map no-instances to no-instances. Inputs outside the promise
+One must also map no-instances to no-instances. Inputs outside the promiseasd  this is 
+
+
+
+this is hard 
 are irrelevant, but the reduction must preserve the promised domain.
 #+end warning
 
@@ -235137,6 +235205,10 @@ operate on encodings, not on abstract objects directly.
 #+end summary
 
 ## 432.1. Quantum states and density operators
+
+
+
+this is hard 
 
 A pure quantum state is represented by a unit vector $|\psi\rangle$ in a
 Hilbert space $H$. The normalization condition is

@@ -24,7 +24,7 @@ import {
 } from "./find.ts";
 import { createFloatingTocPanel, inlineTagAnchorsFromText, markdownHeadingsFromText } from "./floating-toc.ts";
 import { createLeanPanel } from "./lean-panel.ts";
-import { setLeanNotePath } from "../src/cm6/widgets/lean-block.ts";
+import { leanSpliceField, setLeanNotePath } from "../src/cm6/widgets/lean-block.ts";
 import { createGraphPanel } from "./graph-panel.ts";
 import { createLinkPreviewController, type LinkPreviewTarget } from "./link-preview.ts";
 import { createLocalGraphPanel } from "./local-graph.ts";
@@ -137,6 +137,7 @@ root.innerHTML = `
             <button type="button" data-notes-tab="filesystem" class="is-active">Filesystem</button>
             <button type="button" data-notes-tab="graph">Roam graph</button>
             <button type="button" data-notes-tab="git">Git</button>
+            <button type="button" data-notes-tab="lean">Lean</button>
             <button type="button" data-notes-tab="management">Roam management</button>
           </div>
           <div data-notes-panel="recent" hidden>
@@ -231,6 +232,37 @@ root.innerHTML = `
               </div>
             </section>
           </div>
+          <div data-notes-panel="lean" hidden>
+            <section class="aaronnote-lean-project" data-lean-project-root>
+              <div class="aaronnote-lean-project-top">
+                <section>
+                  <span>Project</span>
+                  <strong data-lean-project-path>Not loaded</strong>
+                  <small data-lean-project-toolchain></small>
+                </section>
+                <section>
+                  <span>Lean</span>
+                  <strong data-lean-project-lean-version>Not loaded</strong>
+                  <small data-lean-project-lake-version></small>
+                </section>
+                <section>
+                  <span>Packages</span>
+                  <strong data-lean-project-package-count>0</strong>
+                  <small data-lean-project-status>Idle</small>
+                </section>
+              </div>
+              <div class="aaronnote-lean-project-actions">
+                <button type="button" data-lean-project-command="info">Info</button>
+                <button type="button" data-lean-project-command="update">Update</button>
+                <button type="button" data-lean-project-command="cache">Cache</button>
+                <button type="button" data-lean-project-command="build">Build</button>
+                <button type="button" data-lean-project-command="clean">Clean</button>
+                <button type="button" data-lean-project-refresh>Refresh</button>
+              </div>
+              <div class="aaronnote-lean-project-packages" data-lean-project-packages></div>
+              <pre class="aaronnote-lean-project-output" data-lean-project-output>Open this tab to load Lean project info.</pre>
+            </section>
+          </div>
           <div data-notes-panel="management" hidden>
             <div class="aaronnote-management-grid">
               <button type="button" data-action="sync">Sync roamdb</button>
@@ -276,6 +308,7 @@ root.innerHTML = `
       </section>
     </section>
     <aside class="aaronnote-lean-panel" data-lean-panel hidden></aside>
+    <button type="button" class="aaronnote-lean-trigger" data-lean-trigger hidden title="Toggle Lean Infoview">⊢</button>
     <aside class="aaronnote-floating-toc is-collapsed" data-floating-toc>
       <button type="button" data-toc-toggle aria-expanded="false">TOC</button>
       <nav data-toc-list aria-label="Table of contents"></nav>
@@ -317,6 +350,16 @@ const pluginList = document.querySelector<HTMLElement>("[data-plugin-list]")!;
 const pluginCount = document.querySelector<HTMLElement>("[data-plugin-count]")!;
 const graphPage = document.querySelector<HTMLElement>("[data-graph-page]")!;
 const gitRoot = document.querySelector<HTMLElement>("[data-git-root]")!;
+const leanProjectRoot = document.querySelector<HTMLElement>("[data-lean-project-root]")!;
+const leanProjectPath = document.querySelector<HTMLElement>("[data-lean-project-path]")!;
+const leanProjectToolchain = document.querySelector<HTMLElement>("[data-lean-project-toolchain]")!;
+const leanProjectLeanVersion = document.querySelector<HTMLElement>("[data-lean-project-lean-version]")!;
+const leanProjectLakeVersion = document.querySelector<HTMLElement>("[data-lean-project-lake-version]")!;
+const leanProjectPackageCount = document.querySelector<HTMLElement>("[data-lean-project-package-count]")!;
+const leanProjectStatus = document.querySelector<HTMLElement>("[data-lean-project-status]")!;
+const leanProjectPackages = document.querySelector<HTMLElement>("[data-lean-project-packages]")!;
+const leanProjectOutput = document.querySelector<HTMLElement>("[data-lean-project-output]")!;
+const leanProjectRefresh = document.querySelector<HTMLButtonElement>("[data-lean-project-refresh]")!;
 const syncButton = document.querySelector<HTMLButtonElement>("[data-action='sync']")!;
 const renameRoamTagButton = document.querySelector<HTMLButtonElement>("[data-action='rename-roam-tag']")!;
 const deleteRoamTagButton = document.querySelector<HTMLButtonElement>("[data-action='delete-roam-tag']")!;
@@ -358,6 +401,7 @@ const agendaRefresh = document.querySelector<HTMLButtonElement>("[data-action='a
 const agendaCount = document.querySelector<HTMLElement>("[data-agenda-count]")!;
 const agendaList = document.querySelector<HTMLElement>("[data-agenda-list]")!;
 const leanPanelRoot = document.querySelector<HTMLElement>("[data-lean-panel]")!;
+const leanTriggerBtn = document.querySelector<HTMLButtonElement>("[data-lean-trigger]")!;
 const toc = document.querySelector<HTMLElement>("[data-floating-toc]")!;
 const tocList = document.querySelector<HTMLElement>("[data-toc-list]")!;
 const tocToggle = document.querySelector<HTMLButtonElement>("[data-toc-toggle]")!;
@@ -396,7 +440,7 @@ function graphToolVisible(): boolean {
 }
 
 function standaloneHiddenNotesTool(tab: string): boolean {
-  return currentStandalone && ["graph", "git", "management", "roamlookup"].includes(tab);
+  return currentStandalone && ["graph", "git", "lean", "management", "roamlookup"].includes(tab);
 }
 
 for (const button of [
@@ -916,8 +960,93 @@ const leanPanel = createLeanPanel({
   },
 });
 
+leanTriggerBtn.addEventListener("click", () => leanPanel.toggle());
+
+async function restartLeanServerForCurrentNote(): Promise<void> {
+  if (!api.lean.available()) {
+    setStatus("Lean unavailable");
+    return;
+  }
+  const splice = editor.view.state.field(leanSpliceField, false);
+  const regionTag = /@@lean4\s+\[([^\]]+)\]/.exec(editor.getMarkdown())?.[1]?.trim() ?? "";
+  if (!currentFile || !leanNotesRoot || (!splice && !regionTag)) {
+    setStatus("No Lean document active");
+    return;
+  }
+  setStatus("Lean restarting");
+  try {
+    await api.lean.request("stop");
+    const result = regionTag
+      ? await api.lean.openRegionFile({ notePath: currentFile, tag: regionTag })
+      : await api.lean.openNote({
+        notePath: currentFile,
+        notesRoot: leanNotesRoot,
+        leanText: splice!.leanText,
+        leanPath: splice!.leanPath,
+      });
+    const response = result as { ok?: boolean; message?: string } | null;
+    if (response?.ok === false) throw new Error(response.message || "Lean restart failed");
+    setStatus("Lean restarted");
+  } catch (err) {
+    setStatus(err instanceof Error ? err.message : "Lean restart failed");
+  }
+}
+
+function generatedLeanTag(): string {
+  return `lean-${Date.now().toString(36)}`;
+}
+
+function leanPlaceholderContextAt(markdown: string, pos: number): { beforeTag: string; afterTag: string } {
+  const cursor = Math.max(0, Math.min(markdown.length, pos));
+  const re = /^[ \t]*@@lean4[ \t]+\[([^\]]+)\][ \t]*$/gm;
+  let beforeTag = "";
+  let afterTag = "";
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(markdown))) {
+    const tag = String(match[1] ?? "").trim();
+    if (!tag) continue;
+    if (match.index < cursor && re.lastIndex <= cursor) {
+      beforeTag = tag;
+      continue;
+    }
+    afterTag = tag;
+    break;
+  }
+  return { beforeTag, afterTag };
+}
+
+async function insertLeanBlock(): Promise<void> {
+  if (!api.lean.available()) {
+    setStatus("Lean unavailable");
+    return;
+  }
+  if (!currentFile || !leanNotesRoot || currentStandalone) {
+    setStatus("Lean blocks require a roam markdown note");
+    return;
+  }
+  const tag = generatedLeanTag();
+  setStatus("Creating Lean block");
+  try {
+    const context = leanPlaceholderContextAt(editor.getMarkdown(), editor.getMarkdownSelection().from);
+    const result = await api.lean.ensureRegion({ notePath: currentFile, tag, ...context });
+    const response = result as { ok?: boolean; tag?: string; message?: string } | null;
+    if (response?.ok === false) throw new Error(response.message || "Lean region create failed");
+    const finalTag = response?.tag || tag;
+    editor.insertText(`@@lean4 [${finalTag}]`);
+    scheduleAssistUpdate();
+    setStatus(`Lean block ${finalTag}`);
+  } catch (err) {
+    setStatus(err instanceof Error ? err.message : "Lean block create failed");
+  }
+}
+
 // Fetch notesRoot from lean status once on startup
 if (api.lean.available()) {
+  api.lean.onStatus((raw) => {
+    const data = raw as { message?: string; busy?: boolean };
+    const message = String(data.message || "");
+    if (message) setStatus(`Lean: ${message}`);
+  });
   void api.lean.status().then((s) => {
     const status = s as { notesRoot?: string } | null;
     if (status?.notesRoot) leanNotesRoot = status.notesRoot;
@@ -4202,6 +4331,8 @@ function showNotesTool(tab: string): void {
     renderRecentNotes();
   } else if (tab === "git") {
     activateGitPanel();
+  } else if (tab === "lean") {
+    void refreshLeanProjectInfo();
   } else if (tab === "filesystem") {
     expandFilesystemGroups();
     focusFilesystemRangerSoon();
@@ -5067,6 +5198,7 @@ function commandPaletteCommands(): AaronnoteCommand[] {
     { id: "focus", title: writingMode.focusMode ? "Disable focus mode" : "Enable focus mode", group: "Editor", keywords: ["writing"], run: toggleFocusMode },
     { id: "find", title: "Find and replace", group: "Editor", keywords: ["search"], run: openFindTool },
     { id: "block-menu", title: "Open block menu", group: "Editor", keywords: ["slash", "insert"], run: openBlockMenu },
+    { id: "insert-lean-block", title: "Insert Lean block", group: "Editor", keywords: ["lean4", "proof"], enabled: () => !!currentFile && !currentStandalone, run: () => void insertLeanBlock() },
 
     { id: "notes", title: "Open notes", group: "Navigation", keywords: ["filesystem"], run: () => showNotesPage("filesystem") },
     { id: "relation", title: "Open relation", group: "Navigation", keywords: ["backlinks", "refs", "links"], enabled: () => !!currentFile, run: toggleRelationPanel },
@@ -5081,6 +5213,7 @@ function commandPaletteCommands(): AaronnoteCommand[] {
     { id: "open-roam-node", title: "Open roam node", group: "Roam", keywords: ["idlink", "switch"], enabled: () => !currentStandalone, run: () => void openRoamNode() },
     { id: "graph", title: "Open roam graph", group: "Roam", keywords: ["network"], enabled: () => !currentStandalone, run: () => showNotesPage("graph") },
     { id: "git", title: "Open git control", group: "Roam", keywords: ["version", "commit", "diff"], enabled: () => !currentStandalone, run: () => showNotesPage("git") },
+    { id: "lean-project", title: "Open Lean project", group: "Roam", keywords: ["lake", "mathlib", "cache"], enabled: () => !currentStandalone, run: () => showNotesPage("lean") },
     { id: "sync", title: "Sync roamdb", group: "Roam", keywords: ["index"], enabled: () => !currentStandalone, run: () => void syncRoamDb() },
     { id: "ensure-roam-id", title: "Generate or copy Roam ID", group: "Roam", keywords: ["id", "clipboard"], enabled: () => !currentStandalone && !!currentFile, run: () => void ensureRoamId() },
     { id: "insert-roam-idlink", title: "Insert roam idlink", group: "Roam", keywords: ["link", "reference"], enabled: () => !currentStandalone, run: () => void insertRoamIdLink() },
@@ -6516,6 +6649,98 @@ function renderNotes(): void {
   else if (activeTool === "recent") filesystemBrowser.renderRecent();
 }
 
+type LeanProjectInfo = {
+  ok?: boolean;
+  message?: string;
+  notesRoot?: string;
+  projectRoot?: string;
+  toolchain?: string;
+  lakefile?: string;
+  hasMakefile?: boolean;
+  leanVersion?: string;
+  lakeVersion?: string;
+  packages?: Array<{ name?: string; inputRev?: string; rev?: string }>;
+  cache?: { state?: string; message?: string };
+};
+
+function setLeanProjectBusy(busy: boolean): void {
+  for (const button of leanProjectRoot.querySelectorAll<HTMLButtonElement>("[data-lean-project-command], [data-lean-project-refresh]")) {
+    button.disabled = busy;
+  }
+}
+
+function renderLeanProjectInfo(raw: LeanProjectInfo): void {
+  if (raw.ok === false) {
+    leanProjectStatus.textContent = raw.message || "Lean project unavailable";
+    leanProjectOutput.textContent = raw.message || "Lean project unavailable";
+    return;
+  }
+  leanProjectPath.textContent = raw.projectRoot || "No project root";
+  leanProjectToolchain.textContent = raw.toolchain ? `toolchain ${raw.toolchain}` : "toolchain missing";
+  leanProjectLeanVersion.textContent = raw.leanVersion || "Lean unavailable";
+  leanProjectLakeVersion.textContent = raw.lakeVersion || "Lake unavailable";
+  const packages = raw.packages ?? [];
+  leanProjectPackageCount.textContent = String(packages.length);
+  leanProjectStatus.textContent = raw.cache?.message || (raw.hasMakefile ? "Makefile ready" : "Makefile missing");
+  leanProjectPackages.replaceChildren(...packages.slice(0, 18).map((pkg) => {
+    const row = document.createElement("div");
+    row.className = "aaronnote-lean-project-package";
+    const name = document.createElement("strong");
+    name.textContent = pkg.name || "package";
+    const rev = document.createElement("span");
+    rev.textContent = [pkg.inputRev, pkg.rev].filter(Boolean).join(" · ");
+    row.append(name, rev);
+    return row;
+  }));
+  if (packages.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "aaronnote-lean-project-empty";
+    empty.textContent = "No Lake packages in manifest.";
+    leanProjectPackages.replaceChildren(empty);
+  }
+}
+
+async function refreshLeanProjectInfo(): Promise<void> {
+  if (!notesToolVisible("lean")) return;
+  if (!api.lean.available()) {
+    leanProjectOutput.textContent = "Lean IPC unavailable.";
+    return;
+  }
+  leanProjectStatus.textContent = "Loading...";
+  try {
+    const raw = await api.lean.request("project-info") as LeanProjectInfo;
+    renderLeanProjectInfo(raw);
+    leanProjectOutput.textContent = raw.ok === false
+      ? (raw.message || "Lean project unavailable")
+      : "Use the buttons above to run make targets from the notes root.";
+  } catch (err) {
+    leanProjectOutput.textContent = err instanceof Error ? err.message : "Lean project info failed";
+  }
+}
+
+async function runLeanProjectCommand(target: string): Promise<void> {
+  if (!api.lean.available()) {
+    leanProjectOutput.textContent = "Lean IPC unavailable.";
+    return;
+  }
+  setLeanProjectBusy(true);
+  leanProjectStatus.textContent = `Running make ${target}...`;
+  leanProjectOutput.textContent = `$ make ${target}\n`;
+  try {
+    const raw = await api.lean.request("project-command", { target }) as { ok?: boolean; message?: string; output?: string };
+    const output = `$ make ${target}\n\n${raw.output || raw.message || ""}`;
+    leanProjectStatus.textContent = raw.message || (raw.ok === false ? "Command failed" : "Command finished");
+    await refreshLeanProjectInfo();
+    leanProjectOutput.textContent = output;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Lean command failed";
+    leanProjectStatus.textContent = message;
+    leanProjectOutput.textContent += `\n${message}`;
+  } finally {
+    setLeanProjectBusy(false);
+  }
+}
+
 function syncShowAllButton(): void {
   notesShowAllButton.classList.toggle("is-active", showAllFilesystemEntries);
   notesShowAllButton.setAttribute("aria-pressed", showAllFilesystemEntries ? "true" : "false");
@@ -6651,11 +6876,25 @@ function applyOpen(msg: Extract<Inbound, { type: "open" }>, options: { preserveF
   }
   updateFloatingToc();
   syncLocalGraphAvailability();
-  if (leanNotesRoot && currentFile) {
+  const isLeanFile = currentFile.toLowerCase().endsWith(".lean");
+  if (leanNotesRoot && currentFile && (!currentStandalone || isLeanFile)) {
     setLeanNotePath(editor.view, currentFile, leanNotesRoot);
     leanPanel.setNote(currentFile, leanNotesRoot);
-    const hasLean4 = editor.getMarkdown().includes("#+begin lean4");
-    if (hasLean4) leanPanel.show(); else leanPanel.hide();
+    const hasLean4 = isLeanFile || /@@lean4\s+\[/.test(editor.getMarkdown());
+    leanTriggerBtn.hidden = !hasLean4;
+    if (!hasLean4) {
+      void api.lean.request("stop").catch(() => {});
+      leanPanel.hide();
+      leanPanelRoot.classList.add("lean-panel--gone");
+    } else {
+      leanPanelRoot.classList.remove("lean-panel--gone");
+    }
+  } else {
+    setLeanNotePath(editor.view, "", "");
+    leanPanel.setNote("", "");
+    leanPanel.hide();
+    leanPanelRoot.classList.add("lean-panel--gone");
+    leanTriggerBtn.hidden = true;
   }
   if (!relationPanel.hidden) renderRelationPanel(true);
   scheduleAssistUpdate();
@@ -6703,6 +6942,16 @@ function runEditorCommand(command: EditorCommand, value = ""): void {
 
 function runHistoryCommand(kind: "undo" | "redo"): void {
   const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  // When focus is inside an embedded Lean editor, document.activeElement is the
+  // shadow host (it cannot pierce shadow DOM), so delegate to the inner editor's
+  // own history instead of the outer markdown editor.
+  const leanHost = active?.closest<HTMLElement>(".cm-lean-placeholder-widget");
+  const leanHistory = (leanHost as (HTMLElement & { __leanHistory?: { undo: () => boolean; redo: () => boolean } }) | null)?.__leanHistory;
+  if (leanHistory) {
+    if (kind === "undo") leanHistory.undo();
+    else leanHistory.redo();
+    return;
+  }
   const editable = active?.closest<HTMLElement>("input, textarea, select, [contenteditable='true']");
   if (editable && !editable.classList.contains("cm-content")) {
     document.execCommand(kind);
@@ -6731,7 +6980,18 @@ function historyShortcutKind(event: KeyboardEvent): "undo" | "redo" | null {
   return null;
 }
 
+function eventFromLeanEmbeddedEditor(event: Event): boolean {
+  return event.composedPath().some((node) =>
+    node instanceof HTMLElement
+    && (
+      node.classList.contains("cm-lean-placeholder-widget")
+      || node.classList.contains("lean-card")
+      || node.classList.contains("lean-host")
+    ));
+}
+
 document.addEventListener("keydown", (event) => {
+  if (eventFromLeanEmbeddedEditor(event)) return;
   const kind = historyShortcutKind(event);
   if (!kind || !editorOwnsKeyTarget(event)) return;
   event.preventDefault();
@@ -6743,6 +7003,7 @@ document.addEventListener("keydown", (event) => {
 }, { capture: true });
 
 document.addEventListener("keydown", (event) => {
+  if (eventFromLeanEmbeddedEditor(event)) return;
   const primaryMod = primaryShortcutModifier(event);
   if (handleCommandPaletteKey(event)) {
     event.stopPropagation();
@@ -6767,6 +7028,12 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     event.stopPropagation();
     void openTodayDaily();
+    return;
+  }
+  if (primaryMod && event.shiftKey && !event.altKey && event.key.toLowerCase() === "l") {
+    event.preventDefault();
+    event.stopPropagation();
+    void insertLeanBlock();
     return;
   }
   if (
@@ -7029,7 +7296,9 @@ window.addEventListener("aaronnote:command", (event) => {
   if (command === "jump-back") jumpBack();
   if (command === "open-plugin-manager") showPluginPage();
   if (command === "open-block-menu") openBlockMenu();
+  if (command === "insert-lean-block") void insertLeanBlock();
   if (command === "toggle-source") toggleSourceMode();
+  if (command === "restart-lean-server") void restartLeanServerForCurrentNote();
   if (command === "save-now") save();
   if (command === "flush-state") flushState({ keepalive: true });
 });
@@ -7067,6 +7336,16 @@ notesPage.addEventListener("click", (event) => {
   const button = (event.target as Element | null)?.closest<HTMLButtonElement>("[data-notes-tab]");
   if (!button || !notesPage.contains(button)) return;
   showNotesTool(button.dataset.notesTab || "filesystem");
+});
+leanProjectRoot.addEventListener("click", (event) => {
+  const refresh = (event.target as Element | null)?.closest<HTMLButtonElement>("[data-lean-project-refresh]");
+  if (refresh) {
+    void refreshLeanProjectInfo();
+    return;
+  }
+  const command = (event.target as Element | null)?.closest<HTMLButtonElement>("[data-lean-project-command]");
+  if (!command) return;
+  void runLeanProjectCommand(command.dataset.leanProjectCommand || "info");
 });
 tocToggle.addEventListener("click", () => {
   floatingTocPanel.toggle();

@@ -89,6 +89,9 @@ let mainWindow = null;
 let debugPanel = null;
 let pendingOpenFile = process.argv.slice(1).find((arg) => /\.(?:md|markdown)$/i.test(arg)) || "";
 let allowQuit = false;
+let leanMenuStatus = { message: "Not started", kind: "Inactive", busy: false };
+let leanMenuLog = [];
+let leanMenuUpdateTimer = null;
 
 protocol.registerSchemesAsPrivileged([{
   scheme: "aaronnote-asset",
@@ -963,6 +966,76 @@ function openFileInWindow(file) {
   }
 }
 
+function leanLogMessage(entry) {
+  const parts = [];
+  if (entry.message) parts.push(String(entry.message));
+  if (entry.package) parts.push(`package ${entry.package}`);
+  if (entry.reason) parts.push(String(entry.reason));
+  if (entry.command) parts.push(String(entry.command));
+  if (entry.cwd) parts.push(String(entry.cwd));
+  if (entry.notePath) parts.push(String(entry.notePath));
+  if (entry.leanPath) parts.push(String(entry.leanPath));
+  if (entry.path) parts.push(String(entry.path));
+  if (entry.uri) parts.push(String(entry.uri));
+  if (entry.count != null) parts.push(`${entry.count} diagnostics`);
+  if (entry.bytes != null) parts.push(`${entry.bytes} bytes`);
+  if (entry.tokenTypes != null) parts.push(`${entry.tokenTypes} token types`);
+  if (entry.kind && entry.message == null) parts.push(String(entry.kind));
+  return parts.join(" | ");
+}
+
+function leanLogMenuLabel(entry) {
+  const time = new Date(entry.ts || Date.now()).toISOString().slice(11, 19);
+  const message = leanLogMessage(entry);
+  const raw = `${time} ${entry.type}${message ? `: ${message}` : ""}`;
+  return raw.length > 96 ? `${raw.slice(0, 93)}...` : raw;
+}
+
+function leanFullLogText() {
+  if (leanMenuLog.length === 0) return "No log entries yet.";
+  return leanMenuLog.map((entry) => leanLogMenuLabel(entry)).join("\n");
+}
+
+function updateLeanMenuStatus(status = {}) {
+  leanMenuStatus = {
+    message: String(status.message || "Not started"),
+    kind: String(status.kind || "Inactive"),
+    busy: Boolean(status.busy),
+  };
+  scheduleLeanMenuUpdate();
+}
+
+function appendLeanMenuLog(entry) {
+  if (!entry || typeof entry !== "object") return;
+  leanMenuLog.push(entry);
+  if (leanMenuLog.length > 12) leanMenuLog = leanMenuLog.slice(-12);
+  scheduleLeanMenuUpdate();
+}
+
+function scheduleLeanMenuUpdate() {
+  if (leanMenuUpdateTimer) return;
+  leanMenuUpdateTimer = setTimeout(() => {
+    leanMenuUpdateTimer = null;
+    Menu.setApplicationMenu(buildMenu());
+  }, 120);
+}
+
+async function refreshLeanMenuLog() {
+  const result = await handleLeanRequest("log");
+  leanMenuLog = Array.isArray(result?.entries) ? result.entries.slice(-12) : [];
+  scheduleLeanMenuUpdate();
+}
+
+async function showLeanLogDialog() {
+  await refreshLeanMenuLog();
+  void dialog.showMessageBox({
+    title: "Lean Server Log",
+    message: "Lean Server Log",
+    detail: leanFullLogText(),
+    type: "info",
+  });
+}
+
 function buildMenu() {
   return Menu.buildFromTemplate([
   {
@@ -1162,6 +1235,63 @@ function buildMenu() {
     ],
   },
   {
+    label: "Lean",
+    submenu: [
+      {
+        label: `Status: ${leanMenuStatus.busy ? "..." : ""}${leanMenuStatus.message}`,
+        enabled: false,
+      },
+      {
+        label: `Kind: ${leanMenuStatus.kind}`,
+        enabled: false,
+      },
+      { type: "separator" },
+      {
+        label: "Insert Lean Block",
+        accelerator: "CmdOrCtrl+Shift+L",
+        click: () => runInWindow(dispatchCommandScript("insert-lean-block")),
+      },
+      {
+        label: "Restart Lean for Current Note",
+        click: () => runInWindow(dispatchCommandScript("restart-lean-server")),
+      },
+      {
+        label: "Stop Lean Server",
+        click: async () => {
+          await handleLeanRequest("stop");
+          updateLeanMenuStatus({ message: "Stopped", kind: "Inactive", busy: false });
+        },
+      },
+      {
+        label: "Download Mathlib Cache",
+        click: async () => {
+          const result = await handleLeanRequest("cache-get");
+          updateLeanMenuStatus({
+            message: result?.ok === false ? (result.message || "Cache failed") : (result?.message || "Mathlib cache ready"),
+            kind: result?.ok === false ? "Error" : "Normal",
+            busy: false,
+          });
+        },
+      },
+      { type: "separator" },
+      {
+        label: "Refresh Log",
+        click: () => void refreshLeanMenuLog(),
+      },
+      {
+        label: "Show Log Snapshot...",
+        click: () => void showLeanLogDialog(),
+      },
+      { type: "separator" },
+      ...(leanMenuLog.length > 0
+        ? leanMenuLog.slice(-8).reverse().map((entry) => ({
+          label: leanLogMenuLabel(entry),
+          enabled: false,
+        }))
+        : [{ label: "No log entries yet", enabled: false }]),
+    ],
+  },
+  {
     label: "Debug",
     submenu: [
       {
@@ -1243,7 +1373,6 @@ function buildMenu() {
     submenu: [
       {
         label: "Notes",
-        accelerator: "CmdOrCtrl+1",
         click: () => runInWindow("document.querySelector('[data-action=notes]')?.click()"),
       },
       {
@@ -1253,7 +1382,6 @@ function buildMenu() {
       },
       {
         label: "Editor",
-        accelerator: "CmdOrCtrl+2",
         click: () => runInWindow("document.querySelector('[data-action=editor],[data-action=editor-inline]')?.click()"),
       },
       {
@@ -1311,7 +1439,12 @@ app.whenReady().then(async () => {
   registerLeanPushHandlers({
     onDiagnostics: (data) => { if (!win.isDestroyed()) win.webContents.send("aaronnote:lean:diagnostics", data); },
     onProgress: (data) => { if (!win.isDestroyed()) win.webContents.send("aaronnote:lean:progress", data); },
-    onStatus: (data) => { if (!win.isDestroyed()) win.webContents.send("aaronnote:lean:status", data); },
+    onSemanticTokens: (data) => { if (!win.isDestroyed()) win.webContents.send("aaronnote:lean:semantic-tokens", data); },
+    onStatus: (data) => {
+      updateLeanMenuStatus(data);
+      if (!win.isDestroyed()) win.webContents.send("aaronnote:lean:status", data);
+    },
+    onLog: (entry) => appendLeanMenuLog(entry),
   });
   setTimeout(() => {
     void maybeScheduleWeeklyFullSync().catch((err) => {

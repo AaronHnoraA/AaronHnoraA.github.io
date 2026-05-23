@@ -29,6 +29,7 @@ import type { Range } from "@codemirror/state";
 import { highlightCodeForEditor, onCodeHighlightReady } from "../../code-highlight-async.ts";
 import { supportedDiagramLang } from "../../diagram-langs.ts";
 import { getBlockMathRanges, rangeInsideAny, rangeOverlapsAny } from "../math-ranges.ts";
+import { getLean4OrgEnvBodyRanges } from "./lean-block.ts";
 import { applyLayoutAttrs, layoutFromAttrs, readLayoutAttrsLine, type LayoutAttrs } from "../../layout-attrs.ts";
 
 function setSourceRange(el: HTMLElement, from: number, to: number, anchor?: number, openSource = false): void {
@@ -499,15 +500,17 @@ function buildFencedCodeDecos(view: EditorView): DecorationSet {
   const doc = view.state.doc;
   const cursorLine = doc.lineAt(sel.from).number;
   const blockMathRanges = getBlockMathRanges(view.state);
+  const lean4Ranges = getLean4OrgEnvBodyRanges(view.state);
+  const fenceExcludedRanges = lean4Ranges.length > 0 ? [...blockMathRanges, ...lean4Ranges] : blockMathRanges;
 
   for (const { from: vFrom, to: vTo } of view.visibleRanges) {
     syntaxTree(view.state).iterate({
       from: vFrom,
       to: vTo,
       enter(node) {
-        if (rangeInsideAny(node.from, node.to, blockMathRanges)) return false;
+        if (rangeInsideAny(node.from, node.to, fenceExcludedRanges)) return false;
         if (node.name !== "FencedCode") return;
-        if (rangeOverlapsAny(node.from, node.to, blockMathRanges)) return false;
+        if (rangeOverlapsAny(node.from, node.to, fenceExcludedRanges)) return false;
 
         const infoNode = node.node.getChild("CodeInfo");
         const textNode = node.node.getChild("CodeText");

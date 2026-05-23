@@ -57,6 +57,13 @@ describe("server todo scan", () => {
       },
     ]);
     expect(scanInlineCommands("@@todo[not parsed]", "todo")).toEqual([]);
+    expect(scanInlineCommands("@@lean4 [group-cancel]", "lean4")).toMatchObject([
+      {
+        name: "lean4",
+        switchValue: "",
+        context: "group-cancel",
+      },
+    ]);
   });
 
   test("keeps inline anchors separate from file tags", () => {

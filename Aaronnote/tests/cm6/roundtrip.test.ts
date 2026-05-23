@@ -1168,6 +1168,24 @@ $$
     cleanup();
   });
 
+  test("renders lean4 placeholders as isolated block widgets", () => {
+    const md = "@@lean4 [group-cancel]\nplain";
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection(md.length);
+
+    const widget = document.querySelector<HTMLElement>(".cm-lean-placeholder-widget");
+    expect(widget).toBeTruthy();
+    expect(widget!.dataset.leanTag).toBe("group-cancel");
+    expect(widget!.shadowRoot).toBeTruthy();
+    expect((editor.view as unknown as { contentDOM: HTMLElement }).contentDOM.textContent)
+      .not.toContain("@@lean4 [group-cancel]");
+
+    editor.setMarkdownSelection(md.indexOf("@@lean4") + 2);
+    expect((editor.view as unknown as { contentDOM: HTMLElement }).contentDOM.textContent)
+      .toContain("@@lean4 [group-cancel]");
+    cleanup();
+  });
+
   test("org-env scanner ignores boundary-looking lines inside display math", () => {
     const md = String.raw`#+begin proof
 before

@@ -125,9 +125,19 @@ type NativeApi = {
     getGoals?: (body?: unknown) => Promise<unknown>;
     getTermGoal?: (body?: unknown) => Promise<unknown>;
     getHover?: (body?: unknown) => Promise<unknown>;
+    getCompletions?: (body?: unknown) => Promise<unknown>;
+    getDefinition?: (body?: unknown) => Promise<unknown>;
     getDiagnostics?: (body?: unknown) => Promise<unknown>;
+    cacheStatus?: () => Promise<unknown>;
+    cacheGet?: (body?: unknown) => Promise<unknown>;
+    ensureRegion?: (body?: unknown) => Promise<unknown>;
+    readRegion?: (body?: unknown) => Promise<unknown>;
+    updateRegion?: (body?: unknown) => Promise<unknown>;
+    openRegionFile?: (body?: unknown) => Promise<unknown>;
+    getRegionMeta?: (body?: unknown) => Promise<unknown>;
     onDiagnostics?: (handler: (data: unknown) => void) => () => void;
     onProgress?: (handler: (data: unknown) => void) => () => void;
+    onSemanticTokens?: (handler: (data: unknown) => void) => () => void;
     onStatus?: (handler: (data: unknown) => void) => () => void;
   };
 };
@@ -456,6 +466,12 @@ export const api = {
       return Boolean(nativeApi()?.lean);
     },
 
+    async request(action: string, body?: unknown): Promise<unknown> {
+      const lean = nativeApi()?.lean;
+      if (!lean?.request) return { ok: false };
+      return lean.request(action, body);
+    },
+
     async status(): Promise<unknown> {
       const lean = nativeApi()?.lean;
       if (!lean?.status) return { kind: "Inactive", message: "Not available", running: false };
@@ -486,6 +502,38 @@ export const api = {
       return lean.saveNote(body);
     },
 
+    async cacheStatus(): Promise<unknown> {
+      const lean = nativeApi()?.lean;
+      if (!lean?.cacheStatus) return api.lean.request("cache-status");
+      return lean.cacheStatus();
+    },
+
+    async cacheGet(body: Record<string, unknown> = {}): Promise<unknown> {
+      const lean = nativeApi()?.lean;
+      if (!lean?.cacheGet) return api.lean.request("cache-get", body);
+      return lean.cacheGet(body);
+    },
+
+    async ensureRegion(body: Record<string, unknown>): Promise<unknown> {
+      return api.lean.request("ensure-region", body);
+    },
+
+    async readRegion(body: Record<string, unknown>): Promise<unknown> {
+      return api.lean.request("read-region", body);
+    },
+
+    async updateRegion(body: Record<string, unknown>): Promise<unknown> {
+      return api.lean.request("update-region", body);
+    },
+
+    async openRegionFile(body: Record<string, unknown>): Promise<unknown> {
+      return api.lean.request("open-region-file", body);
+    },
+
+    async getRegionMeta(body: Record<string, unknown>): Promise<unknown> {
+      return api.lean.request("get-region-meta", body);
+    },
+
     async getGoals(body: Record<string, unknown>): Promise<unknown> {
       const lean = nativeApi()?.lean;
       if (!lean?.getGoals) return { ok: false };
@@ -504,12 +552,36 @@ export const api = {
       return lean.getHover(body);
     },
 
+    async getCompletions(body: Record<string, unknown>): Promise<unknown> {
+      const lean = nativeApi()?.lean;
+      if (!lean?.getCompletions) return { ok: false };
+      return lean.getCompletions(body);
+    },
+
+    async getDefinition(body: Record<string, unknown>): Promise<unknown> {
+      const lean = nativeApi()?.lean;
+      if (!lean?.getDefinition) return { ok: false };
+      return lean.getDefinition(body);
+    },
+
+    async getLog(): Promise<Array<{ type: string; ts: number; message?: string }>> {
+      const lean = nativeApi()?.lean;
+      if (!lean?.request) return [];
+      const res = await lean.request("log");
+      const r = res as { entries?: unknown[] } | null;
+      return (r?.entries ?? []) as Array<{ type: string; ts: number; message?: string }>;
+    },
+
     onDiagnostics(handler: (data: unknown) => void): () => void {
       return nativeApi()?.lean?.onDiagnostics?.(handler) ?? (() => {});
     },
 
     onProgress(handler: (data: unknown) => void): () => void {
       return nativeApi()?.lean?.onProgress?.(handler) ?? (() => {});
+    },
+
+    onSemanticTokens(handler: (data: unknown) => void): () => void {
+      return nativeApi()?.lean?.onSemanticTokens?.(handler) ?? (() => {});
     },
 
     onStatus(handler: (data: unknown) => void): () => void {

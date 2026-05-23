@@ -63,6 +63,25 @@ $$
     expect(html).not.toContain("<org-env-block");
   });
 
+  test("renders lean4 org env as a code cell without markdown parsing", () => {
+    const html = renderMarkdownHTML([
+      "#+begin lean4 basic",
+      "import Mathlib.Tactic",
+      "",
+      "-- identity",
+      "example : True := by",
+      "  trivial",
+      "#+end lean4",
+    ].join("\n"));
+
+    expect(html).toContain('data-kind="lean4"');
+    expect(html).toContain('class="language-lean4"');
+    expect(html).toContain("aaronnote-lean-code");
+    expect(html).not.toContain("code-token-keyword");
+    expect(html).not.toContain("code-token-comment");
+    expect(html).not.toContain("<p>import Mathlib.Tactic");
+  });
+
   test("keeps resolved Aaronnote asset image URLs", () => {
     const html = renderMarkdownHTML("![plot](./images/plot.png)", {
       assetResolver: (src) => `aaronnote-asset://media/?file=${encodeURIComponent(src)}`,
