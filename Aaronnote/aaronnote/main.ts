@@ -23,6 +23,8 @@ import {
   type FindMatch,
 } from "./find.ts";
 import { createFloatingTocPanel, inlineTagAnchorsFromText, markdownHeadingsFromText } from "./floating-toc.ts";
+import { createLeanPanel } from "./lean-panel.ts";
+import { setLeanNotePath } from "../src/cm6/widgets/lean-block.ts";
 import { createGraphPanel } from "./graph-panel.ts";
 import { createLinkPreviewController, type LinkPreviewTarget } from "./link-preview.ts";
 import { createLocalGraphPanel } from "./local-graph.ts";
@@ -273,6 +275,7 @@ root.innerHTML = `
         </div>
       </section>
     </section>
+    <aside class="aaronnote-lean-panel" data-lean-panel hidden></aside>
     <aside class="aaronnote-floating-toc is-collapsed" data-floating-toc>
       <button type="button" data-toc-toggle aria-expanded="false">TOC</button>
       <nav data-toc-list aria-label="Table of contents"></nav>
@@ -354,6 +357,7 @@ const agendaDone = document.querySelector<HTMLInputElement>("[data-agenda-done]"
 const agendaRefresh = document.querySelector<HTMLButtonElement>("[data-action='agenda-refresh']")!;
 const agendaCount = document.querySelector<HTMLElement>("[data-agenda-count]")!;
 const agendaList = document.querySelector<HTMLElement>("[data-agenda-list]")!;
+const leanPanelRoot = document.querySelector<HTMLElement>("[data-lean-panel]")!;
 const toc = document.querySelector<HTMLElement>("[data-floating-toc]")!;
 const tocList = document.querySelector<HTMLElement>("[data-toc-list]")!;
 const tocToggle = document.querySelector<HTMLButtonElement>("[data-toc-toggle]")!;
@@ -535,6 +539,7 @@ const vimCursor = createVimCursor();
 
 let currentFile = "";
 window.AaronnoteCurrentFile = () => currentFile;
+let leanNotesRoot = "";
 let currentMode: "markdown" | "source" = "markdown";
 const LARGE_RENDERED_OPEN_BYTES = 1_000_000;
 let currentStandalone = false;
@@ -902,6 +907,22 @@ const localGraphPanel = createLocalGraphPanel({
   openNote,
   openTag: openTagFilter,
 });
+
+const leanPanel = createLeanPanel({
+  root: leanPanelRoot,
+  getEditor: () => editor,
+  jumpToNoteOffset: (offset) => {
+    editor.view.dispatch({ selection: { anchor: offset }, scrollIntoView: true });
+  },
+});
+
+// Fetch notesRoot from lean status once on startup
+if (api.lean.available()) {
+  void api.lean.status().then((s) => {
+    const status = s as { notesRoot?: string } | null;
+    if (status?.notesRoot) leanNotesRoot = status.notesRoot;
+  }).catch(() => {});
+}
 
 const graphPanel = createGraphPanel({
   page: graphPage,
@@ -4219,6 +4240,7 @@ function showEditorPage(): void {
 function updateFloatingToc(): void {
   if (host.hidden || toc.hidden) return;
   floatingTocPanel.update();
+  leanPanel.refresh();
 }
 
 function openNote(note: NoteSummary, options: OpenNoteOptions = {}): void {
@@ -6629,6 +6651,12 @@ function applyOpen(msg: Extract<Inbound, { type: "open" }>, options: { preserveF
   }
   updateFloatingToc();
   syncLocalGraphAvailability();
+  if (leanNotesRoot && currentFile) {
+    setLeanNotePath(editor.view, currentFile, leanNotesRoot);
+    leanPanel.setNote(currentFile, leanNotesRoot);
+    const hasLean4 = editor.getMarkdown().includes("#+begin lean4");
+    if (hasLean4) leanPanel.show(); else leanPanel.hide();
+  }
   if (!relationPanel.hidden) renderRelationPanel(true);
   scheduleAssistUpdate();
   void loadPathSuggestions();

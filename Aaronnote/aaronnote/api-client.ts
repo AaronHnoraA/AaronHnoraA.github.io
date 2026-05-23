@@ -113,6 +113,23 @@ type NativeApi = {
     query?: (body?: unknown) => Promise<unknown>;
     close?: (body?: unknown) => Promise<unknown>;
   };
+  lean?: {
+    request?: (action: string, body?: unknown) => Promise<unknown>;
+    status?: () => Promise<unknown>;
+    openNote?: (body?: unknown) => Promise<unknown>;
+    changeNote?: (body?: unknown) => Promise<unknown>;
+    closeNote?: (body?: unknown) => Promise<unknown>;
+    saveNote?: (body?: unknown) => Promise<unknown>;
+    deleteNote?: (body?: unknown) => Promise<unknown>;
+    renameNote?: (body?: unknown) => Promise<unknown>;
+    getGoals?: (body?: unknown) => Promise<unknown>;
+    getTermGoal?: (body?: unknown) => Promise<unknown>;
+    getHover?: (body?: unknown) => Promise<unknown>;
+    getDiagnostics?: (body?: unknown) => Promise<unknown>;
+    onDiagnostics?: (handler: (data: unknown) => void) => () => void;
+    onProgress?: (handler: (data: unknown) => void) => () => void;
+    onStatus?: (handler: (data: unknown) => void) => () => void;
+  };
 };
 
 declare global {
@@ -431,6 +448,72 @@ export const api = {
     async showAttachmentMenu(file: string, base = ""): Promise<void> {
       const native = requireMethod(requireNative().shell?.showAttachmentMenu, "Native shell integration");
       ensureOk(await native(file, base), "Attachment menu failed");
+    },
+  },
+
+  lean: {
+    available(): boolean {
+      return Boolean(nativeApi()?.lean);
+    },
+
+    async status(): Promise<unknown> {
+      const lean = nativeApi()?.lean;
+      if (!lean?.status) return { kind: "Inactive", message: "Not available", running: false };
+      return lean.status();
+    },
+
+    async openNote(body: Record<string, unknown>): Promise<unknown> {
+      const lean = nativeApi()?.lean;
+      if (!lean?.openNote) return { ok: false };
+      return lean.openNote(body);
+    },
+
+    async changeNote(body: Record<string, unknown>): Promise<unknown> {
+      const lean = nativeApi()?.lean;
+      if (!lean?.changeNote) return { ok: false };
+      return lean.changeNote(body);
+    },
+
+    async closeNote(body: Record<string, unknown>): Promise<unknown> {
+      const lean = nativeApi()?.lean;
+      if (!lean?.closeNote) return { ok: false };
+      return lean.closeNote(body);
+    },
+
+    async saveNote(body: Record<string, unknown>): Promise<unknown> {
+      const lean = nativeApi()?.lean;
+      if (!lean?.saveNote) return { ok: false };
+      return lean.saveNote(body);
+    },
+
+    async getGoals(body: Record<string, unknown>): Promise<unknown> {
+      const lean = nativeApi()?.lean;
+      if (!lean?.getGoals) return { ok: false };
+      return lean.getGoals(body);
+    },
+
+    async getTermGoal(body: Record<string, unknown>): Promise<unknown> {
+      const lean = nativeApi()?.lean;
+      if (!lean?.getTermGoal) return { ok: false };
+      return lean.getTermGoal(body);
+    },
+
+    async getHover(body: Record<string, unknown>): Promise<unknown> {
+      const lean = nativeApi()?.lean;
+      if (!lean?.getHover) return { ok: false };
+      return lean.getHover(body);
+    },
+
+    onDiagnostics(handler: (data: unknown) => void): () => void {
+      return nativeApi()?.lean?.onDiagnostics?.(handler) ?? (() => {});
+    },
+
+    onProgress(handler: (data: unknown) => void): () => void {
+      return nativeApi()?.lean?.onProgress?.(handler) ?? (() => {});
+    },
+
+    onStatus(handler: (data: unknown) => void): () => void {
+      return nativeApi()?.lean?.onStatus?.(handler) ?? (() => {});
     },
   },
 };

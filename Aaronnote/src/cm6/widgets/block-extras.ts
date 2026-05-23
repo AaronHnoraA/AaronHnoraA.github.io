@@ -47,7 +47,7 @@ const TOC_LINE_RE = /^[ \t]*\[toc\][ \t]*$/im;
 
 const HR_LINE_RE = /^[ \t]{0,3}((?:-[ \t]*){3,}|(?:\*[ \t]*){3,}|(?:_[ \t]*){3,})$/;
 
-interface OrgEnvBlock {
+export interface OrgEnvBlock {
   from: number;
   to: number;
   openFrom: number;
@@ -620,6 +620,7 @@ function envLabel(kind: string): string {
     info: "Info",
     comment: "Comment",
     summary: "Summary",
+    lean4: "Lean 4",
   };
   return labels[kind] ?? kind;
 }

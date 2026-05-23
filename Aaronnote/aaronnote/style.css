@@ -3227,3 +3227,249 @@ input {
     height: 320px;
   }
 }
+
+/* ────────────────────────────────────────────────────────────────────
+   Lean 4 panel (left-side Infoview drawer)
+   ──────────────────────────────────────────────────────────────────── */
+
+.aaronnote-lean-panel {
+  position: fixed;
+  left: 0;
+  top: 41px; /* below the toolbar */
+  bottom: 0;
+  z-index: 46;
+  width: clamp(260px, 22vw, 360px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--aaron-paper-line);
+  background: color-mix(in srgb, var(--aaron-paper), transparent 4%);
+  box-shadow: 2px 0 12px rgb(52 39 22 / 8%);
+  backdrop-filter: blur(8px);
+  font-family: var(--aaron-font-sans);
+  font-size: 12px;
+}
+
+.aaronnote-lean-panel[hidden] {
+  display: none;
+}
+
+/* Header */
+.lean-panel-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 8px 0 10px;
+  border-bottom: 1px solid var(--aaron-paper-line);
+  background: var(--aaron-paper-soft);
+}
+
+.lean-panel-title {
+  flex: 1;
+  min-width: 0;
+  font: 750 12px/1 var(--aaron-font-sans);
+  color: var(--aaron-red-dark);
+  letter-spacing: 0.04em;
+}
+
+.lean-panel-status {
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.lean-panel-status--inactive  { background: #e8e5df; color: var(--aaron-muted); }
+.lean-panel-status--loading   { background: #fef3c7; color: #92400e; }
+.lean-panel-status--ready     { background: #d1fae5; color: #065f46; }
+.lean-panel-status--error     { background: #fee2e2; color: #991b1b; }
+.lean-panel-status--busy      { background: #dbeafe; color: #1e40af; }
+
+.lean-panel-btn {
+  height: 22px;
+  min-width: 22px;
+  padding: 0 4px;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 3px;
+  background: var(--aaron-paper);
+  color: var(--aaron-muted);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.lean-panel-btn:hover {
+  border-color: var(--aaron-red);
+  color: var(--aaron-red-dark);
+}
+
+.lean-panel-btn--icon {
+  font-size: 13px;
+  padding: 0 3px;
+}
+
+/* Body */
+.lean-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+}
+
+/* Section */
+.lean-panel-section {
+  border-bottom: 1px solid var(--aaron-paper-line);
+  padding: 8px 10px;
+}
+
+.lean-panel-section[hidden] {
+  display: none;
+}
+
+.lean-panel-section-title {
+  margin-bottom: 5px;
+  font: 700 10px/1 var(--aaron-font-sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--aaron-muted);
+}
+
+.lean-panel-code {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: 12px/1.55 var(--aaron-font-mono);
+  color: var(--aaron-ink);
+  background: color-mix(in srgb, var(--aaron-paper-bg), transparent 30%);
+  border-radius: 3px;
+  padding: 6px 8px;
+  max-height: 240px;
+  overflow: auto;
+}
+
+/* Messages list */
+.lean-messages-list {
+  display: grid;
+  gap: 4px;
+}
+
+.lean-msg {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px;
+  align-items: baseline;
+  padding: 4px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.lean-msg:hover {
+  border-color: var(--aaron-paper-line);
+  background: var(--aaron-paper-soft);
+}
+
+.lean-msg--error   { background: #fff1f2; }
+.lean-msg--warning { background: #fffbeb; }
+.lean-msg--info    { background: #eff6ff; }
+
+.lean-msg--error:hover   { border-color: #fecaca; }
+.lean-msg--warning:hover { border-color: #fed7aa; }
+.lean-msg--info:hover    { border-color: #bfdbfe; }
+
+.lean-msg-loc {
+  font: 700 10px/1.4 var(--aaron-font-mono);
+  color: var(--aaron-muted);
+  white-space: nowrap;
+  padding-top: 1px;
+}
+
+.lean-msg--error .lean-msg-loc   { color: #b91c1c; }
+.lean-msg--warning .lean-msg-loc { color: #b45309; }
+.lean-msg--info .lean-msg-loc    { color: #1d4ed8; }
+
+.lean-msg-text {
+  font: 11px/1.5 var(--aaron-font-mono);
+  color: var(--aaron-ink);
+  word-break: break-word;
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   CM6 Lean decorations (inline inside the editor)
+   ──────────────────────────────────────────────────────────────────── */
+
+/* Diagnostic underlines */
+.cm-editor .cm-lean-diag {
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+  text-underline-offset: 2px;
+}
+.cm-editor .cm-lean-diag--error   { text-decoration-color: #dc2626; }
+.cm-editor .cm-lean-diag--warning { text-decoration-color: #d97706; }
+.cm-editor .cm-lean-diag--info    { text-decoration-color: #3b82f6; }
+
+/* File-progress overlay (Lean still elaborating) */
+.cm-editor .cm-lean-processing {
+  background: color-mix(in srgb, #a8d8ea, transparent 82%);
+  border-radius: 2px;
+}
+
+/* Cell output block widget (after #+end lean4) */
+.cm-editor .cm-lean-cell-output {
+  display: block;
+  margin: 2px 0 6px 0;
+  border-left: 2px solid var(--aaron-paper-line);
+  background: color-mix(in srgb, var(--aaron-paper-bg), transparent 30%);
+  font: 11px/1.55 var(--aaron-font-mono);
+  overflow: hidden;
+}
+
+.cm-editor .cm-lean-cell-output:empty {
+  display: none;
+}
+
+.cm-editor .cm-lean-cell-msg {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  padding: 2px 8px;
+}
+
+.cm-editor .cm-lean-cell-msg--error   { color: #b91c1c; background: #fff1f2; }
+.cm-editor .cm-lean-cell-msg--warning { color: #b45309; background: #fffbeb; }
+.cm-editor .cm-lean-cell-msg--info    { color: #1d4ed8; background: #eff6ff; }
+.cm-editor .cm-lean-cell-msg--output  { color: #065f46; }
+
+.cm-editor .cm-lean-cell-msg-loc {
+  flex-shrink: 0;
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.cm-editor .cm-lean-cell-msg-text {
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+/* Hover tooltip */
+.cm-lean-hover-tooltip {
+  max-width: 440px;
+  padding: 6px 10px;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 4px;
+  background: var(--aaron-paper);
+  box-shadow: var(--aaron-shadow);
+  font: 12px/1.5 var(--aaron-font-mono);
+  color: var(--aaron-ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* org-env lean4 block accent colour */
+.cm-editor .cm-org-env-block[data-kind="lean4"] {
+  --block-c: #c8b5e8;
+  --orgenv-end: "□";
+}

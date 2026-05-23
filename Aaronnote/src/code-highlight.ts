@@ -61,6 +61,7 @@ function normalizeLang(lang: string): string {
   if (["yaml", "yml"].includes(raw)) return "yaml";
   if (["toml"].includes(raw)) return "toml";
   if (["nix"].includes(raw)) return "nix";
+  if (["lean", "lean4"].includes(raw)) return "lean4";
   return raw;
 }
 
@@ -204,6 +205,38 @@ function tomlRules(): Rule[] {
   ];
 }
 
+function lean4Rules(): Rule[] {
+  return [
+    // Block comments /- ... -/ (non-nested for simplicity)
+    { className: "code-token-comment", pattern: /\/\-[\s\S]*?-\//y },
+    // Line comments -- ...
+    { className: "code-token-comment", pattern: /--[^\n]*/y },
+    // Strings
+    { className: "code-token-string", pattern: /"(?:\\[\s\S]|[^"\\])*"/y },
+    // #-commands (#eval, #check, #print, #reduce)
+    { className: "code-token-meta", pattern: /#(?:eval|check|print|reduce|guard|test)\b/y },
+    // Tactics (must come before keywords to capture multi-word sequences)
+    {
+      className: "code-token-function",
+      pattern: /\b(?:exact|apply|intro|intros|rfl|simp|rw|rewrite|cases|induction|constructor|use|omega|linarith|polyrith|ring|field_simp|sorry|admit|trivial|aesop|decide|norm_num|push_neg|contrapose|tauto|exact\?|apply\?|simp\?|rw\?|assumption|exfalso|contradiction|ext|funext|congr|refine|obtain|rcases|rintro|have|show|suffices|calc|conv|nth_rw|gcongr|positivity)\b/y,
+    },
+    // Keywords
+    {
+      className: "code-token-keyword",
+      pattern: /\b(?:theorem|lemma|def|abbrev|example|by|fun|let|in|match|with|do|if|then|else|inductive|structure|class|instance|namespace|section|end|open|import|variable|universe|axiom|where|return|from|noncomputable|private|protected|public|partial|mutual|local|attribute|deriving|extends|forall|exists|And|Or|Not|True|False|Prop|Type|Sort)\b/y,
+    },
+    // Number literals (including 0x hex, decimal, binary)
+    { className: "code-token-number", pattern: /0x[\da-fA-F]+|\b\d+(?:\.\d+)?(?:e[+-]?\d+)?\b/y },
+    // Operators and Unicode arrows/symbols common in Lean
+    {
+      className: "code-token-operator",
+      pattern: /→|←|↔|∀|∃|λ|⟨|⟩|⊢|:=|<;>|<\|>|[|]>|>>=|==>|::|\.\.\.?|[≤≥≠∈∉⊆⊂⊄⊇⊃⊅]/y,
+    },
+    { className: "code-token-operator", pattern: /=>|<-|->|:=|[+\-*/%=!<>?:&|^~@]/y },
+    { className: "code-token-punctuation", pattern: /[{}[\]();,.]/y },
+  ];
+}
+
 function nixRules(): Rule[] {
   return [
     { className: "code-token-comment", pattern: /\/\*[\s\S]*?\*\/|#[^\n]*/y },
@@ -251,6 +284,8 @@ function rulesForLang(lang: string): Rule[] {
       return tomlRules();
     case "nix":
       return nixRules();
+    case "lean4":
+      return lean4Rules();
     default:
       return [];
   }

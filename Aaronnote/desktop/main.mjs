@@ -56,6 +56,7 @@ import { readRecentNotes, touchRecentNote, readCursorPositions, touchCursorPosit
 import { scanPlugins, readPluginOverrides, writePluginOverrides } from "../server/lib/plugins.mjs";
 import { handleCopilotRequest } from "../server/lib/copilot.mjs";
 import { handleRoamLookupRequest } from "../server/lib/roamlookup.mjs";
+import { handleLeanRequest, registerLeanPushHandlers, setNotesRoot as setLeanNotesRoot } from "../server/lib/lean.mjs";
 import { resolveMediaFile, fileContentType } from "../server/lib/media.mjs";
 
 const desktopDir = dirname(fileURLToPath(import.meta.url));
@@ -502,6 +503,7 @@ function registerApiIpc() {
   });
   registerApiHandler("aaronnote:api:copilot:request", (action, body) => handleCopilotRequest(String(action || ""), body || {}));
   registerApiHandler("aaronnote:api:roamlookup:request", (action, body) => handleRoamLookupRequest(String(action || ""), body || {}));
+  registerApiHandler("aaronnote:api:lean:request", (action, body) => handleLeanRequest(String(action || ""), body || {}));
   registerApiHandler("aaronnote:api:graph", async () => graphPayload(await scanNotes()));
   registerApiHandler("aaronnote:api:tags", async () => tagIndexPayload(await scanNotes()));
 }
@@ -1301,10 +1303,16 @@ app.whenReady().then(async () => {
     publishJsDir,
     pluginRoot,
   });
+  setLeanNotesRoot(noteRoot);
   registerAssetProtocol();
   registerApiIpc();
   registerGlobalShortcuts();
-  createWindow();
+  const win = createWindow();
+  registerLeanPushHandlers({
+    onDiagnostics: (data) => { if (!win.isDestroyed()) win.webContents.send("aaronnote:lean:diagnostics", data); },
+    onProgress: (data) => { if (!win.isDestroyed()) win.webContents.send("aaronnote:lean:progress", data); },
+    onStatus: (data) => { if (!win.isDestroyed()) win.webContents.send("aaronnote:lean:status", data); },
+  });
   setTimeout(() => {
     void maybeScheduleWeeklyFullSync().catch((err) => {
       console.error("[roam-sync] weekly full-sync check failed:", err?.message || err);

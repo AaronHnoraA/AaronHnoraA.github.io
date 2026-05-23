@@ -114,6 +114,38 @@ contextBridge.exposeInMainWorld("aaronnoteApi", {
     quota: (body = {}) => invoke("aaronnote:api:copilot:request", "quota", body),
     log: (body = {}) => invoke("aaronnote:api:copilot:request", "log", body),
   },
+  lean: {
+    request: (action = "", body = {}) => invoke("aaronnote:api:lean:request", String(action || ""), body),
+    status: () => invoke("aaronnote:api:lean:request", "status", {}),
+    openNote: (body = {}) => invoke("aaronnote:api:lean:request", "open-note", body),
+    changeNote: (body = {}) => invoke("aaronnote:api:lean:request", "change-note", body),
+    closeNote: (body = {}) => invoke("aaronnote:api:lean:request", "close-note", body),
+    saveNote: (body = {}) => invoke("aaronnote:api:lean:request", "save-note", body),
+    deleteNote: (body = {}) => invoke("aaronnote:api:lean:request", "delete-note", body),
+    renameNote: (body = {}) => invoke("aaronnote:api:lean:request", "rename-note", body),
+    getGoals: (body = {}) => invoke("aaronnote:api:lean:request", "get-goals", body),
+    getTermGoal: (body = {}) => invoke("aaronnote:api:lean:request", "get-term-goal", body),
+    getHover: (body = {}) => invoke("aaronnote:api:lean:request", "get-hover", body),
+    getDiagnostics: (body = {}) => invoke("aaronnote:api:lean:request", "get-diagnostics", body),
+    onDiagnostics: (handler) => {
+      if (typeof handler !== "function") return () => {};
+      const listener = (_event, data) => handler(data);
+      ipcRenderer.on("aaronnote:lean:diagnostics", listener);
+      return () => ipcRenderer.removeListener("aaronnote:lean:diagnostics", listener);
+    },
+    onProgress: (handler) => {
+      if (typeof handler !== "function") return () => {};
+      const listener = (_event, data) => handler(data);
+      ipcRenderer.on("aaronnote:lean:progress", listener);
+      return () => ipcRenderer.removeListener("aaronnote:lean:progress", listener);
+    },
+    onStatus: (handler) => {
+      if (typeof handler !== "function") return () => {};
+      const listener = (_event, data) => handler(data);
+      ipcRenderer.on("aaronnote:lean:status", listener);
+      return () => ipcRenderer.removeListener("aaronnote:lean:status", listener);
+    },
+  },
   roamlookup: {
     request: (action = "", body = {}) => invoke("aaronnote:api:roamlookup:request", String(action || ""), body),
     status: () => invoke("aaronnote:api:roamlookup:request", "status", {}),

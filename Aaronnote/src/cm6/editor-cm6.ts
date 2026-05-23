@@ -38,6 +38,7 @@ import { taskListExtension } from "./widgets/task-list.ts";
 import { imageExtension } from "./widgets/image.ts";
 import { blockExtrasExtension, orgEnvExitTarget } from "./widgets/block-extras.ts";
 import { inlineCommandsExtension } from "./widgets/inline-commands.ts";
+import { leanExtension } from "./widgets/lean-block.ts";
 import {
   runCommandCM6,
   getBlockContextCM6,
@@ -626,6 +627,7 @@ function previewExtensions(): Extension[] {
     taskListExtension,
     imageExtension,
     inlineCommandsExtension,
+    leanExtension,
   ];
 }
 
