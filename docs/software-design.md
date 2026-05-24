@@ -9,6 +9,9 @@ Aaronnote is a file-first Roam-style Markdown editor:
 - The source of truth is Markdown files under `roam/`.
 - The editor keeps Markdown as the persistent format, not a private binary document model.
 - Roam identity, backlinks, tags, todos, snippets, and plugins are derived indexes over the same files.
+- Lean 4 content is still file-first: Markdown stores `@@lean4 [tag]`
+  placeholders, while real Lean source lives in derived `.lean` mirror files
+  under the notes root's `.lean/` Lake project.
 - The desktop app is the primary native shell: Electron main owns filesystem/index
   calls through IPC and exposes local assets through a custom protocol. The
   publish website remains a separate derived output.
@@ -25,7 +28,10 @@ The core design rule is that editing must stay local, reversible, and source-pre
 2. App shell: `Aaronnote/aaronnote/`
    - Handles notes UI, agenda, filesystem browser, graph panel, command palette, snippets, Roam navigation, save state, and plugin integration.
    - Owns browser-level state such as recent notes, cursor positions, jump stack, and transient UI panels.
-   - Ranger filesystem management is app-only behavior. Create, rename, move, duplicate, trash, refresh, and focus handling belong here and must not be implemented in the published website.
+   - Ranger filesystem management is app-only behavior. Create, rename, move, duplicate, trash, refresh, Recent navigation, and focus handling belong here and must not be implemented in the published website.
+   - Lean panel orchestration is app-only behavior. The panel owns Infoview,
+     messages, restart/stop controls, and the bottom-pinned outline, while the
+     embedded Lean editor remains a CM6 widget in `src/`.
 
 3. Local service library: `Aaronnote/server/`
    - Provides the filesystem/index/save functions used by the desktop main
@@ -52,6 +58,9 @@ The editor document is Markdown source text. Rich behavior is derived:
 
 - Inline formatting uses CodeMirror decorations.
 - Math, code fences, images, org-env blocks, task lists, and tables use CM6 widgets or source-aware UI.
+- Lean blocks use whole-line `@@lean4 [tag]` placeholders. The widget mounts an
+  isolated child editor for the matching region in the derived `.lean` mirror
+  file; Markdown keeps only the placeholder.
 - Commands mutate source through editor transactions so history and selection remain correct.
 - Source mode is a view mode, not a separate document.
 
@@ -113,6 +122,10 @@ Aaronnote optimizes repeated note work rather than landing-page presentation:
 
 Transient panels should be scoped to the active workspace. A plugin panel added to the Notes page must be hidden when another notes tab is selected.
 
+Opening Filesystem or Recent ranger should also hide the Lean panel. The ranger
+and Lean drawer are both left-side work surfaces; keeping both open creates
+layout instability and steals focus from the active task.
+
 ## Performance Design
 
 The main performance rule is to keep high-cost work out of the input path:
@@ -122,6 +135,9 @@ The main performance rule is to keep high-cost work out of the input path:
 - Find, snippets, TOC, graph, notes refresh, and index refresh should be debounced or deferred.
 - Save returns a lightweight current-note summary when a full notes refresh can be deferred.
 - Large files may open in source mode to avoid expensive rendered preview startup.
+- Lean editor polish should reuse existing LSP/editor state: diagnostics,
+  progress, completion item kinds, outline symbols, and Copilot auxiliary
+  registration must not add polling or full-file scans on every input.
 
 See [performance-optimization.md](performance-optimization.md) for the maintenance ledger.
 

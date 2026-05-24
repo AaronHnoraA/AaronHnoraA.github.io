@@ -42,6 +42,8 @@ High-cost work should not run synchronously on every keystroke:
 | Roam navigation | Jump stack records jump actions only; normal file switches clear it. | Implemented |
 | Floating TOC | Heading and inline-anchor data are maintained by a CM6 StateField instead of rescanning in the panel update path. | Implemented |
 | Preview selection toggles | Math and Mermaid preview/source switches patch only the entered/exited block on cursor movement. | Implemented |
+| Lean editor UI | Diagnostics/progress gutter markers, completion kind icons, hover caps, and outline rows reuse existing LSP/editor state instead of adding polling or full-file scans. | Implemented |
+| Copilot auxiliary editors | Embedded Lean editors register with the existing Copilot plugin only while mounted, sharing the same local context window and request path as the main editor. | Implemented |
 
 ## Priority Backlog
 
@@ -73,6 +75,20 @@ Implication: a note with many small code blocks (all under 12 000 chars) will al
 | --- | --- | --- | --- |
 | `editor.cursorContext()` | 512 | `src/cm6/editor-cm6.ts:426` | Returns at most 512 chars before and 512 chars after the cursor. Passed to Copilot and any external completion caller. Callers can pass a larger value but this increases IPC payload. |
 | `buildQuickInsertContext()` | 1 200 | `src/cm6/commands.ts:575` | Context window used to build the `QuickInsertContext.before` / `.after` fields passed to provider callbacks. |
+
+Embedded Lean editors follow the same Copilot budget through the auxiliary
+editor registration path. They should not send the full mirror `.lean` file for
+inline completion; use the local source window around the child-editor cursor.
+
+### Lean LSP UI
+
+| Data | Source | Input-path rule |
+| --- | --- | --- |
+| Diagnostics/progress gutter markers | Stored Lean LSP notifications for the active real `.lean` file, projected into the region | Render from existing state; do not request diagnostics per key. |
+| Completion item icons | LSP completion item `kind` from the current completion response | Use metadata already returned with completion; do not make symbol requests for icons. |
+| Outline | `textDocument/documentSymbol` for the active Lean file | Refresh on explicit panel/LSP updates; keep outline outside the Infoview scroll flow. |
+| Hover/docs tooltip size | CSS max-height and overflow | Cap display cost; do not truncate or preprocess large docs in the input path. |
+| Source/preview jump correction | Child editor geometry at navigation time | Measure only when jumping, not continuously on every edit. |
 
 ### Quick Insert Registry
 

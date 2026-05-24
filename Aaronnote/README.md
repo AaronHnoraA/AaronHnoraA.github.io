@@ -77,6 +77,23 @@ Options: `initialContent`, `onChange(md)`, `onFocus()`, `onBlur()`.
 
 Aaronnote ships `typora-web/theme-typora.css` as its default theme. To roll your own, write a stylesheet that targets `.cm-editor` descendants.
 
+## AaronNote app features
+
+The desktop app builds on the editor package with Roam-style note navigation,
+filesystem/recent ranger views, local plugins, native assets, and Lean 4 support.
+
+- Lean blocks use whole-line `@@lean4 [tag]` placeholders in Markdown. The real
+  Lean source lives in mirror `.lean` files under the notes root's `.lean/`
+  project; the Lake cache belongs at `.lean/.lake/`, not at the notes root.
+- Embedded Lean editors support Lean LSP diagnostics, goals, hover, completion,
+  semantic tokens, local Vim navigation, visible jump labels, Copilot inline
+  suggestions, and export to static Lean code cells.
+- The Notes ranger opens from the editor with `Ctrl+Enter`; `Tab` switches
+  Filesystem/Recent, and Recent supports arrow keys, `h/j/k/l`, and `Enter`.
+
+See [docs/lean-integration.md](docs/lean-integration.md) for the current Lean
+storage, LSP, keyboard, Copilot, and performance boundaries.
+
 ## Coverage
 
 Legend: :white\_check\_mark: stable · :yellow\_circle: partial (note explains what's missing) · :pause\_button: todo.

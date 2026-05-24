@@ -8,6 +8,8 @@ lives in real `.lean` files inside the notes root's `.lean/` Lake project.
 
 - [x] Product direction locked: use `@@lean4 [tag]`, not `#+begin lean4`.
 - [x] Storage direction locked: one Markdown note maps to one mirror `.lean` file.
+- [x] Project layout locked: the Lake project and cache live under
+  `<notesRoot>/.lean/`; the notes root must not keep a duplicate `.lake/`.
 - [x] Region direction locked: a Lean region starts at `-- @aaronnote <tag>` and ends at the next Aaronnote tag or EOF.
 - [x] Region parser and mirror-file helpers implemented.
 - [x] Server IPC added for ensure/read/update tagged Lean regions.
@@ -18,18 +20,33 @@ lives in real `.lean` files inside the notes root's `.lean/` Lake project.
 - [x] Lean input abbreviations imported from `lean4-mode` and scoped to the embedded Lean editor.
 - [x] Embedded editor syntax highlighting uses Lean Tree-sitter/WASM via `@arborium/lean`, with Lean LSP semantic tokens layered on top when available.
 - [x] Embedded editor has Lean-local Tab/Shift-Tab indentation and a child-editor Vim layer; outer Markdown Vim/ranger bindings do not receive those keys.
-- [x] Lean LSP diagnostics render both inline underlines and a dedicated child-editor gutter marker.
+- [x] Lean LSP diagnostics render both inline underlines and lightweight
+  child-editor gutter markers; Lean progress also uses the same gutter channel.
+- [x] Lean LSP completion rows show item-kind icons from LSP metadata, with no
+  extra completion or symbol requests.
 - [x] `roam/Makefile` provides Lean project operations: `make update`, `make cache`, `make build`, `make clean`, and `make info`.
 - [x] Notes page includes a Lean tab for project/toolchain/package info and manual project commands.
-- [x] Left Lean panel split into resizable LSP messages and Infoview panes with per-note runtime layout memory.
+- [x] Left Lean panel uses a scrollable Infoview/messages area and a pinned
+  bottom outline area with per-note runtime width and outline-height memory.
 - [x] Embedded editor keyboard events are isolated from outer Markdown/Vim handling.
 - [x] Lean panel restart/stop controls work with active `@@lean4 [tag]` regions.
 - [x] Lean panel includes a collapsible, height-resizable outline backed by
-  Lean LSP `textDocument/documentSymbol`.
+  Lean LSP `textDocument/documentSymbol`; the outline is outside the Infoview
+  scroll flow so changing goals do not move it.
+- [x] Embedded Lean editors participate in the app-wide source/preview mapping,
+  so preview jumps account for child-editor heights instead of using raw line
+  offsets.
+- [x] `Ctrl+Enter` works from an embedded Lean editor to open/close the Notes
+  ranger; opening Filesystem or Recent hides the Lean side panel first.
+- [x] Notes ranger can switch between Filesystem and Recent with `Tab`; Recent
+  supports arrow keys, `h/j/k/l`, `Home`, `End`, and `Enter`.
+- [x] Embedded Lean editors register as auxiliary Copilot editors, and standalone
+  `.lean` files use the Lean language id for Copilot requests.
 - [x] Publish/PDF export renders `@@lean4 [tag]` placeholders as static Lean 4
   code cells by reading the mirror `.lean` region data, without starting LSP.
 - [x] Parser/region unit tests added.
-- [x] Verified with `npx tsc --noEmit`, render/highlight tests, and targeted Lean/CM6 tests.
+- [x] Verified with `npm run build:aaronnote` and
+  `npm test -- copilot-plugin`.
 
 Update this section whenever an implementation stage lands.
 
@@ -74,6 +91,26 @@ The `group-cancel` region is everything after `-- @aaronnote group-cancel`
 until the next `-- @aaronnote ...` marker or EOF. Content before the first tag is
 file prelude and is not rendered as an embedded block.
 
+## Project Layout
+
+For a notes root such as `roam/`, the Lean project root is:
+
+```text
+roam/.lean/
+```
+
+That directory owns `lakefile.toml`, `lean-toolchain`, `lake-manifest.json`,
+mirror Lean files, and the Lake cache at:
+
+```text
+roam/.lean/.lake/
+```
+
+Do not keep or recreate `roam/.lake/`. It is a stale duplicate cache outside
+the active Lean project root and can make it unclear which Lake state the app is
+using. Project commands should run from `roam/.lean/` or through the notes-root
+`Makefile` wrappers.
+
 ## Editing Experience
 
 - In markdown preview mode, a whole-line `@@lean4 [tag]` is replaced by an embedded Lean editor.
@@ -85,13 +122,12 @@ file prelude and is not rendered as an embedded block.
   the inner editor.
 - Cursor movement inside the embedded editor drives Lean hover, diagnostics, goals,
   expected type, semantic tokens, and the left Infoview panel.
-- The left Lean panel is split vertically: LSP diagnostics/messages are on top,
-  Infoview goals and expected type are below. The panel width and the middle
-  split are draggable and remembered per note for the current app session.
-- The Lean panel also shows a collapsible outline under the Infoview area. It
-  uses Lean LSP document symbols instead of scanning mirror files, can be
-  resized vertically, and outline rows jump back to embedded Lean regions by
-  their LSP line/character position.
+- The left Lean panel is a drawer with a scrollable Infoview/messages pane above
+  a fixed bottom outline. The panel width and outline height are draggable and
+  remembered per note for the current app session.
+- The outline uses Lean LSP document symbols instead of scanning mirror files,
+  can be collapsed or resized vertically, and outline rows jump back to embedded
+  Lean regions by their LSP line/character position.
 - Keyboard input while the embedded Lean editor is focused is consumed by the
   child editor and is not forwarded to the outer Markdown editor or Vim layer.
 - Lean LSP is opened only for real derived `.lean` files and only after the
@@ -101,18 +137,28 @@ file prelude and is not rendered as an embedded block.
   away lets the Lean server idle instead of stopping it immediately.
 - The embedded editor uses Lean-only behavior: completion comes from Lean LSP
   `textDocument/completion`, syntax color comes from Lean Tree-sitter plus Lean
-  semantic tokens, and Lean symbol input uses the `lean4-mode` abbreviation
-  table. Markdown and TeX modes do not provide snippets or completion inside
-  this editor.
+  semantic tokens, completion item-kind icons come from the returned LSP items,
+  and Lean symbol input uses the `lean4-mode` abbreviation table. Markdown and
+  TeX modes do not provide snippets or completion inside this editor.
 - The embedded editor owns basic editing behavior: Tab inserts/indents inside
   Lean, Shift-Tab unindents, Enter keeps indentation, and Escape enters a
   Lean-local Vim normal mode with basic movement, delete/yank/paste, visual
   selection, undo/redo, and line opening commands.
+- Lean-local Vim normal mode supports `s` as the same visible jump overlay used
+  by Markdown mode. `S` remains the simple character-search command.
 - When completion is open, ArrowUp/ArrowDown/PageUp/PageDown/Enter/Tab and
   `Cmd/Ctrl+1..9` select or accept Lean LSP candidates inside the popup. These
   keys are not forwarded to the outer Markdown editor.
+- Lean hover/completion documentation is capped in height and scrolls inside the
+  tooltip, so long docs do not cover the whole editor.
+- Lean diagnostics and progress use existing LSP state to draw gutter markers;
+  this does not add polling or extra LSP requests.
 - Find (`Cmd/Ctrl+F`) can search both Markdown and embedded Lean editors. The
   find bar scope can be set to `Code` to search only Lean regions.
+- Copilot inline suggestions work inside embedded Lean editors and standalone
+  `.lean` files. The Lean child editor registers with the Copilot plugin only
+  while mounted, so the plugin reuses the same request/debounce path as the main
+  editor instead of creating a second client.
 - Static publish and desktop PDF export replace `@@lean4 [tag]` with a read-only
   Aaronnote-style Lean code cell and syntax-highlight the exported source.
 - If the tag is missing, the widget shows a missing-region state and can create
@@ -136,6 +182,21 @@ Default behavior:
 4. Append `-- @aaronnote <tag>` to the Lean file.
 5. Insert `@@lean4 [<tag>]` into Markdown at the cursor.
 6. Focus the embedded Lean editor for that tag.
+
+## Keyboard and Navigation
+
+| Context | Key | Behavior |
+| --- | --- | --- |
+| Embedded Lean editor | `Ctrl+Enter` | Toggle between the editor and Notes ranger. Opening Filesystem or Recent hides the Lean panel first. |
+| Notes page | `Tab` | Switch between Filesystem and Recent. |
+| Recent list | `ArrowLeft` / `ArrowRight` / `h` / `l` | Move selection by one item. |
+| Recent list | `ArrowUp` / `ArrowDown` / `k` / `j` | Move selection by one visual row. |
+| Recent list | `Home` / `End` | Jump to first or last recent item. |
+| Recent list | `Enter` | Open the selected recent item. |
+| Lean Vim normal mode | `s`, then query, then label | Jump to a visible match in the embedded Lean editor. |
+| Lean Vim normal mode | `S`, then character | Use the lightweight Lean-local character search. |
+| Copilot in insert mode | `Cmd+]` / `Cmd+Right` | Accept visible inline suggestion, otherwise advance snippet/delimiter. |
+| Copilot in insert mode | `Cmd+}` then character | Accept the visible inline suggestion through the next occurrence of that character. |
 
 ## LSP Lifecycle
 
@@ -162,6 +223,19 @@ Default behavior:
   notifications are filtered to the active region and layered into the child
   editor when Lean LSP publishes them. There is no handwritten Lean parser in
   the placeholder path.
+
+## Performance Boundaries
+
+- Lean UI markers are derived from already-stored diagnostics, progress, and
+  completion items. They must not introduce background polling or full-file scans.
+- Outline data comes from `textDocument/documentSymbol` on demand and is kept in
+  the panel state; the outline UI reuses its existing resize/collapse controls.
+- Copilot auxiliary registration is mount-scoped. Destroying the embedded editor
+  dispatches the matching unregister event so stale Lean editors do not keep
+  listeners or request completions.
+- Source/preview jump correction uses the existing child-editor geometry at the
+  moment of navigation. It should not continuously measure all Lean widgets on
+  every input.
 
 ## Implementation Plan
 

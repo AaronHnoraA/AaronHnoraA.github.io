@@ -2,7 +2,7 @@
 
 ## Current State
 
-As of 2026-05-22, the repository has a working development pipeline:
+As of 2026-05-24, the repository has a working development pipeline:
 
 - `Aaronnote` can be developed, tested, and built.
 - The publish script can convert the Markdown source into a static site.
@@ -27,6 +27,18 @@ Recent project evolution milestones:
 - 2026-05-22: `#+begin html ... #+end html` org-env block now renders as a DOMPurify-sanitized `<div class="aaronnote-html">` in both editor and publish pipeline.
 - 2026-05-22: Per-note CSS: `css:` field in `#+begin meta` loads a note-specific stylesheet after all app/kind styles. `noteCssHrefFromMarkdown()` exported from `render-html.ts` for use by the publish pipeline and the editor shell.
 - 2026-05-22: HTML snippet added (`snippets/markdown-mode/html`) for quick `#+begin html` block insertion.
+- 2026-05-24: Lean integration stabilized around whole-line `@@lean4 [tag]`
+  placeholders and mirror files under `roam/.lean/`. The duplicate root
+  `roam/.lake/` cache was removed from the active layout; the Lake cache now
+  belongs under `roam/.lean/.lake/`.
+- 2026-05-24: Embedded Lean editors gained LSP completion kind icons,
+  diagnostics/progress gutter markers, capped hover/docs, Copilot auxiliary
+  editor support, Lean-local visible jump labels, and `Ctrl+Enter` ranger
+  toggling. Recent ranger keyboard navigation and Filesystem/Recent `Tab`
+  switching are documented.
+- 2026-05-24: Lean panel layout changed so Infoview/messages scroll above a
+  bottom-pinned Lean outline. Outline height remains user-resizable, but changing
+  Infoview goal content no longer moves the outline.
 
 ## CM6 Core
 
@@ -41,6 +53,11 @@ Recent project evolution milestones:
 
 Most recent local test run:
 
+- 2026-05-24: `cd Aaronnote && npm run build:aaronnote`
+  - TypeScript and Aaronnote Vite production build passing
+- 2026-05-24: `cd Aaronnote && npm test -- copilot-plugin`
+  - `tests/copilot-plugin.test.ts` passing, including `Cmd+}` / `Cmd+Shift+]`
+    accept-to-character behavior
 - 2026-05-19: `cd Aaronnote && npm test`
   - `48` test files passing
   - `628` tests passing
@@ -69,7 +86,9 @@ Most recent local test run:
 ### Still evolving
 
 - Broader CommonMark / Typora edge-case compatibility
-- Final scope for math, HTML, and diagram capabilities
+- Final scope for inline HTML and non-Mermaid diagram families
+- Lean UI polish around the official Infoview, outline, and child-editor
+  ergonomics
 - Further decoupling between editor styles and the application shell
 - Large-file performance; see [performance-optimization.md](performance-optimization.md) for the ledger
 
@@ -101,19 +120,26 @@ These are real bugs / compatibility gaps, not just unimplemented features.
 
 These are explicitly unfinished areas, not bugs.
 
-1. **HTML block / inline HTML not enabled**
-   Reason: Sanitizer policy needs to be decided first.
+1. **Inline HTML not enabled**
+   Reason: block HTML exists through sanitized `#+begin html ... #+end html`,
+   but inline HTML remains disabled until its sanitizer and editing policy are
+   explicit.
 
-2. **Math capability scope not fully settled**
-   The README still marks math as planned, but the repo already has parser, serializer, render, and editor tests for inline and display math; the capability boundary has not been unified in external documentation.
+2. **Lean requires local toolchain state**
+   Interactive Lean editing depends on the local Lake project under
+   `roam/.lean/`. Publish/PDF export can render static Lean code cells without
+   LSP, but goals, hover, completion, and Infoview require the local Lean server.
 
-3. **Diagram fences not formally landed**
-   The Mermaid dependency is in the repo, but documentation still treats it as a planned capability.
+3. **Diagram families beyond Mermaid/marmind remain partial**
+   Mermaid and mindmap-style fences are implemented. Broader diagram aliases
+   should be documented as they become real editor and renderer behavior.
 
 ## Maintenance Risks
 
-1. **`Aaronnote/README.md` capability matrix may drift from code**
-   Math / Mermaid dependencies and tests already exist, but the README status descriptions are still stale in places.
+1. **Capability docs may drift from code**
+   Lean, diagram, HTML, and Copilot behavior crosses editor widgets, app shell,
+   server IPC, desktop preload, and plugins. Public docs need updates whenever
+   a convention or keybinding changes.
 
 2. **Publish pipeline is a single-script implementation**
    `bin/publish-site` is already sizeable; adding more fields or export modes will increase maintenance cost.
@@ -123,8 +149,9 @@ These are explicitly unfinished areas, not bugs.
 
 ## Next Steps
 
-1. **Align `Aaronnote` public capability documentation with code reality**
-   Reconcile "planned / partial" items in the README with the actual implementation state.
+1. **Keep capability documentation aligned with code reality**
+   Reconcile README/status/docs whenever editor features, app-only behavior, or
+   publish/export behavior diverge.
 
 2. **Write a stable data contract for the publish layer**
    At minimum, lock down `SITE_DATA` field meanings and compatibility boundaries.

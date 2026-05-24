@@ -17,7 +17,7 @@ For a finer breakdown of tech stack, core composition, and state machines, see [
 
 - `Aaronnote/src/`: editor core library
 - `Aaronnote/src/cm6/`: CM6 extensions, widgets, commands
-- `Aaronnote/src/cm6/widgets/`: per-feature widget files (math, fenced-code, image, task, block-extras, inline-commands)
+- `Aaronnote/src/cm6/widgets/`: per-feature widget files (math, fenced-code, image, task, block-extras, inline-commands, Lean placeholders)
 - `Aaronnote/src/styles/`: editor and theme CSS
 - `Aaronnote/specs/`: behavior specs and event scripts
 - `Aaronnote/tests/`: Vitest tests
@@ -42,6 +42,8 @@ For a finer breakdown of tech stack, core composition, and state machines, see [
 - `src/cm6/widgets/task-list.ts`: interactive task checkbox widget
 - `src/cm6/widgets/block-extras.ts`: org-env blocks, `[toc]`, horizontal rules
 - `src/cm6/widgets/inline-commands.ts`: `@@cmd` inline command badge widgets
+- `src/cm6/widgets/lean-placeholder.ts`: whole-line `@@lean4 [tag]` embedded Lean editor, Lean LSP region mapping, Lean-local Vim/jump handling, and Copilot auxiliary editor registration
+- `src/lean-splice.ts`: maps between Markdown placeholder offsets, derived `.lean` file offsets, and Lean LSP line/character positions
 - `src/cm6/math-ranges.ts`: display-math range index (StateField) used to suppress other decorations inside `$$`
 - `src/cm6/toc-index.ts`: heading/anchor index StateField for the floating TOC panel
 - `src/cm6/find-highlight.ts`: find/replace match highlight extension
@@ -112,9 +114,23 @@ Domain-specific modules imported directly by the Electron main process. No HTTP 
 | `media.mjs` | Resolve media file paths and content types for `aaronnote-asset://media`. |
 | `plugins.mjs` | Scan plugin descriptors, read/write overrides. |
 | `copilot.mjs` | GitHub Copilot LSP client lifecycle and inline completion. |
+| `lean.mjs` | Lean request dispatcher: LSP lifecycle, goals/hover/completion, Infoview RPC, diagnostics, and cache commands. |
+| `lean-mirror.mjs` | Derives mirror `.lean` paths from Markdown notes and manages mirror-file conventions. |
+| `lean-region.mjs` | Pure tagged-region helpers for `-- @aaronnote <tag>` parsing, update, delete, and offset mapping. |
+| `lsp-base.mjs` | Shared JSON-RPC/LSP process plumbing used by Lean and other LSP-style services. |
 | `roamlookup.mjs` | Codex lookup session lifecycle (start, query, close, idle-close). |
 | `roam-git.mjs` | Git operations on the roam repo: `headSha`, `changedRoamFilesSince`, `commitRoam`, `fileHistory`, `restoreFileFromCommit`. |
 | `runtime.mjs` | Backing implementation (~4,200 lines). Import domain modules above instead. |
+
+### App shell modules (`Aaronnote/aaronnote/`)
+
+| Module | Purpose |
+| --- | --- |
+| `main.ts` | Desktop app shell: notes workspace, command palette, ranger tabs, jump stack, panel orchestration, save/cursor state, and plugin boot. |
+| `filesystem.ts` | Filesystem and Recent ranger rendering, keyboard navigation, preview/actions, create/rename/move/trash flows. |
+| `lean-panel.ts` | Left Lean drawer: Infoview/messages, bottom-pinned outline, restart/stop/cache controls, diagnostics/outline jumps. |
+| `lean-infoview-host.ts` | Host adapter for the official Lean Infoview React component inside the app panel. |
+| `api-client.ts` | Typed renderer-side IPC facade over `window.aaronnoteApi`. |
 
 ### Desktop shell (`Aaronnote/desktop/`)
 
@@ -133,6 +149,11 @@ Current plugins:
 - `plugin/roamlookup`: Roam lookup tab in the Notes page; calls the server-side Codex lookup session to query the `roam/` knowledge base
 
 Plugins doing ordinary text input should use `editor.insertText()`; use `replaceMarkdownRange()` only when genuinely rewriting by Markdown source offset.
+
+The Copilot plugin also supports auxiliary editors through
+`aaronnote:copilot-register-editor` / `aaronnote:copilot-dispose-editor`.
+Embedded Lean editors use that path so they share the same Copilot client and
+request throttling as the main Markdown editor.
 
 ## Publish Pipeline
 

@@ -3,6 +3,7 @@ import { formatShortDateTime } from "./ui-format.ts";
 
 type RecentNote = { file: string; openedAt: number };
 type OpenNoteOptions = { newWindow?: boolean; equationTag?: string };
+type RecentEntryItem = { entry: RecentNote; note: NoteSummary; file: string };
 type RangerEntry =
   | { type: "dir"; path: string; label: string; count: number }
   | { type: "file"; note: NoteSummary; label: string; meta: string }
@@ -48,6 +49,7 @@ export type FilesystemBrowser = {
   collapseAll: () => void;
   expandAll: () => void;
   focus: () => boolean;
+  focusRecent: () => boolean;
 };
 
 function fileNameFromPath(path: string): string {
@@ -428,6 +430,8 @@ export function createFilesystemBrowser(options: {
   let lastFileClick = { id: "", at: 0 };
   let lastRecentRenderKey = "";
   let lastRenderKey = "";
+  let selectedRecentFile = "";
+  let focusRecentAfterRender = false;
   let lastNotesSignatureItems: NoteSummary[] | null = null;
   let lastNotesSignature = "";
   let lastDirectoriesSignatureItems: DirectorySummary[] | null = null;
@@ -1079,6 +1083,7 @@ export function createFilesystemBrowser(options: {
       ["m", "Move selected item"],
       ["D", "Duplicate selected file"],
       ["d", "Move selected item to Trash"],
+      ["Tab", "Switch Recent / Filesystem"],
       [".", "Show or hide all files"],
       ["?", "Show or hide this help"],
       ["Esc", "Close help"],
@@ -1108,20 +1113,88 @@ export function createFilesystemBrowser(options: {
     return overlay;
   }
 
-  function renderRecent(): void {
+  function recentEntries(): RecentEntryItem[] {
     const notes = options.getNotes();
     const byFile = new Map(notes.map((note) => [note.file, note]));
-    const entries = options.getRecentNotes()
+    return options.getRecentNotes()
       .map((entry) => ({
         entry,
         note: byFile.get(entry.file) || { file: entry.file, path: entry.file, title: fileNameFromPath(entry.file), standalone: true },
       }))
-      .filter((item): item is { entry: RecentNote; note: NoteSummary } => Boolean(item.note?.file));
+      .filter((item): item is { entry: RecentNote; note: NoteSummary } => Boolean(item.note?.file))
+      .map((item) => ({ ...item, file: item.note.file || item.entry.file }));
+  }
+
+  function selectedRecentIndex(entries: readonly RecentEntryItem[]): number {
+    return entries.findIndex((item) => item.file === selectedRecentFile);
+  }
+
+  function recentColumnStep(): number {
+    const style = getComputedStyle(options.recentList);
+    const columns = style.gridTemplateColumns
+      .split(/\s+/u)
+      .filter((part) => part && part !== "none").length;
+    return Math.max(1, columns);
+  }
+
+  function setRecentSelection(index: number): void {
+    const entries = recentEntries();
+    if (entries.length === 0) {
+      selectedRecentFile = "";
+      renderRecent();
+      return;
+    }
+    const nextIndex = Math.max(0, Math.min(entries.length - 1, index));
+    selectedRecentFile = entries[nextIndex]?.file || "";
+    focusRecentAfterRender = true;
+    renderRecent();
+  }
+
+  function moveRecentSelection(delta: number): void {
+    const entries = recentEntries();
+    if (entries.length === 0) return;
+    const index = selectedRecentIndex(entries);
+    const baseIndex = index >= 0 ? index : delta > 0 ? -1 : entries.length;
+    setRecentSelection(baseIndex + delta);
+  }
+
+  function openSelectedRecent(event: KeyboardEvent): void {
+    const entries = recentEntries();
+    const item = entries[selectedRecentIndex(entries)] ?? entries[0];
+    if (!item) return;
+    options.openNote(item.note, { newWindow: event.altKey || event.metaKey });
+  }
+
+  function scrollRecentSelectionIntoView(): void {
+    const selected = Array.from(options.recentList.querySelectorAll<HTMLElement>(".aaronnote-note"))
+      .find((button) => button.dataset.recentFile === selectedRecentFile)
+      ?? options.recentList.querySelector<HTMLElement>(".aaronnote-note");
+    selected?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }
+
+  function restoreRecentFocusIfRequested(): void {
+    if (!focusRecentAfterRender) return;
+    focusRecentAfterRender = false;
+    options.recentList.focus({ preventScroll: true });
+    scrollRecentSelectionIntoView();
+  }
+
+  function renderRecent(): void {
+    const entries = recentEntries();
+    const currentFile = options.getCurrentFile();
+    if (entries.length === 0) selectedRecentFile = "";
+    else if (!selectedRecentFile || !entries.some((item) => item.file === selectedRecentFile)) {
+      selectedRecentFile = entries.find((item) => item.file === currentFile)?.file || entries[0]?.file || "";
+    }
     const renderKey = [
-      options.getCurrentFile(),
+      currentFile,
+      selectedRecentFile,
       ...entries.map(({ entry, note }) => `${entry.file}\u0000${entry.openedAt}\u0000${note.title || ""}\u0000${note.path || ""}`),
     ].join("\u0001");
-    if (renderKey === lastRecentRenderKey && options.recentList.childNodes.length > 0) return;
+    if (renderKey === lastRecentRenderKey && options.recentList.childNodes.length > 0) {
+      restoreRecentFocusIfRequested();
+      return;
+    }
     lastRecentRenderKey = renderKey;
 
     const frag = document.createDocumentFragment();
@@ -1131,12 +1204,21 @@ export function createFilesystemBrowser(options: {
       empty.textContent = "No recent notes";
       frag.appendChild(empty);
       options.recentList.replaceChildren(frag);
+      restoreRecentFocusIfRequested();
       return;
     }
-    for (const { entry, note } of entries) {
-      frag.appendChild(renderNoteButton(note, note.standalone ? "Standalone Markdown" : note.path || note.id || "", formatShortDateTime(entry.openedAt)));
+    for (const { entry, note, file } of entries) {
+      const button = renderNoteButton(note, note.standalone ? "Standalone Markdown" : note.path || note.id || "", formatShortDateTime(entry.openedAt));
+      button.dataset.recentFile = file;
+      button.tabIndex = -1;
+      button.classList.toggle("is-active", file === selectedRecentFile);
+      button.setAttribute("role", "option");
+      button.setAttribute("aria-selected", file === selectedRecentFile ? "true" : "false");
+      if (file === currentFile) button.setAttribute("aria-current", "page");
+      frag.appendChild(button);
     }
     options.recentList.replaceChildren(frag);
+    restoreRecentFocusIfRequested();
   }
 
   function renderLimitMessage(parent: DocumentFragment, shownCount: number, totalCount: number): void {
@@ -1536,6 +1618,44 @@ export function createFilesystemBrowser(options: {
     render();
   }
 
+  function focusRecent(): boolean {
+    renderRecent();
+    focusRecentAfterRender = true;
+    restoreRecentFocusIfRequested();
+    return document.activeElement === options.recentList;
+  }
+
+  options.recentList.tabIndex = 0;
+  options.recentList.setAttribute("role", "listbox");
+  options.recentList.setAttribute("aria-label", "Recent notes");
+  options.recentList.addEventListener("keydown", (event) => {
+    if (event.ctrlKey) return;
+    if ((event.metaKey || event.altKey) && event.key !== "Enter") return;
+    const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+    if (key === "ArrowLeft" || key === "h") {
+      event.preventDefault();
+      moveRecentSelection(-1);
+    } else if (key === "ArrowRight" || key === "l") {
+      event.preventDefault();
+      moveRecentSelection(1);
+    } else if (key === "ArrowUp" || key === "k") {
+      event.preventDefault();
+      moveRecentSelection(-recentColumnStep());
+    } else if (key === "ArrowDown" || key === "j") {
+      event.preventDefault();
+      moveRecentSelection(recentColumnStep());
+    } else if (key === "Home") {
+      event.preventDefault();
+      setRecentSelection(0);
+    } else if (key === "End") {
+      event.preventDefault();
+      setRecentSelection(recentEntries().length - 1);
+    } else if (key === "Enter") {
+      event.preventDefault();
+      openSelectedRecent(event);
+    }
+  });
+
   options.noteFilter.setAttribute("aria-autocomplete", "list");
   options.noteFilter.setAttribute("aria-expanded", "false");
   options.noteFilter.addEventListener("input", showSearchSuggestions);
@@ -1569,5 +1689,5 @@ export function createFilesystemBrowser(options: {
   });
   window.addEventListener("resize", closeSearchSuggestions);
 
-  return { render, renderRecent, scheduleRender, collapseAll, expandAll, focus };
+  return { render, renderRecent, scheduleRender, collapseAll, expandAll, focus, focusRecent };
 }

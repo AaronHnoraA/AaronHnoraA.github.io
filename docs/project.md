@@ -79,6 +79,9 @@ Responsibilities:
 
 - `Aaronnote/`: Primary development area. Editor logic, tests, desktop shell, and site shell.
 - `roam/`: Content and metadata source.
+- `roam/.lean/`: Lean mirror-file project for `@@lean4 [tag]` blocks. It owns
+  the Lake project files and `.lean/.lake/` cache; `roam/.lake/` is not part of
+  the active layout.
 - `public/`: Published files. Rebuildable; not a development source of truth.
 - `bin/`: Publish script entry points.
 - `agent/`: AI maintenance material and derived indexes.

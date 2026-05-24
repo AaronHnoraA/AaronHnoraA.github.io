@@ -121436,8 +121436,7 @@ of $X$ lie in the same $G$-orbit.
 #+begin proof Proof idea
 The forward direction says that an isomorphism induces a change of
 coordinates. The backward direction says that a valid change of coordinates
-preserves the defining structure and therefore gives an isomorphism.
-
+preserves the defining structure and therefore gives an isomorphism. this is hard to use
 In formulas, the equivalence has the form
 
 $$
@@ -121472,11 +121471,11 @@ $$
 $$
 
 An algorithm for $\Pi$ only needs to be correct on inputs satisfying the
-promise. This differs from a language decision problem, where every string
+promise. This differs from a language decision problem, where every string this ishar to use as my 
 over the alphabet must be classified.
 
 #+begin define Polynomial-time many-one reduction for promise problems
-Let $A$ and $B$ be promise problems. A polynomial-time many-one reduction
+Let $A$ and $B$ be promise problems. A polynomial-time many-one reduction this is hard ti s
 from $A$ to $B$ is a polynomial-time computable function $f$ such that
 
 $$

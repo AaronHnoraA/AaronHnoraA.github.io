@@ -195,6 +195,9 @@ Before completing a change, check:
 - For new IPC actions: does the preload shape match the main handler shape exactly? (type mismatches fail silently under `contextBridge`)
 - For new CM6 extensions: does `eq()` correctly identify unchanged widgets to prevent unnecessary re-renders?
 - For new layout attrs: do both the CM6 editor widget and the markdown-it renderer path apply them?
+- For Lean changes: does the code keep the active Lake project under
+  `<notesRoot>/.lean/`, avoid recreating `<notesRoot>/.lake/`, and reuse existing
+  LSP/editor state rather than adding input-path scans?
 
 ## Release/Build Notes
 
@@ -213,6 +216,20 @@ Do not treat files under `public/`, `agent/index/`, or `agent/wiki/` as authorit
 **Roam lookup sessions** are server-side child processes (`roamlookup.mjs` spawns `codex exec`). They must be idle-closed (1 min timeout) and explicitly terminated when the user closes the panel. The client must not show a plugin panel under the wrong notes tab; use `data-notes-panel` so the app-level tab switcher can hide it.
 
 **Copilot** runs a persistent LSP client (`copilot.mjs`). It talks to `github.copilot-language-server` via stdio. Completions are requested with a local source window — not the full document — to keep IPC payloads small.
+
+**Embedded Lean** uses `@@lean4 [tag]` placeholders in Markdown and mirror
+`.lean` files under `<notesRoot>/.lean/`. The Lake cache belongs at
+`<notesRoot>/.lean/.lake/`; a root-level `<notesRoot>/.lake/` is a stale duplicate
+and should not be recreated. Lean editor UI should reuse existing diagnostics,
+progress, completion metadata, document symbols, and Copilot auxiliary editor
+registration. Do not add polling, workspace scans, or full-file measurements on
+every keypress.
+
+**Copilot auxiliary editors** are registered with
+`aaronnote:copilot-register-editor` and unregistered with
+`aaronnote:copilot-dispose-editor`. Embedded Lean editors use this path while
+mounted, so changes to Copilot key handling should be tested against both the
+main Markdown editor and a Lean child editor.
 
 **Multiple windows**: each window gets its own renderer process but shares the main process's `state.mjs` singleton. Save operations from any window invalidate the shared cache via `markNotesDirty()`. The `clientId` field on save requests identifies which window initiated the save, used for seq-number conflict detection.
 

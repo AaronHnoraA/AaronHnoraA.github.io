@@ -2297,6 +2297,7 @@ function languageIdForFile(file) {
   if (ext === ".js" || ext === ".mjs" || ext === ".cjs") return "javascript";
   if (ext === ".json") return "json";
   if (ext === ".tex") return "latex";
+  if (ext === ".lean") return "lean";
   return "plaintext";
 }
 

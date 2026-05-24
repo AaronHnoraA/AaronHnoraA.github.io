@@ -568,13 +568,15 @@ export function createEditorCM6(host: HTMLElement, options: EditorOptions): Edit
 
     toggleSource(): void {
       const { head } = view.state.selection.main;
+      const beforeTop = coordsTopAt(head);
+      const enteringPreview = inSource;
       inSource = !inSource;
       view.dispatch({
         effects: [
           previewCompartment.reconfigure(inSource ? [] : previewExtensions()),
-          EditorView.scrollIntoView(head, { y: "nearest" }),
         ],
       });
+      preserveCursorScreenTop(head, beforeTop, enteringPreview);
       view.focus();
     },
 
@@ -627,6 +629,37 @@ export function createEditorCM6(host: HTMLElement, options: EditorOptions): Edit
         caretFlash.hidden = true;
       }, 950);
     });
+  }
+
+  function coordsTopAt(pos: number): number | null {
+    try {
+      return view.coordsAtPos(pos)?.top ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  function preserveCursorScreenTop(pos: number, beforeTop: number | null, repeatAfterWidgetLoad: boolean): void {
+    const adjust = (): void => {
+      if (!view.dom.isConnected) return;
+      const afterTop = coordsTopAt(pos);
+      if (beforeTop != null && afterTop != null) {
+        const delta = afterTop - beforeTop;
+        if (Math.abs(delta) >= 1) scrollEditorSurface(delta);
+      }
+      view.dispatch({ effects: EditorView.scrollIntoView(pos, { y: "nearest" }) });
+    };
+    window.requestAnimationFrame(() => window.requestAnimationFrame(adjust));
+    if (repeatAfterWidgetLoad) {
+      window.setTimeout(adjust, 240);
+      window.setTimeout(adjust, 800);
+    }
+  }
+
+  function scrollEditorSurface(delta: number): void {
+    const before = host.scrollTop;
+    host.scrollTop += delta;
+    if (Math.abs(host.scrollTop - before) < 1) window.scrollBy(0, delta);
   }
 }
 

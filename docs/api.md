@@ -238,6 +238,7 @@ fonts, note-kind assets, and graph helpers use `aaronnote-asset://`.
 | `session` | Recent notes and cursor positions. |
 | `plugins` | Scan manifests and read/write plugin overrides. |
 | `copilot` | Copilot status, inline completion, acceptance, auth, quota, and log actions. |
+| `lean` | Lean project status, region CRUD, LSP requests/notifications, goals, hover, completion, diagnostics, Infoview RPC, and cache commands. |
 | `roamlookup` | Read-only Codex lookup session lifecycle and queries. |
 | `shell` | Reveal or open local paths through Electron. |
 
@@ -375,6 +376,10 @@ Common commands:
 | `toggle-source` | Toggle source mode. |
 | `open-filesystem` | Open filesystem tab. |
 | `open-plugin-manager` | Open plugin manager. |
+| `toggle-lean-panel` | Show or hide the Lean panel. |
+| `insert-lean-block` | Create a new `@@lean4 [tag]` placeholder and matching mirror-file region. |
+| `clean-lean-block` | Clean the current Lean block/region. |
+| `restart-lean-server` | Restart the active Lean LSP server. |
 | `jump-stack` | Open or close the Roam jump stack UI. Bound to `Cmd+J` / `Ctrl+J`. |
 | `jump-back` | Pop the Roam jump stack. |
 | `open-block-menu` | Open block insert menu. |

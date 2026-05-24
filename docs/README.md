@@ -12,6 +12,7 @@ Developer and maintainer documentation. Not about note content.
 - [performance-optimization.md](performance-optimization.md): Performance ledger, numeric thresholds, StateField locality decision table, edge cases, future design
 - [aaronnote-html-controls.md](aaronnote-html-controls.md): Note-level CSS, layout attrs, HTML blocks, and common DOM shapes
 - [aaronnote-kinds.md](aaronnote-kinds.md): `kind` lazy-load extension, asset layout, and slides demo
+- [../Aaronnote/docs/lean-integration.md](../Aaronnote/docs/lean-integration.md): `@@lean4 [tag]` storage model, embedded Lean editor behavior, LSP mapping, Copilot, keyboard navigation, and Lake layout
 - [app-native-migration-plan.md](app-native-migration-plan.md): HTTP → Electron IPC migration plan and progress (Phases 0–4, completed)
 - [roam-db-incremental-sync.md](roam-db-incremental-sync.md): Roam DB incremental sync + Git version management design
 - [../plugin/README.md](../plugin/README.md): Local plugin directory and command syntax conventions
@@ -27,5 +28,6 @@ Recommended reading order:
 7. `performance-optimization.md`
 8. `aaronnote-html-controls.md`
 9. `aaronnote-kinds.md`
-10. `../plugin/README.md`
-11. `status.md`
+10. `../Aaronnote/docs/lean-integration.md`
+11. `../plugin/README.md`
+12. `status.md`

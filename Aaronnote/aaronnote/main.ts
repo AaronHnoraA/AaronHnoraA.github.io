@@ -910,6 +910,17 @@ function focusFilesystemRangerSoon(attempts = 8): void {
   run(attempts);
 }
 
+function focusRecentListSoon(attempts = 8): void {
+  if (!notesToolVisible("recent")) return;
+  const run = (remaining: number) => {
+    window.requestAnimationFrame(() => {
+      if (filesystemBrowser.focusRecent() || remaining <= 1) return;
+      window.setTimeout(() => run(remaining - 1), 40);
+    });
+  };
+  run(attempts);
+}
+
 const agendaManager = createAgendaManager({
   filter: agendaFilter,
   sort: agendaSort,
@@ -4259,6 +4270,7 @@ function showNotesPage(tab = "filesystem"): void {
   saveCursorPositionNow({ force: true });
   cleanupTransientUi();
   closeRelationPanel();
+  if (targetTab === "filesystem" || targetTab === "recent") leanPanel.hide();
   linkPreview.hide();
   disposeGraph();
   host.hidden = true;
@@ -4276,6 +4288,7 @@ function showNotesPage(tab = "filesystem"): void {
   void refreshNotesIndex();
   showNotesTool(targetTab);
   if (targetTab === "filesystem") focusFilesystemRangerSoon();
+  else if (targetTab === "recent") focusRecentListSoon();
 }
 
 function openTagFilter(tag: string): void {
@@ -4604,6 +4617,7 @@ function showNotesTool(tab: string): void {
     agendaFilter.focus();
   } else if (tab === "recent") {
     renderRecentNotes();
+    focusRecentListSoon();
   } else if (tab === "git") {
     activateGitPanel();
   } else if (tab === "lean") {
@@ -7281,13 +7295,15 @@ document.addEventListener("keydown", (event) => {
 
 document.addEventListener("keydown", (event) => {
   const primaryMod = primaryShortcutModifier(event);
+  const fromLeanEmbeddedEditor = eventFromLeanEmbeddedEditor(event);
+  const ctrlEnter = event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey && event.key === "Enter";
   if (primaryMod && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "l") {
     event.preventDefault();
     event.stopPropagation();
     leanPanel.toggle();
     return;
   }
-  if (eventFromLeanEmbeddedEditor(event)) return;
+  if (!ctrlEnter && fromLeanEmbeddedEditor) return;
   if (handleCommandPaletteKey(event)) {
     event.stopPropagation();
     return;
@@ -7342,14 +7358,29 @@ document.addEventListener("keydown", (event) => {
     editor.focus();
     return;
   }
-  if (event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey && event.key === "Enter") {
+  if (ctrlEnter) {
     event.preventDefault();
     event.stopPropagation();
-    if (notesToolVisible("filesystem")) {
+    const activeTool = activeNotesTool();
+    if (!notesPage.hidden && (activeTool === "filesystem" || activeTool === "recent")) {
       showEditorPage();
     } else {
       openFilesystemPage();
     }
+    return;
+  }
+  if (
+    !notesPage.hidden
+    && (activeNotesTool() === "filesystem" || activeNotesTool() === "recent")
+    && !event.metaKey
+    && !event.ctrlKey
+    && !event.shiftKey
+    && !event.altKey
+    && event.key === "Tab"
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+    showNotesTool(activeNotesTool() === "filesystem" ? "recent" : "filesystem");
     return;
   }
   if (

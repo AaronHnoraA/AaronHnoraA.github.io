@@ -222,6 +222,91 @@ describe("copilot plugin insertion", () => {
     }
   });
 
+  test("cmd-shift-right-bracket enters accept-to-char mode on bracket-key layouts", async () => {
+    const host = document.createElement("div");
+    const target = document.createElement("button");
+    host.appendChild(target);
+    document.body.appendChild(host);
+
+    const editor = new FakeEditor("prefix");
+    const handlers: {
+      key?: (event: KeyboardEvent) => boolean;
+      action?: (action: string) => void;
+    } = {};
+
+    const restoreApi = installNativeCopilot(async (action) => {
+      if (action === "inline") {
+        return {
+          items: [{
+            insertText: "prefixAlphaBeta",
+            range: { from: 0, to: editor.markdown.length },
+            item: { insertText: "prefixAlphaBeta" },
+          }],
+        };
+      }
+      return { ok: true };
+    });
+
+    const cleanup = setup({
+      editor,
+      host,
+      currentFile: () => "/tmp/copilot.md",
+      vimMode: () => "insert",
+      setStatus: () => {},
+      onChange: () => () => {},
+      onKeyDown: (handler: (event: KeyboardEvent) => boolean) => {
+        handlers.key = handler;
+        return () => {
+          delete handlers.key;
+        };
+      },
+      onAction: (handler: (action: string) => void) => {
+        handlers.action = handler;
+        return () => {
+          delete handlers.action;
+        };
+      },
+      onSettingsChange: () => () => {},
+      getSettings: () => ({ idleDelayMs: 999_999, largeBufferThresholdKb: 512 }),
+      onDocumentEvent: () => () => {},
+      jumpSnippetNext: () => false,
+      jumpSnippetPrevious: () => false,
+      forwardDelimiter: () => false,
+      backwardDelimiter: () => false,
+    });
+
+    try {
+      target.focus();
+      handlers.action?.("trigger");
+      await waitForMicrotasks();
+      await waitForMicrotasks();
+
+      target.addEventListener("keydown", (event) => {
+        handlers.key?.(event);
+      });
+      target.dispatchEvent(new KeyboardEvent("keydown", {
+        key: "]",
+        code: "BracketRight",
+        metaKey: true,
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true,
+      }));
+      target.dispatchEvent(new KeyboardEvent("keydown", {
+        key: "B",
+        bubbles: true,
+        cancelable: true,
+      }));
+
+      expect(editor.insertions).toEqual(["AlphaB"]);
+      expect(editor.markdown).toBe("prefixAlphaB");
+    } finally {
+      cleanup();
+      restoreApi();
+      host.remove();
+    }
+  });
+
   test("document eligibility uses the active cursor tail instead of markdown line tail", async () => {
     const host = document.createElement("div");
     const target = document.createElement("button");

@@ -2,9 +2,9 @@
  * Lean 4 Infoview panel — left-side drawer.
  *
  * Displays:
- *   - Top pane: Lean LSP diagnostics/messages (click to jump)
- *   - Bottom pane: Lean infoview goals and expected type
- *   - Per-note in-memory width and vertical split size
+ *   - Scrollable Infoview/messages pane (diagnostics click to jump)
+ *   - Bottom-pinned Lean file outline (document symbols click to jump)
+ *   - Per-note in-memory width and outline height
  */
 
 import { api } from "./api-client.ts";
@@ -168,17 +168,17 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
       <div class="lean-panel-section-title">Expected type</div>
       <div class="lean-panel-code lean-term-goal-text" data-lean-term-goal></div>
     </section>
-    <section class="lean-panel-section lean-panel-outline" data-lean-outline-section>
-      <div class="lean-panel-section-title" data-lean-outline-title>Lean file outline</div>
-      <div class="lean-outline-box">
-        <div class="lean-outline-list" data-lean-outline-list></div>
-      </div>
-      <div class="lean-outline-resizer" data-lean-outline-resizer role="separator" aria-orientation="horizontal" title="Resize outline"></div>
-    </section>
     <section class="lean-panel-section lean-panel-messages-section" data-lean-messages-pane>
       <div class="lean-panel-section-title">All Messages</div>
       <div class="lean-messages-list" data-lean-messages-list></div>
     </section>
+  </section>
+  <section class="lean-panel-section lean-panel-outline" data-lean-outline-section>
+    <div class="lean-panel-section-title" data-lean-outline-title>Lean file outline</div>
+    <div class="lean-outline-box">
+      <div class="lean-outline-list" data-lean-outline-list></div>
+    </div>
+    <div class="lean-outline-resizer" data-lean-outline-resizer role="separator" aria-orientation="horizontal" title="Resize outline"></div>
   </section>
 </div>
 <div class="lean-panel-width-resizer" data-lean-width-resizer role="separator" aria-orientation="vertical" title="Resize Lean panel"></div>

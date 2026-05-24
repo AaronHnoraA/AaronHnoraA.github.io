@@ -3749,7 +3749,11 @@ body.lean-panel-open .aaronnote-editor {
 }
 
 .lean-panel-outline {
+  flex: 0 0 auto;
+  border-top: 1px solid #d4c8b6;
+  border-bottom: 0;
   padding-bottom: 8px;
+  background: #f4efe6;
 }
 
 .lean-outline-box {
@@ -4339,6 +4343,9 @@ body.lean-panel-open .aaronnote-editor {
 /* Hover tooltip */
 .cm-lean-hover-tooltip {
   max-width: 440px;
+  max-height: min(48vh, 420px);
+  overflow: auto;
+  box-sizing: border-box;
   padding: 6px 10px;
   border: 1px solid #4a433d;
   border-radius: 4px;

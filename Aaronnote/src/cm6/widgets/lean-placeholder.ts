@@ -1,7 +1,9 @@
-import { EditorSelection, EditorState, Prec, StateEffect, StateField, Transaction, type ChangeSpec, type Extension, type Text } from "@codemirror/state";
+import { EditorSelection, EditorState, Prec, RangeSet, RangeSetBuilder, StateEffect, StateField, Transaction, type ChangeSpec, type Extension, type Text } from "@codemirror/state";
 import {
   Decoration,
   EditorView,
+  GutterMarker,
+  gutter,
   hoverTooltip,
   highlightActiveLine,
   highlightActiveLineGutter,
@@ -86,7 +88,20 @@ type LeanDiagnosticMark = {
   message: string;
 };
 
+type LeanProgressMark = {
+  from: number;
+  to: number;
+};
+
 type LeanVimMode = "insert" | "normal" | "visual" | "visual-line";
+type LeanJumpTarget = {
+  pos: number;
+  rect: { left: number; top: number; bottom: number };
+  label: string;
+};
+type LeanJumpModeState =
+  | { phase: "target" }
+  | { phase: "label"; typed: string; targets: LeanJumpTarget[] };
 
 type LeanRegionInfoviewEvent = {
   notePath: string;
@@ -123,7 +138,39 @@ type LeanRegionApplyEditEvent = CustomEvent<{
   edit?: unknown;
 }>;
 
+type CopilotEditorLike = {
+  getMarkdown(): string;
+  getMarkdownSelection(): { from: number; to: number };
+  getSelection(): { from: number; to: number };
+  insertText(text: string, deleteBefore?: number): { from: number; to: number };
+  cursorContext(maxChars?: number): { before?: string; after?: string; rect: { left: number; top: number; bottom: number } | null };
+  revealCursor(): void;
+};
+
+type CopilotEditorDetail = {
+  id: string;
+  editor: CopilotEditorLike;
+  host: HTMLElement;
+  currentFile: () => string;
+  vimMode: () => LeanVimMode;
+  setStatus: (message: string) => void;
+  onChange: (handler: () => void) => () => void;
+  onKeyDown: (handler: (event: KeyboardEvent) => boolean) => () => void;
+  onAction: (handler: (action: string) => void) => () => void;
+  onDocumentEvent: <K extends keyof DocumentEventMap>(
+    type: K,
+    handler: (event: DocumentEventMap[K]) => void,
+    options?: AddEventListenerOptions,
+  ) => () => void;
+  jumpSnippetNext: () => boolean;
+  jumpSnippetPrevious: () => boolean;
+  forwardDelimiter: () => boolean;
+  backwardDelimiter: () => boolean;
+  ack: () => void;
+};
+
 const SetLeanDiagnostics = StateEffect.define<LeanDiagnosticMark[]>();
+const SetLeanProgress = StateEffect.define<LeanProgressMark[]>();
 const SetLeanSemanticTokens = StateEffect.define<{
   text: string;
   region: LeanRegionMeta | null;
@@ -139,6 +186,8 @@ const leanAbbreviations = leanAbbreviationsRaw as Record<string, string>;
 const leanAbbreviationKeys = Object.keys(leanAbbreviations);
 const leanAbbreviationKeySet = new Set(leanAbbreviationKeys);
 const leanAbbreviationPrefixSet = new Set<string>();
+const copilotRegisterEvent = "aaronnote:copilot-register-editor";
+const copilotDisposeEvent = "aaronnote:copilot-dispose-editor";
 for (const key of leanAbbreviationKeys) {
   for (let i = 1; i < key.length; i++) {
     leanAbbreviationPrefixSet.add(key.slice(0, i));
@@ -307,9 +356,16 @@ type LspRange = {
 };
 
 function completionType(kind: number | undefined): Completion["type"] {
-  if (kind === 3) return "function";
-  if (kind === 4 || kind === 7 || kind === 8) return "variable";
-  if (kind === 6 || kind === 9 || kind === 23) return "class";
+  if (kind === 2) return "method";
+  if (kind === 3 || kind === 4 || kind === 25) return "function";
+  if (kind === 5 || kind === 10) return "property";
+  if (kind === 6) return "variable";
+  if (kind === 7) return "class";
+  if (kind === 8) return "interface";
+  if (kind === 9) return "namespace";
+  if (kind === 11 || kind === 22 || kind === 26) return "type";
+  if (kind === 12 || kind === 21) return "constant";
+  if (kind === 13 || kind === 23) return "enum";
   if (kind === 14) return "keyword";
   return "text";
 }
@@ -415,7 +471,7 @@ async function leanSnippetCompletions(): Promise<Completion[]> {
     completions.push(snippetCompletion(expanded.text, {
       label,
       detail,
-      type: "text",
+      type: "snippet",
       section: "Snippets",
       boost: -1,
       info: () => {
@@ -539,6 +595,7 @@ function stopEmbeddedKeyboardEvent(event: Event): void {
     const primaryMod = /Mac/.test(navigator.platform)
       ? event.metaKey && !event.ctrlKey
       : event.ctrlKey && !event.metaKey;
+    if (event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey && event.key === "Enter") return;
     if (primaryMod && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "l") return;
     event.stopPropagation();
     event.stopImmediatePropagation();
@@ -563,6 +620,44 @@ function publishLeanRegionActive(notePath: string, tag: string): void {
 function fullLineNumberForLocalLine(ctx: LeanContext, localLineNumber: number): string {
   if (!ctx.region) return String(localLineNumber);
   return String(offsetToPosition(ctx.leanText, ctx.region.bodyFrom).line + localLineNumber);
+}
+
+function leanCopilotEditor(view: EditorView): CopilotEditorLike {
+  const selection = (): { from: number; to: number } => {
+    const range = view.state.selection.main;
+    return { from: range.from, to: range.to };
+  };
+  return {
+    getMarkdown: () => view.state.doc.toString(),
+    getMarkdownSelection: selection,
+    getSelection: selection,
+    insertText(text: string, deleteBefore = 0) {
+      const range = view.state.selection.main;
+      const from = Math.max(0, range.from - Math.max(0, deleteBefore));
+      const to = range.to;
+      view.dispatch({
+        changes: { from, to, insert: text },
+        selection: { anchor: from + text.length },
+        scrollIntoView: true,
+      });
+      view.focus();
+      return { from, to: from + text.length };
+    },
+    cursorContext(maxChars = 800) {
+      const pos = view.state.selection.main.to;
+      const from = Math.max(0, pos - maxChars);
+      const to = Math.min(view.state.doc.length, pos + maxChars);
+      const rect = view.coordsAtPos(pos);
+      return {
+        before: view.state.doc.sliceString(from, pos),
+        after: view.state.doc.sliceString(pos, to),
+        rect: rect ? { left: rect.left, top: rect.top, bottom: rect.bottom } : null,
+      };
+    },
+    revealCursor() {
+      view.dispatch({ effects: EditorView.scrollIntoView(view.state.selection.main.head) });
+    },
+  };
 }
 
 function shadowStyles(): HTMLStyleElement {
@@ -636,6 +731,23 @@ function shadowStyles(): HTMLStyleElement {
       font-variant-numeric: tabular-nums;
       text-align: right;
     }
+    .lean-host .cm-lean-status-gutter .cm-gutterElement {
+      box-sizing: border-box;
+      min-width: 22px;
+      padding: 0 2px;
+      text-align: center;
+    }
+    .lean-host .cm-lean-status-sign {
+      display: inline-block;
+      width: 1.25em;
+      font-size: 12px;
+      line-height: inherit;
+      text-align: center;
+    }
+    .lean-host .cm-lean-status-sign--error { color: #f87171; }
+    .lean-host .cm-lean-status-sign--warning { color: #fbbf24; }
+    .lean-host .cm-lean-status-sign--info { color: #60a5fa; }
+    .lean-host .cm-lean-status-sign--processing { color: #67e8f9; }
     .lean-host .cm-activeLineGutter {
       background: #24211e !important;
       color: #e0d2be !important;
@@ -731,6 +843,26 @@ function shadowStyles(): HTMLStyleElement {
       color: #9cc7ff;
       opacity: 1;
     }
+    .cm-tooltip-autocomplete .cm-completionIcon::after {
+      display: inline-block;
+      width: 1.15em;
+      text-align: center;
+      font-style: normal;
+      font-weight: 700;
+    }
+    .cm-tooltip-autocomplete .cm-completionIcon-method::after { content: "◆"; color: #60a5fa; }
+    .cm-tooltip-autocomplete .cm-completionIcon-function::after { content: "ƒ"; color: #60a5fa; }
+    .cm-tooltip-autocomplete .cm-completionIcon-variable::after { content: "𝑥"; color: #e8e2da; }
+    .cm-tooltip-autocomplete .cm-completionIcon-class::after { content: "C"; color: #fbbf24; }
+    .cm-tooltip-autocomplete .cm-completionIcon-interface::after { content: "I"; color: #fbbf24; }
+    .cm-tooltip-autocomplete .cm-completionIcon-type::after { content: "T"; color: #fbbf24; }
+    .cm-tooltip-autocomplete .cm-completionIcon-namespace::after { content: "□"; color: #c084fc; }
+    .cm-tooltip-autocomplete .cm-completionIcon-property::after { content: "·"; color: #34d399; }
+    .cm-tooltip-autocomplete .cm-completionIcon-constant::after { content: "π"; color: #34d399; }
+    .cm-tooltip-autocomplete .cm-completionIcon-enum::after { content: "E"; color: #fbbf24; }
+    .cm-tooltip-autocomplete .cm-completionIcon-keyword::after { content: "K"; color: #c084fc; }
+    .cm-tooltip-autocomplete .cm-completionIcon-snippet::after { content: "✂"; color: #f59e0b; }
+    .cm-tooltip-autocomplete .cm-completionIcon-text::after { content: "a"; color: #c8c1b8; }
     .cm-tooltip-autocomplete .cm-completionLabel,
     .cm-tooltip-autocomplete .cm-completionDetail {
       color: inherit;
@@ -807,10 +939,18 @@ function shadowStyles(): HTMLStyleElement {
       font-family: inherit;
       z-index: 1000;
     }
+    .cm-lean-hover-tooltip,
+    .lean-host .cm-lean-hover-tooltip {
+      box-sizing: border-box;
+      max-width: min(560px, calc(100vw - 32px));
+      max-height: min(48vh, 420px);
+      overflow: auto;
+      white-space: normal;
+    }
     .cm-lean-hover-tooltip pre,
     .lean-host .cm-lean-hover-tooltip pre {
       margin: 0;
-      max-width: 560px;
+      max-width: 100%;
       white-space: pre-wrap;
       font-family: inherit;
       font-size: 12px;
@@ -950,9 +1090,16 @@ function tooltipStyles(): HTMLStyleElement {
     .lean-editor-tooltips[data-lean-hide-completion-info="true"] .cm-completionInfo {
       display: none !important;
     }
+    .lean-editor-tooltips .cm-lean-hover-tooltip {
+      box-sizing: border-box;
+      max-width: min(560px, calc(100vw - 32px));
+      max-height: min(48vh, 420px);
+      overflow: auto;
+      white-space: normal;
+    }
     .lean-editor-tooltips .cm-lean-hover-tooltip pre {
       margin: 0;
-      max-width: 560px;
+      max-width: 100%;
       white-space: pre-wrap;
       font-family: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-size: 12px;
@@ -1065,6 +1212,20 @@ const leanDiagnosticsField = StateField.define<LeanDiagnosticMark[]>({
   },
 });
 
+const leanProgressField = StateField.define<LeanProgressMark[]>({
+  create: () => [],
+  update(value, tr) {
+    for (const effect of tr.effects) {
+      if (effect.is(SetLeanProgress)) return effect.value;
+    }
+    if (!tr.docChanged || value.length === 0) return value;
+    return value.map((mark) => ({
+      from: tr.changes.mapPos(mark.from, -1),
+      to: tr.changes.mapPos(mark.to, 1),
+    }));
+  },
+});
+
 const leanDiagnosticDecorations = StateField.define<DecorationSet>({
   create: () => Decoration.none,
   update(value, tr) {
@@ -1081,6 +1242,114 @@ const leanDiagnosticDecorations = StateField.define<DecorationSet>({
     return tr.docChanged ? value.map(tr.changes) : value;
   },
   provide: (field) => EditorView.decorations.from(field),
+});
+
+type LeanStatusSignKind = "processing" | "info" | "warning" | "error";
+
+const leanStatusSignRank: Record<LeanStatusSignKind, number> = {
+  processing: 0,
+  info: 1,
+  warning: 2,
+  error: 3,
+};
+
+const leanStatusSignText: Record<LeanStatusSignKind, string> = {
+  processing: "⏳",
+  info: "ℹ",
+  warning: "⚠",
+  error: "✖",
+};
+
+class LeanStatusGutterMarker extends GutterMarker {
+  readonly kind: LeanStatusSignKind;
+  readonly title: string;
+
+  constructor(kind: LeanStatusSignKind, title: string) {
+    super();
+    this.kind = kind;
+    this.title = title;
+  }
+
+  eq(other: GutterMarker): boolean {
+    return other instanceof LeanStatusGutterMarker
+      && other.kind === this.kind
+      && other.title === this.title;
+  }
+
+  toDOM(): HTMLElement {
+    const span = document.createElement("span");
+    span.className = `cm-lean-status-sign cm-lean-status-sign--${this.kind}`;
+    span.textContent = leanStatusSignText[this.kind];
+    if (this.title) span.title = this.title;
+    return span;
+  }
+}
+
+const leanStatusGutterSpacer = new LeanStatusGutterMarker("error", "");
+
+function setLeanStatusSign(
+  byLine: Map<number, { kind: LeanStatusSignKind; title: string }>,
+  lineNo: number,
+  kind: LeanStatusSignKind,
+  title: string,
+): void {
+  const previous = byLine.get(lineNo);
+  if (previous && leanStatusSignRank[previous.kind] >= leanStatusSignRank[kind]) return;
+  byLine.set(lineNo, { kind, title });
+}
+
+function addLeanStatusRange(
+  state: EditorState,
+  byLine: Map<number, { kind: LeanStatusSignKind; title: string }>,
+  from: number,
+  to: number,
+  kind: LeanStatusSignKind,
+  title: string,
+): void {
+  const start = Math.max(0, Math.min(state.doc.length, from));
+  const end = Math.max(start, Math.min(state.doc.length, to > from ? to - 1 : from));
+  const startLine = state.doc.lineAt(start).number;
+  const endLine = state.doc.lineAt(end).number;
+  for (let lineNo = startLine; lineNo <= endLine; lineNo++) {
+    setLeanStatusSign(byLine, lineNo, kind, title);
+  }
+}
+
+function buildLeanStatusGutter(state: EditorState): RangeSet<GutterMarker> {
+  const byLine = new Map<number, { kind: LeanStatusSignKind; title: string }>();
+  const progress = state.field(leanProgressField, false) ?? [];
+  const diagnostics = state.field(leanDiagnosticsField, false) ?? [];
+
+  for (const mark of progress) {
+    addLeanStatusRange(state, byLine, mark.from, mark.to, "processing", "Lean is elaborating this range");
+  }
+  for (const diag of diagnostics) {
+    addLeanStatusRange(state, byLine, diag.from, diag.to, diag.severity, diag.message);
+  }
+
+  const builder = new RangeSetBuilder<GutterMarker>();
+  for (const [lineNo, sign] of Array.from(byLine.entries()).sort((a, b) => a[0] - b[0])) {
+    if (lineNo < 1 || lineNo > state.doc.lines) continue;
+    const line = state.doc.line(lineNo);
+    builder.add(line.from, line.from, new LeanStatusGutterMarker(sign.kind, sign.title));
+  }
+  return builder.finish();
+}
+
+const leanStatusGutterField = StateField.define<RangeSet<GutterMarker>>({
+  create: () => RangeSet.empty,
+  update(value, tr) {
+    const affected = tr.effects.some((effect) =>
+      effect.is(SetLeanDiagnostics) || effect.is(SetLeanProgress));
+    if (affected) return buildLeanStatusGutter(tr.state);
+    return tr.docChanged ? value.map(tr.changes) : value;
+  },
+});
+
+const leanStatusGutter = gutter({
+  class: "cm-lean-status-gutter",
+  markers: (view) => view.state.field(leanStatusGutterField),
+  initialSpacer: () => leanStatusGutterSpacer,
 });
 
 const leanTreeSitterDecorations = StateField.define<DecorationSet>({
@@ -1537,17 +1806,115 @@ function hasLeanCommandModifier(event: KeyboardEvent): boolean {
   return event.metaKey || event.ctrlKey || event.altKey;
 }
 
+const leanJumpLabelAlphabet = "asdfghjklqwertyuiopzxcvbnm";
+let leanJumpOverlay: HTMLDivElement | null = null;
+
+function leanJumpLabels(count: number): string[] {
+  if (count <= leanJumpLabelAlphabet.length) return [...leanJumpLabelAlphabet.slice(0, count)];
+  const labels: string[] = [];
+  for (const first of leanJumpLabelAlphabet) {
+    for (const second of leanJumpLabelAlphabet) {
+      labels.push(`${first}${second}`);
+      if (labels.length >= count) return labels;
+    }
+  }
+  return labels;
+}
+
+function leanJumpInputChar(key: string): string {
+  return key.length === 1 && !/\s/.test(key) ? key : "";
+}
+
+function leanJumpLabelChar(key: string): string {
+  const ch = key.length === 1 ? key.toLowerCase() : "";
+  return leanJumpLabelAlphabet.includes(ch) ? ch : "";
+}
+
+function hideLeanJumpOverlay(): void {
+  leanJumpOverlay?.remove();
+  leanJumpOverlay = null;
+}
+
+function leanJumpRectInViewport(rect: { left: number; top: number; bottom: number }): boolean {
+  return rect.bottom >= 44
+    && rect.top <= window.innerHeight
+    && rect.left >= 0
+    && rect.left <= window.innerWidth;
+}
+
+function addLeanJumpTarget(
+  targets: Omit<LeanJumpTarget, "label">[],
+  seen: Set<string>,
+  pos: number,
+  rect: { left: number; top: number; bottom: number } | null,
+): void {
+  if (!rect || !leanJumpRectInViewport(rect)) return;
+  const key = `${pos}:${Math.round(rect.left)}:${Math.round(rect.top)}`;
+  if (seen.has(key)) return;
+  seen.add(key);
+  targets.push({ pos, rect: { left: rect.left, top: rect.top, bottom: rect.bottom } });
+}
+
+function visibleLeanJumpTargets(view: EditorView, query: string): LeanJumpTarget[] {
+  const labels = leanJumpLabels(180);
+  const targets: Omit<LeanJumpTarget, "label">[] = [];
+  const seen = new Set<string>();
+  const queryLower = query.toLowerCase();
+  for (const range of view.visibleRanges) {
+    const text = view.state.doc.sliceString(range.from, range.to).toLowerCase();
+    for (let index = text.indexOf(queryLower); index >= 0; index = text.indexOf(queryLower, index + 1)) {
+      const pos = range.from + index;
+      let coords: { left: number; top: number; bottom: number } | null = null;
+      try {
+        coords = view.coordsAtPos(pos);
+      } catch {
+        coords = null;
+      }
+      addLeanJumpTarget(targets, seen, pos, coords);
+      if (targets.length >= labels.length) break;
+    }
+    if (targets.length >= labels.length) break;
+  }
+  return targets.map((target, index) => ({ ...target, label: labels[index] ?? "" })).filter((target) => target.label);
+}
+
+function renderLeanJumpOverlay(state: LeanJumpModeState | null): void {
+  if (!state || state.phase !== "label") {
+    hideLeanJumpOverlay();
+    return;
+  }
+  if (!leanJumpOverlay) {
+    leanJumpOverlay = document.createElement("div");
+    leanJumpOverlay.className = "aaronnote-jump-overlay";
+    document.body.appendChild(leanJumpOverlay);
+  }
+  leanJumpOverlay.replaceChildren();
+  for (const target of state.targets) {
+    const marker = document.createElement("span");
+    marker.className = target.label.startsWith(state.typed)
+      ? "aaronnote-jump-label"
+      : "aaronnote-jump-label is-muted";
+    marker.textContent = target.label;
+    marker.style.left = `${target.rect.left}px`;
+    marker.style.top = `${target.rect.top}px`;
+    leanJumpOverlay.appendChild(marker);
+  }
+}
+
 function createLeanVimController() {
   let mode: LeanVimMode = "insert";
   let pending = "";
   let goalColumn: number | null = null;
   let visualAnchor: number | null = null;
   let register = "";
+  let jumpMode: LeanJumpModeState | null = null;
 
   const setMode = (view: EditorView, next: LeanVimMode): void => {
     mode = next;
     pending = "";
     goalColumn = null;
+    jumpMode = null;
+    hideLeanJumpOverlay();
     if (next !== "visual" && next !== "visual-line") visualAnchor = null;
     view.dom.dataset.leanVimMode = next;
   };
@@ -1706,6 +2073,9 @@ function createLeanVimController() {
         enterVisual(view, "visual-line");
         return true;
       case "s":
+        jumpMode = { phase: "target" };
+        hideLeanJumpOverlay();
+        return true;
       case "S":
         pending = key;
         return true;
@@ -1717,6 +2087,56 @@ function createLeanVimController() {
       default:
         return key.length === 1 || key === "Tab";
     }
+  };
+
+  const handleJumpModeKey = (event: KeyboardEvent, view: EditorView): boolean => {
+    if (!jumpMode) return false;
+    if (event.metaKey || event.ctrlKey || event.altKey) {
+      jumpMode = null;
+      hideLeanJumpOverlay();
+      return false;
+    }
+    blockKey(event);
+    if (event.key === "Escape") {
+      jumpMode = null;
+      hideLeanJumpOverlay();
+      return true;
+    }
+    if (jumpMode.phase === "target") {
+      const query = leanJumpInputChar(event.key);
+      if (!query) return true;
+      const targets = visibleLeanJumpTargets(view, query);
+      if (targets.length === 0) {
+        jumpMode = null;
+        hideLeanJumpOverlay();
+        return true;
+      }
+      jumpMode = { phase: "label", typed: "", targets };
+      renderLeanJumpOverlay(jumpMode);
+      return true;
+    }
+    if (event.key === "Backspace") {
+      jumpMode = { ...jumpMode, typed: jumpMode.typed.slice(0, -1) };
+      renderLeanJumpOverlay(jumpMode);
+      return true;
+    }
+    const labelChar = leanJumpLabelChar(event.key);
+    if (!labelChar) return true;
+    const typed = jumpMode.typed + labelChar;
+    const exact = jumpMode.targets.find((target) => target.label === typed);
+    if (exact) {
+      jumpMode = null;
+      hideLeanJumpOverlay();
+      goalColumn = null;
+      setLeanCursor(view, exact.pos);
+      return true;
+    }
+    if (jumpMode.targets.some((target) => target.label.startsWith(typed))) {
+      jumpMode = { ...jumpMode, typed };
+      renderLeanJumpOverlay(jumpMode);
+      return true;
+    }
+    return true;
   };
 
   const visualCommand = (view: EditorView, key: string): boolean => {
@@ -1813,6 +2233,16 @@ function createLeanVimController() {
   return {
     handleKeyDown(event: KeyboardEvent, view: EditorView): boolean {
       if (event.isComposing) return false;
+      if (jumpMode) {
+        if (isLeanVimEscape(event)) {
+          blockKey(event);
+          jumpMode = null;
+          hideLeanJumpOverlay();
+          setMode(view, "normal");
+          return true;
+        }
+        if (handleJumpModeKey(event, view)) return true;
+      }
       if (isLeanVimEscape(event)) {
         blockKey(event);
         setMode(view, "normal");
@@ -1994,6 +2424,7 @@ function leanKeyboardIsolation(): Extension {
   const vim = createLeanVimController();
   return Prec.highest(EditorView.domEventHandlers({
     keydown(event, view) {
+      if (event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey && event.key === "Enter") return false;
       if (handleLeanUndoRedoKey(event, view)) return true;
       if (handleLeanPopupEscapeKey(event, view)) return true;
       if (handleLeanCompletionKey(event, view)) return true;
@@ -2012,6 +2443,30 @@ function leanKeyboardIsolation(): Extension {
   }));
 }
 
+function progressMarksFromLeanNotification(ctx: LeanContext, rawProgress: unknown[], docLength: number): LeanProgressMark[] {
+  const marks: LeanProgressMark[] = [];
+  for (const item of rawProgress) {
+    const progress = item as {
+      range?: { start?: { line?: number; character?: number }; end?: { line?: number; character?: number } };
+      kind?: number;
+    };
+    if (progress.kind !== 1) continue;
+    const start = progress.range?.start;
+    const end = progress.range?.end ?? start;
+    if (!start || !end) continue;
+    const fullFrom = positionToOffset(ctx.leanText, Number(start.line ?? 0), Number(start.character ?? 0));
+    const fullTo = positionToOffset(ctx.leanText, Number(end.line ?? 0), Number(end.character ?? 0));
+    const from = fullOffsetToLocal(ctx, fullFrom);
+    const to = fullOffsetToLocal(ctx, fullTo);
+    if (from == null) continue;
+    marks.push({
+      from: Math.max(0, Math.min(docLength, from)),
+      to: Math.max(0, Math.min(docLength, to ?? from + 1)),
+    });
+  }
+  return marks;
+}
+
 function leanEditorExtensions(
   ctx: LeanContext,
   tooltipParent: HTMLElement,
@@ -2025,6 +2480,10 @@ function leanEditorExtensions(
     tooltips({ parent: tooltipParent, position: "fixed" }),
     EditorView.inputHandler.of(leanInputHandler),
     leanTreeSitterHighlight(),
+    leanDiagnosticsField,
+    leanProgressField,
+    leanStatusGutterField,
+    leanStatusGutter,
     lineNumbers({ formatNumber: (lineNo) => fullLineNumberForLocalLine(ctx, lineNo) }),
     highlightActiveLineGutter(),
     highlightActiveLine(),
@@ -2041,7 +2500,6 @@ function leanEditorExtensions(
     EditorView.lineWrapping,
     leanSemanticTokenDecorations,
     findHighlightExtension,
-    leanDiagnosticsField,
     leanDiagnosticDecorations,
     leanHover(ctx),
     leanCursorHover(ctx),
@@ -2139,8 +2597,10 @@ class LeanPlaceholderWidget extends WidgetType {
     let lastPushRetryKey = "";
     let goalRetryTimer: ReturnType<typeof setTimeout> | null = null;
     let diagnosticsTimer: ReturnType<typeof setTimeout> | null = null;
+    let progressTimer: ReturnType<typeof setTimeout> | null = null;
     let semanticTokensTimer: ReturnType<typeof setTimeout> | null = null;
     let lastDiagnosticsSig = "";
+    let lastProgressSig = "";
     let lastSemanticTokensSig = "";
     const ctx: LeanContext = {
       notePath: noteInfo.notePath,
@@ -2360,6 +2820,9 @@ class LeanPlaceholderWidget extends WidgetType {
     const diagnosticSignature = (marks: LeanDiagnosticMark[]): string =>
       marks.map((mark) => `${mark.from}:${mark.to}:${mark.severity}:${mark.message}`).join("\n");
 
+    const progressSignature = (marks: LeanProgressMark[]): string =>
+      marks.map((mark) => `${mark.from}:${mark.to}`).join("\n");
+
     const semanticTokensSignature = (raw: unknown): string => {
       const data = Array.isArray((raw as { data?: unknown[] } | null)?.data)
         ? (raw as { data: unknown[] }).data
@@ -2367,7 +2830,58 @@ class LeanPlaceholderWidget extends WidgetType {
       return `${data.length}:${String(data[0] ?? "")}:${String(data.at(-1) ?? "")}`;
     };
 
-    const child = new EditorView({
+    const copilotEditorId = `lean:${noteInfo.notePath}:${tag}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2)}`;
+    const copilotChangeHandlers = new Set<() => void>();
+    let copilotRegistered = false;
+    let child: EditorView;
+    const registerCopilotEditor = (): void => {
+      if (destroyed || !loaded || copilotRegistered) return;
+      const detail: CopilotEditorDetail = {
+        id: copilotEditorId,
+        editor: leanCopilotEditor(child),
+        host: outer,
+        currentFile: () => ctx.leanPath || noteInfo.notePath,
+        vimMode: () => (child.dom.dataset.leanVimMode as LeanVimMode | undefined) || "insert",
+        setStatus: (message) => {
+          status.textContent = message;
+          card.classList.remove("is-error");
+        },
+        onChange(handler) {
+          copilotChangeHandlers.add(handler);
+          return () => copilotChangeHandlers.delete(handler);
+        },
+        onKeyDown(handler) {
+          const listener = (event: KeyboardEvent): void => {
+            if (!handler(event)) return;
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+          };
+          child.dom.addEventListener("keydown", listener, { capture: true });
+          return () => child.dom.removeEventListener("keydown", listener, { capture: true });
+        },
+        onAction: () => () => {},
+        onDocumentEvent(type, handler, options) {
+          const listener = handler as EventListener;
+          const targets: EventTarget[] = [document];
+          if (type === "scroll") targets.push(child.scrollDOM);
+          if (type === "keyup" || type === "mouseup") targets.push(child.dom);
+          for (const target of targets) target.addEventListener(type, listener, options);
+          return () => {
+            for (const target of targets) target.removeEventListener(type, listener, options);
+          };
+        },
+        jumpSnippetNext: () => hasNextSnippetField(child.state) ? nextSnippetField(child) : false,
+        jumpSnippetPrevious: () => hasPrevSnippetField(child.state) ? prevSnippetField(child) : false,
+        forwardDelimiter: () => false,
+        backwardDelimiter: () => false,
+        ack: () => {
+          copilotRegistered = true;
+        },
+      };
+      window.dispatchEvent(new CustomEvent(copilotRegisterEvent, { detail }));
+    };
+
+    child = new EditorView({
       state: EditorState.create({
         doc: "",
         extensions: leanEditorExtensions(ctx, tooltipContainer, (text) => {
@@ -2380,6 +2894,7 @@ class LeanPlaceholderWidget extends WidgetType {
             saveTimer = null;
             void syncRegion(text, "save");
           }, 420);
+          for (const handler of copilotChangeHandlers) handler();
         }, (view) => {
           lastPushRetryKey = "";
           renderGoals(view, true);
@@ -2392,11 +2907,15 @@ class LeanPlaceholderWidget extends WidgetType {
     host.addEventListener("mousedown", () => {
       publishLeanRegionActive(noteInfo.notePath, tag);
       void ctx.ensureLspOpen?.().then((ok) => { if (ok) renderGoals(child); });
-      window.setTimeout(() => child.focus(), 0);
+      window.setTimeout(() => {
+        child.focus();
+        registerCopilotEditor();
+      }, 0);
     });
     host.addEventListener("focusin", () => {
       publishLeanRegionActive(noteInfo.notePath, tag);
       void ctx.ensureLspOpen?.().then((ok) => { if (ok) renderGoals(child); });
+      registerCopilotEditor();
     });
     (outer as HTMLElement & { __leanChild?: EditorView; __leanTooltips?: HTMLDivElement }).__leanChild = child;
     (outer as HTMLElement & { __leanChild?: EditorView; __leanTooltips?: HTMLDivElement }).__leanTooltips = tooltipContainer;
@@ -2439,11 +2958,21 @@ class LeanPlaceholderWidget extends WidgetType {
       scheduleGoalRetryFromPush();
     });
     const unsubProgress = api.lean.onProgress((raw) => {
-      const data = raw as { uri?: string; version?: number };
+      const data = raw as { uri?: string; version?: number; processing?: unknown[] };
       if (!ctx.leanPath || data.uri !== fileUri(ctx.leanPath)) return;
       if (typeof data.version === "number") {
         if (typeof ctx.lspVersion === "number" && data.version < ctx.lspVersion) return;
         ctx.lspVersion = data.version;
+      }
+      const marks = progressMarksFromLeanNotification(ctx, data.processing ?? [], child.state.doc.length);
+      const sig = progressSignature(marks);
+      if (sig !== lastProgressSig) {
+        if (progressTimer) clearTimeout(progressTimer);
+        progressTimer = setTimeout(() => {
+          progressTimer = null;
+          lastProgressSig = sig;
+          child.dispatch({ effects: SetLeanProgress.of(marks) });
+        }, 180);
       }
       scheduleGoalRetryFromPush();
     });
@@ -2553,10 +3082,13 @@ class LeanPlaceholderWidget extends WidgetType {
       unsubSemanticTokens();
       if (goalRetryTimer) clearTimeout(goalRetryTimer);
       if (diagnosticsTimer) clearTimeout(diagnosticsTimer);
+      if (progressTimer) clearTimeout(progressTimer);
       if (semanticTokensTimer) clearTimeout(semanticTokensTimer);
       window.removeEventListener("aaronnote:lean-region-jump", onRegionJump);
       window.removeEventListener("aaronnote:lean-region-insert", onRegionInsert);
       window.removeEventListener("aaronnote:lean-region-apply-edit", onRegionApplyEdit);
+      hideLeanJumpOverlay();
+      window.dispatchEvent(new CustomEvent(copilotDisposeEvent, { detail: { id: copilotEditorId } }));
       if ((lspOpened || lspOpenPromise) && ctx.leanPath) void api.lean.closeNote({ leanPath: ctx.leanPath }).catch(() => {});
     };
 
@@ -2576,6 +3108,8 @@ class LeanPlaceholderWidget extends WidgetType {
         lastSyncedBody = String(res.body ?? "");
         status.textContent = "Ready";
         card.classList.remove("is-error");
+        if (child.hasFocus) registerCopilotEditor();
+        window.requestAnimationFrame(() => parentView.requestMeasure());
       })
       .catch((err) => {
         status.textContent = err instanceof Error ? err.message : "Error";

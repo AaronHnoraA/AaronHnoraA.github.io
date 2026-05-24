@@ -61,9 +61,18 @@ type RuntimeSettings = {
 type NativeCopilotApi = {
   request?: (action: string, body?: unknown) => Promise<unknown>;
 };
+type AuxiliaryContext = Partial<Context> & {
+  id?: string;
+  ack?: () => void;
+};
+type SetupOptions = {
+  auxiliaryEvents?: boolean;
+};
 
 const defaultIdleDelayMs = 850;
 const defaultLargeBufferThresholdKb = 512;
+const auxiliaryRegisterEvent = "aaronnote:copilot-register-editor";
+const auxiliaryDisposeEvent = "aaronnote:copilot-dispose-editor";
 const forwardKeys = new Set(["]", "】", "］", "」", "〕"]);
 const backwardKeys = new Set(["[", "【", "［", "「", "〔"]);
 const wordKeys = new Set(["\\", "、", "＼"]);
@@ -121,11 +130,21 @@ async function copyLog(value: unknown): Promise<void> {
 }
 
 function targetInHost(host: HTMLElement, target: EventTarget | null): boolean {
-  return target instanceof Node && host.contains(target);
+  if (!(target instanceof Node)) return false;
+  if (target === host || host.contains(target)) return true;
+  const root = target.getRootNode?.();
+  return root instanceof ShadowRoot && (root.host === host || host.contains(root.host));
 }
 
 function cmdOnly(event: KeyboardEvent): boolean {
   return event.metaKey && !event.ctrlKey && !event.altKey;
+}
+
+function toCharShortcut(event: KeyboardEvent): boolean {
+  if (!event.shiftKey) return false;
+  return toCharKeys.has(event.key)
+    || event.key === "]"
+    || event.code === "BracketRight";
 }
 
 function printableKey(event: KeyboardEvent): string {
@@ -239,7 +258,7 @@ function trimmedCompletionInsertText(
   return { insertText, acceptedBaseLength: 0 };
 }
 
-export function setup(context: Context): () => void {
+function setupCopilot(context: Context, options: SetupOptions = {}): () => void {
   const ghost = document.createElement("div");
   ghost.className = "aaronnote-copilot-ghost";
   ghost.hidden = true;
@@ -259,8 +278,13 @@ export function setup(context: Context): () => void {
   overflow: hidden;
   font: 15px/1.6 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 }
+.aaronnote-copilot-ghost--lean {
+  color: rgb(156 199 255 / 68%);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 46%);
+}
 `;
   document.head.appendChild(style);
+  ghost.classList.toggle("aaronnote-copilot-ghost--lean", context.host.classList.contains("cm-lean-placeholder-widget"));
 
   let timer = 0;
   let seq = 0;
@@ -269,6 +293,7 @@ export function setup(context: Context): () => void {
   let visible: VisibleCompletion | null = null;
   let settings = normalizeSettings(context.getSettings());
   const cleanups: Array<() => void> = [];
+  const auxiliaryCleanups = new Map<string, () => void>();
 
   function clearCompletion(): void {
     visible = null;
@@ -451,33 +476,30 @@ export function setup(context: Context): () => void {
     }
     if (context.vimMode() !== "insert" || !cmdOnly(event)) return false;
     if (!event.shiftKey && forwardKeys.has(event.key)) {
-      event.preventDefault();
-      if (visible && acceptAll()) return true;
-      if (context.jumpSnippetNext()) return true;
-      if (acceptAll()) return true;
-      return context.forwardDelimiter();
+      const handled = visible ? acceptAll() : context.jumpSnippetNext() || context.forwardDelimiter();
+      if (handled) event.preventDefault();
+      return handled;
     }
     if (!event.shiftKey && backwardKeys.has(event.key)) {
-      event.preventDefault();
-      if (context.jumpSnippetPrevious()) return true;
-      return context.backwardDelimiter();
+      const handled = context.jumpSnippetPrevious() || context.backwardDelimiter();
+      if (handled) event.preventDefault();
+      return handled;
     }
     if (!event.shiftKey && wordKeys.has(event.key)) {
-      event.preventDefault();
-      if (visible && acceptWord()) return true;
-      if (context.jumpSnippetNext()) return true;
-      if (acceptWord()) return true;
-      return context.forwardDelimiter();
+      const handled = visible ? acceptWord() : context.jumpSnippetNext() || context.forwardDelimiter();
+      if (handled) event.preventDefault();
+      return handled;
     }
-    if (event.shiftKey && toCharKeys.has(event.key)) {
-      event.preventDefault();
+    if (toCharShortcut(event)) {
       if (visible) {
         pendingToChar = true;
         context.setStatus("Copilot to char");
+        event.preventDefault();
         return true;
       }
-      if (context.jumpSnippetNext()) return true;
-      return context.forwardDelimiter();
+      const handled = context.jumpSnippetNext() || context.forwardDelimiter();
+      if (handled) event.preventDefault();
+      return handled;
     }
     return false;
   }
@@ -558,6 +580,55 @@ export function setup(context: Context): () => void {
   cleanups.push(context.onDocumentEvent("scroll", () => renderCompletion(), { capture: true }));
   window.addEventListener("resize", renderCompletion);
   cleanups.push(() => window.removeEventListener("resize", renderCompletion));
+
+  if (options.auxiliaryEvents !== false) {
+    const disposeAuxiliary = (id: string): void => {
+      const cleanup = auxiliaryCleanups.get(id);
+      if (!cleanup) return;
+      auxiliaryCleanups.delete(id);
+      cleanup();
+    };
+    const registerAuxiliary = (event: Event): void => {
+      const detail = (event as CustomEvent<AuxiliaryContext>).detail;
+      const id = String(detail?.id || "");
+      if (!id || !detail?.editor || !(detail.host instanceof HTMLElement)) return;
+      if (auxiliaryCleanups.has(id)) {
+        detail.ack?.();
+        return;
+      }
+      for (const existingId of [...auxiliaryCleanups.keys()]) disposeAuxiliary(existingId);
+      const auxiliaryContext: Context = {
+        editor: detail.editor,
+        host: detail.host,
+        currentFile: typeof detail.currentFile === "function" ? detail.currentFile : context.currentFile,
+        vimMode: typeof detail.vimMode === "function" ? detail.vimMode : context.vimMode,
+        setStatus: typeof detail.setStatus === "function" ? detail.setStatus : context.setStatus,
+        onChange: typeof detail.onChange === "function" ? detail.onChange : () => () => {},
+        onKeyDown: typeof detail.onKeyDown === "function" ? detail.onKeyDown : () => () => {},
+        onAction: () => () => {},
+        onSettingsChange: context.onSettingsChange,
+        getSettings: context.getSettings,
+        onDocumentEvent: typeof detail.onDocumentEvent === "function" ? detail.onDocumentEvent : context.onDocumentEvent,
+        jumpSnippetNext: typeof detail.jumpSnippetNext === "function" ? detail.jumpSnippetNext : () => false,
+        jumpSnippetPrevious: typeof detail.jumpSnippetPrevious === "function" ? detail.jumpSnippetPrevious : () => false,
+        forwardDelimiter: typeof detail.forwardDelimiter === "function" ? detail.forwardDelimiter : () => false,
+        backwardDelimiter: typeof detail.backwardDelimiter === "function" ? detail.backwardDelimiter : () => false,
+      };
+      auxiliaryCleanups.set(id, setupCopilot(auxiliaryContext, { auxiliaryEvents: false }));
+      detail.ack?.();
+    };
+    const disposeAuxiliaryEvent = (event: Event): void => {
+      const id = String((event as CustomEvent<{ id?: string }>).detail?.id || "");
+      if (id) disposeAuxiliary(id);
+    };
+    window.addEventListener(auxiliaryRegisterEvent, registerAuxiliary as EventListener);
+    window.addEventListener(auxiliaryDisposeEvent, disposeAuxiliaryEvent as EventListener);
+    cleanups.push(() => {
+      window.removeEventListener(auxiliaryRegisterEvent, registerAuxiliary as EventListener);
+      window.removeEventListener(auxiliaryDisposeEvent, disposeAuxiliaryEvent as EventListener);
+      for (const id of [...auxiliaryCleanups.keys()]) disposeAuxiliary(id);
+    });
+  }
   schedule();
 
   return () => {
@@ -566,4 +637,8 @@ export function setup(context: Context): () => void {
     ghost.remove();
     style.remove();
   };
+}
+
+export function setup(context: Context): () => void {
+  return setupCopilot(context, { auxiliaryEvents: true });
 }

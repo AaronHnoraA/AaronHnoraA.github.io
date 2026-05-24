@@ -87,9 +87,32 @@ fencedCodeExtension        — StateField: fenced-code/diagram widget decoration
 taskListExtension          — StateField: task checkbox widgets
 imageExtension             — ViewPlugin: image widgets (layout-aware)
 inlineCommandsExtension    — StateField: @@cmd inline command widgets
+leanPlaceholderExtension   — ViewPlugin/StateField: @@lean4 [tag] child editors
 ```
 
 Toggling source mode reconfigures `previewCompartment` with `[]` (empty) — the Lezer tree and history remain intact.
+
+### Embedded Lean editor architecture
+
+Lean uses a split storage model:
+
+- Markdown stores only a whole-line `@@lean4 [tag]` placeholder.
+- The corresponding Lean code lives in a derived mirror file under
+  `<notesRoot>/.lean/`.
+- The active Lake project and Lake cache are inside `<notesRoot>/.lean/`; a
+  duplicate `<notesRoot>/.lake/` is not part of the active project layout.
+
+`src/cm6/widgets/lean-placeholder.ts` renders the placeholder as an isolated
+CM6 child editor. It maps region-local offsets to full `.lean` file
+line/character positions before calling Lean LSP for diagnostics, goals, hover,
+completion, semantic tokens, document symbols, and Infoview data. The child
+editor consumes its own editing, Vim, jump, completion, and Copilot keys so the
+outer Markdown editor does not receive duplicate events.
+
+The app shell owns the left Lean panel in `aaronnote/lean-panel.ts`. The panel
+has a scrollable Infoview/messages area and a bottom-pinned outline backed by
+Lean LSP `textDocument/documentSymbol`; outline rows dispatch region-jump events
+back to the embedded editor mapping layer.
 
 ### Source-range data protocol
 
@@ -221,6 +244,10 @@ All service logic lives in `Aaronnote/server/lib/`. The desktop main process imp
 | `media.mjs` | `resolveMediaFile(file, base)`, `fileContentType(path)` — used by `aaronnote-asset://media` protocol handler |
 | `plugins.mjs` | `scanPluginDescriptors()`, `readPluginOverrides()`, `writePluginOverrides()` |
 | `copilot.mjs` | `handleCopilotRequest(action, body)` — LSP client lifecycle and inline completions |
+| `lean.mjs` | `handleLeanRequest(action, body)` — Lean LSP lifecycle, region operations, goals, hover, completion, diagnostics, Infoview RPC, and Lake cache commands |
+| `lean-mirror.mjs` | Mirror path and notes-root-to-`.lean/` project helpers |
+| `lean-region.mjs` | Tagged-region parser/update/delete helpers for `-- @aaronnote <tag>` regions |
+| `lsp-base.mjs` | Shared JSON-RPC/LSP stdio process plumbing |
 | `roamlookup.mjs` | `handleRoamLookupRequest(action, body)` — Codex session lifecycle |
 | `roam-git.mjs` | `headSha()`, `changedRoamFilesSince(commit)`, `commitRoam(message)`, `fileHistory(file, limit)`, `restoreFileFromCommit(file, sha)` |
 | `runtime.mjs` | Implementation backing all exports above. ~4,200 lines. Do not import this directly from new code — use the domain-specific module instead. |
@@ -279,6 +306,7 @@ aaronnote:api:notes:templates
 aaronnote:api:notes:snippets
 aaronnote:api:notes:todos
 aaronnote:api:notes:meta-add
+aaronnote:api:lean:request
 aaronnote:api:roam-tools:rename-tag
 aaronnote:api:roam-tools:delete-tag
 aaronnote:api:roam-tools:tag-overlap
@@ -325,6 +353,7 @@ aaronnote:open-file         — main → renderer: open a file (from menu, argv,
 aaronnote:choose-note-path  — renderer → main: native file/directory picker
 aaronnote:trash-note        — renderer → main: move to trash
 aaronnote:export-pdf        — renderer → main: print to PDF
+aaronnote:lean:*            — main → renderer: diagnostics, progress, semantic tokens, status, and client notifications
 ```
 
 ### `aaronnote-asset://` custom protocol
