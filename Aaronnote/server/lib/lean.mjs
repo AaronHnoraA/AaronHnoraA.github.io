@@ -72,6 +72,16 @@ function clearRpcSessions() {
   rpcSessions.clear();
 }
 
+function clearRpcSessionsForUri(uri) {
+  const cleanUri = String(uri || "");
+  if (!cleanUri) return;
+  for (const [sessionId, session] of rpcSessions.entries()) {
+    if (session.uri !== cleanUri) continue;
+    if (session.keepAliveTimer) clearInterval(session.keepAliveTimer);
+    rpcSessions.delete(sessionId);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Path helpers
 // ---------------------------------------------------------------------------
@@ -482,6 +492,7 @@ class LeanLspClient extends LspClient {
     const uri = pathToFileURL(leanPath).href;
     if (!this.documents.has(uri)) return false;
     this.documents.delete(uri);
+    clearRpcSessionsForUri(uri);
     diagnosticsCache.delete(uri);
     progressCache.delete(uri);
     pushDiagnostics?.({ uri, diagnostics: [] });
@@ -1248,7 +1259,9 @@ export async function handleLeanRequest(action, body = {}) {
     const client = leanClient;
     if (!client?.running) return { ok: false, message: "Lean server not running" };
     if (!sessionId) return { ok: false, message: "Missing RPC session" };
+    const session = rpcSessions.get(String(sessionId));
     await client.lspNotify("$/lean/rpc/release", {
+      ...(session?.uri ? { uri: session.uri } : {}),
       sessionId,
       refs: Array.isArray(refs) ? refs : undefined,
     });

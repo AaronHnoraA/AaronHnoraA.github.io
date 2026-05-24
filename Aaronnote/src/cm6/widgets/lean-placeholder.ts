@@ -283,7 +283,7 @@ function cleanSnippetText(value: string): string {
     .replace(/\$\d+/g, "");
 }
 
-type LspCompletionItem = {
+export type LspCompletionItem = {
   label?: string;
   labelDetails?: { detail?: string; description?: string };
   detail?: string;
@@ -1163,7 +1163,9 @@ function leanCompletionSource(ctx: LeanContext) {
       const docText = stripHoverFence(completionDocumentation(c));
       return {
         label,
-        apply: completionApplyText(c),
+        apply: (view: EditorView, completion: Completion, completionFrom: number, completionTo: number) => {
+          applyLeanCompletion(ctx, c, view, completion, completionFrom, completionTo);
+        },
         boost: c.filterText && c.filterText !== label ? 1 : undefined,
         detail: typeDetail ? leanSummary(typeDetail, 120) : undefined,
         info: async () => {
@@ -1820,7 +1822,9 @@ function handleLeanCompletionKey(event: KeyboardEvent, view: EditorView): boolea
   }
   if (key === "Tab") {
     blockKey(event);
-    if (status === "active") acceptCompletion(view);
+    if (event.shiftKey && hasPrevSnippetField(view.state)) prevSnippetField(view);
+    else if (!event.shiftKey && hasNextSnippetField(view.state)) nextSnippetField(view);
+    else if (status === "active") acceptCompletion(view);
     else if (status === "pending") return true;
     else if (event.shiftKey) unindentLeanSelection(view);
     else indentLeanSelection(view);
@@ -2397,6 +2401,7 @@ class LeanPlaceholderWidget extends WidgetType {
           : []),
       ];
       const changes: Array<{ from: number; to: number; insert: string }> = [];
+      let rejected = false;
       for (const textEdit of rawEdits) {
         const start = textEdit.range?.start;
         const end = textEdit.range?.end ?? start;
@@ -2405,10 +2410,19 @@ class LeanPlaceholderWidget extends WidgetType {
         const fullTo = positionToOffset(ctx.leanText, Number(end.line ?? 0), Number(end.character ?? 0));
         const from = fullOffsetToLocal(ctx, fullFrom);
         const to = fullOffsetToLocal(ctx, fullTo);
-        if (from == null || to == null) continue;
+        if (from == null || to == null) {
+          rejected = true;
+          continue;
+        }
         changes.push({ from, to, insert: String(textEdit.newText ?? "") });
       }
+      if (rejected) {
+        status.textContent = "Edit outside region rejected";
+        card.classList.add("is-error");
+        return;
+      }
       if (changes.length === 0) return;
+      card.classList.remove("is-error");
       child.dispatch({
         changes: changes.sort((a, b) => a.from - b.from) as ChangeSpec,
         scrollIntoView: true,
