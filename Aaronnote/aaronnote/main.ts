@@ -970,6 +970,22 @@ const leanPanel = createLeanPanel({
 
 leanTriggerBtn.addEventListener("click", () => leanPanel.toggle());
 
+let activeLeanRegionForCommand: { notePath: string; tag: string } | null = null;
+
+window.addEventListener("aaronnote:lean-region-infoview", (event) => {
+  const detail = (event as CustomEvent<{ notePath?: string; tag?: string }>).detail;
+  const notePath = String(detail?.notePath ?? "");
+  const tag = String(detail?.tag ?? "").trim();
+  activeLeanRegionForCommand = notePath && tag ? { notePath, tag } : null;
+});
+
+window.addEventListener("aaronnote:lean-region-active", (event) => {
+  const detail = (event as CustomEvent<{ notePath?: string; tag?: string }>).detail;
+  const notePath = String(detail?.notePath ?? "");
+  const tag = String(detail?.tag ?? "").trim();
+  activeLeanRegionForCommand = notePath && tag ? { notePath, tag } : null;
+});
+
 async function restartLeanServerForCurrentNote(): Promise<void> {
   if (!api.lean.available()) {
     setStatus("Lean unavailable");
@@ -1004,23 +1020,74 @@ function generatedLeanTag(): string {
   return `lean-${Date.now().toString(36)}`;
 }
 
-function leanPlaceholderContextAt(markdown: string, pos: number): { beforeTag: string; afterTag: string } {
-  const cursor = Math.max(0, Math.min(markdown.length, pos));
+type LeanPlaceholderRef = {
+  tag: string;
+  from: number;
+  to: number;
+  lineFrom: number;
+  lineTo: number;
+};
+
+function scanMarkdownLeanPlaceholders(markdown: string): LeanPlaceholderRef[] {
+  const out: LeanPlaceholderRef[] = [];
   const re = /^[ \t]*@@lean4[ \t]+\[([^\]]+)\][ \t]*$/gm;
-  let beforeTag = "";
-  let afterTag = "";
   let match: RegExpExecArray | null;
   while ((match = re.exec(markdown))) {
+    const lineFrom = match.index;
+    const lineTo = re.lastIndex;
+    const leading = String(match[0]).indexOf("@@lean4");
     const tag = String(match[1] ?? "").trim();
     if (!tag) continue;
-    if (match.index < cursor && re.lastIndex <= cursor) {
-      beforeTag = tag;
+    out.push({
+      tag,
+      from: lineFrom + Math.max(0, leading),
+      to: lineTo,
+      lineFrom,
+      lineTo,
+    });
+  }
+  return out;
+}
+
+function leanPlaceholderContextAt(markdown: string, pos: number): { beforeTag: string; afterTag: string } {
+  const cursor = Math.max(0, Math.min(markdown.length, pos));
+  let beforeTag = "";
+  let afterTag = "";
+  for (const placeholder of scanMarkdownLeanPlaceholders(markdown)) {
+    if (placeholder.lineFrom < cursor && placeholder.lineTo <= cursor) {
+      beforeTag = placeholder.tag;
       continue;
     }
-    afterTag = tag;
+    afterTag = placeholder.tag;
     break;
   }
   return { beforeTag, afterTag };
+}
+
+function leanPlaceholderByTag(markdown: string, tag: string): LeanPlaceholderRef | null {
+  const cleanTag = tag.trim();
+  if (!cleanTag) return null;
+  return scanMarkdownLeanPlaceholders(markdown).find((placeholder) => placeholder.tag === cleanTag) ?? null;
+}
+
+function currentLeanPlaceholder(markdown: string, pos: number): LeanPlaceholderRef | null {
+  const cursor = Math.max(0, Math.min(markdown.length, pos));
+  const placeholders = scanMarkdownLeanPlaceholders(markdown);
+  for (const placeholder of placeholders) {
+    if (cursor >= placeholder.lineFrom && cursor <= placeholder.lineTo) return placeholder;
+  }
+  return null;
+}
+
+function removeLeanPlaceholderLine(markdown: string, placeholder: LeanPlaceholderRef): void {
+  let from = placeholder.lineFrom;
+  let to = placeholder.lineTo;
+  if (to < markdown.length && markdown[to] === "\n") {
+    to += 1;
+  } else if (from > 0 && markdown[from - 1] === "\n") {
+    from -= 1;
+  }
+  editor.replaceMarkdownRange(from, to, "", "start");
 }
 
 async function insertLeanBlock(): Promise<void> {
@@ -1045,6 +1112,37 @@ async function insertLeanBlock(): Promise<void> {
     setStatus(`Lean block ${finalTag}`);
   } catch (err) {
     setStatus(err instanceof Error ? err.message : "Lean block create failed");
+  }
+}
+
+async function cleanCurrentLeanBlock(): Promise<void> {
+  if (!api.lean.available()) {
+    setStatus("Lean unavailable");
+    return;
+  }
+  if (!currentFile || !leanNotesRoot || currentStandalone) {
+    setStatus("Lean cleanup requires a roam markdown note");
+    return;
+  }
+  const markdown = editor.getMarkdown();
+  const activeTag = activeLeanRegionForCommand?.notePath === currentFile ? activeLeanRegionForCommand.tag : "";
+  const placeholder = leanPlaceholderByTag(markdown, activeTag)
+    ?? currentLeanPlaceholder(markdown, editor.getMarkdownSelection().from);
+  if (!placeholder) {
+    setStatus("No Lean tag at cursor");
+    return;
+  }
+  setStatus("Cleaning Lean block");
+  try {
+    const result = await api.lean.deleteRegion({ notePath: currentFile, tag: placeholder.tag });
+    const response = result as { ok?: boolean; message?: string } | null;
+    if (response?.ok === false) throw new Error(response.message || "Lean region cleanup failed");
+    removeLeanPlaceholderLine(markdown, placeholder);
+    if (activeLeanRegionForCommand?.tag === placeholder.tag) activeLeanRegionForCommand = null;
+    scheduleAssistUpdate();
+    setStatus(`Lean block ${placeholder.tag} cleaned`);
+  } catch (err) {
+    setStatus(err instanceof Error ? err.message : "Lean block cleanup failed");
   }
 }
 
@@ -5207,6 +5305,7 @@ function commandPaletteCommands(): AaronnoteCommand[] {
     { id: "find", title: "Find and replace", group: "Editor", keywords: ["search"], run: openFindTool },
     { id: "block-menu", title: "Open block menu", group: "Editor", keywords: ["slash", "insert"], run: openBlockMenu },
     { id: "insert-lean-block", title: "Insert Lean block", group: "Editor", keywords: ["lean4", "proof"], enabled: () => !!currentFile && !currentStandalone, run: () => void insertLeanBlock() },
+    { id: "clean-lean-block", title: "Clean current Lean block", group: "Editor", keywords: ["lean4", "delete", "tag"], enabled: () => !!currentFile && !currentStandalone, run: () => void cleanCurrentLeanBlock() },
 
     { id: "notes", title: "Open notes", group: "Navigation", keywords: ["filesystem"], run: () => showNotesPage("filesystem") },
     { id: "relation", title: "Open relation", group: "Navigation", keywords: ["backlinks", "refs", "links"], enabled: () => !!currentFile, run: toggleRelationPanel },
@@ -7234,12 +7333,18 @@ document.addEventListener("aaronnote:attachment-context-menu", (event) => {
 });
 
 host.addEventListener("contextmenu", (event) => {
-  if (!primaryPointerModifier(event)) return;
   const anchor = (event.target as Element | null)?.closest<HTMLAnchorElement>("a[href]");
-  if (!anchor || !host.contains(anchor)) return;
+  if (anchor && host.contains(anchor) && primaryPointerModifier(event)) {
+    event.preventDefault();
+    event.stopPropagation();
+    linkPreview.show(anchor.getAttribute("href") || anchor.href, event.clientX, event.clientY);
+    return;
+  }
+  if (!host.contains(event.target as Node | null)) return;
   event.preventDefault();
   event.stopPropagation();
-  linkPreview.show(anchor.getAttribute("href") || anchor.href, event.clientX, event.clientY);
+  void api.shell.showEditorContextMenu()
+    .catch((err) => setStatus(err instanceof Error ? err.message : "Context menu failed"));
 });
 
 document.addEventListener("mousedown", (event) => {
@@ -7306,6 +7411,7 @@ window.addEventListener("aaronnote:command", (event) => {
   if (command === "open-plugin-manager") showPluginPage();
   if (command === "open-block-menu") openBlockMenu();
   if (command === "insert-lean-block") void insertLeanBlock();
+  if (command === "clean-lean-block") void cleanCurrentLeanBlock();
   if (command === "toggle-source") toggleSourceMode();
   if (command === "restart-lean-server") void restartLeanServerForCurrentNote();
   if (command === "save-now") save();

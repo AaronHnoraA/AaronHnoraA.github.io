@@ -121423,6 +121423,12 @@ $$
 Let $X$ be a space of encodings of algebraic structures, and let $G$ be
 the group of admissible changes of coordinates. If two encodings represent
 isomorphic structures exactly when they differ by a change of coordinates,
+
+
+this is hard to use as 
+
+
+
 then the isomorphism problem is equivalent to deciding whether two points
 of $X$ lie in the same $G$-orbit.
 #+end theorem

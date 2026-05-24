@@ -94,6 +94,7 @@ type NativeApi = {
     showInFolder?: (file: string) => Promise<unknown>;
     openPath?: (file: string) => Promise<unknown>;
     showAttachmentMenu?: (file: string, base?: string) => Promise<unknown>;
+    showEditorContextMenu?: () => Promise<unknown>;
   };
   copilot?: {
     request?: (action: string, body?: unknown) => Promise<unknown>;
@@ -139,6 +140,7 @@ type NativeApi = {
     ensureRegion?: (body?: unknown) => Promise<unknown>;
     readRegion?: (body?: unknown) => Promise<unknown>;
     updateRegion?: (body?: unknown) => Promise<unknown>;
+    deleteRegion?: (body?: unknown) => Promise<unknown>;
     openRegionFile?: (body?: unknown) => Promise<unknown>;
     getRegionMeta?: (body?: unknown) => Promise<unknown>;
     onDiagnostics?: (handler: (data: unknown) => void) => () => void;
@@ -467,6 +469,11 @@ export const api = {
       const native = requireMethod(requireNative().shell?.showAttachmentMenu, "Native shell integration");
       ensureOk(await native(file, base), "Attachment menu failed");
     },
+
+    async showEditorContextMenu(): Promise<void> {
+      const native = requireMethod(requireNative().shell?.showEditorContextMenu, "Native shell integration");
+      ensureOk(await native(), "Context menu failed");
+    },
   },
 
   lean: {
@@ -532,6 +539,10 @@ export const api = {
 
     async updateRegion(body: Record<string, unknown>): Promise<unknown> {
       return api.lean.request("update-region", body);
+    },
+
+    async deleteRegion(body: Record<string, unknown>): Promise<unknown> {
+      return api.lean.request("delete-region", body);
     },
 
     async openRegionFile(body: Record<string, unknown>): Promise<unknown> {

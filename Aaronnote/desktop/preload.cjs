@@ -102,6 +102,7 @@ contextBridge.exposeInMainWorld("aaronnoteApi", {
       String(file || ""),
       String(base || ""),
     ),
+    showEditorContextMenu: () => invoke("aaronnote:api:shell:show-editor-context-menu"),
   },
   copilot: {
     request: (action = "", body = {}) => invoke("aaronnote:api:copilot:request", String(action || ""), body),

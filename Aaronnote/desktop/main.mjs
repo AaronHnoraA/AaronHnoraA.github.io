@@ -504,6 +504,20 @@ function registerApiIpc() {
     ]).popup();
     return { ok: true, file: target };
   });
+  ipcMain.handle("aaronnote:api:shell:show-editor-context-menu", (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    Menu.buildFromTemplate([
+      {
+        label: "Insert Lean Block",
+        click: () => runInSpecificWindow(win, dispatchCommandScript("insert-lean-block")),
+      },
+      {
+        label: "Clean Current Lean Block",
+        click: () => runInSpecificWindow(win, dispatchCommandScript("clean-lean-block")),
+      },
+    ]).popup({ window: win ?? undefined });
+    return { ok: true };
+  });
   registerApiHandler("aaronnote:api:copilot:request", (action, body) => handleCopilotRequest(String(action || ""), body || {}));
   registerApiHandler("aaronnote:api:roamlookup:request", (action, body) => handleRoamLookupRequest(String(action || ""), body || {}));
   registerApiHandler("aaronnote:api:lean:request", (action, body) => handleLeanRequest(String(action || ""), body || {}));
@@ -1250,6 +1264,10 @@ function buildMenu() {
         label: "Insert Lean Block",
         accelerator: "CmdOrCtrl+Shift+L",
         click: () => runInWindow(dispatchCommandScript("insert-lean-block")),
+      },
+      {
+        label: "Clean Current Lean Block",
+        click: () => runInWindow(dispatchCommandScript("clean-lean-block")),
       },
       {
         label: "Restart Lean for Current Note",

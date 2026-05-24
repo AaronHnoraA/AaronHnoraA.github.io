@@ -22,8 +22,14 @@ import {
   closeBrackets,
   completionKeymap,
   completionStatus,
+  hasNextSnippetField,
+  hasPrevSnippetField,
   moveCompletionSelection,
+  nextSnippetField,
+  prevSnippetField,
   setSelectedCompletion,
+  snippet,
+  snippetCompletion,
   startCompletion,
   type Completion,
   type CompletionContext,
@@ -286,8 +292,14 @@ type LspCompletionItem = {
   insertText?: string;
   insertTextFormat?: number;
   kind?: number;
-  textEdit?: { newText?: string };
+  textEdit?: { newText?: string; range?: LspRange };
+  additionalTextEdits?: Array<{ newText?: string; range?: LspRange }>;
   data?: unknown;
+};
+
+type LspRange = {
+  start?: { line?: number; character?: number };
+  end?: { line?: number; character?: number };
 };
 
 function completionType(kind: number | undefined): Completion["type"] {
@@ -334,10 +346,23 @@ function completionDetailText(item: LspCompletionItem): string {
   ].map((part) => String(part ?? "").trim()).filter(Boolean).join(" ");
 }
 
-function completionApplyText(item: LspCompletionItem): string | undefined {
+function normalizeLspSnippetTemplate(value: string): string {
+  return value
+    .replace(/\$\{(\d+)\|([^}]*)\|\}/g, (_match, idx: string, choices: string) => {
+      const first = choices.split(",")[0] ?? "";
+      return `\${${idx}:${first}}`;
+    })
+    .replace(/\$(\d+)/g, (_match, idx: string) => `\${${idx}}`);
+}
+
+export function leanCompletionApplyTextForTest(item: LspCompletionItem): string | undefined {
   const text = item.textEdit?.newText ?? item.insertText;
   if (!text) return undefined;
-  return item.insertTextFormat === 2 ? cleanSnippetText(String(text)) : String(text);
+  return item.insertTextFormat === 2 ? normalizeLspSnippetTemplate(String(text)) : String(text);
+}
+
+function completionApplyText(item: LspCompletionItem): string | undefined {
+  return leanCompletionApplyTextForTest(item);
 }
 
 async function resolveCompletion(item: LspCompletionItem): Promise<LspCompletionItem> {
@@ -383,9 +408,8 @@ async function leanSnippetCompletions(): Promise<Completion[]> {
     const name = String(snippet.name || label || "snippet").trim();
     if (!label) continue;
     const detail = name !== label ? name : "lean4-mode snippet";
-    completions.push({
+    completions.push(snippetCompletion(expanded.text, {
       label,
-      apply: expanded.text,
       detail,
       type: "text",
       section: "Snippets",
@@ -402,9 +426,49 @@ async function leanSnippetCompletions(): Promise<Completion[]> {
         dom.append(kind, pre);
         return dom;
       },
-    });
+    }));
   }
   return completions;
+}
+
+function lspRangeToLocal(ctx: LeanContext, range: LspRange | undefined, fallbackFrom: number, fallbackTo: number): { from: number; to: number } | null {
+  if (!range) return { from: fallbackFrom, to: fallbackTo };
+  const start = range.start;
+  const end = range.end ?? start;
+  if (!start || !end) return { from: fallbackFrom, to: fallbackTo };
+  const fullFrom = positionToOffset(ctx.leanText, Number(start.line ?? 0), Number(start.character ?? 0));
+  const fullTo = positionToOffset(ctx.leanText, Number(end.line ?? 0), Number(end.character ?? 0));
+  const from = fullOffsetToLocal(ctx, fullFrom);
+  const to = fullOffsetToLocal(ctx, fullTo);
+  if (from == null || to == null) return null;
+  return { from, to };
+}
+
+function changeFrom(change: ChangeSpec): number {
+  return typeof change === "object" && change !== null && "from" in change ? Number(change.from) : 0;
+}
+
+function applyLeanCompletion(ctx: LeanContext, item: LspCompletionItem, view: EditorView, completion: Completion, from: number, to: number): void {
+  const mainText = completionApplyText(item) ?? String(item.label ?? "");
+  const mainRange = lspRangeToLocal(ctx, item.textEdit?.range, from, to);
+  if (!mainRange) return;
+  const extras = Array.isArray(item.additionalTextEdits) ? item.additionalTextEdits : [];
+  const extraChanges: ChangeSpec[] = [];
+  for (const edit of extras) {
+    const range = lspRangeToLocal(ctx, edit.range, from, to);
+    if (!range) continue;
+    extraChanges.push({ from: range.from, to: range.to, insert: String(edit.newText ?? "") });
+  }
+  if (item.insertTextFormat === 2 && extraChanges.length === 0) {
+    snippet(mainText)(view, completion, mainRange.from, mainRange.to);
+    return;
+  }
+  const insert = item.insertTextFormat === 2 ? cleanSnippetText(mainText) : mainText;
+  view.dispatch({
+    changes: [...extraChanges, { from: mainRange.from, to: mainRange.to, insert }]
+      .sort((a, b) => changeFrom(a) - changeFrom(b)),
+    scrollIntoView: true,
+  });
 }
 
 function leanAbbreviationBefore(view: EditorView, pos: number, typed: string): { from: number; key: string } | null {
@@ -475,6 +539,17 @@ function stopEmbeddedKeyboardEvent(event: Event): void {
 
 function publishLeanRegionInfoview(detail: LeanRegionInfoviewEvent): void {
   window.dispatchEvent(new CustomEvent("aaronnote:lean-region-infoview", { detail }));
+}
+
+let lastPublishedLeanRegionActive = "";
+
+function publishLeanRegionActive(notePath: string, tag: string): void {
+  const key = `${notePath}\n${tag}`;
+  if (key === lastPublishedLeanRegionActive) return;
+  lastPublishedLeanRegionActive = key;
+  window.dispatchEvent(new CustomEvent("aaronnote:lean-region-active", {
+    detail: { notePath, tag },
+  }));
 }
 
 function fullLineNumberForLocalLine(ctx: LeanContext, localLineNumber: number): string {
@@ -1905,7 +1980,11 @@ function leanEditorExtensions(
     leanDefinitionClick(ctx),
     EditorView.updateListener.of((update) => {
       if (update.docChanged) onChange(update.state.doc.toString());
-      if (update.selectionSet || update.docChanged) onCursor(update.view);
+      if (update.focusChanged && update.view.hasFocus) publishLeanRegionActive(ctx.notePath, ctx.tag);
+      if (update.view.hasFocus && (update.selectionSet || update.docChanged)) {
+        publishLeanRegionActive(ctx.notePath, ctx.tag);
+        onCursor(update.view);
+      }
     }),
   ];
 }
@@ -2195,7 +2274,11 @@ class LeanPlaceholderWidget extends WidgetType {
     });
     child.dom.dataset.leanVimMode = "insert";
     host.addEventListener("mousedown", () => {
+      publishLeanRegionActive(noteInfo.notePath, tag);
       window.setTimeout(() => child.focus(), 0);
+    });
+    host.addEventListener("focusin", () => {
+      publishLeanRegionActive(noteInfo.notePath, tag);
     });
     (outer as HTMLElement & { __leanChild?: EditorView; __leanTooltips?: HTMLDivElement }).__leanChild = child;
     (outer as HTMLElement & { __leanChild?: EditorView; __leanTooltips?: HTMLDivElement }).__leanTooltips = tooltipContainer;

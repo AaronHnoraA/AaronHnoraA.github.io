@@ -14,6 +14,7 @@ import { pathToFileURL } from "node:url";
 import { LspClient } from "./lsp-base.mjs";
 import { writeMirror, deleteMirror, renameMirror } from "./lean-mirror.mjs";
 import {
+  deleteLeanRegion,
   ensureLeanRegion,
   normalizeLeanTag,
   readLeanRegion,
@@ -882,6 +883,13 @@ async function getRegionNeighbors(notePath, tag) {
   return { afterTag, beforeTag };
 }
 
+async function regionNeighborsFromRequest(body) {
+  const beforeTag = normalizeLeanTag(body?.beforeTag ?? "");
+  const afterTag = normalizeLeanTag(body?.afterTag ?? "");
+  if (beforeTag || afterTag) return { beforeTag, afterTag };
+  return getRegionNeighbors(String(body.notePath), String(body.tag));
+}
+
 function queueRegionUpdate(notePath, tag, task) {
   const key = `${resolve(String(notePath))}#${normalizeLeanTag(String(tag))}`;
   const previous = regionUpdateQueues.get(key) ?? Promise.resolve();
@@ -1003,7 +1011,7 @@ export async function handleLeanRequest(action, body = {}) {
   if (action === "ensure-region") {
     const { notePath, tag } = body;
     if (!notePath || !tag) return { ok: false, message: "Missing params" };
-    const neighbors = await getRegionNeighbors(String(notePath), String(tag));
+    const neighbors = await regionNeighborsFromRequest(body);
     const result = await ensureLeanRegion({ notePath: String(notePath), notesRoot, tag: String(tag), ...neighbors });
     return { ok: true, ...result };
   }
@@ -1011,7 +1019,7 @@ export async function handleLeanRequest(action, body = {}) {
   if (action === "read-region") {
     const { notePath, tag } = body;
     if (!notePath || !tag) return { ok: false, message: "Missing params" };
-    const neighbors = await getRegionNeighbors(String(notePath), String(tag));
+    const neighbors = await regionNeighborsFromRequest(body);
     const result = await readLeanRegion({ notePath: String(notePath), notesRoot, tag: String(tag), ...neighbors });
     return { ok: true, ...result };
   }
@@ -1019,7 +1027,7 @@ export async function handleLeanRequest(action, body = {}) {
   if (action === "open-region-file") {
     const { notePath, tag } = body;
     if (!notePath || !tag) return { ok: false, message: "Missing params" };
-    const neighbors = await getRegionNeighbors(String(notePath), String(tag));
+    const neighbors = await regionNeighborsFromRequest(body);
     const result = await ensureLeanRegion({ notePath: String(notePath), notesRoot, tag: String(tag), ...neighbors });
     if (!hasLeanToolchain(notesRoot)) {
       return { ok: false, message: "No Lean toolchain found in .lean/ (add lean-toolchain + lakefile.toml)", ...result };
@@ -1049,6 +1057,18 @@ export async function handleLeanRequest(action, body = {}) {
       }
       return { ok: true, ...result, lspVersion };
     });
+  }
+
+  if (action === "delete-region") {
+    const { notePath, tag } = body;
+    if (!notePath || !tag) return { ok: false, message: "Missing params" };
+    const result = await deleteLeanRegion({ notePath: String(notePath), notesRoot, tag: String(tag) });
+    const client = leanClient;
+    let lspVersion = 0;
+    if (client?.running) {
+      lspVersion = client.changeDocument(result.leanPath, result.text).version;
+    }
+    return { ok: true, ...result, lspVersion };
   }
 
   if (action === "get-region-meta") {
