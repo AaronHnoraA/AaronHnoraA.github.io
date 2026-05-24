@@ -1440,6 +1440,8 @@ app.whenReady().then(async () => {
     onDiagnostics: (data) => { if (!win.isDestroyed()) win.webContents.send("aaronnote:lean:diagnostics", data); },
     onProgress: (data) => { if (!win.isDestroyed()) win.webContents.send("aaronnote:lean:progress", data); },
     onSemanticTokens: (data) => { if (!win.isDestroyed()) win.webContents.send("aaronnote:lean:semantic-tokens", data); },
+    onNotification: (data) => { if (!win.isDestroyed()) win.webContents.send("aaronnote:lean:notification", data); },
+    onClientNotification: (data) => { if (!win.isDestroyed()) win.webContents.send("aaronnote:lean:client-notification", data); },
     onStatus: (data) => {
       updateLeanMenuStatus(data);
       if (!win.isDestroyed()) win.webContents.send("aaronnote:lean:status", data);

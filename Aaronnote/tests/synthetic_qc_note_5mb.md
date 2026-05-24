@@ -35517,7 +35517,11 @@ def search_certificate(x: Instance, y: Instance) -> bool:
 #+begin attention Parser stress point
 This section intentionally mixes Markdown headings, Org-style environments,
 displayed equations, inline mathematical notation, tables, and code blocks.
-A good editor should remain responsive even when this pattern is repeated
+A good editor should remain responsive even when this pattern is repeated tsh 
+
+
+
+sthis 
 many times.
 #+end attention
 

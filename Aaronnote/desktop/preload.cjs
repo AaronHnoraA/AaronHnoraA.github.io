@@ -130,6 +130,11 @@ contextBridge.exposeInMainWorld("aaronnoteApi", {
     rpcCall: (body = {}) => invoke("aaronnote:api:lean:request", "rpc-call", body),
     getDefinition: (body = {}) => invoke("aaronnote:api:lean:request", "get-definition", body),
     getDiagnostics: (body = {}) => invoke("aaronnote:api:lean:request", "get-diagnostics", body),
+    lspRequest: (body = {}) => invoke("aaronnote:api:lean:request", "lsp-request", body),
+    lspNotify: (body = {}) => invoke("aaronnote:api:lean:request", "lsp-notify", body),
+    createRpcSession: (body = {}) => invoke("aaronnote:api:lean:request", "create-rpc-session", body),
+    closeRpcSession: (body = {}) => invoke("aaronnote:api:lean:request", "close-rpc-session", body),
+    rpcRelease: (body = {}) => invoke("aaronnote:api:lean:request", "rpc-release", body),
     cacheStatus: () => invoke("aaronnote:api:lean:request", "cache-status", {}),
     cacheGet: (body = {}) => invoke("aaronnote:api:lean:request", "cache-get", body),
     onDiagnostics: (handler) => {
@@ -155,6 +160,18 @@ contextBridge.exposeInMainWorld("aaronnoteApi", {
       const listener = (_event, data) => handler(data);
       ipcRenderer.on("aaronnote:lean:status", listener);
       return () => ipcRenderer.removeListener("aaronnote:lean:status", listener);
+    },
+    onNotification: (handler) => {
+      if (typeof handler !== "function") return () => {};
+      const listener = (_event, data) => handler(data);
+      ipcRenderer.on("aaronnote:lean:notification", listener);
+      return () => ipcRenderer.removeListener("aaronnote:lean:notification", listener);
+    },
+    onClientNotification: (handler) => {
+      if (typeof handler !== "function") return () => {};
+      const listener = (_event, data) => handler(data);
+      ipcRenderer.on("aaronnote:lean:client-notification", listener);
+      return () => ipcRenderer.removeListener("aaronnote:lean:client-notification", listener);
     },
   },
   roamlookup: {

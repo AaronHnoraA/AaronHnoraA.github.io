@@ -1,18 +1,18 @@
-import { EditorSelection, EditorState, Prec, RangeSet, StateEffect, StateField, Transaction, type ChangeSpec, type Extension, type Text } from "@codemirror/state";
+import { EditorSelection, EditorState, Prec, StateEffect, StateField, Transaction, type ChangeSpec, type Extension, type Text } from "@codemirror/state";
 import {
   Decoration,
   EditorView,
-  GutterMarker,
-  WidgetType,
-  gutter,
   hoverTooltip,
   highlightActiveLine,
   highlightActiveLineGutter,
+  WidgetType,
   keymap,
   lineNumbers,
+  showTooltip,
   tooltips,
   ViewPlugin,
   type DecorationSet,
+  type Tooltip,
   type ViewUpdate,
 } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap, redo, undo } from "@codemirror/commands";
@@ -83,11 +83,13 @@ type LeanRegionInfoviewEvent = {
   notePath: string;
   tag: string;
   leanPath?: string;
+  uri?: string;
   line?: number;
   character?: number;
   goals: string | null;
   termGoal: string | null;
   goalsAccomplished?: boolean;
+  goalError?: string | null;
 };
 
 type LeanRegionJumpEvent = CustomEvent<{
@@ -97,6 +99,20 @@ type LeanRegionJumpEvent = CustomEvent<{
   character?: number;
 }>;
 
+type LeanRegionInsertEvent = CustomEvent<{
+  notePath?: string;
+  leanPath?: string;
+  text?: string;
+  kind?: "here" | "above";
+  line?: number;
+  character?: number;
+}>;
+
+type LeanRegionApplyEditEvent = CustomEvent<{
+  notePath?: string;
+  edit?: unknown;
+}>;
+
 const SetLeanDiagnostics = StateEffect.define<LeanDiagnosticMark[]>();
 const SetLeanSemanticTokens = StateEffect.define<{
   text: string;
@@ -104,6 +120,7 @@ const SetLeanSemanticTokens = StateEffect.define<{
   legend: unknown;
   data: unknown[];
 }>();
+const SetLeanCursorHover = StateEffect.define<{ pos: number; text: string } | null>();
 const SetLeanTreeSitterSpans = StateEffect.define<{
   text: string;
   spans: LeanTreeSitterSpan[];
@@ -536,26 +553,6 @@ function shadowStyles(): HTMLStyleElement {
       font-variant-numeric: tabular-nums;
       text-align: right;
     }
-    .lean-host .cm-lean-diagnostic-gutter {
-      min-width: 20px;
-      background: #191715 !important;
-      border-right: 1px solid #342f2a !important;
-    }
-    .lean-host .cm-lean-diagnostic-gutter .cm-gutterElement {
-      box-sizing: border-box;
-      min-width: 20px;
-      padding: 0 3px;
-      text-align: center;
-    }
-    .lean-host .cm-lean-diagnostic-icon {
-      display: inline-block;
-      width: 1em;
-      font-size: 11px;
-      line-height: inherit;
-    }
-    .lean-host .cm-lean-diagnostic-icon--error { color: #fb7185; }
-    .lean-host .cm-lean-diagnostic-icon--warning { color: #fbbf24; }
-    .lean-host .cm-lean-diagnostic-icon--info { color: #60a5fa; }
     .lean-host .cm-activeLineGutter {
       background: #24211e !important;
       color: #e0d2be !important;
@@ -581,8 +578,18 @@ function shadowStyles(): HTMLStyleElement {
     .lean-host .cm-editor[data-lean-vim-mode="visual"] .cm-dropCursor,
     .lean-host .cm-editor[data-lean-vim-mode="visual-line"] .cm-cursor,
     .lean-host .cm-editor[data-lean-vim-mode="visual-line"] .cm-dropCursor {
-      border-left-width: 0.6em !important;
-      border-left-color: rgba(255, 255, 255, 0.65) !important;
+      border-left: 3px solid #fb4058 !important;
+      border-left-color: #fb4058 !important;
+    }
+    .lean-host .cm-editor[data-lean-vim-mode="normal"] .cm-activeLine,
+    .lean-host .cm-editor[data-lean-vim-mode="visual"] .cm-activeLine,
+    .lean-host .cm-editor[data-lean-vim-mode="visual-line"] .cm-activeLine {
+      background: rgba(178, 13, 34, 0.18) !important;
+    }
+    .lean-host .cm-editor[data-lean-vim-mode="normal"] .cm-activeLineGutter,
+    .lean-host .cm-editor[data-lean-vim-mode="visual"] .cm-activeLineGutter,
+    .lean-host .cm-editor[data-lean-vim-mode="visual-line"] .cm-activeLineGutter {
+      box-shadow: inset 3px 0 0 #fb4058;
     }
     .lean-host .cm-selectionBackground,
     .lean-host .cm-focused .cm-selectionBackground,
@@ -798,10 +805,7 @@ function shadowStyles(): HTMLStyleElement {
   return style;
 }
 
-let globalTooltipStyle: HTMLStyleElement | null = null;
-
-function ensureGlobalTooltipStyles(): void {
-  if (globalTooltipStyle?.isConnected) return;
+function tooltipStyles(): HTMLStyleElement {
   const style = document.createElement("style");
   style.textContent = `
     .lean-editor-tooltips {
@@ -948,8 +952,7 @@ function ensureGlobalTooltipStyles(): void {
     .lean-editor-tooltips .cm-lean-ts-comment { color: #6fa878; font-style: italic; }
     .lean-editor-tooltips .cm-lean-ts-number { color: #93c5fd; }
   `;
-  document.head.append(style);
-  globalTooltipStyle = style;
+  return style;
 }
 
 const leanDiagnosticsField = StateField.define<LeanDiagnosticMark[]>({
@@ -985,72 +988,6 @@ const leanDiagnosticDecorations = StateField.define<DecorationSet>({
   },
   provide: (field) => EditorView.decorations.from(field),
 });
-
-function diagnosticRank(severity: LeanDiagnosticMark["severity"]): number {
-  if (severity === "error") return 3;
-  if (severity === "warning") return 2;
-  return 1;
-}
-
-class LeanDiagnosticGutterMarker extends GutterMarker {
-  readonly severity: LeanDiagnosticMark["severity"];
-  readonly messages: readonly string[];
-
-  constructor(severity: LeanDiagnosticMark["severity"], messages: readonly string[] = []) {
-    super();
-    this.severity = severity;
-    this.messages = messages;
-  }
-
-  eq(other: GutterMarker): boolean {
-    return other instanceof LeanDiagnosticGutterMarker
-      && other.severity === this.severity
-      && other.messages.join("\n") === this.messages.join("\n");
-  }
-
-  toDOM(): Node {
-    const marker = document.createElement("span");
-    marker.className = `cm-lean-diagnostic-icon cm-lean-diagnostic-icon--${this.severity}`;
-    marker.textContent = this.severity === "error" ? "✖" : this.severity === "warning" ? "⚠" : "ℹ";
-    marker.title = this.messages.join("\n");
-    return marker;
-  }
-}
-
-const leanDiagnosticGutterField = StateField.define<RangeSet<GutterMarker>>({
-  create: () => RangeSet.empty,
-  update(value, tr) {
-    for (const effect of tr.effects) {
-      if (effect.is(SetLeanDiagnostics)) {
-        const byLine = new Map<number, { severity: LeanDiagnosticMark["severity"]; messages: string[] }>();
-        for (const diag of effect.value) {
-          const pos = Math.max(0, Math.min(tr.state.doc.length, diag.from));
-          const line = tr.state.doc.lineAt(pos);
-          const current = byLine.get(line.from);
-          if (!current || diagnosticRank(diag.severity) > diagnosticRank(current.severity)) {
-            byLine.set(line.from, { severity: diag.severity, messages: diag.message ? [diag.message] : [] });
-          } else if (diag.message) {
-            current.messages.push(diag.message);
-          }
-        }
-        return RangeSet.of(Array.from(byLine.entries()).map(([from, info]) =>
-          new LeanDiagnosticGutterMarker(info.severity, info.messages).range(from)), true);
-      }
-    }
-    return tr.docChanged ? value.map(tr.changes) : value;
-  },
-});
-
-function leanDiagnosticGutter(): Extension {
-  return [
-    leanDiagnosticGutterField,
-    gutter({
-      class: "cm-lean-diagnostic-gutter",
-      markers: (view) => view.state.field(leanDiagnosticGutterField),
-      initialSpacer: () => new LeanDiagnosticGutterMarker("info"),
-    }),
-  ];
-}
 
 const leanTreeSitterDecorations = StateField.define<DecorationSet>({
   create: () => Decoration.none,
@@ -1131,14 +1068,19 @@ function leanCompletionSource(ctx: LeanContext) {
     const fullOffset = localOffsetToFull(ctx, context.pos);
     if (fullOffset == null) return null;
     const pos = offsetToPosition(ctx.leanText, fullOffset);
+    const triggerCharacter = context.pos > 0 ? context.state.doc.sliceString(context.pos - 1, context.pos) : "";
     const raw = await api.lean.getCompletions({
       leanPath: ctx.leanPath,
       line: pos.line,
       character: pos.character,
+      triggerCharacter: triggerCharacter === "." ? "." : undefined,
     });
     if (context.aborted) return null;
     const result = (raw as { result?: { items?: unknown[] } | unknown[] } | null)?.result;
     const items = Array.isArray(result) ? result : Array.isArray((result as { items?: unknown[] } | null)?.items) ? (result as { items: unknown[] }).items : [];
+    const tokenText = token?.text ?? "";
+    const lastDot = tokenText.lastIndexOf(".");
+    const from = lastDot >= 0 ? (token?.from ?? context.pos) + lastDot + 1 : (token?.from ?? context.pos);
     const lspOptions: Completion[] = items.map((item) => {
       const c = item as LspCompletionItem;
       const label = String(c.label ?? "");
@@ -1161,39 +1103,100 @@ function leanCompletionSource(ctx: LeanContext) {
     const snippets = await leanSnippetCompletions();
     if (context.aborted) return null;
     return {
-      from: token?.from ?? context.pos,
-      validFor: /^[\\#A-Za-z0-9_.'?!<>\-]*$/,
+      from,
+      validFor: /^[\\#A-Za-z0-9_'?!<>\-]*$/,
       options: [...lspOptions, ...snippets],
     };
   };
 }
 
+async function leanHoverText(ctx: LeanContext, localPos: number): Promise<string> {
+  if (!ctx.leanPath || !ctx.region) return "";
+  const fullOffset = localOffsetToFull(ctx, localPos);
+  if (fullOffset == null) return "";
+  const pos = offsetToPosition(ctx.leanText, fullOffset);
+  const raw = await api.lean.getHover({
+    leanPath: ctx.leanPath,
+    line: pos.line,
+    character: pos.character,
+  });
+  const hover = raw as { result?: { contents?: string | { value?: string } } } | null;
+  const contents = hover?.result?.contents;
+  return typeof contents === "string" ? contents : contents?.value ?? "";
+}
+
+function leanHoverTooltip(pos: number, text: string): Tooltip {
+  return {
+    pos,
+    above: true,
+    create() {
+      const dom = document.createElement("div");
+      dom.className = "cm-lean-hover-tooltip";
+      renderLeanMarkdown(dom, text);
+      return { dom };
+    },
+  };
+}
+
+const leanCursorHoverField = StateField.define<Tooltip | null>({
+  create: () => null,
+  update(value, tr) {
+    for (const effect of tr.effects) {
+      if (effect.is(SetLeanCursorHover)) {
+        return effect.value ? leanHoverTooltip(effect.value.pos, effect.value.text) : null;
+      }
+    }
+    return tr.docChanged ? null : value;
+  },
+  provide: (field) => showTooltip.from(field),
+});
+
 function leanHover(ctx: LeanContext): Extension {
   return hoverTooltip(async (_view, hoverPos) => {
     if (!ctx.leanPath || !ctx.region) return null;
-    const fullOffset = localOffsetToFull(ctx, hoverPos);
-    if (fullOffset == null) return null;
-    const pos = offsetToPosition(ctx.leanText, fullOffset);
-    const raw = await api.lean.getHover({
-      leanPath: ctx.leanPath,
-      line: pos.line,
-      character: pos.character,
-    });
-    const hover = raw as { result?: { contents?: string | { value?: string } } } | null;
-    const contents = hover?.result?.contents;
-    const text = typeof contents === "string" ? contents : contents?.value ?? "";
+    const text = await leanHoverText(ctx, hoverPos);
     if (!text.trim()) return null;
-    return {
-      pos: hoverPos,
-      above: true,
-      create() {
-        const dom = document.createElement("div");
-        dom.className = "cm-lean-hover-tooltip";
-        renderLeanMarkdown(dom, text);
-        return { dom };
-      },
-    };
+    return leanHoverTooltip(hoverPos, text);
   });
+}
+
+function leanCursorHover(ctx: LeanContext): Extension {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let seq = 0;
+  let lastKey = "";
+  return [
+    leanCursorHoverField,
+    EditorView.updateListener.of((update) => {
+      if (!update.selectionSet && !update.docChanged && !update.focusChanged) return;
+      if (timer) clearTimeout(timer);
+      const view = update.view;
+      const selection = view.state.selection.main;
+      const pos = selection.head;
+      const currentSeq = ++seq;
+      const pointerSelection = update.transactions.some((tr) => tr.isUserEvent("select.pointer"));
+      if (pointerSelection || !view.hasFocus || !selection.empty || !ctx.leanPath || !ctx.region) {
+        lastKey = "";
+        view.dispatch({ effects: SetLeanCursorHover.of(null) });
+        return;
+      }
+      const key = `${pos}:${view.state.doc.length}:${ctx.leanText.length}`;
+      if (key === lastKey && !update.focusChanged) return;
+      lastKey = key;
+      timer = setTimeout(() => {
+        timer = null;
+        void leanHoverText(ctx, pos)
+          .then((text) => {
+            if (currentSeq !== seq || !view.hasFocus || !view.state.selection.main.empty) return;
+            view.dispatch({ effects: SetLeanCursorHover.of(text.trim() ? { pos, text } : null) });
+          })
+          .catch(() => {
+            if (currentSeq === seq && view.hasFocus) {
+              view.dispatch({ effects: SetLeanCursorHover.of(null) });
+            }
+          });
+      }, 1000);
+    }),
+  ];
 }
 
 function leanDefinitionClick(ctx: LeanContext): Extension {
@@ -1880,7 +1883,6 @@ function leanEditorExtensions(
     tooltips({ parent: tooltipParent, position: "fixed" }),
     EditorView.inputHandler.of(leanInputHandler),
     leanTreeSitterHighlight(),
-    leanDiagnosticGutter(),
     lineNumbers({ formatNumber: (lineNo) => fullLineNumberForLocalLine(ctx, lineNo) }),
     highlightActiveLineGutter(),
     highlightActiveLine(),
@@ -1899,6 +1901,7 @@ function leanEditorExtensions(
     leanDiagnosticsField,
     leanDiagnosticDecorations,
     leanHover(ctx),
+    leanCursorHover(ctx),
     leanDefinitionClick(ctx),
     EditorView.updateListener.of((update) => {
       if (update.docChanged) onChange(update.state.doc.toString());
@@ -1961,10 +1964,10 @@ class LeanPlaceholderWidget extends WidgetType {
       return outer;
     }
 
-    ensureGlobalTooltipStyles();
+    shadow.append(tooltipStyles());
     const tooltipContainer = document.createElement("div");
     tooltipContainer.className = "lean-editor-tooltips";
-    document.body.append(tooltipContainer);
+    shadow.append(tooltipContainer);
 
     let loaded = false;
     let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1982,6 +1985,7 @@ class LeanPlaceholderWidget extends WidgetType {
     let lastPublishedGoals: string | null = null;
     let lastPublishedTerm: string | null = null;
     let lastPublishedAccomplished = false;
+    let lastPublishedGoalError: string | null = null;
     let lastPushRetryKey = "";
     let goalRetryTimer: ReturnType<typeof setTimeout> | null = null;
     let diagnosticsTimer: ReturnType<typeof setTimeout> | null = null;
@@ -2021,6 +2025,7 @@ class LeanPlaceholderWidget extends WidgetType {
           lastPublishedGoals = null;
           lastPublishedTerm = null;
           lastPublishedAccomplished = false;
+          lastPublishedGoalError = null;
           lastPushRetryKey = "";
           status.textContent = mode === "save" ? "Saved" : "Ready";
           card.classList.remove("is-error");
@@ -2101,8 +2106,15 @@ class LeanPlaceholderWidget extends WidgetType {
             api.lean.getTermGoal({ leanPath: ctx.leanPath, line: pos.line, character: pos.character }),
           ]);
           if (seq !== goalSeq) return;
-          const goalResult = (goalRaw as { result?: { rendered?: string; goals?: unknown[] } } | null)?.result ?? null;
-          const term = (termRaw as { result?: { rendered?: string } } | null)?.result?.rendered ?? "";
+          const goalResponse = goalRaw as { ok?: boolean; message?: string; result?: { rendered?: string; goals?: unknown[] } } | null;
+          const termResponse = termRaw as { ok?: boolean; message?: string; result?: { rendered?: string } } | null;
+          const goalError = goalResponse?.ok === false
+            ? (goalResponse.message || "Error fetching goals")
+            : termResponse?.ok === false
+              ? (termResponse.message || "Error fetching expected type")
+              : "";
+          const goalResult = goalResponse?.result ?? null;
+          const term = termResponse?.result?.rendered ?? "";
           const goalText = String(goalResult?.rendered ?? "");
           const goalCount = Array.isArray(goalResult?.goals) ? goalResult.goals.length : (goalText ? 1 : 0);
           const newKey = `${pos.line}:${pos.character}`;
@@ -2111,20 +2123,29 @@ class LeanPlaceholderWidget extends WidgetType {
           const newAccomplished = goalResult != null && goalCount === 0;
           // Skip publish when content is identical — prevents lean-panel from calling
           // replaceChildren on every Lean elaboration push (the main flicker source).
-          if (newKey === lastPublishedKey && newGoals === lastPublishedGoals && newTerm === lastPublishedTerm && newAccomplished === lastPublishedAccomplished) return;
+          if (
+            newKey === lastPublishedKey &&
+            newGoals === lastPublishedGoals &&
+            newTerm === lastPublishedTerm &&
+            newAccomplished === lastPublishedAccomplished &&
+            (goalError || null) === lastPublishedGoalError
+          ) return;
           lastPublishedKey = newKey;
           lastPublishedGoals = newGoals;
           lastPublishedTerm = newTerm;
           lastPublishedAccomplished = newAccomplished;
+          lastPublishedGoalError = goalError || null;
           publishLeanRegionInfoview({
             notePath: noteInfo.notePath,
             tag,
             leanPath: ctx.leanPath,
+            uri: fileUri(ctx.leanPath),
             line: pos.line,
             character: pos.character,
             goals: newGoals,
             termGoal: newTerm,
             goalsAccomplished: newAccomplished,
+            goalError: goalError || null,
           });
         })().catch(() => {});
       }, 180);
@@ -2172,6 +2193,7 @@ class LeanPlaceholderWidget extends WidgetType {
       parent: host,
       root: shadow,
     });
+    child.dom.dataset.leanVimMode = "insert";
     host.addEventListener("mousedown", () => {
       window.setTimeout(() => child.focus(), 0);
     });
@@ -2250,7 +2272,68 @@ class LeanPlaceholderWidget extends WidgetType {
       if (typeof detail.line !== "number") return;
       ctx.jumpToFullPosition?.(detail.line, Number(detail.character ?? 0));
     };
+    const onRegionInsert = (event: Event): void => {
+      const detail = (event as LeanRegionInsertEvent).detail;
+      if (!detail || detail.notePath !== noteInfo.notePath) return;
+      if (detail.leanPath && detail.leanPath !== ctx.leanPath) return;
+      const text = String(detail.text ?? "");
+      if (!text) return;
+      let from = child.state.selection.main.from;
+      let to = child.state.selection.main.to;
+      if (typeof detail.line === "number") {
+        const fullOffset = positionToOffset(ctx.leanText, detail.line, Number(detail.character ?? 0));
+        const local = fullOffsetToLocal(ctx, fullOffset);
+        if (local == null) return;
+        from = local;
+        to = local;
+      }
+      if (detail.kind === "above") {
+        const line = child.state.doc.lineAt(Math.max(0, Math.min(child.state.doc.length, from)));
+        from = line.from;
+        to = line.from;
+      }
+      const insert = detail.kind === "above" && !text.endsWith("\n") ? `${text}\n` : text;
+      child.dispatch({
+        changes: { from, to, insert },
+        selection: { anchor: from + insert.length },
+        scrollIntoView: true,
+      });
+    };
+    const onRegionApplyEdit = (event: Event): void => {
+      const detail = (event as LeanRegionApplyEditEvent).detail;
+      if (!detail || detail.notePath !== noteInfo.notePath) return;
+      const edit = detail.edit as {
+        changes?: Record<string, Array<{ range?: { start?: { line?: number; character?: number }; end?: { line?: number; character?: number } }; newText?: string }>>;
+        documentChanges?: Array<{ textDocument?: { uri?: string }; edits?: Array<{ range?: { start?: { line?: number; character?: number }; end?: { line?: number; character?: number } }; newText?: string }> }>;
+      } | null;
+      const uri = fileUri(ctx.leanPath);
+      const rawEdits = [
+        ...(Array.isArray(edit?.changes?.[uri]) ? edit?.changes?.[uri] ?? [] : []),
+        ...(Array.isArray(edit?.documentChanges)
+          ? edit.documentChanges.flatMap((change) => change?.textDocument?.uri === uri && Array.isArray(change.edits) ? change.edits : [])
+          : []),
+      ];
+      const changes: Array<{ from: number; to: number; insert: string }> = [];
+      for (const textEdit of rawEdits) {
+        const start = textEdit.range?.start;
+        const end = textEdit.range?.end ?? start;
+        if (!start || !end) continue;
+        const fullFrom = positionToOffset(ctx.leanText, Number(start.line ?? 0), Number(start.character ?? 0));
+        const fullTo = positionToOffset(ctx.leanText, Number(end.line ?? 0), Number(end.character ?? 0));
+        const from = fullOffsetToLocal(ctx, fullFrom);
+        const to = fullOffsetToLocal(ctx, fullTo);
+        if (from == null || to == null) continue;
+        changes.push({ from, to, insert: String(textEdit.newText ?? "") });
+      }
+      if (changes.length === 0) return;
+      child.dispatch({
+        changes: changes.sort((a, b) => a.from - b.from) as ChangeSpec,
+        scrollIntoView: true,
+      });
+    };
     window.addEventListener("aaronnote:lean-region-jump", onRegionJump);
+    window.addEventListener("aaronnote:lean-region-insert", onRegionInsert);
+    window.addEventListener("aaronnote:lean-region-apply-edit", onRegionApplyEdit);
     (outer as HTMLElement & { __leanChild?: EditorView; __leanUnsub?: () => void }).__leanUnsub = () => {
       unsubDiag();
       unsubProgress();
@@ -2259,6 +2342,8 @@ class LeanPlaceholderWidget extends WidgetType {
       if (diagnosticsTimer) clearTimeout(diagnosticsTimer);
       if (semanticTokensTimer) clearTimeout(semanticTokensTimer);
       window.removeEventListener("aaronnote:lean-region-jump", onRegionJump);
+      window.removeEventListener("aaronnote:lean-region-insert", onRegionInsert);
+      window.removeEventListener("aaronnote:lean-region-apply-edit", onRegionApplyEdit);
     };
 
     void api.lean.readRegion({ notePath: noteInfo.notePath, tag })
@@ -2286,10 +2371,12 @@ class LeanPlaceholderWidget extends WidgetType {
               notePath: noteInfo.notePath,
               tag,
               leanPath: ctx.leanPath,
+              uri: fileUri(ctx.leanPath),
               line: 0,
               character: 0,
               goals: null,
               termGoal: null,
+              goalError: null,
             });
             renderGoals(child);
           })

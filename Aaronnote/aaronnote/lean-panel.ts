@@ -18,6 +18,7 @@ import {
   type LeanSplice,
 } from "../src/lean-splice.ts";
 import { renderLeanMarkdown } from "../src/lean-render.ts";
+import { createLeanOfficialInfoviewHost } from "./lean-infoview-host.ts";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -69,11 +70,13 @@ type LeanRegionInfoviewEvent = CustomEvent<{
   notePath?: string;
   tag?: string;
   leanPath?: string;
+  uri?: string;
   line?: number;
   character?: number;
   goals?: string | null;
   termGoal?: string | null;
   goalsAccomplished?: boolean;
+  goalError?: string | null;
 }>;
 
 type LeanPanelLayout = {
@@ -118,6 +121,13 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
 <div class="lean-panel-body" data-lean-panel-body>
   <section class="lean-panel-pane lean-panel-pane--info" data-lean-info-pane>
     <div class="lean-panel-pane-title">Infoview</div>
+    <section class="lean-panel-section lean-panel-official" data-lean-official-section>
+      <div class="lean-official-infoview" data-lean-official-infoview></div>
+    </section>
+    <section class="lean-panel-section lean-panel-current" data-lean-current-section>
+      <div class="lean-panel-current-title" data-lean-current-title>Move the cursor into Lean code</div>
+      <div class="lean-panel-current-body" data-lean-current-body></div>
+    </section>
     <section class="lean-panel-section lean-panel-goals" data-lean-goals-section>
       <div class="lean-panel-section-title" data-lean-goals-title>Tactic state</div>
       <div class="lean-panel-code lean-goals-text" data-lean-goals></div>
@@ -139,12 +149,25 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
   const bodyEl = requireEl<HTMLElement>(root, "[data-lean-panel-body]");
   const infoPane = requireEl<HTMLElement>(root, "[data-lean-info-pane]");
   const messagesPane = requireEl<HTMLElement>(root, "[data-lean-messages-pane]");
+  const officialSection = requireEl<HTMLElement>(root, "[data-lean-official-section]");
+  const officialRoot = requireEl<HTMLElement>(root, "[data-lean-official-infoview]");
+  const officialInfoview = createLeanOfficialInfoviewHost(officialRoot, {
+    showDocument: showOfficialDocument,
+    restartFile: restartLeanFile,
+    insertText: insertOfficialText,
+    applyEdit: applyOfficialEdit,
+  });
+  const useOfficialInfoview = officialRoot.classList.contains("lean-official-infoview--ready");
+  const currentSection = requireEl<HTMLElement>(root, "[data-lean-current-section]");
+  const currentTitle = requireEl<HTMLElement>(root, "[data-lean-current-title]");
+  const currentBody = requireEl<HTMLElement>(root, "[data-lean-current-body]");
   const goalsSection = requireEl<HTMLElement>(root, "[data-lean-goals-section]");
   const goalsTitle = requireEl<HTMLElement>(root, "[data-lean-goals-title]");
   const goalsEl = requireEl<HTMLElement>(root, "[data-lean-goals]");
   const termSection = requireEl<HTMLElement>(root, "[data-lean-term-section]");
   const termGoalEl = requireEl<HTMLElement>(root, "[data-lean-term-goal]");
   const messagesList = requireEl<HTMLElement>(root, "[data-lean-messages-list]");
+  const messagesTitle = requireEl<HTMLElement>(root, "[data-lean-messages-pane] .lean-panel-section-title");
   const widthResizer = requireEl<HTMLElement>(root, "[data-lean-width-resizer]");
   const pinBtn = requireEl<HTMLButtonElement>(root, "[data-lean-pin]");
   const pauseBtn = requireEl<HTMLButtonElement>(root, "[data-lean-pause]");
@@ -154,6 +177,8 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
   const restartBtn = requireEl<HTMLButtonElement>(root, "[data-lean-restart]");
   const stopBtn = requireEl<HTMLButtonElement>(root, "[data-lean-stop]");
   const closeBtn = requireEl<HTMLButtonElement>(root, "[data-lean-close]");
+  officialSection.hidden = true;
+  termSection.hidden = true;
 
   // -------------------------------------------------------------------------
   // State
@@ -171,11 +196,15 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
   let activeRegionLeanPath = "";
   let pinned = false;
   let paused = false;
+  let allMessagesCollapsed = true;
   let currentGoalState: LeanGoalState = { goals: null, termGoal: null, blockIndex: null };
   let currentGoalsAccomplished = false;
+  let currentGoalError: string | null = null;
+  let lastDiagnosticsFetchUri = "";
   // Content-address renders to avoid replaceChildren on every Lean server push.
   let lastGoalsSig = "";
   let lastMessagesSig = "";
+  let lastCurrentSig = "";
   let renderMessagesTimer: ReturnType<typeof setTimeout> | null = null;
 
   // -------------------------------------------------------------------------
@@ -207,18 +236,21 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
     const detail = (event as LeanRegionInfoviewEvent).detail;
     if (!detail || detail.notePath !== currentNotePath) return;
     activeRegionTag = String(detail.tag ?? activeRegionTag);
-    activeRegionLeanPath = String(detail.leanPath ?? activeRegionLeanPath);
+    activeRegionLeanPath = String(detail.leanPath ?? (detail.uri ? fileUriToPath(String(detail.uri)) : activeRegionLeanPath));
     if (typeof detail.line === "number") {
       activeLeanPosition = {
         line: detail.line,
         character: Number(detail.character ?? 0),
       };
     }
+    currentGoalError = detail.goalError ? String(detail.goalError) : null;
     renderGoals({
       goals: detail.goals ?? null,
       termGoal: detail.termGoal ?? null,
       blockIndex: null,
     }, detail.goalsAccomplished === true);
+    renderCurrent();
+    void fetchDiagnosticsForActive();
     renderMessagesForActive();
   };
   window.addEventListener("aaronnote:lean-region-infoview", onRegionInfoview);
@@ -239,7 +271,8 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
     if (pinned && lastGoalsSig) return;
     currentGoalState = goalState;
     currentGoalsAccomplished = accomplished;
-    const sig = `${goalState.goals ?? ""}|${goalState.termGoal ?? ""}|${accomplished}`;
+    if (syncOfficialInfoviewVisibility()) return;
+    const sig = `${goalState.goals ?? ""}|${goalState.termGoal ?? ""}|${accomplished}|${currentGoalError ?? ""}`;
     if (sig === lastGoalsSig) return;
     lastGoalsSig = sig;
 
@@ -252,6 +285,9 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
     if (hasGoals) {
       goalsTitle.textContent = goalCountLabel(goalState.goals ?? "");
       renderInfoBlock(goalsEl, goalState.goals ?? "");
+    } else if (currentGoalError) {
+      goalsTitle.textContent = "Tactic state";
+      goalsEl.replaceChildren(el("div", "lean-panel-empty lean-panel-empty--goal", "No tactic state available"));
     } else if (accomplished) {
       goalsTitle.textContent = "Tactic state";
       goalsEl.replaceChildren(el("div", "lean-goals-done", "No goals"));
@@ -264,16 +300,53 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
     root.classList.toggle("lean-panel--has-goals", hasGoals || accomplished || hasTerm);
   }
 
+  function renderCurrent(): void {
+    const title = activeLocationLabel();
+    const diags = activeDiagnostics() as LeanDiagnosticLike[];
+    const line = activeLeanPosition?.line ?? null;
+    const here = line === null ? [] : diags.filter((diag) => diagLeanStart(diag).line === line);
+    const sig = `${title}|${currentGoalError ?? ""}|${here.map((d) => `${d.severity}:${d.message ?? ""}`).join("\n")}`;
+    if (sig === lastCurrentSig) return;
+    lastCurrentSig = sig;
+
+    currentTitle.textContent = title;
+    officialInfoview.setLocation(activeLeanPosition ? {
+      uri: activeLeanUri(),
+      line: activeLeanPosition.line,
+      character: activeLeanPosition.character,
+    } : null);
+    if (syncOfficialInfoviewVisibility()) return;
+    currentBody.replaceChildren();
+    if (currentGoalError) {
+      const row = el("div", "lean-current-error");
+      row.append(el("span", "lean-current-error-prefix", "Error updating: "));
+      row.append(document.createTextNode(currentGoalError));
+      currentBody.append(row);
+    }
+    for (const diag of here) {
+      currentBody.append(renderDiagnosticBody(diag, true));
+    }
+    currentSection.hidden = !activeLeanPosition && !currentGoalError && here.length === 0;
+  }
+
   function renderMessages(diags: unknown[]): void {
     if (paused) return;
+    if (syncOfficialInfoviewVisibility()) return;
     const activeLine = activeLeanPosition?.line ?? null;
+    const count = Array.isArray(diags) ? diags.length : 0;
+    messagesTitle.textContent = count > 0 ? `All Messages (${count})` : "All Messages";
+    if (allMessagesCollapsed) {
+      renderCurrent();
+      return;
+    }
     const sig = Array.isArray(diags) && diags.length > 0
-      ? `${activeLine}|${(diags as LeanDiagnosticLike[]).map((d) => `${diagLeanStart(d).line}:${diagLeanStart(d).character}:${d.severity}:${d.message ?? ""}`).join("\n")}`
+      ? `${activeLine}|${activeLeanUri()}|${(diags as LeanDiagnosticLike[]).map((d) => `${diagLeanStart(d).line}:${diagLeanStart(d).character}:${d.severity}:${d.message ?? ""}`).join("\n")}`
       : "__empty__";
     if (sig === lastMessagesSig) return;
     lastMessagesSig = sig;
 
     if (!Array.isArray(diags) || diags.length === 0) {
+      renderCurrent();
       messagesList.replaceChildren(el("div", "lean-panel-empty", "No messages"));
       return;
     }
@@ -282,12 +355,12 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
       const pb = diagLeanStart(b as LeanDiagnosticLike);
       return pa.line - pb.line || pa.character - pb.character;
     });
-    messagesList.replaceChildren(renderMessageSection("All messages", sorted, activeLine));
+    messagesList.replaceChildren(renderMessageList(sorted, activeLine));
+    renderCurrent();
   }
 
-  function renderMessageSection(title: string, diags: unknown[], activeLine: number | null): HTMLElement {
+  function renderMessageList(diags: unknown[], activeLine: number | null): HTMLElement {
     const section = el("section", "lean-msg-section");
-    section.append(el("div", "lean-msg-section-title", `${title} (${diags.length})`));
     if (diags.length === 0) {
       section.append(el("div", "lean-panel-empty lean-panel-empty--small", "No messages"));
       return section;
@@ -295,19 +368,33 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
     section.append(
       ...diags.map((d) => {
         const diag = d as LeanDiagnosticLike;
-        const sevClass = diag.severity === 1 ? "error" : diag.severity === 2 ? "warning" : "info";
         const isHere = activeLine !== null && diagLeanStart(diag).line === activeLine;
-        const row = el("div", `lean-msg lean-msg--${sevClass}${isHere ? " lean-msg--here" : ""}`);
-        const loc = el("span", "lean-msg-loc");
-        loc.textContent = diagLocationLabel(diag);
-        const text = el("span", "lean-msg-text");
-        text.textContent = String(diag.message ?? "");
-        row.append(loc, text);
+        const row = renderDiagnosticBody(diag, isHere);
         row.addEventListener("click", () => jumpToDiag(diag));
         return row;
       }),
     );
     return section;
+  }
+
+  function renderDiagnosticBody(diag: LeanDiagnosticLike, isHere: boolean): HTMLElement {
+    const sevClass = diag.severity === 1 ? "error" : diag.severity === 2 ? "warning" : "info";
+    const row = el("div", `lean-msg lean-msg--${sevClass}${isHere ? " lean-msg--here" : ""}`);
+    const header = el("div", "lean-msg-header");
+    const loc = el("span", "lean-msg-loc");
+    loc.textContent = diagLocationLabel(diag);
+    const copy = el("button", "lean-msg-copy", "⧉");
+    copy.type = "button";
+    copy.title = "Copy message";
+    copy.addEventListener("click", (event) => {
+      event.stopPropagation();
+      void navigator.clipboard?.writeText(String(diag.message ?? "")).catch(() => {});
+    });
+    header.append(loc, copy);
+    const text = el("pre", "lean-msg-text");
+    text.textContent = String(diag.message ?? "");
+    row.append(header, text);
+    return row;
   }
 
   function goalCountLabel(raw: string): string {
@@ -356,16 +443,29 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
     return { line: start.line ?? 0, character: start.character ?? 0 };
   }
 
+  function leanFileLabel(): string {
+    const path = activeRegionLeanPath || fileUriToPath(currentDiagnosticsUri);
+    if (!path) return "Lean";
+    return path.split("/").filter(Boolean).at(-1) ?? "Lean";
+  }
+
+  function activeLocationLabel(): string {
+    const pos = activeLeanPosition;
+    if (!pos) return "Move the cursor into Lean code";
+    return `${leanFileLabel()}:${pos.line + 1}:${pos.character + 1}`;
+  }
+
   function diagLocationLabel(diag: LeanDiagnosticLike): string {
     const leanStart = diagLeanStart(diag);
+    const leanLabel = `${leanFileLabel()}:${leanStart.line + 1}:${leanStart.character + 1}`;
     const editor = getEditor();
-    if (!editor) return `Lean L${leanStart.line + 1}`;
+    if (!editor) return leanLabel;
     const splice = editor.view.state.field(leanSpliceField, false);
-    if (!splice) return `Lean L${leanStart.line + 1}`;
+    if (!splice) return leanLabel;
     const noteOff = diagNoteOffset(diag, splice);
-    if (noteOff === null) return `Lean L${leanStart.line + 1}`;
+    if (noteOff === null) return leanLabel;
     const line = editor.view.state.doc.lineAt(Math.min(noteOff, editor.view.state.doc.length));
-    return `MD L${line.number} / Lean L${leanStart.line + 1}`;
+    return `MD L${line.number} / ${leanLabel}`;
   }
 
   function jumpToDiag(diag: LeanDiagnosticLike): void {
@@ -387,6 +487,84 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
     jumpToNoteOffset(noteOff);
   }
 
+  function showOfficialDocument(show: { uri?: unknown; selection?: { start?: { line?: number; character?: number } } }): void {
+    const uri = String(show.uri ?? "");
+    const leanPath = fileUriToPath(uri);
+    const start = show.selection?.start ?? {};
+    const line = Number(start.line ?? 0);
+    const character = Number(start.character ?? 0);
+    window.dispatchEvent(new CustomEvent("aaronnote:lean-region-jump", {
+      detail: {
+        notePath: currentNotePath,
+        leanPath,
+        line,
+        character,
+      },
+    }));
+    const editor = getEditor();
+    const splice = editor?.view.state.field(leanSpliceField, false);
+    if (!editor || !splice || (leanPath && splice.leanPath !== leanPath)) return;
+    const leanOff = leanPositionToOffset(splice.leanText, line, character);
+    const noteOff = leanOffsetToNote(splice, leanOff);
+    if (noteOff !== null) jumpToNoteOffset(noteOff);
+  }
+
+  function insertOfficialText(text: string, kind: "here" | "above", pos?: { textDocument?: { uri?: string }; position?: { line?: number; character?: number } }): void {
+    window.dispatchEvent(new CustomEvent("aaronnote:lean-region-insert", {
+      detail: {
+        notePath: currentNotePath,
+        leanPath: fileUriToPath(String(pos?.textDocument?.uri ?? activeLeanUri())),
+        text,
+        kind,
+        line: typeof pos?.position?.line === "number" ? pos.position.line : undefined,
+        character: typeof pos?.position?.character === "number" ? pos.position.character : undefined,
+      },
+    }));
+  }
+
+  function applyOfficialEdit(edit: unknown): void {
+    window.dispatchEvent(new CustomEvent("aaronnote:lean-region-apply-edit", {
+      detail: {
+        notePath: currentNotePath,
+        edit,
+      },
+    }));
+  }
+
+  async function restartLeanFile(): Promise<void> {
+    await api.lean.request("stop");
+    if (!currentNotePath || !currentNotesRoot) {
+      renderStatus({ message: "No Lean document active", kind: "Inactive" });
+      return;
+    }
+    if (activeRegionTag) {
+      const result = await api.lean.openRegionFile({
+        notePath: currentNotePath,
+        tag: activeRegionTag,
+      });
+      const response = result as { ok?: boolean; message?: string; leanPath?: string } | null;
+      if (response?.ok === false) throw new Error(response.message || "Lean restart failed");
+      activeRegionLeanPath = String(response?.leanPath ?? activeRegionLeanPath);
+      renderStatus({ message: "Lean restarted", kind: "Ready" });
+      return;
+    }
+    const editor = getEditor();
+    const splice = editor?.view.state.field(leanSpliceField, false);
+    if (!splice) {
+      renderStatus({ message: "No Lean document active", kind: "Inactive" });
+      return;
+    }
+    const result = await api.lean.openNote({
+      notePath: currentNotePath,
+      notesRoot: currentNotesRoot,
+      leanText: splice.leanText,
+      leanPath: splice.leanPath,
+    });
+    const response = result as { ok?: boolean; message?: string } | null;
+    if (response?.ok === false) throw new Error(response.message || "Lean restart failed");
+    renderStatus({ message: "Lean restarted", kind: "Ready" });
+  }
+
   function fileUriToPath(uri: string): string {
     if (!uri.startsWith("file://")) return "";
     try {
@@ -405,6 +583,20 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
     renderLeanMarkdown(rootEl, raw);
   }
 
+  function syncOfficialInfoviewVisibility(): boolean {
+    const canShowOfficial = useOfficialInfoview && Boolean(activeLeanPosition);
+    const officialHasContent = canShowOfficial && officialInfoview.hasContent();
+    officialSection.hidden = !canShowOfficial;
+    if (officialHasContent) {
+      currentSection.hidden = true;
+      goalsSection.hidden = true;
+      termSection.hidden = true;
+      messagesPane.hidden = true;
+      return true;
+    }
+    return false;
+  }
+
   function activeLeanUri(): string {
     if (activeRegionLeanPath) return filePathToUri(activeRegionLeanPath);
     const editor = getEditor();
@@ -415,7 +607,29 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
   function activeDiagnostics(): unknown[] {
     const uri = activeLeanUri();
     if (uri && diagnosticsByUri.has(uri)) return diagnosticsByUri.get(uri) ?? [];
+    if (uri && currentDiagnosticsUri && uri !== currentDiagnosticsUri) return [];
     return currentDiagnostics;
+  }
+
+  async function fetchDiagnosticsForActive(): Promise<void> {
+    const uri = activeLeanUri();
+    const leanPath = activeRegionLeanPath || fileUriToPath(uri);
+    if (!uri || !leanPath || lastDiagnosticsFetchUri === uri) return;
+    lastDiagnosticsFetchUri = uri;
+    try {
+      const raw = await api.lean.getDiagnostics({ leanPath });
+      const result = raw as { ok?: boolean; diagnostics?: unknown[] } | null;
+      if (result?.ok === false) return;
+      const diagnostics = Array.isArray(result?.diagnostics) ? result.diagnostics : [];
+      diagnosticsByUri.set(uri, diagnostics);
+      currentDiagnosticsUri = uri;
+      currentDiagnostics = diagnostics;
+      lastMessagesSig = "";
+      lastCurrentSig = "";
+      renderMessagesForActive();
+    } catch {
+      // Diagnostics are opportunistic; live push updates will still refresh the panel.
+    }
   }
 
   function renderMessagesForActive(): void {
@@ -463,6 +677,8 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
     const editor = getEditor();
     if (!editor) return;
     if (activeRegionTag && activeRegionLeanPath) {
+      renderCurrent();
+      void fetchDiagnosticsForActive();
       renderMessagesForActive();
       return;
     }
@@ -476,6 +692,8 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
     }
     const goalState = getLeanGoalState(editor.view.state);
     renderGoals(goalState);
+    renderCurrent();
+    void fetchDiagnosticsForActive();
     renderMessagesForActive();
   }
 
@@ -507,36 +725,7 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
     restartBtn.disabled = true;
     void (async () => {
       try {
-        await api.lean.request("stop");
-        if (!currentNotePath || !currentNotesRoot) {
-          renderStatus({ message: "No Lean document active", kind: "Inactive" });
-          return;
-        }
-        if (activeRegionTag) {
-          const result = await api.lean.openRegionFile({
-            notePath: currentNotePath,
-            tag: activeRegionTag,
-          });
-          const response = result as { ok?: boolean; message?: string; leanPath?: string } | null;
-          if (response?.ok === false) throw new Error(response.message || "Lean restart failed");
-          activeRegionLeanPath = String(response?.leanPath ?? activeRegionLeanPath);
-          renderStatus({ message: "Lean restarted", kind: "Ready" });
-          return;
-        }
-        const editor = getEditor();
-        const splice = editor?.view.state.field(leanSpliceField, false);
-        if (!splice) {
-          renderStatus({ message: "No Lean document active", kind: "Inactive" });
-          return;
-        }
-        const result = await api.lean.openNote({
-          notePath: currentNotePath,
-          notesRoot: currentNotesRoot,
-          leanText: splice.leanText,
-          leanPath: splice.leanPath,
-        });
-        const response = result as { ok?: boolean; message?: string } | null;
-        if (response?.ok === false) throw new Error(response.message || "Lean restart failed");
+        await restartLeanFile();
       } catch (err) {
         renderStatus({ message: err instanceof Error ? err.message : "Lean restart failed", kind: "Error" });
       } finally {
@@ -553,12 +742,17 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
         activeRegionTag = "";
         activeRegionLeanPath = "";
         activeLeanPosition = null;
+        currentGoalError = null;
+        allMessagesCollapsed = true;
+        messagesPane.classList.add("lean-section--collapsed");
         currentDiagnostics = [];
         currentDiagnosticsUri = "";
         diagnosticsByUri.clear();
         diagnosticVersionsByUri.clear();
         lastGoalsSig = "";
         lastMessagesSig = "";
+        lastCurrentSig = "";
+        lastDiagnosticsFetchUri = "";
         renderMessages([]);
         renderStatus({ message: "Lean stopped", kind: "Inactive" });
       })
@@ -612,6 +806,8 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
 
   copyBtn.addEventListener("click", () => {
     const text = [
+      activeLeanPosition ? activeLocationLabel() : "",
+      currentGoalError ? `Error updating: ${currentGoalError}` : "",
       currentGoalState.goals ?? "",
       currentGoalState.termGoal ? `Expected type:\n${currentGoalState.termGoal}` : "",
       messagesList.textContent ?? "",
@@ -645,12 +841,13 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
   // -------------------------------------------------------------------------
   // Collapsible sections (VSCode / lean4web infoview style)
   // -------------------------------------------------------------------------
-  function makeCollapsible(titleEl: HTMLElement, section: HTMLElement): void {
+  function makeCollapsible(titleEl: HTMLElement, section: HTMLElement, onToggle?: (collapsed: boolean) => void): void {
     titleEl.classList.add("lean-collapsible");
     titleEl.setAttribute("role", "button");
     titleEl.setAttribute("tabindex", "0");
     const toggle = (): void => {
       section.classList.toggle("lean-section--collapsed");
+      onToggle?.(section.classList.contains("lean-section--collapsed"));
     };
     titleEl.addEventListener("click", toggle);
     titleEl.addEventListener("keydown", (event) => {
@@ -662,10 +859,16 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
   }
 
   const termTitle = termSection.querySelector<HTMLElement>(".lean-panel-section-title");
-  const messagesTitle = messagesPane.querySelector<HTMLElement>(".lean-panel-section-title");
+  messagesPane.classList.add("lean-section--collapsed");
   makeCollapsible(goalsTitle, goalsSection);
   if (termTitle) makeCollapsible(termTitle, termSection);
-  if (messagesTitle) makeCollapsible(messagesTitle, messagesPane);
+  makeCollapsible(messagesTitle, messagesPane, (collapsed) => {
+    allMessagesCollapsed = collapsed;
+    if (!collapsed) {
+      lastMessagesSig = "";
+      renderMessages(activeDiagnostics());
+    }
+  });
 
   // -------------------------------------------------------------------------
   // Public API
@@ -688,6 +891,9 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
       activeRegionTag = "";
       activeRegionLeanPath = "";
       activeLeanPosition = null;
+      currentGoalError = null;
+      allMessagesCollapsed = true;
+      messagesPane.classList.add("lean-section--collapsed");
       pinned = false;
       paused = false;
       pinBtn.classList.remove("is-active");
@@ -703,14 +909,19 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
       diagnosticVersionsByUri.clear();
       lastGoalsSig = "";
       lastMessagesSig = "";
+      lastCurrentSig = "";
+      lastDiagnosticsFetchUri = "";
       renderMessages([]);
       renderGoals({ goals: null, termGoal: null, blockIndex: null });
+      renderCurrent();
+      syncOfficialInfoviewVisibility();
     },
     destroy() {
       if (renderMessagesTimer) clearTimeout(renderMessagesTimer);
       unsubDiag();
       unsubStatus();
       window.removeEventListener("aaronnote:lean-region-infoview", onRegionInfoview);
+      officialInfoview.destroy();
     },
   };
 }

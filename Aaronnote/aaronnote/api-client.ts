@@ -129,6 +129,11 @@ type NativeApi = {
     rpcCall?: (body?: unknown) => Promise<unknown>;
     getDefinition?: (body?: unknown) => Promise<unknown>;
     getDiagnostics?: (body?: unknown) => Promise<unknown>;
+    lspRequest?: (body?: unknown) => Promise<unknown>;
+    lspNotify?: (body?: unknown) => Promise<unknown>;
+    createRpcSession?: (body?: unknown) => Promise<unknown>;
+    closeRpcSession?: (body?: unknown) => Promise<unknown>;
+    rpcRelease?: (body?: unknown) => Promise<unknown>;
     cacheStatus?: () => Promise<unknown>;
     cacheGet?: (body?: unknown) => Promise<unknown>;
     ensureRegion?: (body?: unknown) => Promise<unknown>;
@@ -140,6 +145,8 @@ type NativeApi = {
     onProgress?: (handler: (data: unknown) => void) => () => void;
     onSemanticTokens?: (handler: (data: unknown) => void) => () => void;
     onStatus?: (handler: (data: unknown) => void) => () => void;
+    onNotification?: (handler: (data: unknown) => void) => () => void;
+    onClientNotification?: (handler: (data: unknown) => void) => () => void;
   };
 };
 
@@ -571,6 +578,42 @@ export const api = {
       return lean.getDefinition(body);
     },
 
+    async getDiagnostics(body: Record<string, unknown>): Promise<unknown> {
+      const lean = nativeApi()?.lean;
+      if (!lean?.getDiagnostics) return api.lean.request("get-diagnostics", body);
+      return lean.getDiagnostics(body);
+    },
+
+    async lspRequest(body: Record<string, unknown>): Promise<unknown> {
+      const lean = nativeApi()?.lean;
+      if (!lean?.lspRequest) return api.lean.request("lsp-request", body);
+      return lean.lspRequest(body);
+    },
+
+    async lspNotify(body: Record<string, unknown>): Promise<unknown> {
+      const lean = nativeApi()?.lean;
+      if (!lean?.lspNotify) return api.lean.request("lsp-notify", body);
+      return lean.lspNotify(body);
+    },
+
+    async createRpcSession(body: Record<string, unknown>): Promise<unknown> {
+      const lean = nativeApi()?.lean;
+      if (!lean?.createRpcSession) return api.lean.request("create-rpc-session", body);
+      return lean.createRpcSession(body);
+    },
+
+    async closeRpcSession(body: Record<string, unknown>): Promise<unknown> {
+      const lean = nativeApi()?.lean;
+      if (!lean?.closeRpcSession) return api.lean.request("close-rpc-session", body);
+      return lean.closeRpcSession(body);
+    },
+
+    async rpcRelease(body: Record<string, unknown>): Promise<unknown> {
+      const lean = nativeApi()?.lean;
+      if (!lean?.rpcRelease) return api.lean.request("rpc-release", body);
+      return lean.rpcRelease(body);
+    },
+
     async getLog(): Promise<Array<{ type: string; ts: number; message?: string }>> {
       const lean = nativeApi()?.lean;
       if (!lean?.request) return [];
@@ -593,6 +636,14 @@ export const api = {
 
     onStatus(handler: (data: unknown) => void): () => void {
       return nativeApi()?.lean?.onStatus?.(handler) ?? (() => {});
+    },
+
+    onNotification(handler: (data: unknown) => void): () => void {
+      return nativeApi()?.lean?.onNotification?.(handler) ?? (() => {});
+    },
+
+    onClientNotification(handler: (data: unknown) => void): () => void {
+      return nativeApi()?.lean?.onClientNotification?.(handler) ?? (() => {});
     },
   },
 };

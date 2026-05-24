@@ -35,10 +35,13 @@ let pushProgress = null;
 let pushStatus = null;
 let pushLog = null;
 let pushSemanticTokens = null;
+let pushNotification = null;
+let pushClientNotification = null;
 let leanLog = [];
 let cacheTask = null;
 let cacheStatus = { state: "idle", message: "Mathlib cache idle", startedAt: 0, finishedAt: 0, code: null, projectDir: "" };
 let regionUpdateQueues = new Map();
+let rpcSessions = new Map();
 
 function log(type, data = {}) {
   const entry = { type, ...data, ts: Date.now() };
@@ -59,6 +62,13 @@ function clearAllDocumentState() {
   progressCache.clear();
   pushDiagnostics?.({ uri: "", diagnostics: [] });
   pushProgress?.({ uri: "", processing: [] });
+}
+
+function clearRpcSessions() {
+  for (const session of rpcSessions.values()) {
+    if (session.keepAliveTimer) clearInterval(session.keepAliveTimer);
+  }
+  rpcSessions.clear();
 }
 
 // ---------------------------------------------------------------------------
@@ -139,6 +149,24 @@ function runCommand(command, args, { cwd, env, timeoutMs = 0, logType = "lean-co
   });
 }
 
+function normalizeInitializeResult(result) {
+  const normalized = result && typeof result === "object" ? { ...result } : {};
+  normalized.capabilities = normalized.capabilities && typeof normalized.capabilities === "object"
+    ? normalized.capabilities
+    : {};
+  const serverInfo = normalized.serverInfo && typeof normalized.serverInfo === "object"
+    ? { ...normalized.serverInfo }
+    : {};
+  const version = String(serverInfo.version || "").trim();
+  // The official infoview parses serverInfo.version eagerly.  Older Lean/Lake
+  // launches can omit it, so provide a syntactically valid fallback.
+  normalized.serverInfo = {
+    name: String(serverInfo.name || "Lean"),
+    version: /^\d+\.\d+\.\d+/.test(version) ? version : "4.0.0",
+  };
+  return normalized;
+}
+
 // ---------------------------------------------------------------------------
 // Incremental diff helper (character-granularity)
 // ---------------------------------------------------------------------------
@@ -207,6 +235,7 @@ class LeanLspClient extends LspClient {
     this.status = { message: "Not started", kind: "Inactive", busy: false };
     this.ready = null;
     this.initialized = false;
+    this.initializeResult = null;
     this.semanticTokensLegend = null;
     this.semanticTokenTimers = new Map();
     this.documents = new Map(); // leanPath → { version, content }
@@ -214,7 +243,7 @@ class LeanLspClient extends LspClient {
 
   setStatus(message, kind = "Normal", busy = false) {
     this.status = { message, kind, busy };
-    pushStatus?.({ ...this.status });
+    pushStatus?.({ ...this.status, initializeResult: this.initializeResult });
     log("lean-status", { message, kind, busy });
   }
 
@@ -233,11 +262,13 @@ class LeanLspClient extends LspClient {
     this.documents.clear();
     for (const timer of this.semanticTokenTimers.values()) clearTimeout(timer);
     this.semanticTokenTimers.clear();
+    clearRpcSessions();
     clearAllDocumentState();
     openCount = 0;
   }
 
   handleNotification(method, params) {
+    pushNotification?.({ method, params });
     if (method === "textDocument/publishDiagnostics") {
       const uri = params?.uri ?? "";
       const diagnostics = params?.diagnostics ?? [];
@@ -279,6 +310,11 @@ class LeanLspClient extends LspClient {
       return;
     }
     this.respond(id, null);
+  }
+
+  notify(method, params) {
+    pushClientNotification?.({ method, params });
+    super.notify(method, params);
   }
 
   async ensureReady() {
@@ -379,6 +415,7 @@ class LeanLspClient extends LspClient {
         editDelay: 0,
       },
     }, 0);  // no timeout — first-run lake serve can take minutes downloading packages
+    this.initializeResult = normalizeInitializeResult(result);
     this.semanticTokensLegend = result?.capabilities?.semanticTokensProvider?.legend ?? null;
     log("lean-semantic-tokens", {
       available: Boolean(this.semanticTokensLegend),
@@ -531,14 +568,16 @@ class LeanLspClient extends LspClient {
     }
   }
 
-  async getCompletions(leanPath, line, character) {
+  async getCompletions(leanPath, line, character, triggerCharacter = "") {
     await this.ensureReady();
     const uri = pathToFileURL(leanPath).href;
     try {
       return await this.request("textDocument/completion", {
         textDocument: { uri },
         position: { line, character },
-        context: { triggerKind: 1 },
+        context: triggerCharacter
+          ? { triggerKind: 2, triggerCharacter: String(triggerCharacter) }
+          : { triggerKind: 1 },
       }, 10_000);
     } catch {
       return null;
@@ -557,6 +596,23 @@ class LeanLspClient extends LspClient {
   async rpcCall(method, params, timeoutMs = 10_000) {
     await this.ensureReady();
     return this.request(String(method || ""), params ?? {}, timeoutMs);
+  }
+
+  async lspRequest(method, params, timeoutMs = 10_000) {
+    await this.ensureReady();
+    if (String(method || "").startsWith("$/lean/rpc/")) {
+      log("lean-rpc-request", { method: String(method || ""), params: JSON.stringify(params ?? {}).slice(0, 500) });
+    }
+    return this.request(String(method || ""), params ?? {}, timeoutMs);
+  }
+
+  async lspNotify(method, params) {
+    await this.ensureReady();
+    if (String(method || "").startsWith("$/lean/rpc/")) {
+      log("lean-rpc-notify", { method: String(method || ""), params: JSON.stringify(params ?? {}).slice(0, 500) });
+    }
+    this.notify(String(method || ""), params ?? {});
+    return true;
   }
 
   async getDefinition(leanPath, line, character) {
@@ -841,12 +897,14 @@ export function setNotesRoot(root) {
   notesRoot = resolve(root);
 }
 
-export function registerLeanPushHandlers({ onDiagnostics, onProgress, onStatus, onLog, onSemanticTokens } = {}) {
+export function registerLeanPushHandlers({ onDiagnostics, onProgress, onStatus, onLog, onSemanticTokens, onNotification, onClientNotification } = {}) {
   pushDiagnostics = onDiagnostics ?? null;
   pushProgress = onProgress ?? null;
   pushStatus = onStatus ?? null;
   pushLog = onLog ?? null;
   pushSemanticTokens = onSemanticTokens ?? null;
+  pushNotification = onNotification ?? null;
+  pushClientNotification = onClientNotification ?? null;
 }
 
 export async function handleLeanRequest(action, body = {}) {
@@ -863,6 +921,7 @@ export async function handleLeanRequest(action, body = {}) {
       type: "lean-status",
       status: client?.status ?? { message: "Not started", kind: "Inactive", busy: false },
       running: Boolean(client?.running),
+      initializeResult: client?.initializeResult ?? null,
       notesRoot,
       projectRoot: notesRoot ? leanProjectDir(notesRoot) : "",
       hasToolchain: notesRoot ? hasLeanToolchain(notesRoot) : false,
@@ -879,6 +938,7 @@ export async function handleLeanRequest(action, body = {}) {
     idleTimer = null;
     openCount = 0;
     regionUpdateQueues = new Map();
+    clearRpcSessions();
     clearAllDocumentState();
     log("lean-stop");
     leanClient?.stop();
@@ -1086,11 +1146,11 @@ export async function handleLeanRequest(action, body = {}) {
   }
 
   if (action === "get-completions") {
-    const { leanPath, line, character } = body;
+    const { leanPath, line, character, triggerCharacter } = body;
     if (!leanPath) return { ok: false, message: "Missing leanPath" };
     const client = leanClient;
     if (!client?.running) return { ok: false, result: null };
-    const result = await client.getCompletions(leanPath, Number(line ?? 0), Number(character ?? 0));
+    const result = await client.getCompletions(leanPath, Number(line ?? 0), Number(character ?? 0), triggerCharacter ?? "");
     return { ok: true, result };
   }
 
@@ -1109,6 +1169,70 @@ export async function handleLeanRequest(action, body = {}) {
     if (!method) return { ok: false, message: "Missing RPC method" };
     const result = await client.rpcCall(String(method), params ?? {}, Number(timeoutMs ?? 10_000));
     return { ok: true, result };
+  }
+
+  if (action === "lsp-request") {
+    const { method, params, timeoutMs } = body;
+    const client = leanClient;
+    if (!client?.running) return { ok: false, result: null, message: "Lean server not running" };
+    if (!method) return { ok: false, message: "Missing LSP method" };
+    const result = await client.lspRequest(String(method), params ?? {}, Number(timeoutMs ?? 10_000));
+    return { ok: true, result };
+  }
+
+  if (action === "lsp-notify") {
+    const { method, params } = body;
+    const client = leanClient;
+    if (!client?.running) return { ok: false, message: "Lean server not running" };
+    if (!method) return { ok: false, message: "Missing LSP method" };
+    await client.lspNotify(String(method), params ?? {});
+    return { ok: true };
+  }
+
+  if (action === "create-rpc-session") {
+    const { leanPath, uri } = body;
+    const client = leanClient;
+    if (!client?.running) return { ok: false, message: "Lean server not running" };
+    const documentUri = uri || (leanPath ? pathToFileURL(String(leanPath)).href : "");
+    if (!documentUri) return { ok: false, message: "Missing Lean document" };
+    const result = await client.lspRequest("$/lean/rpc/connect", { uri: documentUri }, Number(body.timeoutMs ?? 10_000));
+    const sessionId = result?.sessionId ?? result;
+    if (!sessionId) return { ok: false, message: "Lean RPC session was not created", result };
+    const sessionKey = String(sessionId);
+    const keepAliveTimer = setInterval(() => {
+      if (!leanClient?.running || !rpcSessions.has(sessionKey)) return;
+      void leanClient.lspNotify("$/lean/rpc/keepAlive", { uri: documentUri, sessionId }).catch((err) => {
+        log("lean-rpc-keepalive-error", { sessionId: sessionKey, message: String(err?.message || err) });
+      });
+    }, 10_000);
+    rpcSessions.set(sessionKey, { sessionId, uri: documentUri, keepAliveTimer });
+    return { ok: true, sessionId, result };
+  }
+
+  if (action === "close-rpc-session") {
+    const { sessionId } = body;
+    const sessionKey = String(sessionId ?? "");
+    const session = rpcSessions.get(sessionKey);
+    if (!session) return { ok: true };
+    if (session.keepAliveTimer) clearInterval(session.keepAliveTimer);
+    rpcSessions.delete(sessionKey);
+    const client = leanClient;
+    if (client?.running) {
+      await client.lspNotify("$/lean/rpc/release", { uri: session.uri, sessionId: session.sessionId, refs: [] }).catch(() => null);
+    }
+    return { ok: true };
+  }
+
+  if (action === "rpc-release") {
+    const { sessionId, refs } = body;
+    const client = leanClient;
+    if (!client?.running) return { ok: false, message: "Lean server not running" };
+    if (!sessionId) return { ok: false, message: "Missing RPC session" };
+    await client.lspNotify("$/lean/rpc/release", {
+      sessionId,
+      refs: Array.isArray(refs) ? refs : undefined,
+    });
+    return { ok: true };
   }
 
   if (action === "get-definition") {
