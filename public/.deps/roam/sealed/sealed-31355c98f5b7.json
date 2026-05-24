@@ -45,8 +45,10 @@
     "Aaronnote/src/types.d.ts",
     "Aaronnote/src/types/arborium-lean.d.ts",
     "Aaronnote/src/url-safety.ts",
+    "Aaronnote/src/visual-attachments.ts",
     "bin/publish-site",
     "css/aaronnote-published.css",
+    "roam/.lean/project/UNSW/ISO(202603)/GraphTensor.lean",
     "roam/sealed/sealed-31355c98f5b7.md"
   ]
 }

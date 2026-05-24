@@ -45,6 +45,7 @@
     "Aaronnote/src/types.d.ts",
     "Aaronnote/src/types/arborium-lean.d.ts",
     "Aaronnote/src/url-safety.ts",
+    "Aaronnote/src/visual-attachments.ts",
     "bin/publish-site",
     "css/aaronnote-published.css",
     "roam/sealed/sealed-d245574f999f.md"

@@ -3749,7 +3749,11 @@ body.lean-panel-open .aaronnote-editor {
 }
 
 .lean-panel-outline {
+  flex: 0 0 auto;
+  border-top: 1px solid #d4c8b6;
+  border-bottom: 0;
   padding-bottom: 8px;
+  background: #f4efe6;
 }
 
 .lean-outline-box {
@@ -3884,6 +3888,25 @@ body.lean-panel-open .aaronnote-editor {
   --vscode-button-foreground: #241f1a;
   --vscode-button-background: #fffaf2;
   --vscode-button-hoverBackground: #f0e6d8;
+  --vscode-font-weight: 500;
+  --vscode-editor-font-size: 13px;
+  --vscode-editor-font-weight: 500;
+  --vscode-editor-line-height: 1.45;
+  --vscode-editor-selectionBackground: rgb(154 15 31 / 14%);
+  --vscode-editorOverviewRuler-rangeHighlightForeground: rgb(217 119 6 / 25%);
+  --vscode-editorHoverWidget-background: #fffaf2;
+  --vscode-editorHoverWidget-foreground: #181411;
+  --vscode-editorHoverWidget-border: #d8caba;
+  --vscode-widget-shadow: rgb(67 39 25 / 24%);
+  --vscode-textCodeBlock-background: #f4efe6;
+  --vscode-dropdown-background: #fffaf2;
+  --vscode-dropdown-foreground: #181411;
+  --vscode-dropdown-border: #d8caba;
+  --vscode-lean4-infoView\.goalCount: #7f1d1d;
+  --vscode-lean4-infoView\.turnstile: #8b1b25;
+  --vscode-lean4-infoView\.caseLabel: #9a6500;
+  --vscode-lean4-infoView\.hypothesisName: #0f766e;
+  --vscode-lean4-infoView\.inaccessibleHypothesisName: #7c746c;
 }
 
 @font-face {
@@ -3944,6 +3967,40 @@ body.lean-panel-open .aaronnote-editor {
 
 .lean-official-infoview .gold {
   color: #9a6500;
+}
+
+.lean-official-infoview .goal-goals {
+  color: var(--vscode-lean4-infoView\.goalCount);
+}
+
+.lean-official-infoview .goal-vdash {
+  color: var(--vscode-lean4-infoView\.turnstile);
+}
+
+.lean-official-infoview .goal-case {
+  color: var(--vscode-lean4-infoView\.caseLabel);
+}
+
+.lean-official-infoview .goal-hyp {
+  color: var(--vscode-lean4-infoView\.hypothesisName);
+}
+
+.lean-official-infoview .goal-inaccessible {
+  color: var(--vscode-lean4-infoView\.inaccessibleHypothesisName);
+  font-style: italic;
+  font-weight: 400;
+  opacity: 0.72;
+}
+
+.lean-official-infoview .highlight-selected {
+  background-color: var(--vscode-editorOverviewRuler-rangeHighlightForeground) !important;
+  border-radius: 2px;
+  box-shadow: inset 0 -1px 0 rgb(217 119 6 / 70%);
+}
+
+.lean-official-infoview .highlight {
+  background-color: var(--vscode-editor-selectionBackground) !important;
+  border-radius: 2px;
 }
 
 .lean-official-infoview .font-code,
@@ -4286,6 +4343,9 @@ body.lean-panel-open .aaronnote-editor {
 /* Hover tooltip */
 .cm-lean-hover-tooltip {
   max-width: 440px;
+  max-height: min(48vh, 420px);
+  overflow: auto;
+  box-sizing: border-box;
   padding: 6px 10px;
   border: 1px solid #4a433d;
   border-radius: 4px;
@@ -4303,6 +4363,12 @@ body.lean-panel-open .aaronnote-editor {
   color: #f4eee7 !important;
   border: 1px solid #4a433d !important;
   box-shadow: 0 14px 34px rgb(0 0 0 / 36%) !important;
+}
+
+.cm-completionInfo {
+  max-width: min(420px, calc(100vw - 48px));
+  max-height: min(220px, calc(100vh - 96px));
+  overflow: auto;
 }
 
 .cm-tooltip-autocomplete ul {
