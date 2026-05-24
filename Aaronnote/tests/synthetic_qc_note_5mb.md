@@ -121503,9 +121503,9 @@ $$
 #+begin warning Promise preservation
 For promise problems, it is not enough to map yes-instances to yes-instances.
 One must also map no-instances to no-instances. Inputs outside the promise
-are irrelevant, but the reduction must preserve the promised domain.
+are irrelevant, but the reduction must preserve the promised domain. This is hard 
 #+end warning
-
+pro
 A typical reduction chain may have the form
 
 $$

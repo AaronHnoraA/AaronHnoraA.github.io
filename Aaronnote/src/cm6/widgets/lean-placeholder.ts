@@ -27,6 +27,7 @@ import {
   moveCompletionSelection,
   nextSnippetField,
   prevSnippetField,
+  selectedCompletionIndex,
   setSelectedCompletion,
   snippet,
   snippetCompletion,
@@ -818,7 +819,9 @@ function shadowStyles(): HTMLStyleElement {
     }
     .cm-lean-completion-info {
       padding: 6px 10px;
-      max-width: 520px;
+      max-width: min(420px, calc(100vw - 48px));
+      max-height: min(220px, calc(100vh - 96px));
+      overflow: auto;
       font-family: inherit;
     }
     .cm-lean-completion-type {
@@ -830,6 +833,8 @@ function shadowStyles(): HTMLStyleElement {
     }
     .cm-lean-completion-doc {
       margin: 0;
+      max-height: 150px;
+      overflow: auto;
       font-size: 12px;
       line-height: 1.5;
       color: #c8c1b8;
@@ -942,6 +947,9 @@ function tooltipStyles(): HTMLStyleElement {
     .lean-editor-tooltips .cm-tooltip-autocomplete .cm-completionDetail { color: #c8c1b8; }
     .lean-editor-tooltips .cm-tooltip-autocomplete ul li[aria-selected] .cm-completionDetail { color: #eaf2ff; }
     .lean-editor-tooltips .cm-completionMatchedText { color: #facc15; text-decoration: none; }
+    .lean-editor-tooltips[data-lean-hide-completion-info="true"] .cm-completionInfo {
+      display: none !important;
+    }
     .lean-editor-tooltips .cm-lean-hover-tooltip pre {
       margin: 0;
       max-width: 560px;
@@ -953,7 +961,9 @@ function tooltipStyles(): HTMLStyleElement {
     }
     .lean-editor-tooltips .cm-lean-completion-info {
       padding: 6px 10px;
-      max-width: 520px;
+      max-width: min(420px, calc(100vw - 48px));
+      max-height: min(220px, calc(100vh - 96px));
+      overflow: auto;
       font-family: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     }
     .lean-editor-tooltips .cm-lean-completion-type {
@@ -965,6 +975,8 @@ function tooltipStyles(): HTMLStyleElement {
     }
     .lean-editor-tooltips .cm-lean-completion-doc {
       margin: 0;
+      max-height: 150px;
+      overflow: auto;
       font-size: 12px;
       line-height: 1.5;
       color: #c8c1b8;
@@ -976,8 +988,8 @@ function tooltipStyles(): HTMLStyleElement {
       border: 1px solid #4a433d !important;
       border-left: none !important;
       box-shadow: 4px 4px 16px rgb(0 0 0 / 40%) !important;
-      max-width: 420px;
-      max-height: 280px;
+      max-width: min(420px, calc(100vw - 48px));
+      max-height: min(220px, calc(100vh - 96px));
       overflow-y: auto;
       font-family: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     }
@@ -1875,6 +1887,45 @@ function handleLeanCompletionKey(event: KeyboardEvent, view: EditorView): boolea
   return false;
 }
 
+function leanTooltipContainer(view: EditorView): HTMLElement | null {
+  const root = view.dom.getRootNode();
+  if (!(root instanceof Document || root instanceof ShadowRoot)) return null;
+  return root.querySelector<HTMLElement>(".lean-editor-tooltips");
+}
+
+function hideCurrentCompletionInfo(view: EditorView): boolean {
+  const tooltipContainer = leanTooltipContainer(view);
+  if (!tooltipContainer?.querySelector(".cm-completionInfo")) return false;
+  tooltipContainer.dataset.leanHideCompletionInfo = "true";
+  tooltipContainer.dataset.leanHiddenCompletionInfoIndex = String(selectedCompletionIndex(view.state) ?? "");
+  return true;
+}
+
+function syncHiddenCompletionInfo(view: EditorView): void {
+  const tooltipContainer = leanTooltipContainer(view);
+  if (!tooltipContainer?.dataset.leanHideCompletionInfo) return;
+  if (completionStatus(view.state) !== "active") {
+    delete tooltipContainer.dataset.leanHideCompletionInfo;
+    delete tooltipContainer.dataset.leanHiddenCompletionInfoIndex;
+    return;
+  }
+  const hiddenIndex = tooltipContainer.dataset.leanHiddenCompletionInfoIndex ?? "";
+  if (hiddenIndex !== String(selectedCompletionIndex(view.state) ?? "")) {
+    delete tooltipContainer.dataset.leanHideCompletionInfo;
+    delete tooltipContainer.dataset.leanHiddenCompletionInfoIndex;
+  }
+}
+
+function handleLeanPopupEscapeKey(event: KeyboardEvent, view: EditorView): boolean {
+  if (event.key !== "Escape") return false;
+  const hasCursorHover = view.state.field(leanCursorHoverField, false) !== null;
+  const hasCompletionInfo = hideCurrentCompletionInfo(view);
+  if (!hasCompletionInfo && !hasCursorHover) return false;
+  blockKey(event);
+  if (hasCursorHover) view.dispatch({ effects: SetLeanCursorHover.of(null) });
+  return true;
+}
+
 function handleLeanUndoRedoKey(event: KeyboardEvent, view: EditorView): boolean {
   const key = event.key.toLowerCase();
   const isMac = /Mac/.test(navigator.platform);
@@ -1944,6 +1995,7 @@ function leanKeyboardIsolation(): Extension {
   return Prec.highest(EditorView.domEventHandlers({
     keydown(event, view) {
       if (handleLeanUndoRedoKey(event, view)) return true;
+      if (handleLeanPopupEscapeKey(event, view)) return true;
       if (handleLeanCompletionKey(event, view)) return true;
       if (vim.handleKeyDown(event, view)) return true;
       event.stopPropagation();
@@ -1995,6 +2047,7 @@ function leanEditorExtensions(
     leanCursorHover(ctx),
     leanDefinitionClick(ctx),
     EditorView.updateListener.of((update) => {
+      syncHiddenCompletionInfo(update.view);
       if (update.docChanged) onChange(update.state.doc.toString());
       if (update.focusChanged && update.view.hasFocus) publishLeanRegionActive(ctx.notePath, ctx.tag);
       if (update.view.hasFocus && (update.selectionSet || update.docChanged)) {

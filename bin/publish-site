@@ -21,7 +21,9 @@ PUBLISH_STATE = PUBLIC / ".publish-state.json"
 ASSET_VERSION = "20260517-md"
 NOTE_THEME_VERSION = "20260522-local-graph"
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".avif"}
-STATIC_EXTENSIONS = IMAGE_EXTENSIONS | {".css", ".js", ".pdf"}
+VISUAL_ATTACHMENT_EXTENSIONS = {".drawio", ".dio", ".html", ".htm"}
+STATIC_EXTENSIONS = IMAGE_EXTENSIONS | {".css", ".js", ".pdf", ".drawio", ".dio"}
+NOTE_STATIC_EXTENSIONS = STATIC_EXTENSIONS | VISUAL_ATTACHMENT_EXTENSIONS
 SKIP_DIRS = {".git", ".git-rewrite", ".cache", ".direnv", ".venv", "node_modules", "public", "release", "ltximg", "_typst", "__pycache__"}
 PUBLISH_INPUT_PATHS = (
     # "roam" is now a symlink to ~/Documents/AaronNote (its own git repo, gitignored here).
@@ -397,7 +399,7 @@ def private_static_asset_paths(notes: list[Note]) -> set[Path]:
             paths.update(
                 path.resolve()
                 for path in directory.rglob("*")
-                if path.is_file() and path.suffix.lower() in STATIC_EXTENSIONS
+                if path.is_file() and path.suffix.lower() in NOTE_STATIC_EXTENSIONS
             )
     return paths
 
@@ -860,7 +862,7 @@ def note_static_asset_paths(note: Note) -> set[Path]:
         asset_path = markdown_asset_target(note, raw_path)
         if not asset_path:
             continue
-        if asset_path.exists() and asset_path.is_file() and asset_path.suffix.lower() in STATIC_EXTENSIONS:
+        if asset_path.exists() and asset_path.is_file() and asset_path.suffix.lower() in NOTE_STATIC_EXTENSIONS:
             paths.add(asset_path.resolve())
 
     for rel_dir in (
@@ -873,7 +875,7 @@ def note_static_asset_paths(note: Note) -> set[Path]:
             paths.update(
                 path.resolve()
                 for path in directory.rglob("*")
-                if path.is_file() and path.suffix.lower() in STATIC_EXTENSIONS
+                if path.is_file() and path.suffix.lower() in NOTE_STATIC_EXTENSIONS
             )
     return paths
 
@@ -946,9 +948,10 @@ def copy_static(notes: list[Note]) -> None:
         rel = path.relative_to(ROOT)
         if should_skip(rel) or path.name.startswith(".") or path.name.endswith("~"):
             continue
-        if rel.parts and rel.parts[0] == "roam" and path.suffix.lower() not in IMAGE_EXTENSIONS:
+        suffix = path.suffix.lower()
+        if rel.parts and rel.parts[0] == "roam" and suffix not in (IMAGE_EXTENSIONS | VISUAL_ATTACHMENT_EXTENSIONS):
             continue
-        if path.suffix.lower() not in STATIC_EXTENSIONS:
+        if suffix not in STATIC_EXTENSIONS and not (rel.parts and rel.parts[0] == "roam" and suffix in VISUAL_ATTACHMENT_EXTENSIONS):
             continue
         _copy_into_public(path, PUBLIC / rel)
 

@@ -53,6 +53,7 @@ const saveWriteQueues = new Map();
 const contentTypes = new Map([
   [".html", "text/html; charset=utf-8"],
   [".js", "application/javascript; charset=utf-8"],
+  [".mjs", "application/javascript; charset=utf-8"],
   [".css", "text/css; charset=utf-8"],
   [".json", "application/json; charset=utf-8"],
   [".svg", "image/svg+xml"],
@@ -68,12 +69,15 @@ const contentTypes = new Map([
   [".md", "text/markdown; charset=utf-8"],
   [".markdown", "text/markdown; charset=utf-8"],
   [".lean", "text/x-lean4; charset=utf-8"],
+  [".drawio", "application/vnd.jgraph.mxfile"],
+  [".dio", "application/vnd.jgraph.mxfile"],
   [".mp3", "audio/mpeg"],
   [".mp4", "video/mp4"],
   [".mov", "video/quicktime"],
   [".woff", "font/woff"],
   [".woff2", "font/woff2"],
   [".ttf", "font/ttf"],
+  [".wasm", "application/wasm"],
 ]);
 async function atomicWriteFile(file, data, options) {
   await mkdir(dirname(file), { recursive: true });
@@ -158,6 +162,7 @@ function standaloneFile(file) {
 }
 
 export function fileContentType(file) {
+  if (/\.drawio\.xml$/i.test(String(file || ""))) return "application/vnd.jgraph.mxfile";
   return contentTypes.get(extname(file).toLowerCase()) || "application/octet-stream";
 }
 
@@ -175,6 +180,13 @@ function imageAssetP(name, type = "") {
   if (String(type).toLowerCase().startsWith("image/")) return true;
   return new Set([".avif", ".bmp", ".gif", ".jpeg", ".jpg", ".png", ".svg", ".webp"])
     .has(extname(name).toLowerCase());
+}
+
+function visualAssetP(name, type = "") {
+  const lowerType = String(type || "").toLowerCase();
+  if (lowerType.includes("jgraph") || lowerType.includes("drawio") || lowerType === "text/html" || lowerType.startsWith("text/html;")) return true;
+  const lowerName = String(name || "").toLowerCase();
+  return /\.(?:drawio|dio)(?:\.xml)?$/i.test(lowerName) || /\.html?$/i.test(lowerName);
 }
 
 async function uniqueAssetPath(dir, name) {
@@ -317,7 +329,7 @@ export async function pathSuggestionsForFile(file) {
       }
       if (!entry.isFile()) continue;
       const ext = extname(entry.name).toLowerCase();
-      if (!contentTypes.has(ext) && !imageAssetP(entry.name)) continue;
+      if (!contentTypes.has(ext) && !imageAssetP(entry.name) && !visualAssetP(entry.name)) continue;
       out.add(markdownRelativePath(current, full));
     }
   }

@@ -182,6 +182,22 @@ function hrefFromLinkNode(state: EditorState, from: number, to: number): string 
   return href;
 }
 
+function markdownHrefFromLineAt(state: EditorState, pos: number): string | null {
+  const line = state.doc.lineAt(Math.max(0, Math.min(pos, state.doc.length)));
+  const re = /!?\[[^\]\n]*\]\(([^)\n]+)\)/g;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(line.text)) !== null) {
+    const from = line.from + match.index;
+    const to = from + match[0].length;
+    if (pos < from || pos > to) continue;
+    return (match[1] || "")
+      .replace(/\s+"[^"]*"\s*$/, "")
+      .replace(/\s+'[^']*'\s*$/, "")
+      .trim() || null;
+  }
+  return null;
+}
+
 export function markdownHrefAt(state: EditorState, pos: number): string | null {
   const wikilink = wikilinkHrefAt(state, pos);
   if (wikilink) return wikilink;
@@ -204,7 +220,7 @@ export function markdownHrefAt(state: EditorState, pos: number): string | null {
     }
   }
 
-  return null;
+  return markdownHrefFromLineAt(state, clamped);
 }
 
 function wikilinkHrefAt(state: EditorState, pos: number): string | null {

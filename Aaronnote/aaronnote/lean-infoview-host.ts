@@ -1,4 +1,9 @@
-import { renderInfoview, type EditorApi, type InfoviewApi, defaultInfoviewConfig } from "@leanprover/infoview";
+import { loadRenderInfoview } from "@leanprover/infoview/loader";
+import { defaultInfoviewConfig, type EditorApi, type InfoviewApi } from "@leanprover/infoview-api";
+import infoviewModuleUrl from "../node_modules/@leanprover/infoview/dist/index.production.min.js?url";
+import infoviewReactUrl from "../node_modules/@leanprover/infoview/dist/react.production.min.js?url";
+import infoviewReactDomUrl from "../node_modules/@leanprover/infoview/dist/react-dom.production.min.js?url";
+import infoviewReactJsxRuntimeUrl from "../node_modules/@leanprover/infoview/dist/react-jsx-runtime.production.min.js?url";
 import { api } from "./api-client.ts";
 
 type LeanInfoviewLocation = {
@@ -10,6 +15,7 @@ type LeanInfoviewLocation = {
 type LeanOfficialInfoviewHost = {
   setLocation: (location: LeanInfoviewLocation | null) => void;
   hasContent: () => boolean;
+  isReady: () => boolean;
   destroy: () => void;
 };
 
@@ -18,6 +24,8 @@ type LeanOfficialInfoviewHostOptions = {
   restartFile?: (uri: string) => Promise<void> | void;
   insertText?: (text: string, kind: Parameters<EditorApi["insertText"]>[1], pos?: Parameters<EditorApi["insertText"]>[2]) => Promise<void> | void;
   applyEdit?: (edit: Parameters<EditorApi["applyEdit"]>[0]) => Promise<void> | void;
+  onReady?: () => void;
+  onContentChange?: () => void;
 };
 
 type LeanNotification = {
@@ -53,12 +61,25 @@ function normalizeInitializeResult(raw: unknown): { capabilities: Record<string,
   };
 }
 
+function infoviewImports(): Record<string, string> {
+  return {
+    "@leanprover/infoview": infoviewModuleUrl,
+    react: infoviewReactUrl,
+    "react-dom": infoviewReactDomUrl,
+    "react/jsx-runtime": infoviewReactJsxRuntimeUrl,
+  };
+}
+
 export function createLeanOfficialInfoviewHost(root: HTMLElement, options: LeanOfficialInfoviewHostOptions = {}): LeanOfficialInfoviewHost {
   const serverSubscriptions = new Map<string, number>();
   const clientSubscriptions = new Map<string, number>();
   let infoview: InfoviewApi | null = null;
   let current: LeanInfoviewLocation | null = null;
   let initialized = false;
+  let ready = false;
+  let destroyed = false;
+  let pendingInitializeResult: unknown = null;
+  let pendingStoppedReason: { message: string; reason: string } | null = null;
 
   const editorApi: EditorApi = {
     async saveConfig() {},
@@ -123,16 +144,83 @@ export function createLeanOfficialInfoviewHost(root: HTMLElement, options: LeanO
     },
   };
 
-  try {
-    infoview = renderInfoview(editorApi, root);
-    void infoview.changedInfoviewConfig({
+  const configureInfoview = (): void => {
+    void infoview?.changedInfoviewConfig({
       ...defaultInfoviewConfig,
       expectedTypeVisibility: "Expanded by default",
       showGoalNames: true,
       emphasizeFirstGoal: true,
       showTooltipOnHover: false,
+    }).catch(() => {});
+  };
+
+  const markContentSoon = (): void => {
+    window.setTimeout(() => {
+      if (destroyed) return;
+      root.classList.toggle("lean-official-infoview--active", Boolean(root.textContent?.trim()));
+      options.onContentChange?.();
+    }, 120);
+  };
+
+  function publishLocation(location: LeanInfoviewLocation): Promise<void> {
+    if (!infoview) return Promise.resolve();
+    const loc = {
+      uri: location.uri,
+      range: {
+        start: { line: location.line, character: location.character },
+        end: { line: location.line, character: location.character },
+      },
+    };
+    return (async () => {
+      if (!initialized) {
+        initialized = true;
+        await infoview?.initialize(loc);
+      }
+      await infoview?.changedCursorLocation(loc);
+      markContentSoon();
+    })();
+  }
+
+  const restartInfoview = (initializeResult: unknown): void => {
+    if (!infoview) {
+      pendingInitializeResult = initializeResult;
+      return;
+    }
+    pendingInitializeResult = null;
+    pendingStoppedReason = null;
+    void infoview.serverRestarted(normalizeInitializeResult(initializeResult)).then(() => {
+      if (current) void publishLocation(current).catch(() => {});
+      markContentSoon();
+    }).catch((err) => {
+      root.classList.add("lean-official-infoview--error");
+      root.textContent = err instanceof Error ? err.message : "Lean infoview failed to start";
+      options.onContentChange?.();
     });
-    root.classList.add("lean-official-infoview--ready");
+  };
+
+  const stopInfoview = (reason: { message: string; reason: string }): void => {
+    if (!infoview) {
+      pendingStoppedReason = reason;
+      return;
+    }
+    pendingStoppedReason = null;
+    initialized = false;
+    void infoview.serverStopped(reason).then(markContentSoon).catch(() => {});
+  };
+
+  try {
+    loadRenderInfoview(infoviewImports(), [editorApi, root], (loaded) => {
+      if (destroyed) return;
+      infoview = loaded;
+      ready = true;
+      root.classList.add("lean-official-infoview--ready");
+      configureInfoview();
+      if (pendingStoppedReason) stopInfoview(pendingStoppedReason);
+      else if (pendingInitializeResult) restartInfoview(pendingInitializeResult);
+      else if (current) void publishLocation(current).catch(() => {});
+      options.onReady?.();
+      markContentSoon();
+    });
   } catch (err) {
     root.textContent = err instanceof Error ? err.message : "Lean infoview failed to load";
     root.classList.add("lean-official-infoview--error");
@@ -152,19 +240,6 @@ export function createLeanOfficialInfoviewHost(root: HTMLElement, options: LeanO
     void infoview?.sentClientNotification(method, data.params);
   });
 
-  const markContentSoon = (): void => {
-    window.setTimeout(() => {
-      root.classList.toggle("lean-official-infoview--active", Boolean(root.textContent?.trim()));
-    }, 120);
-  };
-
-  const restartInfoview = (initializeResult: unknown): void => {
-    void infoview?.serverRestarted(normalizeInitializeResult(initializeResult)).then(markContentSoon).catch((err) => {
-      root.classList.add("lean-official-infoview--error");
-      root.textContent = err instanceof Error ? err.message : "Lean infoview failed to start";
-    });
-  };
-
   void api.lean.status().then((raw) => {
     const data = raw as { running?: boolean; initializeResult?: unknown };
     if (data?.running && data.initializeResult) restartInfoview(data.initializeResult);
@@ -175,29 +250,12 @@ export function createLeanOfficialInfoviewHost(root: HTMLElement, options: LeanO
     if (data.kind === "Normal" || data.kind === "Ready") {
       if (data.initializeResult) restartInfoview(data.initializeResult);
     } else if (data.kind === "Inactive" || data.kind === "Error") {
-      void infoview?.serverStopped({
+      stopInfoview({
         message: String(data.message ?? "Lean server stopped"),
         reason: String(data.kind ?? "stopped"),
-      }).then(markContentSoon).catch(() => {});
+      });
     }
   });
-
-  async function publishLocation(location: LeanInfoviewLocation): Promise<void> {
-    if (!infoview) return;
-    const loc = {
-      uri: location.uri,
-      range: {
-        start: { line: location.line, character: location.character },
-        end: { line: location.line, character: location.character },
-      },
-    };
-    if (!initialized) {
-      initialized = true;
-      await infoview.initialize(loc);
-    }
-    await infoview.changedCursorLocation(loc);
-    markContentSoon();
-  }
 
   return {
     setLocation(location) {
@@ -209,7 +267,11 @@ export function createLeanOfficialInfoviewHost(root: HTMLElement, options: LeanO
     hasContent() {
       return Boolean(root.textContent?.trim());
     },
+    isReady() {
+      return ready;
+    },
     destroy() {
+      destroyed = true;
       unsubServer();
       unsubClient();
       unsubStatus();

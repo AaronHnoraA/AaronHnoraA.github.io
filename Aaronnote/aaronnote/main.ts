@@ -12,6 +12,7 @@ import { getBlockMathRanges, rangeAtPosition, rangeOverlapsAny } from "../src/cm
 import { renderMathLazy } from "../src/math-render.ts";
 import { noteCssHrefFromMarkdown } from "../src/render-html.ts";
 import { safeHref } from "../src/url-safety.ts";
+import { visualMarkdownAttachmentP } from "../src/visual-attachments.ts";
 import { createAgendaManager } from "./agenda.ts";
 import { createUnusedAssetsManager } from "./asset-cleanup.ts";
 import { createFilesystemBrowser } from "./filesystem.ts";
@@ -1735,6 +1736,65 @@ function hrefPath(href: string): string {
   return decodeNoteRef(raw.split(/[?#]/, 1)[0] ?? "");
 }
 
+function attachmentHrefP(href: string): boolean {
+  const raw = cleanHref(href);
+  if (!raw || raw.startsWith("#")) return false;
+  const protocol = hrefProtocol(raw);
+  if (protocol && protocol !== "file") return false;
+  const path = hrefPath(raw).trim();
+  return Boolean(path) && !/\.(?:md|markdown|typ)$/i.test(path);
+}
+
+function markdownAttachmentHrefNear(markdown: string, pos: number): string {
+  const clamped = Math.max(0, Math.min(pos, markdown.length));
+  const lineFrom = markdown.lastIndexOf("\n", Math.max(0, clamped - 1)) + 1;
+  const nextNewline = markdown.indexOf("\n", clamped);
+  const lineTo = nextNewline < 0 ? markdown.length : nextNewline;
+  const line = markdown.slice(lineFrom, lineTo);
+  const localPos = clamped - lineFrom;
+  const re = /!?\[[^\]\n]*\]\(([^)\n]+)\)/g;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(line)) !== null) {
+    if (localPos < match.index || localPos > match.index + match[0].length) continue;
+    const href = (match[1] || "")
+      .replace(/\s+"[^"]*"\s*$/, "")
+      .replace(/\s+'[^']*'\s*$/, "")
+      .trim();
+    return attachmentHrefP(href) ? href : "";
+  }
+  return "";
+}
+
+function markdownAttachmentHrefFromSelection(markdown: string, from: number, to: number): string {
+  if (from === to) return "";
+  const selected = markdown.slice(Math.max(0, from), Math.min(markdown.length, to));
+  const match = selected.match(/!?\[[^\]\n]*\]\(([^)\n]+)\)/);
+  const href = (match?.[1] || "")
+    .replace(/\s+"[^"]*"\s*$/, "")
+    .replace(/\s+'[^']*'\s*$/, "")
+    .trim();
+  return attachmentHrefP(href) ? href : "";
+}
+
+function attachmentHrefFromContextMenu(event: MouseEvent): string {
+  const anchor = (event.target as Element | null)?.closest<HTMLAnchorElement>("a[href]");
+  if (anchor && host.contains(anchor)) {
+    const href = anchor.getAttribute("href") || anchor.href;
+    if (attachmentHrefP(href)) return href;
+  }
+  try {
+    const markdown = editor.getMarkdown();
+    const selection = editor.getMarkdownSelection();
+    const selectedHref = markdownAttachmentHrefFromSelection(markdown, selection.from, selection.to);
+    if (selectedHref) return selectedHref;
+    const pos = editor.view.posAtCoords({ x: event.clientX, y: event.clientY });
+    if (pos == null) return "";
+    return markdownAttachmentHrefNear(markdown, pos);
+  } catch {
+    return "";
+  }
+}
+
 function hrefHash(href: string): string {
   const raw = cleanHref(href);
   const index = raw.indexOf("#");
@@ -2048,7 +2108,9 @@ async function uploadAsset(file: File): Promise<UploadedAsset> {
 function markdownForAsset(asset: UploadedAsset): string {
   const path = asset.markdownPath || asset.file || "";
   const name = asset.name || fileNameFromPath(path);
-  return asset.isImage ? `![${name}](${path})` : `[${name}](${path})`;
+  return (asset.isImage || visualMarkdownAttachmentP(path || name, asset.type))
+    ? `![${name}](${path})`
+    : `[${name}](${path})`;
 }
 
 async function insertFiles(files: File[], options: { pos?: number; mode?: "image-src" | "markdown" } = {}): Promise<void> {
@@ -7446,6 +7508,7 @@ document.addEventListener("aaronnote:attachment-context-menu", (event) => {
 });
 
 host.addEventListener("contextmenu", (event) => {
+  if (event.defaultPrevented) return;
   const anchor = (event.target as Element | null)?.closest<HTMLAnchorElement>("a[href]");
   if (anchor && host.contains(anchor) && primaryPointerModifier(event)) {
     event.preventDefault();
@@ -7454,6 +7517,14 @@ host.addEventListener("contextmenu", (event) => {
     return;
   }
   if (!host.contains(event.target as Node | null)) return;
+  const attachmentHref = attachmentHrefFromContextMenu(event);
+  if (attachmentHref) {
+    event.preventDefault();
+    event.stopPropagation();
+    void api.shell.showAttachmentMenu(hrefPath(attachmentHref), currentFile)
+      .catch((err) => setStatus(err instanceof Error ? err.message : "Attachment menu failed"));
+    return;
+  }
   event.preventDefault();
   event.stopPropagation();
   void api.shell.showEditorContextMenu()

@@ -12,6 +12,15 @@ import { renderMathHTML } from "./math-render.ts";
 import { safeHref } from "./url-safety.ts";
 import { scanInlineCommands } from "./command-syntax.ts";
 import { highlightCode, type CodeHighlightRange } from "./code-highlight.ts";
+import {
+  VISUAL_ATTACHMENT_IFRAME_ALLOW,
+  visualAttachmentEmbeddableP,
+  visualAttachmentFrame,
+  visualAttachmentKind,
+  visualAttachmentSandbox,
+  visualAttachmentTitle,
+  type VisualAttachmentKind,
+} from "./visual-attachments.ts";
 
 declare global {
   interface Window {
@@ -370,6 +379,75 @@ function applyImageAttrs(tokens: Token[], idx: number): void {
   joinTokenStyle(token, imageLayoutStyle(layout));
 }
 
+function renderVisualAttachmentImage(token: Token, kind: VisualAttachmentKind, resolvedSrc: string): string {
+  const alt = token.content || token.attrGet("alt") || "";
+  const classes = [
+    "cm-image-widget",
+    "aaronnote-visual-attachment",
+    `aaronnote-visual-attachment-${kind}`,
+    token.attrGet("class") || "",
+  ].join(" ").trim().replace(/\s+/g, " ");
+  const attrs = [
+    `class="${escapeAttr(classes)}"`,
+    `data-aaronnote-visual-kind="${escapeAttr(kind)}"`,
+  ];
+  const style = token.attrGet("style");
+  if (style) attrs.push(`style="${escapeAttr(style)}"`);
+  for (const name of ["data-aaronnote-image-align", "data-aaronnote-image-wrap"]) {
+    const value = token.attrGet(name);
+    if (value) attrs.push(`${name}="${escapeAttr(value)}"`);
+  }
+
+  const body = visualAttachmentEmbeddableP(kind, resolvedSrc)
+    ? (() => {
+      const frame = visualAttachmentFrame(kind, resolvedSrc);
+      const frameAttrs = [
+        `class="cm-image-render aaronnote-visual-embed aaronnote-visual-embed-${escapeAttr(kind)}"`,
+        `title="${escapeAttr(visualAttachmentTitle(kind, alt))}"`,
+        'loading="lazy"',
+        `allow="${escapeAttr(VISUAL_ATTACHMENT_IFRAME_ALLOW)}"`,
+        'referrerpolicy="no-referrer-when-downgrade"',
+      ];
+      frameAttrs.push(`sandbox="${escapeAttr(visualAttachmentSandbox(kind))}"`);
+      if (frame.mode === "src") {
+        frameAttrs.push(`src="${escapeAttr(frame.src)}"`);
+      } else {
+        frameAttrs.push(`srcdoc="${escapeAttr(frame.srcdoc)}"`);
+      }
+      return `<iframe ${frameAttrs.join(" ")}></iframe>`;
+    })()
+    : `<div class="cm-image-render cm-visual-file-card cm-visual-file-card-${escapeAttr(kind)}" title="${escapeAttr(`System Open: ${resolvedSrc}`)}">${escapeHtml(visualAttachmentTitle(kind, alt))}</div>`;
+
+  const caption = alt.trim()
+    ? `<figcaption class="cm-image-caption">${escapeHtml(alt.trim())}</figcaption>`
+    : "";
+  return `<figure ${attrs.join(" ")}>${body}${caption}</figure>`;
+}
+
+function markdownLinkSrc(raw: string): string {
+  return String(raw || "")
+    .replace(/\s+"[^"]*"\s*$/, "")
+    .replace(/\s+'[^']*'\s*$/, "")
+    .trim();
+}
+
+function emptyHtmlLinkEmbedRule(state: StateInline, silent: boolean): boolean {
+  if (state.src.charCodeAt(state.pos) !== 0x5b || state.src.charCodeAt(state.pos + 1) !== 0x5d) return false;
+  const match = state.src.slice(state.pos).match(/^\[\]\(([^)\n]+)\)/);
+  if (!match) return false;
+  const alt = "";
+  const src = markdownLinkSrc(match[1] ?? "");
+  if (!safeHref(src) || visualAttachmentKind(src) !== "html") return false;
+  if (!silent) {
+    const token = state.push("image", "img", 0);
+    token.attrs = [["src", src], ["alt", alt]];
+    token.children = [];
+    token.content = alt;
+  }
+  state.pos += match[0]!.length;
+  return true;
+}
+
 function applyLayoutToToken(token: Token, kind: string, layout: LayoutAttrs): void {
   token.attrJoin("class", layoutClasses(kind, layout));
   token.attrSet("data-aaronnote-layout", kind);
@@ -550,6 +628,7 @@ function createMarkdownIt(options: RenderMarkdownHTMLOptions): MarkdownIt {
   md.block.ruler.before("fence", "math_block", mathBlockRule, { alt: ["paragraph", "reference", "blockquote"] });
   md.block.ruler.before("paragraph", "lean_region_block", leanRegionBlockRule(options), { alt: ["paragraph"] });
   md.block.ruler.before("paragraph", "toc_block", tocRule, { alt: ["paragraph"] });
+  md.inline.ruler.before("link", "empty_html_link_embed", emptyHtmlLinkEmbedRule);
   md.inline.ruler.after("escape", "math_inline", mathInlineRule);
 
   md.renderer.rules.math_block = renderMathBlock;
@@ -599,7 +678,10 @@ function createMarkdownIt(options: RenderMarkdownHTMLOptions): MarkdownIt {
       const attrIndex = token.attrIndex("src");
       if (attrIndex >= 0) token.attrs?.splice(attrIndex, 1);
     } else if (src) {
-      token.attrSet("src", resolveAssetSrc(src, options.assetResolver));
+      const kind = visualAttachmentKind(src);
+      const resolvedSrc = resolveAssetSrc(src, options.assetResolver);
+      if (kind) return renderVisualAttachmentImage(token, kind, resolvedSrc);
+      token.attrSet("src", resolvedSrc);
     }
     return originalImage(tokens, idx, opts, env, self);
   };

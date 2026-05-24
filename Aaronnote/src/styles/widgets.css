@@ -292,12 +292,30 @@
   margin: 0.32rem auto 0.42rem;
   vertical-align: bottom;
 }
+.aaronnote-visual-attachment {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  text-align: center;
+  margin: 0.32rem auto 0.42rem;
+  vertical-align: bottom;
+}
 .cm-editor .cm-image-widget.aaronnote-image-align-left {
   margin-left: 0;
   margin-right: auto;
   text-align: left;
 }
+.aaronnote-visual-attachment.aaronnote-image-align-left {
+  margin-left: 0;
+  margin-right: auto;
+  text-align: left;
+}
 .cm-editor .cm-image-widget.aaronnote-image-align-right {
+  margin-left: auto;
+  margin-right: 0;
+  text-align: right;
+}
+.aaronnote-visual-attachment.aaronnote-image-align-right {
   margin-left: auto;
   margin-right: 0;
   text-align: right;
@@ -308,7 +326,19 @@
   max-width: var(--aaronnote-image-max-width, min(42%, var(--note-image-max, 360px)));
   margin: 0.25rem 1rem 0.7rem 0;
 }
+.aaronnote-visual-attachment.aaronnote-image-wrap.aaronnote-image-align-left {
+  float: left;
+  width: fit-content;
+  max-width: var(--aaronnote-image-max-width, min(42%, var(--note-image-max, 360px)));
+  margin: 0.25rem 1rem 0.7rem 0;
+}
 .cm-editor .cm-image-widget.aaronnote-image-wrap.aaronnote-image-align-right {
+  float: right;
+  width: fit-content;
+  max-width: var(--aaronnote-image-max-width, min(42%, var(--note-image-max, 360px)));
+  margin: 0.25rem 0 0.7rem 1rem;
+}
+.aaronnote-visual-attachment.aaronnote-image-wrap.aaronnote-image-align-right {
   float: right;
   width: fit-content;
   max-width: var(--aaronnote-image-max-width, min(42%, var(--note-image-max, 360px)));
@@ -327,11 +357,44 @@
   background: color-mix(in srgb, var(--aaron-paper-soft, #f8f4ea), white 26%);
   cursor: pointer;
 }
+.cm-editor .cm-visual-embed,
+.aaronnote-visual-embed {
+  display: block;
+  width: var(--aaronnote-image-width, min(100%, var(--note-image-max, 620px)));
+  min-width: min(100%, 320px);
+  height: var(--aaronnote-image-height, min(52vh, 420px));
+  max-width: var(--aaronnote-image-max-width, min(100%, var(--note-image-max, 620px)));
+  max-height: var(--aaronnote-image-max-height, min(68vh, 560px));
+  border: 1px solid color-mix(in srgb, var(--aaron-paper-line, #d8d0c2), var(--aaron-muted, #6c6358) 12%);
+  border-radius: 3px;
+  background: #fff;
+}
+.cm-editor .cm-visual-file-card,
+.aaronnote-visual-attachment .cm-visual-file-card {
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  width: var(--aaronnote-image-width, min(100%, var(--note-image-max, 620px)));
+  min-width: min(100%, 320px);
+  min-height: 120px;
+  max-width: var(--aaronnote-image-max-width, min(100%, var(--note-image-max, 620px)));
+  padding: 18px;
+  color: color-mix(in srgb, var(--aaron-muted, #6c6358), var(--aaron-ink, #1f2937) 25%);
+  font: 700 0.95em/1.35 var(--aaron-font-sans, system-ui, sans-serif);
+  text-align: center;
+  background: color-mix(in srgb, var(--aaron-paper-soft, #f8f4ea), white 22%);
+  border: 1px solid color-mix(in srgb, var(--aaron-paper-line, #d8d0c2), var(--aaron-muted, #6c6358) 12%);
+  border-radius: 3px;
+}
 .cm-editor .cm-image-widget.aaronnote-image-align-left .cm-image-render { margin-left: 0; margin-right: auto; }
 .cm-editor .cm-image-widget.aaronnote-image-align-right .cm-image-render { margin-left: auto; margin-right: 0; }
 .cm-editor .cm-image-widget.aaronnote-image-wrap .cm-image-render {
   width: var(--aaronnote-image-width, auto);
   max-width: var(--aaronnote-image-max-width, 100%);
+}
+.cm-editor .cm-image-widget.aaronnote-image-wrap .cm-visual-embed,
+.aaronnote-visual-attachment.aaronnote-image-wrap .aaronnote-visual-embed {
+  width: var(--aaronnote-image-width, min(100%, 100%));
 }
 .cm-editor .cm-image-caption {
   max-width: min(100%, var(--note-image-max, 560px));
@@ -340,8 +403,17 @@
   font: 600 0.82em/1.35 var(--aaron-font-sans, system-ui, sans-serif);
   text-align: center;
 }
+.aaronnote-visual-attachment .cm-image-caption {
+  max-width: min(100%, var(--note-image-max, 620px));
+  margin: 0.2rem auto 0;
+  color: color-mix(in srgb, var(--aaron-muted, #6c6358), var(--aaron-ink, #1f2937) 18%);
+  font: 600 0.82em/1.35 var(--aaron-font-sans, system-ui, sans-serif);
+  text-align: center;
+}
 .cm-editor .cm-image-widget.aaronnote-image-align-left .cm-image-caption { margin-left: 0; text-align: left; }
 .cm-editor .cm-image-widget.aaronnote-image-align-right .cm-image-caption { margin-right: 0; text-align: right; }
+.aaronnote-visual-attachment.aaronnote-image-align-left .cm-image-caption { margin-left: 0; text-align: left; }
+.aaronnote-visual-attachment.aaronnote-image-align-right .cm-image-caption { margin-right: 0; text-align: right; }
 .cm-editor .cm-image-broken {
   display: inline-block;
   padding: 2px 6px;

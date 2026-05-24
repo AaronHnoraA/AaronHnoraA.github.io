@@ -1,7 +1,7 @@
 import { app, BrowserWindow, Menu, Notification, dialog, ipcMain, shell, protocol, net, globalShortcut, powerMonitor } from "electron";
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { access, writeFile } from "node:fs/promises";
+import { access, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { homedir } from "node:os";
@@ -101,6 +101,7 @@ protocol.registerSchemesAsPrivileged([{
     supportFetchAPI: true,
     stream: true,
     bypassCSP: true,
+    corsEnabled: true,
   },
 }]);
 
@@ -320,6 +321,100 @@ async function fileProtocolResponse(file) {
   });
 }
 
+function visualFrameHTML(body) {
+  return new Response(body, {
+    status: 200,
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "no-store",
+      "access-control-allow-origin": "*",
+    },
+  });
+}
+
+function visualFrameBaseStyle() {
+  return [
+    "html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#fff;color:#1f2937;",
+    "font:13px/1.45 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}",
+    "body{position:relative}",
+    "iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff}",
+    ".status{position:absolute;inset:0;z-index:2;box-sizing:border-box;display:grid;place-items:center;padding:18px;text-align:center;color:#6b7280;background:#fff}",
+    ".status.error{color:#9f1239;background:#fff7f7}",
+    ".status a{color:#1d4ed8}",
+  ].join("");
+}
+
+function visualFrameErrorHTML(message) {
+  return `<!doctype html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${visualFrameBaseStyle()}</style></head>
+<body><div class="status error">${String(message || "Visual attachment failed").replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[ch]))}</div></body>
+</html>`;
+}
+
+function visualFrameScriptString(value) {
+  return JSON.stringify(String(value ?? ""))
+    .replace(/</g, "\\u003c")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
+
+function drawioFrameHTML(xml) {
+  return `<!doctype html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${visualFrameBaseStyle()}</style></head>
+<body>
+<iframe id="drawio-frame" title="draw.io diagram" allow="fullscreen; clipboard-read; clipboard-write" src="https://embed.diagrams.net/?embed=1&proto=json&spin=1&ui=min&libraries=1&noSaveBtn=1&noExitBtn=1"></iframe>
+<script>
+(function () {
+  var xml = ${visualFrameScriptString(xml)};
+  var frame = document.getElementById("drawio-frame");
+  function sendLoad() {
+    frame.contentWindow.postMessage(JSON.stringify({
+      action: "load",
+      autosave: 0,
+      modified: 0,
+      title: "draw.io diagram",
+      xml: xml
+    }), "*");
+  }
+  window.addEventListener("message", function (event) {
+    var data = event.data;
+    try {
+      if (typeof data === "string" && data.charAt(0) === "{") data = JSON.parse(data);
+    } catch (err) {}
+    if (data === "ready" || data && data.event === "init") sendLoad();
+  });
+}());
+</script>
+</body>
+</html>`;
+}
+
+function visualFrameSourceFile(src) {
+  const raw = String(src || "");
+  if (!raw) throw new Error("Missing visual attachment source");
+  const url = new URL(raw);
+  if (url.protocol !== "aaronnote-asset:" || url.hostname !== "media") {
+    throw new Error(`Unsupported visual attachment source: ${raw}`);
+  }
+  return resolveAssetProtocolFile(raw);
+}
+
+async function visualFrameProtocolResponse(requestUrl) {
+  try {
+    const url = new URL(requestUrl);
+    const kind = decodeURIComponent(url.pathname.replace(/^\/+/, ""));
+    const file = visualFrameSourceFile(url.searchParams.get("src"));
+    if (kind === "drawio") {
+      return visualFrameHTML(drawioFrameHTML(await readFile(file, "utf8")));
+    }
+    throw new Error(`Unknown visual attachment kind: ${kind}`);
+  } catch (err) {
+    return visualFrameHTML(visualFrameErrorHTML(err instanceof Error ? err.message : String(err)));
+  }
+}
+
 function notFoundResponse(message = "Not found", status = 404) {
   return new Response(message, {
     status,
@@ -360,6 +455,10 @@ function resolveAssetProtocolFile(requestUrl) {
 function registerAssetProtocol() {
   protocol.handle("aaronnote-asset", async (request) => {
     try {
+      const host = new URL(request.url).hostname;
+      if (host === "visual-frame") {
+        return await visualFrameProtocolResponse(request.url);
+      }
       const file = resolveAssetProtocolFile(request.url);
       return await fileProtocolResponse(file);
     } catch (err) {

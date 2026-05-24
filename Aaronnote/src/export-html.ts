@@ -130,6 +130,50 @@ function restoreMathML(html: string, math: readonly string[]): string {
   });
 }
 
+function protectVisualSrcdoc(html: string): { html: string; srcdocs: string[] } {
+  const srcdocs: string[] = [];
+  return {
+    html: html.replace(/<iframe\b(?=[^>]*\baaronnote-visual-embed\b)([^>]*)\ssrcdoc="([^"]*)"([^>]*)>/g, (_match, before, value, after) => {
+      const index = srcdocs.push(value) - 1;
+      return `<iframe${before} data-aaronnote-protected-srcdoc="${index}"${after}>`;
+    }),
+    srcdocs,
+  };
+}
+
+function restoreVisualSrcdoc(html: string, srcdocs: readonly string[]): string {
+  return html.replace(/\sdata-aaronnote-protected-srcdoc="(\d+)"/g, (_match, rawIndex: string) => {
+    const index = Number(rawIndex);
+    const value = srcdocs[index];
+    return value === undefined ? "" : ` srcdoc="${value}"`;
+  });
+}
+
+function protectVisualIframeAttrs(html: string): { html: string; attrs: string[] } {
+  const attrs: string[] = [];
+  return {
+    html: html.replace(/<iframe\b(?=[^>]*\baaronnote-visual-embed\b)([^>]*)>/g, (_match, rawAttrs: string) => {
+      const protectedAttrs: string[] = [];
+      const remaining = rawAttrs.replace(/\s(allow|loading|referrerpolicy|sandbox)="([^"]*)"/g, (_attr, name: string, value: string) => {
+        protectedAttrs.push(`${name}="${value}"`);
+        return "";
+      });
+      if (protectedAttrs.length === 0) return `<iframe${rawAttrs}>`;
+      const index = attrs.push(protectedAttrs.join(" ")) - 1;
+      return `<iframe${remaining} data-aaronnote-protected-frame-attrs="${index}">`;
+    }),
+    attrs,
+  };
+}
+
+function restoreVisualIframeAttrs(html: string, attrs: readonly string[]): string {
+  return html.replace(/\sdata-aaronnote-protected-frame-attrs="(\d+)"/g, (_match, rawIndex: string) => {
+    const index = Number(rawIndex);
+    const value = attrs[index];
+    return value === undefined ? "" : ` ${value}`;
+  });
+}
+
 function stripAttrs(el: Element): void {
   for (const attr of Array.from(el.attributes)) {
     if (attr.name === "class" && attr.value.trim() === "") {
@@ -169,7 +213,9 @@ export function cleanEditorHTML(root: HTMLElement): string {
   clone.querySelectorAll("*").forEach(stripAttrs);
   stripAttrs(clone);
   const protectedHtml = protectMathML(clone.innerHTML);
-  const sanitized = DOMPurify.sanitize(protectedHtml.html, {
+  const protectedFrameAttrs = protectVisualIframeAttrs(protectedHtml.html);
+  const protectedSrcdoc = protectVisualSrcdoc(protectedFrameAttrs.html);
+  const sanitized = DOMPurify.sanitize(protectedSrcdoc.html, {
     USE_PROFILES: { html: true, svg: true, mathMl: true },
     ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|file|zotero|roam|aaronnote-asset):|[#/]|\.{0,2}\/|[^a-z])/i,
     ADD_TAGS: [
@@ -197,6 +243,7 @@ export function cleanEditorHTML(root: HTMLElement): string {
       "ref-url",
       "ref-title",
       "yaml-block",
+      "iframe",
     ],
     ADD_ATTR: [
       "xmlns",
@@ -228,7 +275,21 @@ export function cleanEditorHTML(root: HTMLElement): string {
       "data-tex",
       "data-math-render-key",
       "data-aaronnote-math-block",
+      "data-aaronnote-image-align",
+      "data-aaronnote-image-wrap",
+      "data-aaronnote-visual-kind",
+      "data-aaronnote-protected-srcdoc",
+      "data-aaronnote-protected-frame-attrs",
+      "src",
+      "srcdoc",
+      "title",
+      "loading",
+      "sandbox",
+      "allow",
+      "referrerpolicy",
     ],
   });
-  return restoreMathML(sanitized, protectedHtml.math);
+  const restoredSrcdoc = restoreVisualSrcdoc(sanitized, protectedSrcdoc.srcdocs);
+  const restoredFrameAttrs = restoreVisualIframeAttrs(restoredSrcdoc, protectedFrameAttrs.attrs);
+  return restoreMathML(restoredFrameAttrs, protectedHtml.math);
 }

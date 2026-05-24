@@ -130,6 +130,41 @@ $$
     expect(html).not.toContain("{size:300%");
   });
 
+  test("renders draw.io image syntax as a visual attachment iframe", () => {
+    const html = renderMarkdownHTML("![diagram](./attachments/demo.drawio){size:640; align:left}");
+
+    expect(html).toContain("aaronnote-visual-attachment-drawio");
+    expect(html).toContain("aaronnote-visual-embed-drawio");
+    expect(html).toContain("embed.diagrams.net");
+    expect(html).toContain('srcdoc="');
+    expect(html).toContain('data-aaronnote-visual-kind="drawio"');
+    expect(html).toContain("diagram");
+    expect(html).not.toContain("<img");
+  });
+
+  test("renders html image syntax as an isolated visual attachment iframe", () => {
+    const html = renderMarkdownHTML("![panel](./attachments/demo.html){size:640; align:left}");
+
+    expect(html).toContain("aaronnote-visual-attachment-html");
+    expect(html).toContain("aaronnote-visual-embed-html");
+    expect(html).toContain('src="./attachments/demo.html"');
+    expect(html).toContain('sandbox="allow-scripts allow-forms allow-popups allow-downloads"');
+    expect(html).toContain('data-aaronnote-visual-kind="html"');
+    expect(html).toContain("panel");
+    expect(html).not.toContain("<img");
+    expect(html).not.toContain("allow-same-origin");
+  });
+
+  test("renders empty html links as isolated iframes", () => {
+    const html = renderMarkdownHTML("[](./attachments/demo.html)");
+
+    expect(html).toContain("aaronnote-visual-attachment-html");
+    expect(html).toContain("aaronnote-visual-embed-html");
+    expect(html).toContain('src="./attachments/demo.html"');
+    expect(html).toContain('data-aaronnote-visual-kind="html"');
+    expect(html).not.toContain("<img");
+  });
+
   test("applies Aaronnote table trailing attrs", () => {
     const html = renderMarkdownHTML([
       "| A | B |",

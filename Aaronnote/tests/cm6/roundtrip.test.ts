@@ -1262,6 +1262,45 @@ after
     cleanup();
   });
 
+  test("draw.io attachments render through the image widget iframe", () => {
+    const md = "![Diagram title](attachments/demo.drawio)\n\ntext";
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection(md.length);
+
+    const iframe = document.querySelector<HTMLIFrameElement>(".cm-visual-embed-drawio");
+    expect(iframe).toBeTruthy();
+    expect(iframe!.getAttribute("srcdoc") || "").toContain("embed.diagrams.net");
+    expect(iframe!.getAttribute("srcdoc") || "").toContain('action: "load"');
+    expect(document.querySelector(".cm-image-widget img")).toBeNull();
+    cleanup();
+  });
+
+  test("html attachments render through an isolated image widget iframe", () => {
+    const md = "![Panel](attachments/demo.html)\n\ntext";
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection(md.length);
+
+    const iframe = document.querySelector<HTMLIFrameElement>(".cm-visual-embed-html");
+    expect(iframe).toBeTruthy();
+    expect(iframe!.getAttribute("src") || "").toContain("attachments/demo.html");
+    expect(iframe!.getAttribute("sandbox")).toBe("allow-scripts allow-forms allow-popups allow-downloads");
+    expect(document.querySelector(".cm-image-widget img")).toBeNull();
+    cleanup();
+  });
+
+  test("empty html links render through the image widget iframe", () => {
+    const md = "[](attachments/demo.html)\n\ntext";
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection(md.length);
+
+    const iframe = document.querySelector<HTMLIFrameElement>(".cm-visual-embed-html");
+    expect(iframe).toBeTruthy();
+    expect(iframe!.getAttribute("src") || "").toContain("attachments/demo.html");
+    expect(iframe!.getAttribute("sandbox")).toBe("allow-scripts allow-forms allow-popups allow-downloads");
+    expect(document.querySelector(".cm-image-widget img")).toBeNull();
+    cleanup();
+  });
+
   test("image widgets consume trailing layout attrs", () => {
     const md = "![Diagram title](missing.png){size:300%; align:left; wrap:on}\n\ntext";
     const { editor, cleanup } = mountCM6(md);

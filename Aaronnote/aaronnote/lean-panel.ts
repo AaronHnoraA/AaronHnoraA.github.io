@@ -190,13 +190,15 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
   const messagesPane = requireEl<HTMLElement>(root, "[data-lean-messages-pane]");
   const officialSection = requireEl<HTMLElement>(root, "[data-lean-official-section]");
   const officialRoot = requireEl<HTMLElement>(root, "[data-lean-official-infoview]");
+  let syncOfficialChange: () => void = () => {};
   const officialInfoview = createLeanOfficialInfoviewHost(officialRoot, {
     showDocument: showOfficialDocument,
     restartFile: restartLeanFile,
     insertText: insertOfficialText,
     applyEdit: applyOfficialEdit,
+    onReady: () => syncOfficialChange(),
+    onContentChange: () => syncOfficialChange(),
   });
-  const useOfficialInfoview = officialRoot.classList.contains("lean-official-infoview--ready");
   const currentSection = requireEl<HTMLElement>(root, "[data-lean-current-section]");
   const currentTitle = requireEl<HTMLElement>(root, "[data-lean-current-title]");
   const currentBody = requireEl<HTMLElement>(root, "[data-lean-current-body]");
@@ -823,7 +825,7 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
   }
 
   function syncOfficialInfoviewVisibility(): boolean {
-    const canShowOfficial = useOfficialInfoview && Boolean(activeLeanPosition);
+    const canShowOfficial = officialInfoview.isReady() && Boolean(activeLeanPosition);
     const officialHasContent = canShowOfficial && officialInfoview.hasContent();
     officialSection.hidden = !canShowOfficial;
     if (officialHasContent) {
@@ -836,6 +838,14 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
     messagesPane.hidden = false;
     return false;
   }
+
+  syncOfficialChange = () => {
+    if (syncOfficialInfoviewVisibility()) {
+      lastCurrentSig = "";
+      lastGoalsSig = "";
+      lastMessagesSig = "";
+    }
+  };
 
   function activeLeanUri(): string {
     if (activeRegionLeanPath) return filePathToUri(activeRegionLeanPath);

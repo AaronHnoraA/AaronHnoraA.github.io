@@ -25,6 +25,14 @@ import { syntaxTree } from "@codemirror/language";
 import type { Range } from "@codemirror/state";
 import { getBlockMathRanges, rangeInsideAny } from "../math-ranges.ts";
 import { applyImageLayout, imageLayoutFromAttrs, readImageTrailingAttrs, type ImageLayoutAttrs } from "../../image-attrs.ts";
+import {
+  VISUAL_ATTACHMENT_IFRAME_ALLOW,
+  visualAttachmentEmbeddableP,
+  visualAttachmentFrame,
+  visualAttachmentKind,
+  visualAttachmentSandbox,
+  visualAttachmentTitle,
+} from "../../visual-attachments.ts";
 
 declare global {
   interface Window {
@@ -83,17 +91,45 @@ class ImageWidget extends WidgetType {
     applyImageLayout(wrap, this.layout);
 
     if (this.src) {
-      const img = document.createElement("img");
-      img.src = resolveImageSrc(this.src);
-      img.alt = this.alt;
-      img.className = "cm-image-render";
-      img.loading = "lazy";
-      img.decoding = "async";
-      img.onerror = () => {
-        wrap.classList.add("cm-image-broken");
-        wrap.title = `Image not found: ${this.src}`;
-      };
-      wrap.append(img);
+      const kind = visualAttachmentKind(this.src);
+      const resolvedSrc = resolveImageSrc(this.src);
+      if (kind) {
+        if (visualAttachmentEmbeddableP(kind, resolvedSrc)) {
+          const frame = visualAttachmentFrame(kind, resolvedSrc);
+          const iframe = document.createElement("iframe");
+          iframe.className = `cm-image-render cm-visual-embed cm-visual-embed-${kind}`;
+          iframe.title = visualAttachmentTitle(kind, this.alt);
+          iframe.setAttribute("loading", "lazy");
+          iframe.setAttribute("allow", VISUAL_ATTACHMENT_IFRAME_ALLOW);
+          iframe.setAttribute("referrerpolicy", "no-referrer-when-downgrade");
+          iframe.setAttribute("sandbox", visualAttachmentSandbox(kind));
+          if (frame.mode === "src") {
+            iframe.src = frame.src;
+          } else {
+            iframe.srcdoc = frame.srcdoc;
+          }
+          wrap.append(iframe);
+        } else {
+          const card = document.createElement("div");
+          card.className = `cm-image-render cm-visual-file-card cm-visual-file-card-${kind}`;
+          card.textContent = visualAttachmentTitle(kind, this.alt);
+          card.title = `System Open: ${this.src}`;
+          wrap.append(card);
+        }
+        wrap.classList.add("cm-visual-attachment", `cm-visual-attachment-${kind}`);
+      } else {
+        const img = document.createElement("img");
+        img.src = resolvedSrc;
+        img.alt = this.alt;
+        img.className = "cm-image-render";
+        img.loading = "lazy";
+        img.decoding = "async";
+        img.onerror = () => {
+          wrap.classList.add("cm-image-broken");
+          wrap.title = `Image not found: ${this.src}`;
+        };
+        wrap.append(img);
+      }
     } else {
       wrap.classList.add("cm-image-broken");
       wrap.textContent = this.alt || "image";
@@ -116,19 +152,51 @@ class ImageWidget extends WidgetType {
 
 // Extracts alt and src from the raw Image markdown text (![alt](src "title"))
 const IMAGE_RE = /^!\[([^\]]*)\]\(([^)]*)\)/;
+const EMPTY_HTML_LINK_EMBED_RE = /\[\]\(([^)\n]+)\)/g;
+
+function rangeOverlaps(from: number, to: number, ranges: ReadonlyArray<{ from: number; to: number }>): boolean {
+  return ranges.some((range) => from < range.to && to > range.from);
+}
+
+function markdownLinkSrc(raw: string): string {
+  return String(raw || "")
+    .replace(/\s+"[^"]*"\s*$/, "")
+    .replace(/\s+'[^']*'\s*$/, "")
+    .trim();
+}
+
+function imageExcludedRanges(view: EditorView): Array<{ from: number; to: number }> {
+  const ranges: Array<{ from: number; to: number }> = getBlockMathRanges(view.state)
+    .map(({ from, to }) => ({ from, to }));
+  for (const { from, to } of view.visibleRanges) {
+    syntaxTree(view.state).iterate({
+      from,
+      to,
+      enter(node) {
+        if (["FencedCode", "CodeBlock", "IndentedCode", "InlineCode"].includes(node.name)) {
+          ranges.push({ from: node.from, to: node.to });
+          return false;
+        }
+        return true;
+      },
+    });
+  }
+  return ranges.sort((a, b) => a.from - b.from || a.to - b.to);
+}
 
 function buildImageDecorations(view: EditorView): DecorationSet {
   const decos: Range<Decoration>[] = [];
+  const occupied: Array<{ from: number; to: number }> = [];
   const sel = view.state.selection.main;
   const doc = view.state.doc;
-  const blockMathRanges = getBlockMathRanges(view.state);
+  const excludedRanges = imageExcludedRanges(view);
 
   for (const { from: vFrom, to: vTo } of view.visibleRanges) {
     syntaxTree(view.state).iterate({
       from: vFrom,
       to: vTo,
       enter(node) {
-        if (rangeInsideAny(node.from, node.to, blockMathRanges)) return false;
+        if (rangeInsideAny(node.from, node.to, excludedRanges)) return false;
         if (node.name !== "Image") return;
         const line = doc.lineAt(node.to);
         const trailing = readImageTrailingAttrs(doc.sliceString(node.to, line.to), 0);
@@ -149,9 +217,42 @@ function buildImageDecorations(view: EditorView): DecorationSet {
             widget: new ImageWidget(src, alt, node.from, fullTo, layout),
           }).range(node.from, fullTo),
         );
+        occupied.push({ from: node.from, to: fullTo });
         return false;
       },
     });
+  }
+
+  const seenLines = new Set<number>();
+  for (const { from: vFrom, to: vTo } of view.visibleRanges) {
+    for (let line = doc.lineAt(vFrom); line.from <= vTo; line = doc.line(line.number + 1)) {
+      if (!seenLines.has(line.number)) {
+        seenLines.add(line.number);
+        EMPTY_HTML_LINK_EMBED_RE.lastIndex = 0;
+        for (const match of line.text.matchAll(EMPTY_HTML_LINK_EMBED_RE)) {
+          const matchText = match[0] ?? "";
+          if (line.text[(match.index ?? 0) - 1] === "!") continue;
+          const alt = "";
+          const src = markdownLinkSrc(match[1] ?? "");
+          if (visualAttachmentKind(src) !== "html") continue;
+          const from = line.from + (match.index ?? 0);
+          const to = from + matchText.length;
+          if (rangeInsideAny(from, to, excludedRanges) || rangeOverlaps(from, to, occupied)) continue;
+          const trailing = readImageTrailingAttrs(doc.sliceString(to, line.to), 0);
+          const fullTo = trailing ? to + trailing.to : to;
+          const cursorInside = sel.from <= fullTo && sel.to >= from;
+          if (cursorInside) continue;
+          const layout = imageLayoutFromAttrs(trailing?.attrs ?? {});
+          decos.push(
+            Decoration.replace({
+              widget: new ImageWidget(src, alt, from, fullTo, layout),
+            }).range(from, fullTo),
+          );
+          occupied.push({ from, to: fullTo });
+        }
+      }
+      if (line.to >= vTo || line.number >= doc.lines) break;
+    }
   }
 
   decos.sort((a, b) => a.from - b.from || a.to - b.to);
