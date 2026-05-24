@@ -18,6 +18,7 @@
     "Aaronnote/src/cm6/widgets/image.ts",
     "Aaronnote/src/cm6/widgets/inline-commands.ts",
     "Aaronnote/src/cm6/widgets/lean-block.ts",
+    "Aaronnote/src/cm6/widgets/lean-placeholder.ts",
     "Aaronnote/src/cm6/widgets/math.ts",
     "Aaronnote/src/cm6/widgets/task-list.ts",
     "Aaronnote/src/code-highlight-async.ts",
@@ -33,6 +34,7 @@
     "Aaronnote/src/image-attrs.ts",
     "Aaronnote/src/inline-math.ts",
     "Aaronnote/src/layout-attrs.ts",
+    "Aaronnote/src/lean-render.ts",
     "Aaronnote/src/lean-splice.ts",
     "Aaronnote/src/lib.ts",
     "Aaronnote/src/math-render.ts",
@@ -41,9 +43,11 @@
     "Aaronnote/src/styles/theme-typora.css",
     "Aaronnote/src/styles/widgets.css",
     "Aaronnote/src/types.d.ts",
+    "Aaronnote/src/types/arborium-lean.d.ts",
     "Aaronnote/src/url-safety.ts",
     "bin/publish-site",
     "css/aaronnote-published.css",
+    "roam/.lean/daily/note/Mathlib/北大/lean-workshop-20260523.lean",
     "roam/sealed/sealed-234d455586f4.md"
   ]
 }
