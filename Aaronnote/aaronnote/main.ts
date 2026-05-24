@@ -3,6 +3,7 @@ import "../src/styles/theme-typora.css";
 import "./style.css";
 
 import { createEditor, type Editor, type EditorCommand, type QuickInsertItem } from "../src/lib.ts";
+import type { EditorView } from "@codemirror/view";
 import { setFindHighlightRanges } from "../src/cm6/find-highlight.ts";
 import { setKnownRoamRefs } from "../src/cm6/roam-link-status.ts";
 import { equationTagsFromText, getEquationTagHits } from "../src/equation-tags.ts";
@@ -498,6 +499,11 @@ findTool.className = "aaronnote-find-tool";
 findTool.innerHTML = `
   <input data-find-query type="search" placeholder="Find" />
   <input data-find-replace type="text" placeholder="Replace" />
+  <select data-find-scope title="Find scope">
+    <option value="all">All</option>
+    <option value="note">Note</option>
+    <option value="code">Code</option>
+  </select>
   <label><input data-find-regex type="checkbox" /> Regex</label>
   <span data-find-count></span>
   <button type="button" data-find-action="prev">Prev</button>
@@ -510,6 +516,7 @@ findTool.hidden = true;
 document.body.appendChild(findTool);
 const findQuery = findTool.querySelector<HTMLInputElement>("[data-find-query]")!;
 const findReplace = findTool.querySelector<HTMLInputElement>("[data-find-replace]")!;
+const findScope = findTool.querySelector<HTMLSelectElement>("[data-find-scope]")!;
 const findRegex = findTool.querySelector<HTMLInputElement>("[data-find-regex]")!;
 const findCount = findTool.querySelector<HTMLElement>("[data-find-count]")!;
 
@@ -634,7 +641,10 @@ let snippetScanRequested = false;
 let tocUpdateRequested = false;
 let selectionToolUpdateRequested = false;
 let vimCursorUpdateRequested = false;
-let findMatches: FindMatch[] = [];
+type MarkdownFindMatch = FindMatch & { source: "note" };
+type LeanFindMatch = FindMatch & { source: "code"; tag: string; view: EditorView; host: HTMLElement };
+type AaronFindMatch = MarkdownFindMatch | LeanFindMatch;
+let findMatches: AaronFindMatch[] = [];
 let findIndex = -1;
 let findRefreshTimer = 0;
 let findFullScanTimer = 0;
@@ -1485,14 +1495,70 @@ function findPattern(): RegExp | null {
   return result.pattern;
 }
 
-function applyFindDecorations(matches: readonly FindMatch[], currentIndex = -1): void {
+function leanFindTargets(): Array<{ host: HTMLElement; view: EditorView; tag: string }> {
+  return Array.from(document.querySelectorAll<HTMLElement>(".cm-lean-placeholder-widget"))
+    .map((host) => {
+      const view = (host as HTMLElement & { __leanChild?: EditorView }).__leanChild;
+      return view ? { host, view, tag: host.dataset.leanTag || "" } : null;
+    })
+    .filter((item): item is { host: HTMLElement; view: EditorView; tag: string } => Boolean(item));
+}
+
+function findScopeValue(): "all" | "note" | "code" {
+  return findScope.value === "note" || findScope.value === "code" ? findScope.value : "all";
+}
+
+function collectLeanFindMatches(pattern: RegExp | null): LeanFindMatch[] {
+  if (!pattern) return [];
+  const matches: LeanFindMatch[] = [];
+  for (const target of leanFindTargets()) {
+    const text = target.view.state.doc.toString();
+    for (const match of collectFindMatches(text, pattern)) {
+      matches.push({ ...match, source: "code", tag: target.tag, view: target.view, host: target.host });
+    }
+  }
+  return matches;
+}
+
+function collectScopedFindMatches(
+  markdown: string,
+  pattern: RegExp | null,
+  options: { viewportFirst?: boolean } = {},
+): AaronFindMatch[] {
+  const scope = findScopeValue();
+  const noteMatches = scope === "code"
+    ? []
+    : (options.viewportFirst
+        ? collectFindMatchesInRanges(markdown, pattern, editor.view.visibleRanges)
+        : collectFindMatches(markdown, pattern))
+      .map((match): MarkdownFindMatch => ({ ...match, source: "note" }));
+  const codeMatches = scope === "note" ? [] : collectLeanFindMatches(pattern);
+  return [...noteMatches, ...codeMatches].sort((a, b) => {
+    if (a.source !== b.source) return a.source === "note" ? -1 : 1;
+    if (a.source === "code" && b.source === "code" && a.tag !== b.tag) return a.tag.localeCompare(b.tag);
+    return a.from - b.from || a.to - b.to;
+  });
+}
+
+function applyFindDecorations(matches: readonly AaronFindMatch[], currentIndex = -1): void {
   editor.view.dispatch({
-    effects: setFindHighlightRanges.of(matches.map((match, index) => ({
+    effects: setFindHighlightRanges.of(matches.filter((match) => match.source === "note").map((match, index) => ({
       from: match.from,
       to: match.to,
-      current: index === currentIndex,
+      current: matches.indexOf(match) === currentIndex,
     }))),
   });
+  const rangesByView = new Map<EditorView, Array<{ from: number; to: number; current?: boolean }>>();
+  for (const target of leanFindTargets()) rangesByView.set(target.view, []);
+  matches.forEach((match, index) => {
+    if (match.source !== "code") return;
+    const ranges = rangesByView.get(match.view) ?? [];
+    ranges.push({ from: match.from, to: match.to, current: index === currentIndex });
+    rangesByView.set(match.view, ranges);
+  });
+  for (const [view, ranges] of rangesByView) {
+    view.dispatch({ effects: setFindHighlightRanges.of(ranges) });
+  }
 }
 
 function refreshFindMatches(options: { viewportFirst?: boolean } = {}): void {
@@ -1503,14 +1569,14 @@ function refreshFindMatches(options: { viewportFirst?: boolean } = {}): void {
   const pattern = findPattern();
   if (!pattern) {
     if (!findCount.textContent || !findQuery.value) findCount.textContent = "";
-    editor.view.dispatch({ effects: setFindHighlightRanges.of([]) });
+    applyFindDecorations([]);
     return;
   }
   const markdown = editor.getMarkdown();
-  if (options.viewportFirst) {
+  if (options.viewportFirst && findScopeValue() === "note") {
     const query = findQuery.value;
     const regex = findRegex.checked;
-    const viewportMatches = collectFindMatchesInRanges(markdown, pattern, editor.view.visibleRanges);
+    const viewportMatches = collectScopedFindMatches(markdown, pattern, { viewportFirst: true });
     findMatches = viewportMatches;
     findCount.textContent = viewportMatches.length
       ? `Viewport ${viewportMatches.length}...`
@@ -1519,14 +1585,14 @@ function refreshFindMatches(options: { viewportFirst?: boolean } = {}): void {
     findFullScanTimer = window.setTimeout(() => {
       if (findQuery.value !== query || findRegex.checked !== regex) return;
       const fullPattern = findPattern();
-      findMatches = collectFindMatches(editor.getMarkdown(), fullPattern);
+      findMatches = collectScopedFindMatches(editor.getMarkdown(), fullPattern);
       findCount.textContent = findMatches.length ? `0 / ${findMatches.length}` : "No matches";
       applyFindDecorations(findMatches);
       if (findMatches.length) selectFindMatch(0);
     }, 0);
     return;
   }
-  findMatches = collectFindMatches(markdown, pattern);
+  findMatches = collectScopedFindMatches(markdown, pattern);
   findCount.textContent = findMatches.length ? `0 / ${findMatches.length}` : "No matches";
   applyFindDecorations(findMatches);
 }
@@ -1545,7 +1611,16 @@ function selectFindMatch(index: number): void {
   }
   findIndex = (index + findMatches.length) % findMatches.length;
   const match = findMatches[findIndex]!;
-  editor.setMarkdownSelection(match.from, match.to);
+  if (match.source === "note") {
+    editor.setMarkdownSelection(match.from, match.to);
+  } else {
+    match.host.scrollIntoView({ block: "center", inline: "nearest" });
+    match.view.dispatch({
+      selection: { anchor: match.from, head: match.to },
+      scrollIntoView: true,
+    });
+    match.view.focus();
+  }
   findCount.textContent = `${findIndex + 1} / ${findMatches.length}`;
   applyFindDecorations(findMatches, findIndex);
 }
@@ -1571,7 +1646,7 @@ function openFindTool(): void {
 
 function closeFindTool(): void {
   findTool.hidden = true;
-  editor.view.dispatch({ effects: setFindHighlightRanges.of([]) });
+  applyFindDecorations([]);
   editor.focus();
 }
 
@@ -1579,7 +1654,16 @@ function replaceCurrentFindMatch(): void {
   if (findMatches.length === 0) refreshFindMatches();
   if (findMatches.length === 0) return;
   const match = findMatches[Math.max(0, findIndex)] ?? findMatches[0]!;
-  editor.replaceMarkdownRange(match.from, match.to, findReplacementText(match.match, findReplace.value, findRegex.checked), "end");
+  const replacement = findReplacementText(match.match, findReplace.value, findRegex.checked);
+  if (match.source === "note") {
+    editor.replaceMarkdownRange(match.from, match.to, replacement, "end");
+  } else {
+    match.view.dispatch({
+      changes: { from: match.from, to: match.to, insert: replacement },
+      selection: { anchor: match.from + replacement.length },
+      scrollIntoView: true,
+    });
+  }
   refreshFindMatches();
   selectFindMatch(Math.min(findIndex, findMatches.length - 1));
 }
@@ -1588,9 +1672,32 @@ function replaceAllFindMatches(): void {
   const pattern = findPattern();
   if (!pattern) return;
   const markdown = editor.getMarkdown();
-  const next = replaceAllFindText(markdown, pattern, findReplace.value, findRegex.checked);
-  if (next === markdown) return;
-  editor.setMarkdown(next);
+  const scope = findScopeValue();
+  const matches = collectScopedFindMatches(markdown, pattern);
+  if (matches.length === 0) return;
+  const codeByView = new Map<EditorView, LeanFindMatch[]>();
+  for (const match of matches) {
+    if (match.source !== "code") continue;
+    const list = codeByView.get(match.view) ?? [];
+    list.push(match);
+    codeByView.set(match.view, list);
+  }
+  for (const [view, codeMatches] of codeByView) {
+    view.dispatch({
+      changes: codeMatches
+        .slice()
+        .sort((a, b) => a.from - b.from)
+        .map((match) => ({
+          from: match.from,
+          to: match.to,
+          insert: findReplacementText(match.match, findReplace.value, findRegex.checked),
+        })),
+    });
+  }
+  if (scope !== "code") {
+    const next = replaceAllFindText(markdown, pattern, findReplace.value, findRegex.checked);
+    if (next !== markdown) editor.setMarkdown(next);
+  }
   refreshFindMatches();
   scheduleAssistUpdate({ snippets: true });
 }
@@ -5306,6 +5413,7 @@ function commandPaletteCommands(): AaronnoteCommand[] {
     { id: "block-menu", title: "Open block menu", group: "Editor", keywords: ["slash", "insert"], run: openBlockMenu },
     { id: "insert-lean-block", title: "Insert Lean block", group: "Editor", keywords: ["lean4", "proof"], enabled: () => !!currentFile && !currentStandalone, run: () => void insertLeanBlock() },
     { id: "clean-lean-block", title: "Clean current Lean block", group: "Editor", keywords: ["lean4", "delete", "tag"], enabled: () => !!currentFile && !currentStandalone, run: () => void cleanCurrentLeanBlock() },
+    { id: "toggle-lean-panel", title: "Toggle Lean panel", group: "Editor", keywords: ["lean4", "infoview", "lsp"], enabled: () => !leanTriggerBtn.hidden, run: () => leanPanel.toggle() },
 
     { id: "notes", title: "Open notes", group: "Navigation", keywords: ["filesystem"], run: () => showNotesPage("filesystem") },
     { id: "relation", title: "Open relation", group: "Navigation", keywords: ["backlinks", "refs", "links"], enabled: () => !!currentFile, run: toggleRelationPanel },
@@ -6991,7 +7099,6 @@ function applyOpen(msg: Extract<Inbound, { type: "open" }>, options: { preserveF
     const hasLean4 = isLeanFile || /@@lean4\s+\[/.test(editor.getMarkdown());
     leanTriggerBtn.hidden = !hasLean4;
     if (!hasLean4) {
-      void api.lean.request("stop").catch(() => {});
       leanPanel.hide();
       leanPanelRoot.classList.add("lean-panel--gone");
     } else {
@@ -7111,8 +7218,14 @@ document.addEventListener("keydown", (event) => {
 }, { capture: true });
 
 document.addEventListener("keydown", (event) => {
-  if (eventFromLeanEmbeddedEditor(event)) return;
   const primaryMod = primaryShortcutModifier(event);
+  if (primaryMod && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "l") {
+    event.preventDefault();
+    event.stopPropagation();
+    leanPanel.toggle();
+    return;
+  }
+  if (eventFromLeanEmbeddedEditor(event)) return;
   if (handleCommandPaletteKey(event)) {
     event.stopPropagation();
     return;
@@ -7412,6 +7525,7 @@ window.addEventListener("aaronnote:command", (event) => {
   if (command === "open-block-menu") openBlockMenu();
   if (command === "insert-lean-block") void insertLeanBlock();
   if (command === "clean-lean-block") void cleanCurrentLeanBlock();
+  if (command === "toggle-lean-panel") leanPanel.toggle();
   if (command === "toggle-source") toggleSourceMode();
   if (command === "restart-lean-server") void restartLeanServerForCurrentNote();
   if (command === "save-now") save();
@@ -7492,6 +7606,10 @@ findQuery.addEventListener("input", () => {
   scheduleFindRefresh();
 });
 findRegex.addEventListener("change", () => {
+  refreshFindMatches();
+  if (findMatches.length) selectFindMatch(0);
+});
+findScope.addEventListener("change", () => {
   refreshFindMatches();
   if (findMatches.length) selectFindMatch(0);
 });

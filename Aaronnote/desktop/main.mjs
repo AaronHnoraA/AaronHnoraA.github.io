@@ -110,7 +110,9 @@ if (!hasSingleInstanceLock) app.exit(0);
 function shouldOwnShortcut(input) {
   if (input.alt || input.control) return false;
   if (!input.meta) return false;
-  return ["j", "l", "r", "w"].includes(input.key.toLowerCase());
+  const key = input.key.toLowerCase();
+  if (key === "j" || key === "w") return !input.shift;
+  return key === "l" || key === "r";
 }
 
 function historyShortcutCommand(input) {
@@ -508,6 +510,10 @@ function registerApiIpc() {
     const win = BrowserWindow.fromWebContents(event.sender);
     Menu.buildFromTemplate([
       {
+        label: "Toggle Lean Panel",
+        click: () => runInSpecificWindow(win, dispatchCommandScript("toggle-lean-panel")),
+      },
+      {
         label: "Insert Lean Block",
         click: () => runInSpecificWindow(win, dispatchCommandScript("insert-lean-block")),
       },
@@ -672,11 +678,13 @@ function createWindow(options = {}) {
     }
     if (shouldOwnShortcut(input)) {
       event.preventDefault();
-      if (input.type === "keyDown" && input.key.toLowerCase() === "j") {
-        runInWindow(dispatchCommandScript("jump-stack"));
-      } else if (input.type === "keyDown" && input.key.toLowerCase() === "w") {
-        closeCurrentWindow();
-      }
+      if (input.type !== "keyDown") return;
+      const key = input.key.toLowerCase();
+      if (key === "j" && !input.shift) runInSpecificWindow(win, dispatchCommandScript("jump-stack"));
+      else if (key === "l") runInSpecificWindow(win, dispatchCommandScript(input.shift ? "insert-lean-block" : "toggle-lean-panel"));
+      else if (key === "r" && !input.shift) void reloadCurrentWindow();
+      else if (key === "r" && input.shift) runInSpecificWindow(win, dispatchCommandScript("reload-snippets"));
+      else if (key === "w" && !input.shift) closeCurrentWindow();
     }
   });
   win.on("close", async (event) => {
@@ -1260,6 +1268,11 @@ function buildMenu() {
         enabled: false,
       },
       { type: "separator" },
+      {
+        label: "Toggle Lean Panel",
+        accelerator: "CmdOrCtrl+L",
+        click: () => runInWindow(dispatchCommandScript("toggle-lean-panel")),
+      },
       {
         label: "Insert Lean Block",
         accelerator: "CmdOrCtrl+Shift+L",

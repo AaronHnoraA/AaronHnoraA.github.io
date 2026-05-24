@@ -250,6 +250,7 @@ class LeanLspClient extends LspClient {
     this.semanticTokensLegend = null;
     this.semanticTokenTimers = new Map();
     this.documents = new Map(); // leanPath → { version, content }
+    this.documentRefs = new Map(); // uri → active embedded editor/reference count
   }
 
   setStatus(message, kind = "Normal", busy = false) {
@@ -271,6 +272,7 @@ class LeanLspClient extends LspClient {
     log("lean-exit", { code, signal });
     this.setStatus(`Lean server exited (${signal ?? code ?? "unknown"})`, "Error", false);
     this.documents.clear();
+    this.documentRefs.clear();
     for (const timer of this.semanticTokenTimers.values()) clearTimeout(timer);
     this.semanticTokenTimers.clear();
     clearRpcSessions();
@@ -440,10 +442,15 @@ class LeanLspClient extends LspClient {
   // Document management
   // ---------------------------------------------------------------------------
 
-  openDocument(leanPath, leanText) {
+  acquireDocument(uri) {
+    this.documentRefs.set(uri, (this.documentRefs.get(uri) ?? 0) + 1);
+  }
+
+  openDocument(leanPath, leanText, { acquire = true } = {}) {
     if (!this.initialized) return { opened: false, version: 0, changed: false };
     const uri = pathToFileURL(leanPath).href;
     const existing = this.documents.get(uri);
+    if (acquire) this.acquireDocument(uri);
     if (existing) {
       if (existing.content !== leanText) {
         const version = existing.version + 1;
@@ -473,7 +480,7 @@ class LeanLspClient extends LspClient {
     const uri = pathToFileURL(leanPath).href;
     const existing = this.documents.get(uri);
     if (!existing) {
-      return this.openDocument(leanPath, leanText);
+      return this.openDocument(leanPath, leanText, { acquire: false });
     }
     if (existing.content === leanText) return { opened: false, version: existing.version, changed: false };
     const version = existing.version + 1;
@@ -488,9 +495,17 @@ class LeanLspClient extends LspClient {
     return { opened: false, version, changed: true };
   }
 
-  closeDocument(leanPath) {
+  closeDocument(leanPath, { force = false } = {}) {
     const uri = pathToFileURL(leanPath).href;
     if (!this.documents.has(uri)) return false;
+    if (!force) {
+      const refs = this.documentRefs.get(uri) ?? 0;
+      if (refs > 1) {
+        this.documentRefs.set(uri, refs - 1);
+        return false;
+      }
+      this.documentRefs.delete(uri);
+    }
     this.documents.delete(uri);
     clearRpcSessionsForUri(uri);
     diagnosticsCache.delete(uri);
@@ -655,7 +670,7 @@ class LeanLspClient extends LspClient {
 // Idle reclaim
 // ---------------------------------------------------------------------------
 
-const IDLE_MS = Number(process.env.AARONNOTE_LEAN_IDLE_MS || 0);
+const IDLE_MS = Number(process.env.AARONNOTE_LEAN_IDLE_MS ?? 10 * 60_000);
 
 function rescheduleIdle() {
   if (idleTimer) clearTimeout(idleTimer);

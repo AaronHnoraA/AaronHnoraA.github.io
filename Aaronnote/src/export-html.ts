@@ -224,6 +224,7 @@ export function cleanEditorHTML(root: HTMLElement): string {
       "data-title",
       "data-label",
       "data-empty",
+      "data-lean-region",
       "data-tex",
       "data-math-render-key",
       "data-aaronnote-math-block",

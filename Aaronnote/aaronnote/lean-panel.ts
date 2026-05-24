@@ -79,9 +79,38 @@ type LeanRegionInfoviewEvent = CustomEvent<{
   goalError?: string | null;
 }>;
 
+type LeanOutlineItem = {
+  kind: string;
+  label: string;
+  detail: string;
+  line: number;
+  character: number;
+  level: number;
+};
+
+type LspPositionLike = { line?: number; character?: number };
+type LspRangeLike = { start?: LspPositionLike };
+type LspDocumentSymbolLike = {
+  name?: string;
+  detail?: string;
+  kind?: number;
+  range?: LspRangeLike;
+  selectionRange?: LspRangeLike;
+  children?: unknown[];
+};
+type LspSymbolInformationLike = {
+  name?: string;
+  kind?: number;
+  location?: {
+    uri?: string;
+    range?: LspRangeLike;
+  };
+};
+
 type LeanPanelLayout = {
   width: number;
   splitRatio: number;
+  outlineHeight: number;
 };
 
 const noteLayouts = new Map<string, LeanPanelLayout>();
@@ -89,6 +118,9 @@ const DEFAULT_WIDTH = 340;
 const MIN_WIDTH = 260;
 const MAX_WIDTH = 720;
 const DEFAULT_SPLIT_RATIO = 0.60;
+const DEFAULT_OUTLINE_HEIGHT = 180;
+const MIN_OUTLINE_HEIGHT = 96;
+const MAX_OUTLINE_HEIGHT = 420;
 const LSP_UI_IDLE_MS = 420;
 
 function clamp(value: number, min: number, max: number): number {
@@ -136,6 +168,13 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
       <div class="lean-panel-section-title">Expected type</div>
       <div class="lean-panel-code lean-term-goal-text" data-lean-term-goal></div>
     </section>
+    <section class="lean-panel-section lean-panel-outline" data-lean-outline-section>
+      <div class="lean-panel-section-title" data-lean-outline-title>Lean file outline</div>
+      <div class="lean-outline-box">
+        <div class="lean-outline-list" data-lean-outline-list></div>
+      </div>
+      <div class="lean-outline-resizer" data-lean-outline-resizer role="separator" aria-orientation="horizontal" title="Resize outline"></div>
+    </section>
     <section class="lean-panel-section lean-panel-messages-section" data-lean-messages-pane>
       <div class="lean-panel-section-title">All Messages</div>
       <div class="lean-messages-list" data-lean-messages-list></div>
@@ -166,6 +205,10 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
   const goalsEl = requireEl<HTMLElement>(root, "[data-lean-goals]");
   const termSection = requireEl<HTMLElement>(root, "[data-lean-term-section]");
   const termGoalEl = requireEl<HTMLElement>(root, "[data-lean-term-goal]");
+  const outlineSection = requireEl<HTMLElement>(root, "[data-lean-outline-section]");
+  const outlineTitle = requireEl<HTMLElement>(root, "[data-lean-outline-title]");
+  const outlineList = requireEl<HTMLElement>(root, "[data-lean-outline-list]");
+  const outlineResizer = requireEl<HTMLElement>(root, "[data-lean-outline-resizer]");
   const messagesList = requireEl<HTMLElement>(root, "[data-lean-messages-list]");
   const messagesTitle = requireEl<HTMLElement>(root, "[data-lean-messages-pane] .lean-panel-section-title");
   const widthResizer = requireEl<HTMLElement>(root, "[data-lean-width-resizer]");
@@ -191,7 +234,7 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
   const diagnosticVersionsByUri = new Map<string, number>();
   let activeLeanPosition: { line: number; character: number } | null = null;
   let _visible = false;
-  let currentLayout: LeanPanelLayout = { width: DEFAULT_WIDTH, splitRatio: DEFAULT_SPLIT_RATIO };
+  let currentLayout: LeanPanelLayout = { width: DEFAULT_WIDTH, splitRatio: DEFAULT_SPLIT_RATIO, outlineHeight: DEFAULT_OUTLINE_HEIGHT };
   let activeRegionTag = "";
   let activeRegionLeanPath = "";
   let pinned = false;
@@ -201,6 +244,10 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
   let currentGoalsAccomplished = false;
   let currentGoalError: string | null = null;
   let lastDiagnosticsFetchUri = "";
+  let lastOutlineSig = "";
+  let lastOutlineUri = "";
+  let outlineLoadSeq = 0;
+  let outlineLoadTimer: ReturnType<typeof setTimeout> | null = null;
   // Content-address renders to avoid replaceChildren on every Lean server push.
   let lastGoalsSig = "";
   let lastMessagesSig = "";
@@ -235,6 +282,7 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
   const onRegionInfoview = (event: Event): void => {
     const detail = (event as LeanRegionInfoviewEvent).detail;
     if (!detail || detail.notePath !== currentNotePath) return;
+    const previousLeanPath = activeRegionLeanPath;
     activeRegionTag = String(detail.tag ?? activeRegionTag);
     activeRegionLeanPath = String(detail.leanPath ?? (detail.uri ? fileUriToPath(String(detail.uri)) : activeRegionLeanPath));
     if (typeof detail.line === "number") {
@@ -250,6 +298,10 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
       blockIndex: null,
     }, detail.goalsAccomplished === true);
     renderCurrent();
+    if (activeRegionLeanPath && activeRegionLeanPath !== previousLeanPath) {
+      lastOutlineSig = "";
+      scheduleOutlineLoad();
+    }
     void fetchDiagnosticsForActive();
     renderMessagesForActive();
   };
@@ -377,6 +429,191 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
     return section;
   }
 
+  const SYMBOL_KIND_LABELS = [
+    "",
+    "file",
+    "module",
+    "namespace",
+    "package",
+    "class",
+    "method",
+    "property",
+    "field",
+    "constructor",
+    "enum",
+    "interface",
+    "function",
+    "variable",
+    "constant",
+    "string",
+    "number",
+    "boolean",
+    "array",
+    "object",
+    "key",
+    "null",
+    "enum",
+    "struct",
+    "event",
+    "operator",
+    "type",
+  ] as const;
+
+  function symbolKindLabel(kind: unknown): string {
+    const idx = typeof kind === "number" ? kind : 0;
+    return SYMBOL_KIND_LABELS[idx] || "symbol";
+  }
+
+  function symbolStart(symbol: { selectionRange?: LspRangeLike; range?: LspRangeLike }): { line: number; character: number } {
+    const pos = symbol.selectionRange?.start ?? symbol.range?.start ?? {};
+    return {
+      line: Math.max(0, Number(pos.line ?? 0)),
+      character: Math.max(0, Number(pos.character ?? 0)),
+    };
+  }
+
+  function flattenDocumentSymbols(raw: unknown[], level = 0): LeanOutlineItem[] {
+    const out: LeanOutlineItem[] = [];
+    for (const entry of raw) {
+      if (!entry || typeof entry !== "object") continue;
+      const symbol = entry as LspDocumentSymbolLike;
+      const name = String(symbol.name ?? "").trim();
+      if (!name) continue;
+      const start = symbolStart(symbol);
+      out.push({
+        kind: symbolKindLabel(symbol.kind),
+        label: name,
+        detail: String(symbol.detail ?? "").trim(),
+        line: start.line,
+        character: start.character,
+        level,
+      });
+      if (Array.isArray(symbol.children)) {
+        out.push(...flattenDocumentSymbols(symbol.children, Math.min(level + 1, 6)));
+      }
+    }
+    return out;
+  }
+
+  function flattenSymbolInformation(raw: unknown[]): LeanOutlineItem[] {
+    const out: LeanOutlineItem[] = [];
+    for (const entry of raw) {
+      if (!entry || typeof entry !== "object") continue;
+      const symbol = entry as LspSymbolInformationLike;
+      const name = String(symbol.name ?? "").trim();
+      if (!name) continue;
+      const start = symbol.location?.range?.start ?? {};
+      out.push({
+        kind: symbolKindLabel(symbol.kind),
+        label: name,
+        detail: "",
+        line: Math.max(0, Number(start.line ?? 0)),
+        character: Math.max(0, Number(start.character ?? 0)),
+        level: 0,
+      });
+    }
+    return out;
+  }
+
+  function outlineItemsFromLsp(raw: unknown): LeanOutlineItem[] {
+    const response = raw as { result?: unknown } | null;
+    const result = response && typeof response === "object" && "result" in response ? response.result : raw;
+    if (!Array.isArray(result)) return [];
+    const first = result.find((item) => item && typeof item === "object") as Record<string, unknown> | undefined;
+    if (first && "location" in first) return flattenSymbolInformation(result);
+    return flattenDocumentSymbols(result);
+  }
+
+  function renderOutlineItems(items: LeanOutlineItem[], leanPath: string): void {
+    const activeLine = activeLeanPosition?.line ?? -1;
+    const sig = `${leanPath}|${activeLine}|${items.map((item) => `${item.kind}:${item.label}:${item.detail}:${item.line}:${item.character}:${item.level}`).join("\n")}`;
+    if (sig === lastOutlineSig) return;
+    lastOutlineSig = sig;
+    outlineTitle.textContent = items.length > 0 ? `Lean outline (${items.length})` : "Lean outline";
+    if (items.length === 0) {
+      outlineList.replaceChildren(el("div", "lean-panel-empty lean-panel-empty--small", "No declarations found"));
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    for (const item of items) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "lean-outline-item";
+      button.style.setProperty("--lean-outline-level", String(item.level));
+      button.addEventListener("click", () => jumpToOutlineItem(item, leanPath));
+      const kind = el("span", "lean-outline-kind", item.kind);
+      const label = el("strong", "lean-outline-label", item.label);
+      if (item.detail) label.title = item.detail;
+      const line = el("span", "lean-outline-line", `L${item.line + 1}`);
+      button.append(kind, label, line);
+      frag.append(button);
+    }
+    outlineList.replaceChildren(frag);
+  }
+
+  function renderOutlineEmpty(message: string): void {
+    const sig = `empty:${message}`;
+    if (sig === lastOutlineSig) return;
+    lastOutlineSig = sig;
+    outlineTitle.textContent = "Lean outline";
+    outlineList.replaceChildren(el("div", "lean-panel-empty lean-panel-empty--small", message));
+  }
+
+  function jumpToOutlineItem(item: LeanOutlineItem, leanPath: string): void {
+    window.dispatchEvent(new CustomEvent("aaronnote:lean-region-jump", {
+      detail: {
+        notePath: currentNotePath,
+        leanPath,
+        line: item.line,
+        character: item.character,
+      },
+    }));
+  }
+
+  function scheduleOutlineLoad(delay = 260, force = false): void {
+    if (!_visible) return;
+    if (outlineLoadTimer) clearTimeout(outlineLoadTimer);
+    outlineLoadTimer = setTimeout(() => {
+      outlineLoadTimer = null;
+      void loadOutline(force);
+    }, delay);
+  }
+
+  async function loadOutline(force = false): Promise<void> {
+    const seq = ++outlineLoadSeq;
+    const leanPath = activeRegionLeanPath || (currentNotePath.toLowerCase().endsWith(".lean") ? currentNotePath : "");
+    if (!leanPath) {
+      renderOutlineEmpty("Move the cursor into Lean code");
+      return;
+    }
+    const uri = filePathToUri(leanPath);
+    if (!uri) {
+      renderOutlineEmpty("No Lean document active");
+      return;
+    }
+    if (!force && uri === lastOutlineUri && lastOutlineSig && !lastOutlineSig.startsWith("empty:")) {
+      return;
+    }
+    lastOutlineUri = uri;
+    try {
+      const raw = await api.lean.lspRequest({
+        method: "textDocument/documentSymbol",
+        params: { textDocument: { uri } },
+        timeoutMs: 12_000,
+      });
+      if (seq !== outlineLoadSeq) return;
+      const result = raw as { ok?: boolean; message?: string; result?: unknown } | null;
+      if (result?.ok === false) {
+        renderOutlineEmpty(result.message || "Lean outline unavailable");
+        return;
+      }
+      renderOutlineItems(outlineItemsFromLsp(result), leanPath);
+    } catch (err) {
+      if (seq !== outlineLoadSeq) return;
+      renderOutlineEmpty(err instanceof Error ? err.message : "Lean outline unavailable");
+    }
+  }
+
   function renderDiagnosticBody(diag: LeanDiagnosticLike, isHere: boolean): HTMLElement {
     const sevClass = diag.severity === 1 ? "error" : diag.severity === 2 ? "warning" : "info";
     const row = el("div", `lean-msg lean-msg--${sevClass}${isHere ? " lean-msg--here" : ""}`);
@@ -417,8 +654,10 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
     currentLayout = {
       width: clamp(layout.width, MIN_WIDTH, MAX_WIDTH),
       splitRatio: clamp(layout.splitRatio, 0.18, 0.82),
+      outlineHeight: clamp(layout.outlineHeight ?? DEFAULT_OUTLINE_HEIGHT, MIN_OUTLINE_HEIGHT, MAX_OUTLINE_HEIGHT),
     };
     root.style.setProperty("--lean-panel-width", `${currentLayout.width}px`);
+    root.style.setProperty("--lean-outline-height", `${currentLayout.outlineHeight}px`);
     document.body.style.setProperty("--lean-panel-width", `${currentLayout.width}px`);
     void infoPane;
     void messagesPane;
@@ -594,6 +833,7 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
       messagesPane.hidden = true;
       return true;
     }
+    messagesPane.hidden = false;
     return false;
   }
 
@@ -653,6 +893,7 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
     void api.lean.status().then((s) => {
       if (s) renderStatus(s as { message?: string; kind?: string });
     }).catch(() => {});
+    scheduleOutlineLoad(0);
   }
 
   function hide(): void {
@@ -752,8 +993,11 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
         lastGoalsSig = "";
         lastMessagesSig = "";
         lastCurrentSig = "";
+        lastOutlineSig = "";
+        lastOutlineUri = "";
         lastDiagnosticsFetchUri = "";
         renderMessages([]);
+        renderOutlineEmpty("Lean stopped");
         renderStatus({ message: "Lean stopped", kind: "Inactive" });
       })
       .catch((err) => {
@@ -800,7 +1044,10 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
     pauseBtn.textContent = "Ⅱ";
     lastGoalsSig = "";
     lastMessagesSig = "";
+    lastOutlineSig = "";
+    lastOutlineUri = "";
     refresh();
+    scheduleOutlineLoad(0, true);
     renderMessagesForActive();
   });
 
@@ -836,6 +1083,31 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
     window.addEventListener("pointerup", up);
   });
 
+  outlineResizer.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    outlineResizer.setPointerCapture(event.pointerId);
+    outlineSection.classList.add("lean-outline--resizing");
+    const startY = event.clientY;
+    const startHeight = currentLayout.outlineHeight;
+    const move = (moveEvent: PointerEvent): void => {
+      currentLayout = {
+        ...currentLayout,
+        outlineHeight: clamp(startHeight + moveEvent.clientY - startY, MIN_OUTLINE_HEIGHT, MAX_OUTLINE_HEIGHT),
+      };
+      applyLayout();
+      saveLayout();
+    };
+    const up = (upEvent: PointerEvent): void => {
+      outlineResizer.releasePointerCapture(upEvent.pointerId);
+      outlineSection.classList.remove("lean-outline--resizing");
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      saveLayout();
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  });
+
   applyLayout(currentLayout);
 
   // -------------------------------------------------------------------------
@@ -862,6 +1134,7 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
   messagesPane.classList.add("lean-section--collapsed");
   makeCollapsible(goalsTitle, goalsSection);
   if (termTitle) makeCollapsible(termTitle, termSection);
+  makeCollapsible(outlineTitle, outlineSection);
   makeCollapsible(messagesTitle, messagesPane, (collapsed) => {
     allMessagesCollapsed = collapsed;
     if (!collapsed) {
@@ -901,7 +1174,7 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
       pauseBtn.textContent = "Ⅱ";
       currentGoalState = { goals: null, termGoal: null, blockIndex: null };
       currentGoalsAccomplished = false;
-      currentLayout = noteLayouts.get(layoutKey()) ?? { width: DEFAULT_WIDTH, splitRatio: DEFAULT_SPLIT_RATIO };
+      currentLayout = noteLayouts.get(layoutKey()) ?? { width: DEFAULT_WIDTH, splitRatio: DEFAULT_SPLIT_RATIO, outlineHeight: DEFAULT_OUTLINE_HEIGHT };
       restoreLayoutForCurrentNote();
       currentDiagnostics = [];
       currentDiagnosticsUri = "";
@@ -910,14 +1183,19 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
       lastGoalsSig = "";
       lastMessagesSig = "";
       lastCurrentSig = "";
+      lastOutlineSig = "";
+      lastOutlineUri = "";
       lastDiagnosticsFetchUri = "";
+      outlineLoadSeq++;
       renderMessages([]);
       renderGoals({ goals: null, termGoal: null, blockIndex: null });
       renderCurrent();
+      renderOutlineEmpty("Move the cursor into Lean code");
       syncOfficialInfoviewVisibility();
     },
     destroy() {
       if (renderMessagesTimer) clearTimeout(renderMessagesTimer);
+      if (outlineLoadTimer) clearTimeout(outlineLoadTimer);
       unsubDiag();
       unsubStatus();
       window.removeEventListener("aaronnote:lean-region-infoview", onRegionInfoview);

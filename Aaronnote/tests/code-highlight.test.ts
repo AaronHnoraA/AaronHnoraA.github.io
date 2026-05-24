@@ -28,4 +28,11 @@ describe("code highlighting", () => {
     expect(highlightCode("nix", "{ pkgs ? import <nixpkgs> {} }: with pkgs; hello")
       .some((range) => range.className === "code-token-keyword")).toBe(true);
   });
+
+  test("covers Lean 4 code", () => {
+    const ranges = highlightCode("lean4", "import Mathlib\n-- proof\nexample : True := by\n  trivial");
+
+    expect(ranges.some((range) => range.className === "code-token-keyword")).toBe(true);
+    expect(ranges.some((range) => range.className === "code-token-comment")).toBe(true);
+  });
 });

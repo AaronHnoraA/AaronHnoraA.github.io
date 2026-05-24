@@ -6,11 +6,11 @@ import {
   highlightActiveLine,
   highlightActiveLineGutter,
   WidgetType,
-  keymap,
-  lineNumbers,
-  showTooltip,
-  tooltips,
-  ViewPlugin,
+    keymap,
+    lineNumbers,
+    showTooltip,
+    tooltips,
+    ViewPlugin,
   type DecorationSet,
   type Tooltip,
   type ViewUpdate,
@@ -41,6 +41,7 @@ import { scanInlineCommands, type InlineCommand } from "../../command-syntax.ts"
 import { leanSummary, renderLeanMarkdown, stripLeanMarkdownFence } from "../../lean-render.ts";
 import { api } from "../../../aaronnote/api-client.ts";
 import { getLeanNoteInfo } from "./lean-block.ts";
+import { findHighlightExtension } from "../find-highlight.ts";
 import leanAbbreviationsRaw from "../../lean4-abbreviations.json";
 import { expandSnippetBody } from "../../../aaronnote/snippets.ts";
 import type { SnippetSummary } from "../../../aaronnote/types.ts";
@@ -72,6 +73,7 @@ type LeanContext = {
   leanText: string;
   lspVersion?: number;
   region: LeanRegionMeta | null;
+  ensureLspOpen?: () => Promise<boolean>;
   syncForLsp?: () => Promise<void>;
   jumpToFullPosition?: (line: number, character: number) => void;
 };
@@ -100,6 +102,7 @@ type LeanRegionInfoviewEvent = {
 
 type LeanRegionJumpEvent = CustomEvent<{
   notePath?: string;
+  tag?: string;
   leanPath?: string;
   line?: number;
   character?: number;
@@ -532,6 +535,10 @@ function stopEmbeddedEvent(event: Event): void {
 
 function stopEmbeddedKeyboardEvent(event: Event): void {
   if (event instanceof KeyboardEvent) {
+    const primaryMod = /Mac/.test(navigator.platform)
+      ? event.metaKey && !event.ctrlKey
+      : event.ctrlKey && !event.metaKey;
+    if (primaryMod && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "l") return;
     event.stopPropagation();
     event.stopImmediatePropagation();
   }
@@ -1138,6 +1145,7 @@ function leanCompletionSource(ctx: LeanContext) {
     const token = context.matchBefore(/[\\#A-Za-z0-9_.'?!<>\-]+/);
     if (!context.explicit && !token) return null;
     await ctx.syncForLsp?.();
+    if (!await ctx.ensureLspOpen?.()) return null;
     if (context.aborted) return null;
     if (!ctx.leanPath || !ctx.region) return null;
     const fullOffset = localOffsetToFull(ctx, context.pos);
@@ -1189,6 +1197,8 @@ function leanCompletionSource(ctx: LeanContext) {
 
 async function leanHoverText(ctx: LeanContext, localPos: number): Promise<string> {
   if (!ctx.leanPath || !ctx.region) return "";
+  await ctx.syncForLsp?.();
+  if (!await ctx.ensureLspOpen?.()) return "";
   const fullOffset = localOffsetToFull(ctx, localPos);
   if (fullOffset == null) return "";
   const pos = offsetToPosition(ctx.leanText, fullOffset);
@@ -1286,6 +1296,7 @@ function leanDefinitionClick(ctx: LeanContext): Extension {
       event.stopPropagation();
       void (async () => {
         await ctx.syncForLsp?.();
+        if (!await ctx.ensureLspOpen?.()) return;
         const fullOffset = localOffsetToFull(ctx, pos);
         if (fullOffset == null) return;
         const leanPos = offsetToPosition(ctx.leanText, fullOffset);
@@ -1977,6 +1988,7 @@ function leanEditorExtensions(
     leanKeyboardIsolation(),
     EditorView.lineWrapping,
     leanSemanticTokenDecorations,
+    findHighlightExtension,
     leanDiagnosticsField,
     leanDiagnosticDecorations,
     leanHover(ctx),
@@ -2047,6 +2059,8 @@ class LeanPlaceholderWidget extends WidgetType {
       return outer;
     }
 
+    let destroyed = false;
+
     shadow.append(tooltipStyles());
     const tooltipContainer = document.createElement("div");
     tooltipContainer.className = "lean-editor-tooltips";
@@ -2081,6 +2095,50 @@ class LeanPlaceholderWidget extends WidgetType {
       leanPath: "",
       leanText: "",
       region: null,
+    };
+    let lspOpened = false;
+    let lspOpenPromise: Promise<boolean> | null = null;
+
+    ctx.ensureLspOpen = async () => {
+      if (destroyed || !loaded || !ctx.leanPath || !ctx.region) return false;
+      if (lspOpened) return true;
+      if (lspOpenPromise) return lspOpenPromise;
+      status.textContent = "Checking";
+      lspOpenPromise = api.lean.openRegionFile({ notePath: noteInfo.notePath, tag })
+        .then((openRaw) => {
+          const openRes = openRaw as { ok?: boolean; message?: string; lspVersion?: number; leanPath?: string } | null;
+          if (openRes?.ok === false) throw new Error(openRes.message || "Lean open failed");
+          if (typeof openRes?.lspVersion === "number") ctx.lspVersion = openRes.lspVersion;
+          if (openRes?.leanPath) ctx.leanPath = String(openRes.leanPath);
+          if (destroyed) {
+            void api.lean.closeNote({ leanPath: ctx.leanPath }).catch(() => {});
+            return false;
+          }
+          lspOpened = true;
+          status.textContent = "Ready";
+          card.classList.remove("is-error");
+          publishLeanRegionInfoview({
+            notePath: noteInfo.notePath,
+            tag,
+            leanPath: ctx.leanPath,
+            uri: fileUri(ctx.leanPath),
+            line: 0,
+            character: 0,
+            goals: null,
+            termGoal: null,
+            goalError: null,
+          });
+          return true;
+        })
+        .catch((err) => {
+          status.textContent = err instanceof Error ? err.message : "Lean open failed";
+          card.classList.add("is-error");
+          return false;
+        })
+        .finally(() => {
+          lspOpenPromise = null;
+        });
+      return lspOpenPromise;
     };
 
     const syncRegion = (body: string, mode: "lsp" | "save"): Promise<void> => {
@@ -2181,6 +2239,7 @@ class LeanPlaceholderWidget extends WidgetType {
             try { await ctx.syncForLsp?.(); } catch {}
             if (seq !== goalSeq) return;
           }
+          if (!await ctx.ensureLspOpen?.()) return;
           const fullOffset = localOffsetToFull(ctx, view.state.selection.main.from);
           if (fullOffset == null) return;
           const pos = offsetToPosition(ctx.leanText, fullOffset);
@@ -2279,10 +2338,12 @@ class LeanPlaceholderWidget extends WidgetType {
     child.dom.dataset.leanVimMode = "insert";
     host.addEventListener("mousedown", () => {
       publishLeanRegionActive(noteInfo.notePath, tag);
+      void ctx.ensureLspOpen?.().then((ok) => { if (ok) renderGoals(child); });
       window.setTimeout(() => child.focus(), 0);
     });
     host.addEventListener("focusin", () => {
       publishLeanRegionActive(noteInfo.notePath, tag);
+      void ctx.ensureLspOpen?.().then((ok) => { if (ok) renderGoals(child); });
     });
     (outer as HTMLElement & { __leanChild?: EditorView; __leanTooltips?: HTMLDivElement }).__leanChild = child;
     (outer as HTMLElement & { __leanChild?: EditorView; __leanTooltips?: HTMLDivElement }).__leanTooltips = tooltipContainer;
@@ -2355,6 +2416,7 @@ class LeanPlaceholderWidget extends WidgetType {
     const onRegionJump = (event: Event): void => {
       const detail = (event as LeanRegionJumpEvent).detail;
       if (!detail || detail.notePath !== noteInfo.notePath) return;
+      if (detail.tag && detail.tag !== tag) return;
       if (detail.leanPath && detail.leanPath !== ctx.leanPath) return;
       if (typeof detail.line !== "number") return;
       ctx.jumpToFullPosition?.(detail.line, Number(detail.character ?? 0));
@@ -2432,6 +2494,7 @@ class LeanPlaceholderWidget extends WidgetType {
     window.addEventListener("aaronnote:lean-region-insert", onRegionInsert);
     window.addEventListener("aaronnote:lean-region-apply-edit", onRegionApplyEdit);
     (outer as HTMLElement & { __leanChild?: EditorView; __leanUnsub?: () => void }).__leanUnsub = () => {
+      destroyed = true;
       unsubDiag();
       unsubProgress();
       unsubSemanticTokens();
@@ -2441,6 +2504,7 @@ class LeanPlaceholderWidget extends WidgetType {
       window.removeEventListener("aaronnote:lean-region-jump", onRegionJump);
       window.removeEventListener("aaronnote:lean-region-insert", onRegionInsert);
       window.removeEventListener("aaronnote:lean-region-apply-edit", onRegionApplyEdit);
+      if ((lspOpened || lspOpenPromise) && ctx.leanPath) void api.lean.closeNote({ leanPath: ctx.leanPath }).catch(() => {});
     };
 
     void api.lean.readRegion({ notePath: noteInfo.notePath, tag })
@@ -2455,32 +2519,10 @@ class LeanPlaceholderWidget extends WidgetType {
           annotations: Transaction.addToHistory.of(false),
         });
         loaded = true;
-        // openRegionFile opens the current .lean file, so the server already holds
-        // this region's body verbatim — record it to avoid a redundant first sync.
+        if (destroyed) return;
         lastSyncedBody = String(res.body ?? "");
-        void api.lean.openRegionFile({ notePath: noteInfo.notePath, tag })
-          .then((openRaw) => {
-            const openRes = openRaw as { lspVersion?: number; leanPath?: string } | null;
-            if (typeof openRes?.lspVersion === "number") ctx.lspVersion = openRes.lspVersion;
-            if (openRes?.leanPath) ctx.leanPath = String(openRes.leanPath);
-            status.textContent = "Ready";
-            publishLeanRegionInfoview({
-              notePath: noteInfo.notePath,
-              tag,
-              leanPath: ctx.leanPath,
-              uri: fileUri(ctx.leanPath),
-              line: 0,
-              character: 0,
-              goals: null,
-              termGoal: null,
-              goalError: null,
-            });
-            renderGoals(child);
-          })
-          .catch(() => {
-            status.textContent = "Lean open failed";
-            card.classList.add("is-error");
-          });
+        status.textContent = "Ready";
+        card.classList.remove("is-error");
       })
       .catch((err) => {
         status.textContent = err instanceof Error ? err.message : "Error";

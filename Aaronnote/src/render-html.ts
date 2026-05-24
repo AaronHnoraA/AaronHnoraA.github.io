@@ -10,6 +10,8 @@ import { imageLayoutClasses, imageLayoutFromAttrs, imageLayoutStyle, readImageTr
 import { layoutClasses, layoutFromAttrs, layoutStyle, readLayoutAttrsLine, type LayoutAttrs } from "./layout-attrs.ts";
 import { renderMathHTML } from "./math-render.ts";
 import { safeHref } from "./url-safety.ts";
+import { scanInlineCommands } from "./command-syntax.ts";
+import { highlightCode, type CodeHighlightRange } from "./code-highlight.ts";
 
 declare global {
   interface Window {
@@ -19,6 +21,7 @@ declare global {
 
 export type RenderMarkdownHTMLOptions = {
   assetResolver?: (src: string) => string;
+  leanRegions?: LeanRegionMap;
 };
 
 export type RenderPublishedNoteOptions = {
@@ -32,12 +35,21 @@ export type RenderPublishedNoteOptions = {
   kindAssetsHtml?: string;
   private?: boolean;
   includePrivateContent?: boolean;
+  leanRegions?: LeanRegionMap;
 };
+
+export type LeanRegionMap = Record<string, string> | Map<string, string>;
 
 type OrgEnvTokenMeta = {
   kind: string;
   title: string;
   body: string;
+};
+
+type LeanRegionTokenMeta = {
+  tag: string;
+  body: string;
+  missing: boolean;
 };
 
 const ORG_ENV_OPEN_RE = /^\s*#\+begin\s+(\S+)(?:[ \t]+([^\n]*?))?[ \t]*$/i;
@@ -233,6 +245,30 @@ function mathBlockRule(state: StateBlock, startLine: number, endLine: number, si
   return true;
 }
 
+function leanRegionBlockRule(options: RenderMarkdownHTMLOptions) {
+  return function leanRegionBlock(state: StateBlock, startLine: number, _endLine: number, silent: boolean): boolean {
+    const raw = lineText(state, startLine);
+    const trimmed = raw.trim();
+    if (!trimmed.startsWith("@@lean4")) return false;
+    const command = scanInlineCommands(trimmed, "lean4")[0];
+    if (!command || command.fullFrom !== 0 || command.fullTo !== trimmed.length) return false;
+    const tag = command.context.trim();
+    if (!tag) return false;
+    if (silent) return true;
+    const body = leanRegionBody(options.leanRegions, tag);
+    const token = state.push("lean_region_block", "org-env-block", 0);
+    token.block = true;
+    token.map = [startLine, startLine + 1];
+    token.meta = {
+      tag,
+      body: body ?? "",
+      missing: body === undefined,
+    } satisfies LeanRegionTokenMeta;
+    state.line = startLine + 1;
+    return true;
+  };
+}
+
 function frontMatterRule(state: StateBlock, startLine: number, endLine: number, silent: boolean): boolean {
   if (startLine !== 0 || !/^---\s*$/.test(lineText(state, startLine))) return false;
   let closeLine = -1;
@@ -388,15 +424,66 @@ function renderDiagramFence(token: Token, layout: LayoutAttrs): string {
   return `<pre class="${escapeAttr(cls)}"${styleAttr}><code${codeClass}>${escapeHtml(token.content)}</code></pre>\n`;
 }
 
-function renderLeanOrgEnv(meta: OrgEnvTokenMeta): string {
-  const title = meta.title;
+function normalizeLeanRegionTag(value: string): string {
+  return String(value || "")
+    .trim()
+    .replace(/^\[|\]$/g, "")
+    .replace(/[^A-Za-z0-9_.:-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+}
+
+function leanRegionBody(regions: LeanRegionMap | undefined, tag: string): string | undefined {
+  if (!regions) return undefined;
+  const cleanTag = normalizeLeanRegionTag(tag);
+  if (regions instanceof Map) return regions.get(tag) ?? regions.get(cleanTag);
+  const key = Object.prototype.hasOwnProperty.call(regions, tag)
+    ? tag
+    : Object.prototype.hasOwnProperty.call(regions, cleanTag)
+      ? cleanTag
+      : "";
+  return key ? String(regions[key] ?? "") : undefined;
+}
+
+function renderHighlightedCode(lang: string, text: string): string {
+  const ranges = highlightCode(lang, text);
+  if (ranges.length === 0) return escapeHtml(text);
+  let cursor = 0;
+  let out = "";
+  for (const range of ranges as CodeHighlightRange[]) {
+    const from = Math.max(0, Math.min(text.length, range.from));
+    const to = Math.max(0, Math.min(text.length, range.to));
+    if (to <= from || from < cursor) continue;
+    if (from > cursor) out += escapeHtml(text.slice(cursor, from));
+    out += `<span class="${escapeAttr(range.className)}">${escapeHtml(text.slice(from, to))}</span>`;
+    cursor = to;
+  }
+  if (cursor < text.length) out += escapeHtml(text.slice(cursor));
+  return out;
+}
+
+function renderLeanCodeCell(title: string, body: string, options: { missing?: boolean; region?: boolean } = {}): string {
   const label = "Lean 4";
+  const code = options.missing
+    ? "-- Lean region not found in the mirror .lean file"
+    : body;
+  const highlighted = renderHighlightedCode("lean4", code);
+  const classes = classList("cm-org-env-block org-env-block org-env-lean4", options.region && "org-env-lean4-region");
   return [
-    `<org-env-block class="cm-org-env-block org-env-block org-env-lean4" data-kind="lean4" data-title="${escapeAttr(title)}" data-label="${escapeAttr(label)}" data-comment-open="false">`,
+    `<org-env-block class="${escapeAttr(classes)}" data-kind="lean4" data-title="${escapeAttr(title)}" data-label="${escapeAttr(label)}" data-comment-open="false" data-lean-region="${options.region ? "true" : "false"}">`,
     `<span class="org-env-heading cm-org-env-heading-widget" data-org-env-kind="lean4"><span class="org-env-heading-label cm-org-env-label">${escapeHtml(label)}</span><span class="org-env-heading-title" data-empty="${title ? "false" : "true"}">${escapeHtml(title)}</span></span>`,
-    `<div class="org-env-content"><pre class="aaronnote-lean-code"><code class="language-lean4">${escapeHtml(meta.body)}</code></pre></div>`,
+    `<div class="org-env-content"><pre class="aaronnote-lean-code"><code class="language-lean4">${highlighted}</code></pre></div>`,
     "</org-env-block>",
   ].join("");
+}
+
+function renderLeanOrgEnv(meta: OrgEnvTokenMeta): string {
+  return renderLeanCodeCell(meta.title, meta.body);
+}
+
+function renderLeanRegion(tokens: Token[], idx: number): string {
+  const meta = tokens[idx]!.meta as LeanRegionTokenMeta;
+  return renderLeanCodeCell(meta.tag, meta.body, { missing: meta.missing, region: true });
 }
 
 function renderOrgEnv(md: MarkdownIt, tokens: Token[], idx: number): string {
@@ -461,12 +548,14 @@ function createMarkdownIt(options: RenderMarkdownHTMLOptions): MarkdownIt {
   md.block.ruler.before("fence", "front_matter", frontMatterRule, { alt: [] });
   md.block.ruler.before("fence", "org_env_block", orgEnvBlockRule, { alt: ["paragraph", "reference", "blockquote"] });
   md.block.ruler.before("fence", "math_block", mathBlockRule, { alt: ["paragraph", "reference", "blockquote"] });
+  md.block.ruler.before("paragraph", "lean_region_block", leanRegionBlockRule(options), { alt: ["paragraph"] });
   md.block.ruler.before("paragraph", "toc_block", tocRule, { alt: ["paragraph"] });
   md.inline.ruler.after("escape", "math_inline", mathInlineRule);
 
   md.renderer.rules.math_block = renderMathBlock;
   md.renderer.rules.math_inline = renderMathInline;
   md.renderer.rules.org_env_block = (tokens, idx) => renderOrgEnv(md, tokens, idx);
+  md.renderer.rules.lean_region_block = renderLeanRegion;
   md.renderer.rules.front_matter = (tokens, idx, _opts, _env, _renderer) =>
     `<yaml-block><pre>${escapeHtml(tokens[idx]!.content)}</pre></yaml-block>`;
   md.renderer.rules.toc_block = () => `<div class="toc"><div class="toc-empty">(no headings yet)</div></div>`;
@@ -545,7 +634,7 @@ export function renderPublishedNoteHTML(
   const hidden = Boolean(options.private && !options.includePrivateContent);
   const contentHtml = hidden
     ? '<p class="sealed-note-message">This note has been sealed by the administrator.</p>'
-    : renderMarkdownHTML(markdown);
+    : renderMarkdownHTML(markdown, { leanRegions: options.leanRegions });
   const shellClass = classList(
     "aaronnote-shell",
     "published-note-page",

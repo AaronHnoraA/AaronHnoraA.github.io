@@ -641,6 +641,65 @@
 .cm-editor .cm-org-env-block[data-kind="lean4"] .code-token-operator,
 .cm-editor .cm-org-env-block[data-kind="lean4"] .code-token-punctuation { color: #bac2de; }
 
+org-env-block[data-kind="lean4"] {
+  border-left: 0;
+  padding: 0;
+  background: #171615;
+  color: #e8e2da;
+}
+
+org-env-block[data-kind="lean4"] .org-env-heading {
+  height: 26px;
+  margin: 0;
+  padding: 0 10px;
+  background: var(--lean4-header-bg, #2a2724);
+  border-bottom: 1px solid var(--lean4-border, #3a3530);
+  color: var(--lean4-accent, #c8b5e8);
+  font-family: var(--aaron-font-mono);
+}
+
+org-env-block[data-kind="lean4"] .org-env-heading-label,
+org-env-block[data-kind="lean4"] .cm-org-env-label {
+  color: var(--lean4-accent, #c8b5e8);
+}
+
+org-env-block[data-kind="lean4"] .org-env-heading-title {
+  width: auto;
+  min-width: 0;
+  border: 0;
+  color: var(--lean4-muted, #7a7068);
+  font: 11px/1 var(--aaron-font-mono);
+}
+
+org-env-block[data-kind="lean4"] .org-env-content {
+  color: #e8e2da;
+}
+
+org-env-block[data-kind="lean4"] .aaronnote-lean-code {
+  margin: 0;
+  padding: 8px 12px 10px;
+  overflow: auto;
+  background: #171615;
+  color: #e8e2da;
+  font: 13px/1.6 var(--aaron-font-mono);
+}
+
+org-env-block[data-kind="lean4"] .aaronnote-lean-code code {
+  color: #e8e2da;
+  font: inherit;
+}
+
+org-env-block[data-kind="lean4"] .code-token-comment { color: #8d948f; font-style: italic; }
+org-env-block[data-kind="lean4"] .code-token-string  { color: #8bd5ca; }
+org-env-block[data-kind="lean4"] .code-token-keyword { color: #f38ba8; font-weight: 650; }
+org-env-block[data-kind="lean4"] .code-token-number  { color: #cba6f7; }
+org-env-block[data-kind="lean4"] .code-token-function { color: #89b4fa; }
+org-env-block[data-kind="lean4"] .code-token-property,
+org-env-block[data-kind="lean4"] .code-token-attr,
+org-env-block[data-kind="lean4"] .code-token-meta { color: #f9e2af; }
+org-env-block[data-kind="lean4"] .code-token-operator,
+org-env-block[data-kind="lean4"] .code-token-punctuation { color: #bac2de; }
+
 .cm-editor .cm-org-env-block[data-kind="lean4"] .cm-lean-token-comment { color: #8d948f; font-style: italic; }
 .cm-editor .cm-org-env-block[data-kind="lean4"] .cm-lean-token-string { color: #8bd5ca; }
 .cm-editor .cm-org-env-block[data-kind="lean4"] .cm-lean-token-keyword,

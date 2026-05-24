@@ -24,8 +24,12 @@ lives in real `.lean` files inside the notes root's `.lean/` Lake project.
 - [x] Left Lean panel split into resizable LSP messages and Infoview panes with per-note runtime layout memory.
 - [x] Embedded editor keyboard events are isolated from outer Markdown/Vim handling.
 - [x] Lean panel restart/stop controls work with active `@@lean4 [tag]` regions.
+- [x] Lean panel includes a collapsible, height-resizable outline backed by
+  Lean LSP `textDocument/documentSymbol`.
+- [x] Publish/PDF export renders `@@lean4 [tag]` placeholders as static Lean 4
+  code cells by reading the mirror `.lean` region data, without starting LSP.
 - [x] Parser/region unit tests added.
-- [x] Verified after isolation fix with `npx tsc --noEmit` and targeted Lean/CM6 tests.
+- [x] Verified with `npx tsc --noEmit`, render/highlight tests, and targeted Lean/CM6 tests.
 
 Update this section whenever an implementation stage lands.
 
@@ -76,18 +80,25 @@ file prelude and is not rendered as an embedded block.
 - The embedded editor edits the matching region in the derived `.lean` file, not
   the Markdown document.
 - The Markdown document keeps only the placeholder text.
-- The embedded editor is mounted as a block widget with Shadow DOM isolation, so
-  the outer Markdown CM6 styles and event handling do not drive the inner editor.
+- The embedded editor is mounted immediately as a block widget with Shadow DOM
+  isolation, so the outer Markdown CM6 styles and event handling do not drive
+  the inner editor.
 - Cursor movement inside the embedded editor drives Lean hover, diagnostics, goals,
   expected type, semantic tokens, and the left Infoview panel.
 - The left Lean panel is split vertically: LSP diagnostics/messages are on top,
   Infoview goals and expected type are below. The panel width and the middle
   split are draggable and remembered per note for the current app session.
+- The Lean panel also shows a collapsible outline under the Infoview area. It
+  uses Lean LSP document symbols instead of scanning mirror files, can be
+  resized vertically, and outline rows jump back to embedded Lean regions by
+  their LSP line/character position.
 - Keyboard input while the embedded Lean editor is focused is consumed by the
   child editor and is not forwarded to the outer Markdown editor or Vim layer.
-- Lean LSP is opened only for real derived `.lean` files. Markdown text is never
+- Lean LSP is opened only for real derived `.lean` files and only after the
+  user interacts with a Lean editor or requests LSP-backed data such as goals,
+  hover, completion, diagnostics, or Infoview content. Markdown text is never
   sent to Lean. Notes without Lean placeholders do not start Lean, and switching
-  away stops the active Lean process for the previous region.
+  away lets the Lean server idle instead of stopping it immediately.
 - The embedded editor uses Lean-only behavior: completion comes from Lean LSP
   `textDocument/completion`, syntax color comes from Lean Tree-sitter plus Lean
   semantic tokens, and Lean symbol input uses the `lean4-mode` abbreviation
@@ -100,6 +111,10 @@ file prelude and is not rendered as an embedded block.
 - When completion is open, ArrowUp/ArrowDown/PageUp/PageDown/Enter/Tab and
   `Cmd/Ctrl+1..9` select or accept Lean LSP candidates inside the popup. These
   keys are not forwarded to the outer Markdown editor.
+- Find (`Cmd/Ctrl+F`) can search both Markdown and embedded Lean editors. The
+  find bar scope can be set to `Code` to search only Lean regions.
+- Static publish and desktop PDF export replace `@@lean4 [tag]` with a read-only
+  Aaronnote-style Lean code cell and syntax-highlight the exported source.
 - If the tag is missing, the widget shows a missing-region state and can create
   the marker in the derived Lean file.
 
@@ -132,7 +147,9 @@ Default behavior:
 - Aaronnote does not run `lake build` or automatically repair Mathlib/ProofWidgets
   caches during editor startup. When Lean reports stale widgets or missing
   artifacts, use Notes → Lean → Cache, which runs `make cache` (`lake exe cache get`).
-- Each note opens its derived real `.lean` file as the LSP document.
+- Each active Lean editor opens its derived real `.lean` file as the LSP
+  document on demand. Multiple embedded regions in the same file share the LSP
+  document through server-side reference counting.
 - Region edits update the full Lean file text and send `textDocument/didChange`
   for the real file URI.
 - Diagnostics and progress notifications are stored by full Lean file URI, then

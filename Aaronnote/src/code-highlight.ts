@@ -217,6 +217,18 @@ function nixRules(): Rule[] {
   ];
 }
 
+function leanRules(): Rule[] {
+  return [
+    { className: "code-token-comment", pattern: /\/-[\s\S]*?-\/|--[^\n]*/y },
+    { className: "code-token-string", pattern: /"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])'/y },
+    { className: "code-token-keyword", pattern: /\b(?:abbrev|axiom|by|calc|case|class|def|deriving|do|else|end|example|extends|for|forall|fun|have|if|import|in|inductive|infix|instance|let|macro|match|mutual|namespace|opaque|open|private|protected|public|rec|section|simp|structure|syntax|termination_by|then|theorem|universe|variable|where|with)\b/y },
+    { className: "code-token-number", pattern: /\b(?:0x[\da-fA-F_]+|\d[\d_]*(?:\.\d[\d_]*)?)\b/y },
+    { className: "code-token-function", pattern: /\b[A-Za-z_][\w'.!?]*(?=\s*(?:\(|:|:=))/y },
+    { className: "code-token-operator", pattern: /:=|=>|←|→|↔|∀|∃|⊢|∧|∨|¬|≤|≥|≠|::|<-|->|[+\-*/%=<>:|&!.?]+/y },
+    { className: "code-token-punctuation", pattern: /[{}[\]();,]/y },
+  ];
+}
+
 function rulesForLang(lang: string): Rule[] {
   switch (normalizeLang(lang)) {
     case "javascript":
@@ -252,6 +264,8 @@ function rulesForLang(lang: string): Rule[] {
       return tomlRules();
     case "nix":
       return nixRules();
+    case "lean4":
+      return leanRules();
     default:
       return [];
   }

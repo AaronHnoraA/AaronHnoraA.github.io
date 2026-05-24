@@ -77,9 +77,34 @@ $$
     expect(html).toContain('data-kind="lean4"');
     expect(html).toContain('class="language-lean4"');
     expect(html).toContain("aaronnote-lean-code");
-    expect(html).not.toContain("code-token-keyword");
-    expect(html).not.toContain("code-token-comment");
+    expect(html).toContain("code-token-keyword");
+    expect(html).toContain("code-token-comment");
     expect(html).not.toContain("<p>import Mathlib.Tactic");
+  });
+
+  test("renders @@lean4 regions from publish/export mirror data", () => {
+    const html = renderMarkdownHTML([
+      "Before",
+      "",
+      "@@lean4 [proof-main]",
+      "",
+      "After",
+    ].join("\n"), {
+      leanRegions: {
+        "proof-main": [
+          "import Mathlib",
+          "-- exported proof",
+          "example : True := by",
+          "  trivial",
+        ].join("\n"),
+      },
+    });
+
+    expect(html).toContain('data-lean-region="true"');
+    expect(html).toContain(">proof-main<");
+    expect(html).toContain("exported proof");
+    expect(html).toContain("code-token-keyword");
+    expect(html).not.toContain("@@lean4");
   });
 
   test("keeps resolved Aaronnote asset image URLs", () => {

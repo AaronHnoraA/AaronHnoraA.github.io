@@ -1177,6 +1177,7 @@ $$
     expect(widget).toBeTruthy();
     expect(widget!.dataset.leanTag).toBe("group-cancel");
     expect(widget!.shadowRoot).toBeTruthy();
+    expect(widget!.shadowRoot!.querySelector(".lean-idle-preview")).toBeNull();
     expect((editor.view as unknown as { contentDOM: HTMLElement }).contentDOM.textContent)
       .not.toContain("@@lean4 [group-cancel]");
 

@@ -55,6 +55,8 @@ ORG_ENV_RE = re.compile(r"(?ms)^#\+begin(?:_|\s+)([A-Za-z][\w-]*)(?:\s+([^\n]+?)
 MD_IMAGE_RE = re.compile(r"!\[[^\]]*\]\(([^)]+)\)")
 MD_LINK_RE = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
 HTML_MD_LINK_RE = re.compile(r'href="([^"#?:]+)\.md((?:#[^"]*)?)"')
+MARKDOWN_LEAN_TAG_RE = re.compile(r"(?m)^[ \t]*@@lean4[ \t]+\[([^\]\n]+)\]")
+LEAN_REGION_MARKER_RE = re.compile(r"(?m)^--[ \t]*@aaronnote[ \t]+([A-Za-z0-9_.:-]+)[ \t]*$")
 KIND_NAME_RE = re.compile(r"^[a-z0-9_-]+$")
 DEFAULT_NOTE_KIND = "default"
 DEFAULT_NOTE_KIND_ALIASES = {"", "default", "note"}
@@ -137,6 +139,17 @@ class Note:
 
 def should_skip(path: Path) -> bool:
     return any(part in SKIP_DIRS for part in path.parts)
+
+
+def project_rel_path(path: Path) -> Path:
+    try:
+        return path.relative_to(ROOT)
+    except ValueError:
+        pass
+    try:
+        return Path("roam") / path.resolve().relative_to(ROAM_ROOT.resolve())
+    except ValueError as err:
+        raise ValueError(f"path is outside publish root: {path}") from err
 
 
 def iter_project_files() -> Iterator[Path]:
@@ -395,7 +408,7 @@ def parse_note(path: Path) -> Note | None:
     note_id = metadata.get("id")
     if not note_id:
         return None
-    rel = path.relative_to(ROOT)
+    rel = project_rel_path(path)
     rel_path = rel.as_posix()
     tags = [str(tag) for tag in metadata.get("tags", [])] if isinstance(metadata.get("tags"), list) else []
     aliases = [str(alias) for alias in metadata.get("aliases", [])] if isinstance(metadata.get("aliases"), list) else []
@@ -433,7 +446,7 @@ def parse_note_for_export(path: Path) -> Note:
 
     text = path.read_text(encoding="utf-8")
     metadata, body = parse_metadata_block(text)
-    rel = path.relative_to(ROOT)
+    rel = project_rel_path(path)
     rel_path = rel.as_posix()
     tags = [str(tag) for tag in metadata.get("tags", [])] if isinstance(metadata.get("tags"), list) else []
     aliases = [str(alias) for alias in metadata.get("aliases", [])] if isinstance(metadata.get("aliases"), list) else []
@@ -557,7 +570,7 @@ def output_is_current(output_file: Path, deps_file: Path) -> bool:
 
 def deps_for_note(note: Note) -> set[str]:
     deps = {
-        note.public_path if note.private else note.path.relative_to(ROOT).as_posix(),
+        note.public_path if note.private else project_rel_path(note.path).as_posix(),
         "bin/publish-site",
         "Aaronnote/scripts/render-html.mjs",
         "Aaronnote/aaronnote/style.css",
@@ -570,6 +583,13 @@ def deps_for_note(note: Note) -> set[str]:
     src_dir = ROOT / "Aaronnote" / "src"
     if src_dir.exists():
         deps.update(path.relative_to(ROOT).as_posix() for path in src_dir.glob("**/*.ts"))
+    lean_path = lean_mirror_path(note.path)
+    try:
+        note_has_lean_regions = bool(MARKDOWN_LEAN_TAG_RE.search(note.path.read_text(encoding="utf-8")))
+    except OSError:
+        note_has_lean_regions = False
+    if lean_path.exists() or note_has_lean_regions:
+        deps.add(project_rel_path(lean_path).as_posix())
     deps.update(path.relative_to(ROOT).as_posix() for path in note_kind_asset_paths(note))
     return deps
 
@@ -633,6 +653,51 @@ def render_aaronnote_markdown(text: str) -> str:
     return render_aaronnote_payload({"markdown": text})
 
 
+def normalize_lean_tag(value: object) -> str:
+    tag = re.sub(r"[^A-Za-z0-9_.:-]+", "-", str(value or "").strip().strip("[]"))
+    return tag.strip("-")[:80]
+
+
+def lean_mirror_path(note_path: Path) -> Path:
+    rel = project_rel_path(note_path)
+    if rel.parts and rel.parts[0] == "roam":
+        rel = Path(*rel.parts[1:])
+    if rel.suffix.lower() in {".md", ".markdown"}:
+        rel = rel.with_suffix(".lean")
+    else:
+        rel = Path(f"{rel.as_posix()}.lean")
+    return ROAM_ROOT / ".lean" / rel
+
+
+def scan_lean_regions(text: str) -> dict[str, str]:
+    matches = list(LEAN_REGION_MARKER_RE.finditer(text))
+    regions: dict[str, str] = {}
+    for index, match in enumerate(matches):
+        tag = normalize_lean_tag(match.group(1))
+        if not tag:
+            continue
+        body_from = match.end()
+        if body_from < len(text) and text[body_from] == "\n":
+            body_from += 1
+        body_to = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        regions[tag] = text[body_from:body_to].rstrip("\n")
+    return regions
+
+
+def lean_regions_for_note(note: Note, markdown_text: str) -> dict[str, str]:
+    tags = [normalize_lean_tag(match.group(1)) for match in MARKDOWN_LEAN_TAG_RE.finditer(markdown_text)]
+    tags = [tag for tag in tags if tag]
+    if not tags:
+        return {}
+    path = lean_mirror_path(note.path)
+    try:
+        regions = scan_lean_regions(path.read_text(encoding="utf-8"))
+    except OSError:
+        return {}
+    wanted = set(tags)
+    return {tag: body for tag, body in regions.items() if tag in wanted}
+
+
 def site_root_for(note_link: str) -> str:
     depth = len(Path(note_link).parent.parts)
     return "../" * depth or "./"
@@ -648,7 +713,13 @@ def note_output_link(note: Note) -> str:
     return note.link
 
 
-def note_page_html(note: Note, markdown_text: str, *, include_private_content: bool = False) -> str:
+def note_page_html(
+    note: Note,
+    markdown_text: str,
+    *,
+    include_private_content: bool = False,
+    lean_regions: dict[str, str] | None = None,
+) -> str:
     root = site_root_for(note_output_link(note))
     kind = active_note_kind(note)
     export_format = "pdf" if pdf_export_p() else "html"
@@ -667,6 +738,7 @@ def note_page_html(note: Note, markdown_text: str, *, include_private_content: b
             "kindAssetsHtml": note_kind_assets_html(note, root),
             "private": note.private,
             "includePrivateContent": include_private_content,
+            "leanRegions": lean_regions or {},
         },
     })
     return HTML_MD_LINK_RE.sub(r'href="\1.html\2"', rendered)
@@ -688,11 +760,13 @@ def render_note_html(
     markdown_text = note.path.read_text(encoding="utf-8")
     if not include_private_content:
         markdown_text = sanitize_published_metadata_tags(markdown_text)
+    lean_regions = lean_regions_for_note(note, markdown_text)
     output_file.write_text(
         note_page_html(
             note,
             markdown_text,
             include_private_content=include_private_content,
+            lean_regions=lean_regions,
         ),
         encoding="utf-8",
     )
@@ -807,7 +881,7 @@ def note_static_asset_paths(note: Note) -> set[Path]:
 def copy_note_static_assets(note: Note, output_root: Path) -> None:
     for source in note_static_asset_paths(note):
         try:
-            rel = source.relative_to(ROOT)
+            rel = project_rel_path(source)
         except ValueError:
             continue
         _copy_into_public(source, output_root / rel)
@@ -1011,7 +1085,7 @@ def publish_single_note(args: list[str]) -> bool:
 
     note_path = resolve_root_path(raw_note)
     try:
-        rel = note_path.relative_to(ROOT)
+        rel = project_rel_path(note_path)
     except ValueError as err:
         raise SystemExit(f"Note is outside publish root: {note_path}") from err
     if not note_path.exists() or note_path.suffix.lower() not in {".md", ".markdown"}:

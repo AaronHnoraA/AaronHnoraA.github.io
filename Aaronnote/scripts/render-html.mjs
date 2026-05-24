@@ -47,5 +47,5 @@ const { renderMarkdownHTML, renderPublishedNoteHTML } = await import("../src/ren
 
 const html = input.mode === "published-note"
   ? renderPublishedNoteHTML(String(input.markdown ?? ""), input.note ?? {})
-  : renderMarkdownHTML(String(input.markdown ?? ""));
+  : renderMarkdownHTML(String(input.markdown ?? ""), { leanRegions: input.leanRegions ?? undefined });
 process.stdout.write(JSON.stringify({ html }));

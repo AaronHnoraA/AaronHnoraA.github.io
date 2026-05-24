@@ -2364,9 +2364,9 @@ body.lean-panel-open .aaronnote-editor {
   z-index: 70;
   top: 54px;
   right: 18px;
-  width: min(780px, calc(100vw - 36px));
+  width: min(860px, calc(100vw - 36px));
   display: grid;
-  grid-template-columns: minmax(160px, 1fr) minmax(140px, 0.8fr) auto auto auto auto auto auto;
+  grid-template-columns: minmax(160px, 1fr) minmax(140px, 0.8fr) minmax(72px, auto) auto auto auto auto auto auto;
   align-items: center;
   gap: 6px;
   border: 1px solid color-mix(in srgb, var(--aaron-red), transparent 28%);
@@ -2381,7 +2381,8 @@ body.lean-panel-open .aaronnote-editor {
 }
 
 .aaronnote-find-tool input[type="search"],
-.aaronnote-find-tool input[type="text"] {
+.aaronnote-find-tool input[type="text"],
+.aaronnote-find-tool select {
   height: 30px;
   min-width: 0;
   margin: 0;
@@ -3747,6 +3748,92 @@ body.lean-panel-open .aaronnote-editor {
   color: #145c8c;
 }
 
+.lean-panel-outline {
+  padding-bottom: 8px;
+}
+
+.lean-outline-box {
+  height: var(--lean-outline-height, 180px);
+  min-height: 96px;
+  overflow: auto;
+  border: 1px solid #d8caba;
+  border-radius: 6px;
+  background: #fffdf8;
+  box-shadow: 0 1px 0 rgb(255 255 255 / 65%) inset;
+}
+
+.lean-outline-list {
+  display: grid;
+  gap: 1px;
+  padding: 5px;
+}
+
+.lean-outline-item {
+  display: grid;
+  grid-template-columns: minmax(52px, auto) minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 7px;
+  width: 100%;
+  border: 0;
+  border-radius: 4px;
+  padding: 5px 6px 5px calc(6px + (var(--lean-outline-level, 0) * 12px));
+  background: transparent;
+  color: #211b16;
+  cursor: pointer;
+  text-align: left;
+  font: 12px/1.35 var(--aaron-font-sans);
+}
+
+.lean-outline-item:hover {
+  background: #f2e7d8;
+}
+
+.lean-outline-item.is-active {
+  background: #fae9eb;
+  box-shadow: inset 2px 0 0 var(--aaron-red);
+}
+
+.lean-outline-kind {
+  color: #8a6f5a;
+  font: 800 10px/1.35 var(--aaron-font-mono);
+  text-transform: uppercase;
+}
+
+.lean-outline-label {
+  min-width: 0;
+  overflow: hidden;
+  color: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lean-outline-line {
+  color: #7c7166;
+  font: 700 10px/1.35 var(--aaron-font-mono);
+}
+
+.lean-outline-resizer {
+  height: 9px;
+  margin: 2px -2px -4px;
+  cursor: row-resize;
+  position: relative;
+}
+
+.lean-outline-resizer::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: 42%;
+  right: 42%;
+  height: 1px;
+  background: #d4c8b6;
+}
+
+.lean-outline-resizer:hover::after,
+.lean-outline--resizing .lean-outline-resizer::after {
+  background: var(--aaron-red);
+}
+
 /* Messages list */
 .lean-panel-current {
   display: grid;
@@ -3786,12 +3873,17 @@ body.lean-panel-open .aaronnote-editor {
   font: 14px/1.45 var(--aaron-font-sans);
   max-width: 100%;
   overflow-x: hidden;
+  padding: 8px 12px 14px;
   --vscode-font-size: 13px;
   --vscode-font-family: var(--aaron-font-sans);
   --vscode-editor-font-family: var(--aaron-font-mono);
   --vscode-editor-foreground: #181411;
   --vscode-editor-background: #f4efe6;
   --vscode-focusBorder: #9a0f1f;
+  --vscode-textLink-foreground: #7f1d1d;
+  --vscode-button-foreground: #241f1a;
+  --vscode-button-background: #fffaf2;
+  --vscode-button-hoverBackground: #f0e6d8;
 }
 
 @font-face {
@@ -3819,7 +3911,7 @@ body.lean-panel-open .aaronnote-editor {
 .lean-official-infoview [class*="codicon"] {
   display: inline-block;
   font: normal normal normal 16px/1 codicon;
-  color: #155a9c;
+  color: #8b1b25;
   text-decoration: none;
   text-rendering: auto;
   user-select: none;
@@ -3844,7 +3936,7 @@ body.lean-panel-open .aaronnote-editor {
 .lean-official-infoview .pointer { cursor: pointer; }
 .lean-official-infoview .dim { opacity: 1; transition: opacity 0.15s ease-in; }
 .lean-official-infoview .dim:hover { opacity: 0.65; }
-.lean-official-infoview .link { color: #155a9c; text-decoration: none; }
+.lean-official-infoview .link { color: #7f1d1d; text-decoration: none; }
 .lean-official-infoview .error,
 .lean-official-infoview .dark-red {
   color: #b20d22;
@@ -3866,37 +3958,66 @@ body.lean-panel-open .aaronnote-editor {
 
 .lean-official-infoview summary {
   cursor: pointer;
-  font-weight: 700;
+  font: 850 13.5px/1.35 var(--aaron-font-sans);
   color: #241f1a;
   overflow-wrap: anywhere;
+  padding: 5px 0;
+}
+
+.lean-official-infoview summary::marker {
+  color: #8b1b25;
+  font-size: 0.82em;
 }
 
 .lean-official-infoview details {
-  margin: 6px 0;
+  margin: 4px 0;
   max-width: 100%;
 }
 
+.lean-official-infoview > details {
+  border-bottom: 1px solid #d4c8b6;
+  padding-bottom: 8px;
+}
+
+.lean-official-infoview details details {
+  border-left: 2px solid #e1d6c6;
+  margin-left: 7px;
+  padding-left: 10px;
+}
+
 .lean-official-infoview p {
-  margin: 8px 0;
+  margin: 6px 0;
 }
 
 .lean-official-infoview pre {
   max-width: 100%;
-  margin: 6px 0;
+  margin: 6px 0 8px;
   overflow-x: auto;
   white-space: pre-wrap;
   word-break: break-word;
+  border: 1px solid #d8caba;
+  border-radius: 6px;
+  background: #fffdf8;
+  color: #211b16;
+  padding: 10px 12px;
+  box-shadow: 0 1px 0 rgb(255 255 255 / 65%) inset;
 }
 
 .lean-official-infoview button,
 .lean-official-infoview .restart-file-button {
   max-width: 100%;
-  border: 1px solid #2c2118;
+  border: 1px solid #d6c8b7;
   border-radius: 3px;
   background: #fffaf2;
   color: #211b16;
-  padding: 6px 10px;
+  padding: 4px 7px;
   font: 700 13px/1.2 var(--aaron-font-sans);
+}
+
+.lean-official-infoview button:hover {
+  border-color: #b98d79;
+  background: #f2e7d8;
+  color: #7f1d1d;
 }
 
 .lean-official-infoview .restart-file-button {
@@ -3905,6 +4026,27 @@ body.lean-panel-open .aaronnote-editor {
 
 .lean-official-infoview > div {
   max-width: 100%;
+}
+
+.lean-official-infoview :is(.font-code, .pre-wrap, code) {
+  color: #211b16;
+}
+
+.lean-official-infoview :is(.fr, button) {
+  font-size: 12px;
+}
+
+.lean-official-infoview .fr {
+  margin-left: 6px;
+}
+
+.lean-official-infoview .mv2 {
+  margin-top: 6px;
+  margin-bottom: 6px;
+}
+
+.lean-official-infoview .ma1 {
+  margin: 2px;
 }
 
 .lean-official-infoview--error {
@@ -4046,7 +4188,9 @@ body.lean-panel-open .aaronnote-editor {
 }
 
 .lean-section--collapsed .lean-panel-code,
-.lean-section--collapsed .lean-messages-list {
+.lean-section--collapsed .lean-messages-list,
+.lean-section--collapsed .lean-outline-box,
+.lean-section--collapsed .lean-outline-resizer {
   display: none;
 }
 
