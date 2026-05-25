@@ -1268,6 +1268,14 @@ org-env-block[data-kind="lean4"] .code-token-punctuation { color: #bac2de; }
   margin: 0;
   padding: 0.32rem 0 0.42rem;
 }
+/* Wrap variant: outer is a zero-height non-BFC anchor so CM6 records 0 in the
+ * height map; the inner .cm-mermaid-block floats out and text wraps beside it. */
+.cm-editor .cm-mermaid-widget.aaronnote-diagram-wrap {
+  display: block; /* override flow-root so inner float escapes to cm-content */
+  height: 0;      /* CM6 getBoundingClientRect() → 0 → no height-map drift */
+  overflow: visible;
+  padding: 0;
+}
 .cm-editor .cm-mermaid-block,
 .cm-editor .cm-mermaid-block-preview {
   display: block;

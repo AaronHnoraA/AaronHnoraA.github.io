@@ -121914,7 +121914,7 @@ this is
 
 ## 224.3. Tensor viewpoint
 
-A bilinear map
+A bilinear map this is hard to use 
 
 $$
 \mu : V \times V \to W
@@ -121973,7 +121973,7 @@ This is the source of the orbit formulation of many isomorphism problems.
 
 ## 224.4. Isomorphism as an orbit problem
 
-Two tensors $T$ and $T'$ are isomorphic if they lie in the same orbit under
+Two tensors $T$ and $T'$ are isomorphic if they lie in the same orbit under this is  
 a suitable group action. For example, in a three-tensor setting one often
 considers an action of
 

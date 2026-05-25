@@ -161,6 +161,7 @@ class MermaidWidget extends MeasuredWidget {
   }
 
   protected estimatedHeightFallback(): number {
+    if (this.layout.wrap) return 0;
     const explicitHeight = Number.parseFloat(this.layout.height);
     if (Number.isFinite(explicitHeight) && explicitHeight > 0) return explicitHeight + 24;
     return Math.max(190, Math.min(460, 120 + this.source.split(/\n/).length * 18));
@@ -181,6 +182,9 @@ class MermaidWidget extends MeasuredWidget {
   toDOM(view: EditorView): HTMLElement {
     const wrap = document.createElement("figure");
     wrap.className = "cm-mermaid-widget";
+    if (this.layout.wrap) {
+      wrap.classList.add("aaronnote-diagram-wrap", `aaronnote-diagram-align-${this.layout.align}`);
+    }
     setSourceRange(wrap, this.from, this.to, this.sourceFrom, true);
 
     const div = document.createElement("div");
@@ -214,6 +218,7 @@ class MermaidPreviewWidget extends MeasuredWidget {
   }
 
   protected estimatedHeightFallback(): number {
+    if (this.layout.wrap) return 0;
     const explicitHeight = Number.parseFloat(this.layout.height);
     if (Number.isFinite(explicitHeight) && explicitHeight > 0) return explicitHeight + 24;
     return Math.max(190, Math.min(460, 120 + this.source.split(/\n/).length * 18));
@@ -231,6 +236,9 @@ class MermaidPreviewWidget extends MeasuredWidget {
   toDOM(view: EditorView): HTMLElement {
     const wrap = document.createElement("figure");
     wrap.className = "cm-mermaid-widget cm-mermaid-widget-preview";
+    if (this.layout.wrap) {
+      wrap.classList.add("aaronnote-diagram-wrap", `aaronnote-diagram-align-${this.layout.align}`);
+    }
 
     const div = document.createElement("div");
     div.className = "cm-mermaid-block-preview";
