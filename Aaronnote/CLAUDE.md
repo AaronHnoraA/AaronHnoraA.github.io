@@ -38,6 +38,32 @@ separate editor implementation.
 | `server/lib/runtime.mjs` | Server-side note/index/save/runtime implementation, including Lean file language ids for Copilot. |
 | `plugin/copilot/index.ts` | Copilot inline UI and key handling for the main editor plus auxiliary editors such as Lean child editors. |
 
+## Widget Rules
+
+All CM6 widgets that contribute vertical height must extend `MeasuredWidget`
+(`src/cm6/widgets/measured-widget.ts`) instead of bare `WidgetType`.
+Call `this.registerMeasured(dom, view)` at every `toDOM()` return point.
+
+```typescript
+class MyWidget extends MeasuredWidget {
+  protected measureKey() { return "my:" + this.stableId; }
+  toDOM(view: EditorView): HTMLElement {
+    const el = document.createElement("div");
+    // … build DOM …
+    return this.registerMeasured(el, view);
+  }
+}
+```
+
+- No vertical `margin` on the widget root — CM6 measures border-box only; root
+  vertical margins are invisible to the height map and cause cursor drift.
+  Use root `padding` or child layout for vertical spacing instead.
+- Override `measureGroupKey()` and `estimatedHeightFallback()` when scroll
+  estimates matter; a fallback near the eventual height beats CM6's 1-line default.
+- For widgets that support `layout.wrap` (CSS float): see the "Float-wrap
+  coexistence" section in `docs/maintenance.md` — Pattern A for inline-replace
+  widgets, Pattern B for `block:true` widgets.
+
 ## Invariants
 
 1. Markdown source offsets are the stable cross-system coordinate space.

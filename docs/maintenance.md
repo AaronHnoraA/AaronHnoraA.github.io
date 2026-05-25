@@ -86,6 +86,43 @@ Block widget layout rule:
 - Keep a stable `measureKey()` and add `measureGroupKey()` / `estimatedHeightFallback()` when first-render estimates matter during scroll. A fallback near the eventual rendered height is much better than CM6's default single-line guess.
 - Any CSS rule that targets `.cm-aaronnote-measured-widget` must preserve `margin-top: 0` and `margin-bottom: 0`; horizontal margin is fine for centering and alignment.
 
+Float-wrap coexistence (applies when a widget supports `layout.wrap`):
+
+CM6's posAtCoords binary-searches line positions assuming lines are stacked and
+non-overlapping. A CSS `float` that visually spans multiple `.cm-line` blocks
+breaks that invariant and causes cursor drift proportional to the float's height.
+The two patterns below make float and cursor accuracy coexist:
+
+**Pattern A — inline-replace widget** (e.g. image, `Decoration.replace` without `block:true`):
+- Override `protected get measuredBlock() { return !this.layout.wrap; }`.
+- When wrap: `measuredBlock = false` → `estimatedHeight = -1` → CM6 measures the
+  containing `.cm-line`. The floated root collapses that line to near-zero height,
+  so the height map matches the visual layout. Keep an explicit `load →
+  view.requestMeasure()` listener for async-loaded content (images, iframes).
+- When non-wrap: unchanged MeasuredWidget behaviour.
+- On the root element add `float: left/right` (CSS). Vertical margins on a floated
+  element are fine and do not affect the height map.
+
+**Pattern B — block:true widget** (e.g. mermaid/diagram fences):
+- Keep `measuredBlock = true` (the ResizeObserver still runs on the outer).
+- Override `estimatedHeightFallback() { return this.layout.wrap ? 0 : <normal>; }`.
+  This returns 0 both for the off-screen estimate and (via ResizeObserver) for the
+  cached on-screen value, so the height map always records 0 for a wrap block.
+- In `toDOM()`, add wrap/align classes to the **outer** element so CSS can target it.
+- CSS on the outer (wrap variant): `display: block; height: 0; overflow: visible; padding: 0;`.
+  - `display: block` overrides `flow-root`, making the outer a non-BFC so the inner
+    float can escape to `cm-content` level and wrap following `.cm-line` blocks.
+  - `height: 0` makes `getBoundingClientRect().height = 0`, so CM6 records 0 in the
+    height map regardless of the float's actual rendered size.
+  - `overflow: visible` lets the diagram render below the 0-height outer box.
+- The inner element keeps its existing `float: left/right` CSS rules unchanged.
+- Do **not** float the outer element; the outer is a zero-height anchor, not a float.
+
+Common pitfall: if the widget root is `display: flow-root` (which we use to
+contain child floats in the non-wrap case), any inner float is trapped inside it
+and cannot make following content wrap. The wrap override must switch to
+`display: block` to let the inner float escape.
+
 Locality patching checklist (if the feature will be in a hot path):
 1. Implement `canMap(changes)` — return true when positions shift but no rescan is needed.
 2. Implement `canPatch(changes)` — return true for single-line edits where only a window needs rescanning.
@@ -188,6 +225,9 @@ CSS custom properties per kind (`image`, `table`, `diagram`):
 3. Extend the Decoration replaced range to include the attrs line (so it is consumed by the widget).
 4. In the renderer, strip the attrs line before calling markdown-it and apply the attrs to the rendered element.
 5. Add `aaronnote-mykind-*` CSS rules following the established pattern.
+6. If the block type supports `wrap`, apply the float-wrap pattern (Pattern A or B) described in the
+   "Float-wrap coexistence" section above. The published renderer (`.aaronnote-visual-attachment`) can
+   use `float: left/right` freely; the editor widget needs the pattern to keep the CM6 height map accurate.
 
 ## Reliability Checklist
 
