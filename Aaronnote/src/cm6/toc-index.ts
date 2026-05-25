@@ -1,11 +1,21 @@
 import { StateField, type ChangeSet, type EditorState, type Extension, type Text } from "@codemirror/state";
 
 import { scanInlineCommands } from "../command-syntax.ts";
+import { semanticMarkdownLevel, semanticOutlineFromCommand } from "../semantic-outline.ts";
 
 export type MarkdownHeading = {
+  /** Outline/TOC depth. Semantic outlines may demote markdown headings here. */
   level: number;
+  /** Visual markdown heading depth used by the editor surface. */
+  renderLevel?: number;
   text: string;
   pos: number;
+  to?: number;
+  markerFrom?: number;
+  markerTo?: number;
+  slug?: string;
+  source?: "semantic" | "markdown";
+  kind?: string;
 };
 
 export type InlineTagAnchor = {
@@ -25,9 +35,10 @@ export type TocIndex = {
 };
 
 type LineScan = {
-  heading: MarkdownHeading | null;
+  headings: MarkdownHeading[];
   anchors: InlineTagAnchor[];
   fenceToggle: boolean;
+  hasSemanticHeading: boolean;
 };
 
 const FENCE_LINE_RE = /^\s*(```|~~~)/;
@@ -36,11 +47,37 @@ function headingFromLine(text: string, from: number): MarkdownHeading | null {
   const match = text.match(/^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$/);
   if (!match) return null;
   const rawText = match[2] ?? "";
+  const renderLevel = match[1]!.length;
   return {
-    level: match[1]!.length,
+    level: renderLevel,
+    renderLevel,
     text: rawText.trim() || "Untitled",
     pos: from + Math.max(0, text.indexOf(rawText)),
+    to: from + text.length,
+    markerFrom: from,
+    markerTo: from + Math.max(0, text.indexOf(rawText)),
+    source: "markdown",
   };
+}
+
+function semanticHeadingsFromLine(text: string, from: number, codeRanges = inlineCodeRanges(text)): MarkdownHeading[] {
+  const headings: MarkdownHeading[] = [];
+  for (const command of scanInlineCommands(text)) {
+    if (command.name !== "part" && command.name !== "section") continue;
+    if (overlapsRange(command.fullFrom, command.fullTo, codeRanges)) continue;
+    const outline = semanticOutlineFromCommand(command);
+    if (!outline) continue;
+    headings.push({
+      level: outline.level,
+      text: outline.text,
+      pos: from + command.contextFrom,
+      to: from + command.contextTo,
+      slug: outline.slug,
+      source: "semantic",
+      kind: outline.kind,
+    });
+  }
+  return headings;
 }
 
 function inlineCodeRanges(line: string): Array<{ from: number; to: number }> {
@@ -57,12 +94,20 @@ function overlapsRange(from: number, to: number, ranges: Array<{ from: number; t
   return ranges.some((range) => from < range.to && to > range.from);
 }
 
-function scanLine(text: string, from: number, inFence: boolean): LineScan {
+function scanLine(text: string, from: number, inFence: boolean, hasSemanticInDocument = false): LineScan {
   const fenceToggle = FENCE_LINE_RE.test(text);
-  if (inFence || fenceToggle) return { heading: headingFromLine(text, from), anchors: [], fenceToggle };
+  if (inFence || fenceToggle) {
+    return {
+      headings: [],
+      anchors: [],
+      fenceToggle,
+      hasSemanticHeading: false,
+    };
+  }
 
   const anchors: InlineTagAnchor[] = [];
   const codeRanges = inlineCodeRanges(text);
+  const semanticHeadings = semanticHeadingsFromLine(text, from, codeRanges);
   for (const command of scanInlineCommands(text, "tag")) {
     if (overlapsRange(command.fullFrom, command.fullTo, codeRanges)) continue;
     const tag = command.context.trim().replace(/^#/, "");
@@ -75,7 +120,12 @@ function scanLine(text: string, from: number, inFence: boolean): LineScan {
     });
   }
 
-  return { heading: headingFromLine(text, from), anchors, fenceToggle };
+  const markdownHeading = headingFromLine(text, from);
+  const headings = [
+    ...semanticHeadings,
+    ...(markdownHeading ? [{ ...markdownHeading, level: semanticMarkdownLevel(markdownHeading.level, hasSemanticInDocument) }] : []),
+  ];
+  return { headings, anchors, fenceToggle, hasSemanticHeading: semanticHeadings.length > 0 };
 }
 
 function sortHeadings(items: MarkdownHeading[]): MarkdownHeading[] {
@@ -87,7 +137,7 @@ function sortAnchors(items: InlineTagAnchor[]): InlineTagAnchor[] {
 }
 
 function headingSignature(headings: readonly MarkdownHeading[]): string {
-  return headings.map((heading) => `${heading.level}:${heading.pos}:${heading.text}`).join("\n");
+  return headings.map((heading) => `${heading.source || "markdown"}:${heading.level}:${heading.pos}:${heading.text}:${heading.slug || ""}`).join("\n");
 }
 
 function anchorSignature(anchors: readonly InlineTagAnchor[]): string {
@@ -112,13 +162,35 @@ function buildTocIndex(
 }
 
 export function markdownHeadingsFromText(doc: Text): MarkdownHeading[] {
-  const headings: MarkdownHeading[] = [];
+  return outlineHeadingsFromText(doc);
+}
+
+function docHasSemanticHeading(doc: Text): boolean {
+  let inFence = false;
   for (let lineNo = 1; lineNo <= doc.lines; lineNo += 1) {
     const line = doc.line(lineNo);
-    const heading = headingFromLine(line.text, line.from);
-    if (heading) headings.push(heading);
+    const fenceToggle = FENCE_LINE_RE.test(line.text);
+    if (fenceToggle) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) continue;
+    if (semanticHeadingsFromLine(line.text, line.from).length > 0) return true;
   }
-  return headings;
+  return false;
+}
+
+export function outlineHeadingsFromText(doc: Text): MarkdownHeading[] {
+  const hasSemantic = docHasSemanticHeading(doc);
+  const headings: MarkdownHeading[] = [];
+  let inFence = false;
+  for (let lineNo = 1; lineNo <= doc.lines; lineNo += 1) {
+    const line = doc.line(lineNo);
+    const scan = scanLine(line.text, line.from, inFence, hasSemantic);
+    headings.push(...scan.headings);
+    if (scan.fenceToggle) inFence = !inFence;
+  }
+  return sortHeadings(headings);
 }
 
 function linesFromString(markdown: string): Array<{ text: string; from: number }> {
@@ -159,11 +231,12 @@ function collectTocIndex(doc: Text): TocIndex {
   const fenceRanges: Array<{ from: number; to: number }> = [];
   let inFence = false;
   let fenceFrom = -1;
+  const hasSemantic = docHasSemanticHeading(doc);
 
   for (let lineNo = 1; lineNo <= doc.lines; lineNo += 1) {
     const line = doc.line(lineNo);
-    const scan = scanLine(line.text, line.from, inFence);
-    if (scan.heading) headings.push(scan.heading);
+    const scan = scanLine(line.text, line.from, inFence, hasSemantic);
+    headings.push(...scan.headings);
     anchors.push(...scan.anchors);
     if (scan.fenceToggle) {
       if (!inFence) {
@@ -180,18 +253,20 @@ function collectTocIndex(doc: Text): TocIndex {
   return buildTocIndex(headings, anchors, fenceRanges);
 }
 
-function changedRange(changes: ChangeSet): {
+function changedRange(doc: Text, changes: ChangeSet): {
   oldFrom: number;
   oldTo: number;
   newFrom: number;
   newTo: number;
   textTouchesFence: boolean;
+  textTouchesHeading: boolean;
 } | null {
   let oldFrom = Number.POSITIVE_INFINITY;
   let oldTo = 0;
   let newFrom = Number.POSITIVE_INFINITY;
   let newTo = 0;
   let textTouchesFence = false;
+  let textTouchesHeading = false;
 
   const textContainsFenceLine = (text: string): boolean => (
     text.split("\n").some((line) => FENCE_LINE_RE.test(line))
@@ -203,11 +278,14 @@ function changedRange(changes: ChangeSet): {
     newFrom = Math.min(newFrom, fromB);
     newTo = Math.max(newTo, toB);
     const insertedText = inserted.toString();
+    const removedText = doc.sliceString(fromA, toA);
     if (textContainsFenceLine(insertedText)) textTouchesFence = true;
+    if (textContainsFenceLine(removedText)) textTouchesFence = true;
+    if (/@@(?:part|section)(?:\(|[ \t]+\[)|^\s{0,3}#{1,6}\s/m.test(insertedText) || /@@(?:part|section)(?:\(|[ \t]+\[)|^\s{0,3}#{1,6}\s/m.test(removedText)) textTouchesHeading = true;
   });
 
   if (!Number.isFinite(oldFrom)) return null;
-  return { oldFrom, oldTo, newFrom, newTo, textTouchesFence };
+  return { oldFrom, oldTo, newFrom, newTo, textTouchesFence, textTouchesHeading };
 }
 
 function lineWindow(doc: Text, from: number, to: number): { from: number; to: number; startLine: number; endLine: number } {
@@ -241,7 +319,13 @@ function mapFenceRange(range: { from: number; to: number }, changes: ChangeSet):
 }
 
 function mapHeading(heading: MarkdownHeading, changes: ChangeSet): MarkdownHeading {
-  return { ...heading, pos: changes.mapPos(heading.pos, 1) };
+  return {
+    ...heading,
+    pos: changes.mapPos(heading.pos, 1),
+    to: heading.to == null ? undefined : changes.mapPos(heading.to, 1),
+    markerFrom: heading.markerFrom == null ? undefined : changes.mapPos(heading.markerFrom, 1),
+    markerTo: heading.markerTo == null ? undefined : changes.mapPos(heading.markerTo, 1),
+  };
 }
 
 function mapAnchor(anchor: InlineTagAnchor, changes: ChangeSet): InlineTagAnchor {
@@ -254,9 +338,9 @@ function mapAnchor(anchor: InlineTagAnchor, changes: ChangeSet): InlineTagAnchor
 }
 
 function patchTocIndex(index: TocIndex, startDoc: Text, nextDoc: Text, changes: ChangeSet): TocIndex | null {
-  const range = changedRange(changes);
+  const range = changedRange(startDoc, changes);
   if (!range) return index;
-  if (range.textTouchesFence) return null;
+  if (range.textTouchesFence || range.textTouchesHeading) return null;
 
   const oldWindow = lineWindow(startDoc, range.oldFrom, range.oldTo);
   if (oldWindowTouchesFence(startDoc, oldWindow)) return null;
@@ -272,9 +356,10 @@ function patchTocIndex(index: TocIndex, startDoc: Text, nextDoc: Text, changes: 
 
   for (let lineNo = nextWindow.startLine; lineNo <= nextWindow.endLine; lineNo += 1) {
     const line = nextDoc.line(lineNo);
-    const scan = scanLine(line.text, line.from, lineInsideFence(line.from, line.to, nextFenceRanges));
+    const scan = scanLine(line.text, line.from, lineInsideFence(line.from, line.to, nextFenceRanges), index.headings.some((heading) => heading.source === "semantic"));
     if (scan.fenceToggle) return null;
-    if (scan.heading) headings.push(scan.heading);
+    if (scan.hasSemanticHeading && !index.headings.some((heading) => heading.source === "semantic")) return null;
+    headings.push(...scan.headings);
     anchors.push(...scan.anchors);
   }
 

@@ -136,6 +136,24 @@ $$
     expect(html).not.toContain("@@lean4");
   });
 
+  test("renders semantic part and section headings as outline blocks", () => {
+    const html = renderMarkdownHTML([
+      "@@part [Foundations]",
+      "",
+      "@@section(sub) [Inner products]{id: inner-products}",
+      "",
+      "# Markdown detail",
+    ].join("\n"));
+
+    expect(html).toContain('class="aaronnote-section-heading"');
+    expect(html).toContain('data-outline-level="1"');
+    expect(html).toContain('data-outline-level="3"');
+    expect(html).toContain('id="inner-products"');
+    expect(html).toContain('class="aaronnote-section-heading-inner"');
+    expect(html).toContain('<span class="aaronnote-section-title">Inner products</span>');
+    expect(html).not.toContain("@@section");
+  });
+
   test("keeps resolved Aaronnote asset image URLs", () => {
     const html = renderMarkdownHTML("![plot](./images/plot.png)", {
       assetResolver: (src) => `aaronnote-asset://media/?file=${encodeURIComponent(src)}`,

@@ -1035,29 +1035,99 @@ function slugBookAnchor(value) {
   return slug || "section";
 }
 
+const SEMANTIC_MARKDOWN_OFFSET = 5;
+const SEMANTIC_SECTION_LEVELS = {
+  "": 2,
+  sec: 2,
+  section: 2,
+  sub: 3,
+  subsub: 4,
+  subsubsub: 5,
+};
+
+function semanticOutlineFromInlineCommand(command) {
+  const name = String(command?.name || "").toLowerCase();
+  const title = String(command?.context || "").trim() || "Untitled";
+  if (name === "part") {
+    return {
+      level: 1,
+      text: title,
+      slug: String(command.args?.id || "").trim() || slugBookAnchor(title),
+      source: "semantic",
+      kind: "part",
+    };
+  }
+  if (name !== "section") return null;
+  const level = SEMANTIC_SECTION_LEVELS[String(command.switchValue || "").trim().toLowerCase()];
+  if (!level) return null;
+  return {
+    level,
+    text: title,
+    slug: String(command.args?.id || "").trim() || slugBookAnchor(title),
+    source: "semantic",
+    kind: "section",
+  };
+}
+
+function semanticBookHeadingsFromLine(line) {
+  const trimmed = String(line || "").trim();
+  if (!trimmed.startsWith("@@part") && !trimmed.startsWith("@@section")) return [];
+  const command = scanInlineCommands(trimmed)[0];
+  if (!command || command.fullFrom !== 0 || command.fullTo !== trimmed.length) return [];
+  const outline = semanticOutlineFromInlineCommand(command);
+  return outline ? [outline] : [];
+}
+
+function contentHasSemanticBookHeadings(lines) {
+  let inFence = false;
+  for (const line of lines) {
+    if (/^\s*(```|~~~)/.test(line)) {
+      inFence = !inFence;
+      continue;
+    }
+    if (!inFence && semanticBookHeadingsFromLine(line).length > 0) return true;
+  }
+  return false;
+}
+
 function bookHeadingsFromContent(content, note, used) {
   const withoutMeta = removeMetaBlock(String(content || ""));
+  const lines = withoutMeta.split(/\r?\n/);
+  const hasSemantic = contentHasSemanticBookHeadings(lines);
   const headings = [];
   let hasH1 = false;
-  for (const line of withoutMeta.split(/\r?\n/)) {
+  let inFence = false;
+  for (const line of lines) {
+    if (/^\s*(```|~~~)/.test(line)) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) continue;
+    for (const semantic of semanticBookHeadingsFromLine(line)) {
+      let slug = semantic.slug || slugBookAnchor(semantic.text);
+      const base = slug;
+      for (let i = 2; used.has(slug); i++) slug = `${base}-${i}`;
+      used.add(slug);
+      headings.push({ ...semantic, slug, path: note.path || "", id: note.id || "" });
+    }
     const match = line.match(/^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$/);
     if (!match) continue;
-    const level = match[1].length;
+    const markdownLevel = match[1].length;
+    const level = hasSemantic ? SEMANTIC_MARKDOWN_OFFSET + markdownLevel : markdownLevel;
     if (level === 1) hasH1 = true;
-    if (level > 3) continue;
     const text = match[2].trim() || "Untitled";
     let slug = slugBookAnchor(text);
     const base = slug;
     for (let i = 2; used.has(slug); i++) slug = `${base}-${i}`;
     used.add(slug);
-    headings.push({ level, text, slug, path: note.path || "", id: note.id || "" });
+    headings.push({ level, text, slug, path: note.path || "", id: note.id || "", source: "markdown" });
   }
-  if (!hasH1 && note.title) {
+  if (!hasSemantic && !hasH1 && note.title) {
     let slug = slugBookAnchor(note.title);
     const base = slug;
     for (let i = 2; used.has(slug); i++) slug = `${base}-${i}`;
     used.add(slug);
-    headings.unshift({ level: 1, text: note.title, slug, path: note.path || "", id: note.id || "" });
+    headings.unshift({ level: 1, text: note.title, slug, path: note.path || "", id: note.id || "", source: "title" });
   }
   return headings;
 }

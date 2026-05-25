@@ -78,6 +78,14 @@ Widget checklist:
 5. Add the extension to `previewExtensions()` in `editor-cm6.ts`.
 6. Test in `tests/cm6/roundtrip.test.ts` or a new test file using the public editor API.
 
+Block widget layout rule:
+
+- Use `MeasuredWidget` for every block widget that contributes vertical height.
+- Do not put vertical whitespace on the widget root with `margin-top`, `margin-bottom`, or vertical `margin` shorthands. CM6 measures block widgets by their border box, so root vertical margins are invisible to the height map and cause cursor/click coordinate drift.
+- Put vertical spacing in root `padding` or inside a contained child element instead. If children use margins or floats, make the root a containing block such as `display: flow-root`.
+- Keep a stable `measureKey()` and add `measureGroupKey()` / `estimatedHeightFallback()` when first-render estimates matter during scroll. A fallback near the eventual rendered height is much better than CM6's default single-line guess.
+- Any CSS rule that targets `.cm-aaronnote-measured-widget` must preserve `margin-top: 0` and `margin-bottom: 0`; horizontal margin is fine for centering and alignment.
+
 Locality patching checklist (if the feature will be in a hot path):
 1. Implement `canMap(changes)` — return true when positions shift but no rescan is needed.
 2. Implement `canPatch(changes)` — return true for single-line edits where only a window needs rescanning.

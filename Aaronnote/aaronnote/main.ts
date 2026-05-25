@@ -2044,7 +2044,7 @@ function activeBookHeadingSlug(): string {
   let slug = "";
   for (const heading of markdownHeadingsFromText(editor.view.state.doc)) {
     if (heading.pos > pos) break;
-    slug = slugDomTarget(heading.text);
+    slug = heading.slug || slugDomTarget(heading.text);
   }
   return slug;
 }
@@ -2056,7 +2056,7 @@ function openBookTocItem(item: BookTocItem | BookEditorTocItem, options: { newWi
     return;
   }
   openNote(target, {
-    domTarget: item.text || item.slug || "",
+    domTarget: item.slug || item.text || "",
     newWindow: options.newWindow,
     recordJump: true,
   });
@@ -4279,12 +4279,13 @@ function slugDomTarget(value: string): string {
     .replace(/\s+/g, "-");
 }
 
-function currentDomTargets(): Array<{ label: string; pos: number; to: number }> {
+function currentDomTargets(): Array<{ label: string; slug?: string; pos: number; to: number }> {
   const doc = editor.view.state.doc;
   const headings = markdownHeadingsFromText(doc).map((heading) => ({
     label: heading.text,
+    slug: heading.slug,
     pos: heading.pos,
-    to: heading.pos + heading.text.length,
+    to: heading.to ?? heading.pos + heading.text.length,
   }));
   const note = currentNote();
   const title = note?.title || "";
@@ -4296,7 +4297,7 @@ function domTargetAtCursor(): string {
   const pos = selection.from;
   const target = currentDomTargets().find((item) => pos >= item.pos && pos <= item.to)
     ?? currentDomTargets().find((item) => selection.from < item.to && selection.to > item.pos);
-  return target ? slugDomTarget(target.label) : "";
+  return target ? target.slug || slugDomTarget(target.label) : "";
 }
 
 function jumpToDomTarget(rawTarget: string): boolean {
@@ -4306,7 +4307,7 @@ function jumpToDomTarget(rawTarget: string): boolean {
   const slug = slugDomTarget(target);
   const hit = currentDomTargets().find((item) => {
     const label = normalizeDomTarget(item.label).toLowerCase();
-    return label === normalized || slugDomTarget(item.label) === slug;
+    return label === normalized || slugDomTarget(item.label) === slug || item.slug === slug || item.slug === normalized;
   });
   if (!hit) return false;
   editor.setSelection(hit.pos, hit.to);

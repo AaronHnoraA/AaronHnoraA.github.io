@@ -17,10 +17,10 @@ import {
   Decoration,
   EditorView,
   ViewPlugin,
-  WidgetType,
   type DecorationSet,
   type ViewUpdate,
 } from "@codemirror/view";
+import { MeasuredWidget } from "./measured-widget.ts";
 import { syntaxTree } from "@codemirror/language";
 import type { Range } from "@codemirror/state";
 import { getBlockMathRanges, rangeInsideAny } from "../math-ranges.ts";
@@ -29,7 +29,7 @@ import { getBlockMathRanges, rangeInsideAny } from "../math-ranges.ts";
 // Widget
 // ---------------------------------------------------------------------------
 
-class TaskCheckboxWidget extends WidgetType {
+class TaskCheckboxWidget extends MeasuredWidget {
   checked: boolean;
   from: number;
   to: number;
@@ -40,6 +40,9 @@ class TaskCheckboxWidget extends WidgetType {
     this.from = from;
     this.to = to;
   }
+
+  protected measureKey(): string { return ""; }
+  protected get measuredBlock(): boolean { return false; }
 
   eq(other: TaskCheckboxWidget): boolean {
     return this.checked === other.checked && this.from === other.from && this.to === other.to;

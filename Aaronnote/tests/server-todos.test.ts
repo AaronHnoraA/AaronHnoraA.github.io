@@ -64,6 +64,15 @@ describe("server todo scan", () => {
         context: "group-cancel",
       },
     ]);
+    expect(scanInlineCommands("@@section(sub) [Outline]{id: custom}", "section")).toMatchObject([
+      {
+        name: "section",
+        switchValue: "sub",
+        context: "Outline",
+        args: { id: "custom" },
+      },
+    ]);
+    expect(scanInlineCommands("@@section[not parsed]", "section")).toEqual([]);
   });
 
   test("keeps inline anchors separate from file tags", () => {

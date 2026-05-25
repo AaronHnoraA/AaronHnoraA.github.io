@@ -59,6 +59,19 @@ maybeDescribe("cm6 kernel: getMarkdown / setMarkdown", () => {
     cleanup();
   });
 
+  test("semantic heading spacing stays inside the measured widget", () => {
+    const md = "@@part [Foundations]\n\nBody text";
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection(md.length);
+    const heading = document.querySelector<HTMLElement>(".aaronnote-section-heading");
+    expect(heading).toBeTruthy();
+    expect(heading!.classList.contains("cm-aaronnote-measured-widget")).toBe(true);
+    expect(heading!.firstElementChild?.classList.contains("aaronnote-section-heading-inner")).toBe(true);
+    expect(heading!.dataset.cmMeasureKey).toContain("sem:");
+    expect(heading!.dataset.cmMeasureGroupKey).toContain("sem:level:1");
+    cleanup();
+  });
+
   test("preserves bold delimiters verbatim", () => {
     const md = "**bold**";
     const { editor, cleanup } = mountCM6(md);
@@ -86,6 +99,17 @@ maybeDescribe("cm6 kernel: getMarkdown / setMarkdown", () => {
     const { editor, cleanup } = mountCM6(md);
     editor.setMarkdownSelection(md.length);
     expect(document.querySelectorAll(".cm-math-inline")).toHaveLength(3);
+    cleanup();
+  });
+
+  test("renders inline TeX that starts with a digit", () => {
+    const md = "Numbers $1$ and $3\\times 4\\times 5$ render.";
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection(md.length);
+    const rendered = Array.from(document.querySelectorAll<HTMLElement>(".cm-math-inline"));
+    expect(rendered).toHaveLength(2);
+    expect(rendered[0]!.textContent).toContain("1");
+    expect(rendered[1]!.textContent).toContain("3");
     cleanup();
   });
 
@@ -587,6 +611,7 @@ $$
 
     const tableBlock = document.querySelector<HTMLElement>(".cm-table-block");
     expect(tableBlock).toBeTruthy();
+    expect(tableBlock!.classList.contains("cm-aaronnote-measured-widget")).toBe(true);
     expect(tableBlock!.classList.contains("aaronnote-table-align-right")).toBe(true);
     expect(tableBlock!.classList.contains("aaronnote-table-wrap")).toBe(true);
     expect(tableBlock!.style.getPropertyValue("--aaronnote-table-width")).toBe("75%");
@@ -819,6 +844,7 @@ $$
     const diagram = document.querySelector<HTMLElement>(".cm-mermaid-block");
     expect(widget).toBeTruthy();
     expect(diagram).toBeTruthy();
+    expect(widget!.classList.contains("cm-aaronnote-measured-widget")).toBe(true);
     expect(widget!.classList.contains("aaronnote-image-wrap")).toBe(false);
     expect(diagram!.classList.contains("aaronnote-diagram-align-right")).toBe(true);
     expect(diagram!.classList.contains("aaronnote-diagram-wrap")).toBe(true);
@@ -856,6 +882,32 @@ $$
     editor.insertText("# ");
 
     expect(document.querySelector(".cm-md-h1")).toBeTruthy();
+    cleanup();
+  });
+
+  test("semantic outline does not demote markdown heading rendering", () => {
+    const md = "@@part [Foundations]\n\n# Construction";
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection(md.length);
+
+    const headingLine = document.querySelector<HTMLElement>(".cm-md-h1");
+    expect(headingLine).toBeTruthy();
+    expect(headingLine!.textContent).toContain("Construction");
+    expect(document.querySelector(".cm-md-h6")).toBeNull();
+    cleanup();
+  });
+
+  test("folds every ATX heading marker level through the toc index", () => {
+    const md = "@@part [Foundations]\n\n# One\n\n### Three\n\n###### Six\n\nBody";
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection(md.length);
+
+    expect(document.querySelector(".cm-md-h1")?.textContent).toContain("One");
+    expect(document.querySelector(".cm-md-h3")?.textContent).toContain("Three");
+    expect(document.querySelector(".cm-md-h6")?.textContent).toContain("Six");
+    const hidden = Array.from(document.querySelectorAll<HTMLElement>(".syntax-hidden"))
+      .map((el) => el.textContent);
+    expect(hidden).toEqual(expect.arrayContaining(["# ", "### ", "###### "]));
     cleanup();
   });
 
@@ -992,6 +1044,16 @@ $$
     expect(items[1]!.style.getPropertyValue("--toc-depth")).toBe("1");
     items[1]!.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
     expect(editor.getMarkdownSelection().from).toBe(md.indexOf("Child"));
+    cleanup();
+  });
+
+  test("rendered CM6 toc ignores headings inside fenced code", () => {
+    const md = "# Title\n\n[toc]\n\n```\n# Example\n```\n\n## Child";
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection(md.length);
+
+    const items = Array.from(document.querySelectorAll<HTMLElement>(".cm-toc .toc-item"));
+    expect(items.map((item) => item.textContent)).toEqual(["Title", "Child"]);
     cleanup();
   });
 
@@ -1436,6 +1498,7 @@ after
 
     const figure = document.querySelector<HTMLElement>(".cm-image-widget");
     expect(figure).toBeTruthy();
+    expect(figure!.classList.contains("cm-aaronnote-measured-widget")).toBe(false); // wrap images are non-measured (float)
     expect(figure!.classList.contains("aaronnote-image-align-left")).toBe(true);
     expect(figure!.classList.contains("aaronnote-image-wrap")).toBe(true);
     expect(figure!.style.getPropertyValue("--aaronnote-image-width")).toBe("300%");

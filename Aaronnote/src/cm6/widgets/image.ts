@@ -17,10 +17,10 @@ import {
   Decoration,
   EditorView,
   ViewPlugin,
-  WidgetType,
   type DecorationSet,
   type ViewUpdate,
 } from "@codemirror/view";
+import { MeasuredWidget } from "./measured-widget.ts";
 import { syntaxTree } from "@codemirror/language";
 import type { Range } from "@codemirror/state";
 import { getBlockMathRanges, rangeInsideAny } from "../math-ranges.ts";
@@ -57,7 +57,7 @@ function resolveImageSrc(src: string): string {
 // Widget
 // ---------------------------------------------------------------------------
 
-class ImageWidget extends WidgetType {
+class ImageWidget extends MeasuredWidget {
   src: string;
   alt: string;
   from: number;
@@ -73,6 +73,25 @@ class ImageWidget extends WidgetType {
     this.layout = layout;
   }
 
+  protected get measuredBlock(): boolean { return !this.layout.wrap; }
+
+  protected measureKey(): string { return "img:" + this.src; }
+
+  protected measureGroupKey(): string {
+    const kind = visualAttachmentKind(this.src) || "image";
+    const caption = this.alt.trim() ? "caption" : "plain";
+    return ["img", kind, this.layout.align, this.layout.wrap ? "wrap" : "block", caption].join(":");
+  }
+
+  protected estimatedHeightFallback(): number {
+    const explicitHeight = Number.parseFloat(this.layout.height);
+    if (Number.isFinite(explicitHeight) && explicitHeight > 0) {
+      return explicitHeight + (this.alt.trim() ? 34 : 0) + 12;
+    }
+    if (visualAttachmentKind(this.src)) return this.alt.trim() ? 196 : 164;
+    return this.alt.trim() ? 292 : 258;
+  }
+
   eq(other: ImageWidget): boolean {
     return this.src === other.src &&
       this.alt === other.alt &&
@@ -84,7 +103,7 @@ class ImageWidget extends WidgetType {
       this.layout.height === other.layout.height;
   }
 
-  toDOM(): HTMLElement {
+  toDOM(view: EditorView): HTMLElement {
     const wrap = document.createElement("figure");
     wrap.className = "cm-image-widget";
     setSourceRange(wrap, this.from, this.to);
@@ -108,6 +127,7 @@ class ImageWidget extends WidgetType {
           } else {
             iframe.srcdoc = frame.srcdoc;
           }
+          iframe.addEventListener("load", () => { if (wrap.isConnected) view.requestMeasure(); });
           wrap.append(iframe);
         } else {
           const card = document.createElement("div");
@@ -124,9 +144,11 @@ class ImageWidget extends WidgetType {
         img.className = "cm-image-render";
         img.loading = "lazy";
         img.decoding = "async";
+        img.addEventListener("load", () => { if (wrap.isConnected) view.requestMeasure(); });
         img.onerror = () => {
           wrap.classList.add("cm-image-broken");
           wrap.title = `Image not found: ${this.src}`;
+          view.requestMeasure();
         };
         wrap.append(img);
       }
@@ -140,7 +162,7 @@ class ImageWidget extends WidgetType {
       caption.textContent = this.alt.trim();
       wrap.append(caption);
     }
-    return wrap;
+    return this.registerMeasured(wrap, view);
   }
 
   ignoreEvent(): boolean { return false; }

@@ -365,6 +365,8 @@ describe("server note refs", () => {
           "book: true",
           "#+end meta",
           "",
+          "@@part [Part One]",
+          "",
           "# Cover Heading",
           "",
           "@@include [chapters/chapter-1.md]",
@@ -382,7 +384,8 @@ describe("server note refs", () => {
         bookIncludedPaths: ["books/demo/chapters/chapter-1.md"],
       });
       expect(savedCover.note?.bookToc).toEqual(expect.arrayContaining([
-        expect.objectContaining({ text: "Cover Heading", path: "books/demo/index.md" }),
+        expect.objectContaining({ text: "Part One", level: 1, path: "books/demo/index.md" }),
+        expect.objectContaining({ text: "Cover Heading", level: 6, path: "books/demo/index.md" }),
         expect.objectContaining({ text: "Chapter One", path: "books/demo/chapters/chapter-1.md" }),
       ]));
 
@@ -393,6 +396,8 @@ describe("server note refs", () => {
           "title: Chapter One",
           "book: included@../index.md",
           "#+end meta",
+          "",
+          "@@section(sub) [Semantic Child]{id: semantic-child}",
           "",
           "# Chapter One",
           "",
@@ -411,7 +416,8 @@ describe("server note refs", () => {
       });
       const cover = savedChild.notes?.find((note) => note.id === "book-save-demo");
       expect(cover?.bookToc).toEqual(expect.arrayContaining([
-        expect.objectContaining({ text: "Child Update", path: "books/demo/chapters/chapter-1.md" }),
+        expect.objectContaining({ text: "Semantic Child", level: 3, slug: "semantic-child", path: "books/demo/chapters/chapter-1.md" }),
+        expect.objectContaining({ text: "Child Update", level: 7, path: "books/demo/chapters/chapter-1.md" }),
       ]));
     } finally {
       await rm(root, { recursive: true, force: true });

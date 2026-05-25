@@ -35,10 +35,11 @@ import {
   Decoration,
   EditorView,
   ViewPlugin,
-  WidgetType,
   type DecorationSet,
   type ViewUpdate,
 } from "@codemirror/view";
+import { MeasuredWidget } from "./widgets/measured-widget.ts";
+import { shortHash } from "./widgets/measured-observer.ts";
 import { StateField, type ChangeSet, type EditorState, type Text } from "@codemirror/state";
 import type { Range } from "@codemirror/state";
 import { getBlockMathRanges, rangeInsideAny, rangeOverlapsAny } from "./math-ranges.ts";
@@ -50,6 +51,7 @@ import {
   readLayoutAttrsLine,
   type LayoutAttrs,
 } from "../layout-attrs.ts";
+import { tocIndexFromState } from "./toc-index.ts";
 
 // ---------------------------------------------------------------------------
 // Node name sets
@@ -70,7 +72,6 @@ const LINK_MARK_NODES = new Set([
 
 /** Block marks: fold based on cursor on same LINE */
 const BLOCK_MARK_NODES = new Set([
-  "HeaderMark", // # ## ### etc.
   "QuoteMark",  // >
 ]);
 
@@ -130,6 +131,7 @@ function collectLivePreviewTokens(
   const excludedRanges = lean4Ranges.length > 0 ? [...blockMathRanges, ...lean4Ranges] : blockMathRanges;
 
   addCjkTextTokens(tokens, doc, ranges, excludedRanges);
+  addHeadingMarkTokens(tokens, view.state, ranges, excludedRanges);
   addWikilinkTokens(tokens, doc, ranges, excludedRanges);
 
   for (const { from, to } of ranges) {
@@ -183,16 +185,9 @@ function collectLivePreviewTokens(
           return false;
         }
 
-        // ── Block: heading / blockquote — line-aware ───────────────────────
+        // ── Blockquote mark — line-aware ───────────────────────────────────
         if (BLOCK_MARK_NODES.has(node.name)) {
-          // For HeaderMark include the trailing space (node.to may stop before it;
-          // check that the char at node.to is a space and include it).
-          let markTo = node.to;
-          if (node.name === "HeaderMark" && markTo < doc.length) {
-            const next = doc.sliceString(markTo, markTo + 1);
-            if (next === " ") markTo += 1;
-          }
-          tokens.push({ kind: "block-mark", from: node.from, to: markTo, line: doc.lineAt(node.from).number });
+          tokens.push({ kind: "block-mark", from: node.from, to: node.to, line: doc.lineAt(node.from).number });
           return false;
         }
 
@@ -301,6 +296,28 @@ function addWikilinkTokens(
       const closeFrom = to - 2;
       tokens.push({ kind: "wikilink", from, openTo, closeFrom, to });
     }
+  }
+}
+
+function addHeadingMarkTokens(
+  tokens: LivePreviewToken[],
+  state: EditorState,
+  ranges: readonly { from: number; to: number }[],
+  excludedRanges: readonly { from: number; to: number }[],
+): void {
+  if (ranges.length === 0) return;
+  const doc = state.doc;
+  const visibleFrom = Math.min(...ranges.map((range) => range.from));
+  const visibleTo = Math.max(...ranges.map((range) => range.to));
+  for (const heading of tocIndexFromState(state).headings) {
+    if (heading.source === "semantic") continue;
+    const markFrom = heading.markerFrom ?? doc.lineAt(Math.max(0, Math.min(heading.pos, doc.length))).from;
+    const markTo = heading.markerTo ?? heading.pos;
+    if (markTo < visibleFrom) continue;
+    if (markFrom > visibleTo) break;
+    if (markFrom >= markTo) continue;
+    if (rangeOverlapsAny(markFrom, markTo, excludedRanges)) continue;
+    tokens.push({ kind: "block-mark", from: markFrom, to: markTo, line: doc.lineAt(markFrom).number });
   }
 }
 
@@ -456,8 +473,8 @@ const livePreviewPlugin = ViewPlugin.fromClass(LivePreviewPlugin, {
 // blockquote line so themes can apply font-size / indentation / border.
 // ---------------------------------------------------------------------------
 
-const HEADING_RE = /^ATXHeading([1-6])$|^SetextHeading([12])$/;
 const CODE_FENCE_LINE_RE = /^[ \t]{0,3}(`{3,}|~{3,})/;
+const SEMANTIC_HEADING_TEXT_RE = /@@(?:part|section)(?:\(|[ \t]+\[)/;
 
 interface MarkdownTable {
   from: number;
@@ -728,7 +745,7 @@ type TableFocusTarget = {
 
 type TableFocusResolver = TableFocusTarget | ((data: MarkdownTableData) => TableFocusTarget | null);
 
-class TableWidget extends WidgetType {
+class TableWidget extends MeasuredWidget {
   source: string;
   from: number;
   sourceTo: number;
@@ -742,6 +759,18 @@ class TableWidget extends WidgetType {
     this.sourceTo = sourceTo;
     this.to = to;
     this.layout = layout;
+  }
+
+  protected measureKey(): string { return "tbl:" + shortHash(this.source); }
+
+  protected measureGroupKey(): string {
+    const rows = parseMarkdownTable(this.source).rows.length;
+    return ["tbl", this.layout.align, this.layout.wrap ? "wrap" : "block", Math.min(10, Math.ceil(rows / 6))].join(":");
+  }
+
+  protected estimatedHeightFallback(): number {
+    const rows = parseMarkdownTable(this.source).rows.length;
+    return Math.max(96, 64 + rows * 34);
   }
 
   eq(other: TableWidget): boolean {
@@ -857,7 +886,7 @@ class TableWidget extends WidgetType {
       activeCol = col;
     }, commit, scheduleCommit, () => view.requestMeasure());
     wrap.append(toolbar, table);
-    return wrap;
+    return this.registerMeasured(wrap, view);
   }
 
   ignoreEvent(): boolean { return true; }
@@ -1204,6 +1233,14 @@ function buildLineDecoRanges(
   if (firstLine > lastWindowLine) return decos;
   const windowFrom = doc.line(firstLine).from;
   const windowTo = doc.line(lastWindowLine).to;
+  for (const heading of tocIndexFromState(state).headings) {
+    if (heading.source === "semantic") continue;
+    const line = doc.lineAt(Math.max(0, Math.min(heading.pos, doc.length)));
+    if (line.to < windowFrom || line.from > windowTo) continue;
+    if (rangeInsideAny(line.from, line.to, lineExcludedRanges)) continue;
+    decos.push(Decoration.line({ attributes: { class: `cm-md-h${heading.renderLevel ?? heading.level}` } }).range(line.from));
+  }
+
   const pushLineRange = (from: number, to: number, cls: string): void => {
     let lineNum = Math.max(firstLine, doc.lineAt(from).number);
     const lastLine = Math.min(lastWindowLine, doc.lineAt(to).number);
@@ -1220,12 +1257,6 @@ function buildLineDecoRanges(
     enter(node) {
       if (rangeInsideAny(node.from, node.to, lineExcludedRanges)) return false;
 
-      const hm = node.name.match(HEADING_RE);
-      if (hm) {
-        const level = hm[1] ?? (hm[2] === "1" ? "1" : "2");
-        pushLineRange(node.from, node.to, `cm-md-h${level}`);
-        return false;
-      }
       if (node.name === "Blockquote") {
         pushLineRange(node.from, node.to, "cm-md-blockquote");
         return false;
@@ -1280,7 +1311,7 @@ function canMapLineDecos(doc: Text, changes: ChangeSet): boolean {
     if (!canMap) return;
     const removed = doc.sliceString(fromA, toA);
     const added = inserted.toString();
-    if (/[\n#>|`~]/.test(removed) || /[\n#>|`~]/.test(added)) {
+    if (/[\n#>|`~]/.test(removed) || /[\n#>|`~]/.test(added) || SEMANTIC_HEADING_TEXT_RE.test(removed) || SEMANTIC_HEADING_TEXT_RE.test(added)) {
       canMap = false;
     }
   });
@@ -1293,7 +1324,7 @@ function canPatchLineDecosNearChanges(doc: Text, changes: ChangeSet): boolean {
     if (!canPatch) return;
     const removed = doc.sliceString(fromA, toA);
     const added = inserted.toString();
-    if (removed.includes("\n") || added.includes("\n")) {
+    if (removed.includes("\n") || added.includes("\n") || SEMANTIC_HEADING_TEXT_RE.test(removed) || SEMANTIC_HEADING_TEXT_RE.test(added)) {
       canPatch = false;
     }
   });

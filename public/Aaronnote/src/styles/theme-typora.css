@@ -77,6 +77,108 @@
   text-transform: uppercase;
 }
 
+.cm-editor .aaronnote-section-heading {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  contain: layout paint;
+  overflow-wrap: anywhere;
+  margin: 0;
+  padding: var(--section-margin-before, 4.2em) 0 var(--section-margin-after, 2.3em);
+  color: var(--aaron-ink, #24201a);
+}
+
+.cm-editor .aaronnote-section-heading-inner {
+  position: relative;
+  display: grid;
+  gap: 0.5em;
+  box-sizing: border-box;
+  min-height: var(--section-min-height, 8.2rem);
+  align-content: center;
+  padding: var(--section-padding-y, 2.1em) var(--section-padding-x, 1.6em);
+  border-top: 1px solid color-mix(in srgb, var(--aaron-paper-line, #d9d2c4), var(--aaron-red, #b31b1b) 28%);
+  border-bottom: 1px solid color-mix(in srgb, var(--aaron-paper-line, #d9d2c4), var(--aaron-red, #b31b1b) 12%);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--aaron-paper-soft, #f8f1e4), transparent 0%), transparent 74%);
+}
+
+.cm-editor .aaronnote-section-heading-inner::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 18%;
+  bottom: 18%;
+  width: 3px;
+  background: var(--aaron-red, #b31b1b);
+}
+
+.cm-editor .aaronnote-section-label {
+  color: var(--aaron-red-dark, #8f1515);
+  font: 900 var(--section-label-size, 0.76em)/1 var(--aaron-font-sans, sans-serif);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.cm-editor .aaronnote-section-title {
+  font-family: var(--aaron-font-heading);
+  font-weight: 800;
+  font-size: var(--section-title-size, 2.05em);
+  line-height: 1.12;
+  letter-spacing: 0;
+}
+
+.cm-editor .aaronnote-section-heading[data-outline-level="1"] {
+  --section-margin-before: 6.2em;
+  --section-margin-after: 4.4em;
+  --section-padding-y: 4.2em;
+  --section-padding-x: 2em;
+  --section-title-size: 3.45em;
+  --section-label-size: 0.86em;
+  --section-min-height: 18rem;
+}
+
+.cm-editor .aaronnote-section-heading[data-outline-level="1"] .aaronnote-section-heading-inner {
+  place-items: center;
+  text-align: center;
+  border-bottom-color: color-mix(in srgb, var(--aaron-paper-line, #d9d2c4), var(--aaron-red, #b31b1b) 24%);
+}
+
+.cm-editor .aaronnote-section-heading[data-outline-level="1"] .aaronnote-section-heading-inner::before {
+  left: 50%;
+  top: auto;
+  bottom: 2.6em;
+  width: 128px;
+  height: 2px;
+  transform: translateX(-50%);
+}
+
+.cm-editor .aaronnote-section-heading[data-outline-level="3"] {
+  --section-margin-before: 3.1em;
+  --section-margin-after: 1.7em;
+  --section-padding-y: 1.55em;
+  --section-title-size: 1.55em;
+  --section-label-size: 0.68em;
+  --section-min-height: 6.4rem;
+}
+
+.cm-editor .aaronnote-section-heading[data-outline-level="4"] {
+  --section-margin-before: 2.35em;
+  --section-margin-after: 1.25em;
+  --section-padding-y: 1.1em;
+  --section-title-size: 1.28em;
+  --section-label-size: 0.62em;
+  --section-min-height: 4.8rem;
+}
+
+.cm-editor .aaronnote-section-heading[data-outline-level="5"] {
+  --section-margin-before: 1.75em;
+  --section-margin-after: 0.95em;
+  --section-padding-y: 0.82em;
+  --section-title-size: 1.08em;
+  --section-label-size: 0.58em;
+  --section-min-height: 3.6rem;
+}
+
 /* ─── paragraphs ─────────────────────────────────────────────────── */
 .cm-editor p {
   margin: 0 0 0.48em;

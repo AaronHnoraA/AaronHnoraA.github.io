@@ -15,10 +15,11 @@ import {
   Decoration,
   EditorView,
   ViewPlugin,
-  WidgetType,
   type DecorationSet,
   type ViewUpdate,
 } from "@codemirror/view";
+import { MeasuredWidget } from "./measured-widget.ts";
+import { shortHash } from "./measured-observer.ts";
 import { StateField, type ChangeSet, type EditorState } from "@codemirror/state";
 import type { Range } from "@codemirror/state";
 import { INLINE_MATH_RE, isLikelyInlineMath } from "../../inline-math.ts";
@@ -64,7 +65,7 @@ function addActiveBlockSourceLineDecos(
 // Widget classes
 // ---------------------------------------------------------------------------
 
-class InlineMathWidget extends WidgetType {
+class InlineMathWidget extends MeasuredWidget {
   tex: string;
   from: number;
   to: number;
@@ -75,6 +76,9 @@ class InlineMathWidget extends WidgetType {
     this.from = from;
     this.to = to;
   }
+
+  protected measureKey(): string { return ""; }
+  protected get measuredBlock(): boolean { return false; }
 
   eq(other: InlineMathWidget): boolean {
     return this.tex === other.tex && this.from === other.from && this.to === other.to;
@@ -93,7 +97,7 @@ class InlineMathWidget extends WidgetType {
   ignoreEvent(): boolean { return false; }
 }
 
-class BlockMathWidget extends WidgetType {
+class BlockMathWidget extends MeasuredWidget {
   tex: string;
   from: number;
   to: number;
@@ -107,6 +111,16 @@ class BlockMathWidget extends WidgetType {
     this.orgEnv = orgEnv;
   }
 
+  protected measureKey(): string { return "math:" + shortHash(this.tex); }
+
+  protected measureGroupKey(): string {
+    return `math:lines:${Math.min(8, Math.ceil(this.tex.split(/\n/).length / 4))}`;
+  }
+
+  protected estimatedHeightFallback(): number {
+    return Math.max(48, 34 + this.tex.split(/\n/).length * 18);
+  }
+
   eq(other: BlockMathWidget): boolean {
     return this.tex === other.tex
       && this.from === other.from
@@ -115,7 +129,7 @@ class BlockMathWidget extends WidgetType {
       && this.orgEnv?.depth === other.orgEnv?.depth;
   }
 
-  toDOM(): HTMLElement {
+  toDOM(view: EditorView): HTMLElement {
     const div = document.createElement("div");
     div.className = "cm-math-block";
     setSourceRange(div, this.from, this.to);
@@ -128,7 +142,7 @@ class BlockMathWidget extends WidgetType {
     const { html, error } = renderMathHTML(this.tex, { displayMode: true });
     if (error) { div.classList.add("cm-math-error"); div.textContent = `$$\n${this.tex}\n$$`; }
     else div.innerHTML = html;
-    return div;
+    return this.registerMeasured(div, view);
   }
 
   ignoreEvent(): boolean { return false; }

@@ -121906,6 +121906,12 @@ $$
 \operatorname{tr}(\rho^2)<1.
 $$
 
+this is 
+
+
+@@part [adasd]
+
+
 ## 224.3. Tensor viewpoint
 
 A bilinear map
@@ -121930,7 +121936,7 @@ $$
 $$
 
 #+begin define Structure tensor
-Let $V$ and $W$ be finite-dimensional vector spaces over a field $F$.
+Let $V$ and $W$ be finite-dimensional vector spaces over a field $F$. thsi is hard to 
 The structure tensor associated with a bilinear map $\mu:V\times V\to W$
 is the tensor $T_\mu$ whose coordinates are the structure constants of
 $\mu$ in chosen bases.
@@ -121949,6 +121955,12 @@ features of the object that do not depend on the chosen basis.
 
 If $g \in \operatorname{GL}(V)$ and $h \in \operatorname{GL}(W)$, a change
 of basis transforms the structure constants by an expression of the form
+
+
+I cannot understant it 
+
+
+
 
 $$
 c'_{ab}{}^k

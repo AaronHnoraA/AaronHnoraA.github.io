@@ -27,6 +27,20 @@ export function shortHash(s: string): string {
   return (h >>> 0).toString(36);
 }
 
+function measuredElementHeight(el: HTMLElement): number {
+  const rectHeight = el.getBoundingClientRect().height;
+  if (Number.isFinite(rectHeight) && rectHeight > 0) return rectHeight;
+  return el.offsetHeight;
+}
+
+function cacheElementHeight(el: HTMLElement, height: number): void {
+  if (height <= 0) return;
+  const key = el.dataset.cmMeasureKey;
+  if (key) cacheSet(key, height);
+  const groupKey = el.dataset.cmMeasureGroupKey;
+  if (groupKey) cacheSet(groupKey, height);
+}
+
 // ---------------------------------------------------------------------------
 // Shared ResizeObserver — detects height changes CM6's own MutationObserver
 // misses (lazy images, async SVGs, KaTeX font reflow, comment collapse, etc.)
@@ -48,12 +62,11 @@ function getSharedRO(): ResizeObserver | null {
   sharedRO = new ResizeObserver((entries) => {
     for (const entry of entries) {
       const el = entry.target as HTMLElement;
-      const newH = Math.round(el.offsetHeight);
+      const newH = measuredElementHeight(el);
       const oldH = lastHeights.get(el);
-      if (oldH !== undefined && newH === oldH) continue; // no real change
+      if (oldH !== undefined && Math.abs(newH - oldH) < 0.5) continue; // no real change
       lastHeights.set(el, newH);
-      const key = (el as HTMLElement).dataset.cmMeasureKey;
-      if (key && newH > 0) cacheSet(key, newH);
+      cacheElementHeight(el, newH);
       const view = elementToView.get(el);
       if (view?.dom.isConnected) pendingViews.add(view);
     }
@@ -78,11 +91,10 @@ export function observeWidget(el: HTMLElement, view: EditorView): void {
   elementToView.set(el, view);
   ro.observe(el);
   // Capture baseline immediately so the first RO callback has a reference
-  const h = Math.round(el.offsetHeight);
+  const h = measuredElementHeight(el);
   if (h > 0) {
     lastHeights.set(el, h);
-    const key = el.dataset.cmMeasureKey;
-    if (key) cacheSet(key, h);
+    cacheElementHeight(el, h);
   }
 }
 

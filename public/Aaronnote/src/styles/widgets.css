@@ -285,11 +285,12 @@
   height: auto;
 }
 .cm-editor .cm-image-widget {
-  display: block;
+  display: flow-root;
   width: fit-content;
   max-width: 100%;
   text-align: center;
-  margin: 0.32rem auto 0.42rem;
+  margin: 0 auto;
+  padding: 0.32rem 0 0.42rem;
   vertical-align: bottom;
 }
 .aaronnote-visual-attachment {
@@ -323,7 +324,7 @@
 .cm-editor .cm-image-widget.aaronnote-image-wrap.aaronnote-image-align-left {
   float: left;
   width: fit-content;
-  max-width: var(--aaronnote-image-max-width, min(42%, var(--note-image-max, 360px)));
+  max-width: min(42%, var(--note-image-max, 360px));
   margin: 0.25rem 1rem 0.7rem 0;
 }
 .aaronnote-visual-attachment.aaronnote-image-wrap.aaronnote-image-align-left {
@@ -335,7 +336,7 @@
 .cm-editor .cm-image-widget.aaronnote-image-wrap.aaronnote-image-align-right {
   float: right;
   width: fit-content;
-  max-width: var(--aaronnote-image-max-width, min(42%, var(--note-image-max, 360px)));
+  max-width: min(42%, var(--note-image-max, 360px));
   margin: 0.25rem 0 0.7rem 1rem;
 }
 .aaronnote-visual-attachment.aaronnote-image-wrap.aaronnote-image-align-right {
@@ -390,11 +391,19 @@
 .cm-editor .cm-image-widget.aaronnote-image-align-right .cm-image-render { margin-left: auto; margin-right: 0; }
 .cm-editor .cm-image-widget.aaronnote-image-wrap .cm-image-render {
   width: var(--aaronnote-image-width, auto);
-  max-width: var(--aaronnote-image-max-width, 100%);
+  max-width: 100%;
 }
-.cm-editor .cm-image-widget.aaronnote-image-wrap .cm-visual-embed,
+.cm-editor .cm-image-widget.aaronnote-image-wrap .cm-visual-embed {
+  width: var(--aaronnote-image-width, min(100%, 100%));
+  min-width: 0;
+  max-width: 100%;
+}
 .aaronnote-visual-attachment.aaronnote-image-wrap .aaronnote-visual-embed {
   width: var(--aaronnote-image-width, min(100%, 100%));
+}
+.cm-editor .cm-line:has(.cm-image-widget.aaronnote-image-wrap) {
+  contain: none;
+  overflow: visible;
 }
 .cm-editor .cm-image-caption {
   max-width: min(100%, var(--note-image-max, 560px));
@@ -1253,11 +1262,11 @@ org-env-block[data-kind="lean4"] .code-token-punctuation { color: #bac2de; }
 
 /* ─── CM6 mermaid / diagram widgets ─────────────────────────────── */
 .cm-editor .cm-mermaid-widget {
-  display: block;
+  display: flow-root;
   width: 100%;
   max-width: 100%;
-  margin: 0.32rem 0 0.42rem;
-  padding: 0;
+  margin: 0;
+  padding: 0.32rem 0 0.42rem;
 }
 .cm-editor .cm-mermaid-block,
 .cm-editor .cm-mermaid-block-preview {
@@ -2310,13 +2319,13 @@ org-env-block[data-kind="lean4"] .code-token-punctuation { color: #bac2de; }
 .cm-editor .cm-table-block-preview.aaronnote-table-wrap.aaronnote-table-align-left {
   float: left;
   width: var(--aaronnote-table-width, min(56%, 520px));
-  margin: 0.25rem 1rem 0.7rem 0;
+  margin: 0 1rem 0 0;
 }
 .cm-editor .cm-table-block.aaronnote-table-wrap.aaronnote-table-align-right,
 .cm-editor .cm-table-block-preview.aaronnote-table-wrap.aaronnote-table-align-right {
   float: right;
   width: var(--aaronnote-table-width, min(56%, 520px));
-  margin: 0.25rem 0 0.7rem 1rem;
+  margin: 0 0 0 1rem;
 }
 .cm-editor .cm-markdown-table-preview {
   margin-bottom: 0;
@@ -2538,3 +2547,16 @@ org-env-block[data-kind="lean4"] .code-token-punctuation { color: #bac2de; }
 .cm-editor .cm-lean-cell-msg--output { color: #6ee7b7; }
 .cm-editor .cm-lean-cell-msg--error  { background: #2a0f0f; color: #fca5a5; }
 .cm-editor .cm-lean-cell-msg--warning{ background: #2a1f0a; color: #fcd34d; }
+
+/* CM6 block widgets are measured by their border box. Vertical whitespace on
+ * the root element's margin is invisible to the height map and causes cursor
+ * coordinate drift. Keep root vertical spacing in padding or child layout. */
+.cm-editor .cm-aaronnote-measured-widget.cm-aaronnote-measured-widget {
+  box-sizing: border-box;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.cm-editor .cm-html-env-widget.cm-aaronnote-measured-widget {
+  display: flow-root;
+}

@@ -16,17 +16,16 @@ import {
   Decoration,
   EditorView,
   ViewPlugin,
-  WidgetType,
   type DecorationSet,
   type ViewUpdate,
 } from "@codemirror/view";
-import { syntaxTree } from "@codemirror/language";
+import { MeasuredWidget } from "./measured-widget.ts";
+import { shortHash } from "./measured-observer.ts";
 import { StateEffect, StateField, type ChangeSet, type EditorState, type Extension, type Text } from "@codemirror/state";
 import type { Range as CMRange } from "@codemirror/state";
 import {
   getBlockMathRanges,
   positionInsideAnyRange,
-  rangeInsideAny,
   rangeOverlapsAny,
 } from "../math-ranges.ts";
 import {
@@ -39,6 +38,9 @@ import {
 import { applyImageLayout, imageLayoutFromAttrs, readImageTrailingAttrs, type ImageLayoutAttrs } from "../../image-attrs.ts";
 import { supportedDiagramLang } from "../../diagram-langs.ts";
 import { api } from "../../../aaronnote/api-client.ts";
+import { tocIndexFromState, type MarkdownHeading } from "../toc-index.ts";
+import { scanInlineCommands } from "../../command-syntax.ts";
+import { semanticOutlineFromCommand, type SemanticOutline } from "../../semantic-outline.ts";
 
 // ---------------------------------------------------------------------------
 // Regexes / parsers
@@ -391,11 +393,7 @@ function scheduleTikzOpenLineUpdate(
 // Widgets
 // ---------------------------------------------------------------------------
 
-type TocHeading = {
-  level: number;
-  text: string;
-  pos: number;
-};
+type TocHeading = MarkdownHeading;
 
 export type BookEditorTocItem = {
   level?: number;
@@ -417,6 +415,7 @@ export type BookEditorContext = {
 interface BlockExtraRanges {
   toc: Array<{ from: number; to: number }>;
   includes: Array<{ from: number; to: number; ref: string }>;
+  semanticHeadings: Array<{ from: number; to: number; outline: SemanticOutline }>;
   hrs: Array<{ from: number; to: number }>;
   frontMatter: { from: number; to: number; body: string } | null;
 }
@@ -437,12 +436,23 @@ export function setBookContext(view: EditorView, context: BookEditorContext | nu
   view.dispatch({ effects: setBookContextEffect.of(context) });
 }
 
-class TocWidget extends WidgetType {
+class TocWidget extends MeasuredWidget {
   headings: TocHeading[];
 
   constructor(headings: TocHeading[]) {
     super();
     this.headings = headings;
+  }
+
+  protected measureKey(): string { return "toc:" + shortHash(tocSignature(this.headings)); }
+
+  protected measureGroupKey(): string {
+    const bucket = Math.min(8, Math.ceil(this.headings.length / 8));
+    return `toc:count:${bucket}`;
+  }
+
+  protected estimatedHeightFallback(): number {
+    return Math.max(58, 38 + this.headings.length * 26);
   }
 
   eq(other: TocWidget): boolean {
@@ -462,7 +472,7 @@ class TocWidget extends WidgetType {
       empty.className = "toc-empty";
       empty.textContent = "(no headings yet)";
       div.append(empty);
-      return div;
+      return this.registerMeasured(div, view);
     }
 
     const ul = document.createElement("ul");
@@ -486,7 +496,7 @@ class TocWidget extends WidgetType {
       ul.append(li);
     }
     div.append(ul);
-    return div;
+    return this.registerMeasured(div, view);
   }
 
   ignoreEvent(): boolean { return true; }
@@ -514,12 +524,24 @@ function bookContextSignature(context: BookEditorContext | null): string {
   ].join("\n");
 }
 
-class BookContentsWidget extends WidgetType {
+class BookContentsWidget extends MeasuredWidget {
   context: BookEditorContext;
 
   constructor(context: BookEditorContext) {
     super();
     this.context = context;
+  }
+
+  protected measureKey(): string { return "book:" + shortHash(bookContextSignature(this.context)); }
+
+  protected measureGroupKey(): string {
+    const count = (this.context.toc || []).filter((item) => item.text || item.path).length;
+    return `book:count:${Math.min(10, Math.ceil(count / 6))}`;
+  }
+
+  protected estimatedHeightFallback(): number {
+    const count = (this.context.toc || []).filter((item) => item.text || item.path).length;
+    return count > 0 ? 84 + count * 38 : 112;
   }
 
   eq(other: BookContentsWidget): boolean {
@@ -553,7 +575,7 @@ class BookContentsWidget extends WidgetType {
       empty.className = "cm-book-contents-empty";
       empty.textContent = "No book headings yet";
       root.append(empty);
-      return root;
+      return this.registerMeasured(root, view);
     }
 
     const currentPath = bookPathKey(this.context.currentPath || this.context.coverPath);
@@ -580,19 +602,25 @@ class BookContentsWidget extends WidgetType {
       list.append(button);
     }
     root.append(list);
-    return root;
+    return this.registerMeasured(root, view);
   }
 
   ignoreEvent(): boolean { return true; }
 }
 
-class IncludeWidget extends WidgetType {
+class IncludeWidget extends MeasuredWidget {
   ref: string;
 
   constructor(ref: string) {
     super();
     this.ref = ref;
   }
+
+  protected measureKey(): string { return "incl:" + this.ref; }
+
+  protected measureGroupKey(): string { return "incl"; }
+
+  protected estimatedHeightFallback(): number { return 36; }
 
   eq(other: IncludeWidget): boolean {
     return this.ref === other.ref;
@@ -629,116 +657,125 @@ class IncludeWidget extends WidgetType {
         detail: { ref: this.ref },
       }));
     });
-    return button;
+    return this.registerMeasured(button, view);
   }
 
   ignoreEvent(): boolean { return true; }
+}
+
+const SEMANTIC_HEADING_ESTIMATED_HEIGHT: Record<number, number> = {
+  1: 458,
+  2: 236,
+  3: 180,
+  4: 135,
+  5: 101,
+};
+
+class SemanticHeadingWidget extends MeasuredWidget {
+  outline: SemanticOutline;
+  from: number;
+  to: number;
+
+  constructor(outline: SemanticOutline, from: number, to: number) {
+    super();
+    this.outline = outline;
+    this.from = from;
+    this.to = to;
+  }
+
+  protected measureKey(): string {
+    return ["sem", this.outline.level, this.outline.kind, this.outline.slug, shortHash(this.outline.text)].join(":");
+  }
+
+  protected measureGroupKey(): string {
+    const textBucket = Math.min(4, Math.ceil(this.outline.text.length / 36));
+    return ["sem", "level", this.outline.level, "text", textBucket].join(":");
+  }
+
+  protected estimatedHeightFallback(): number {
+    return SEMANTIC_HEADING_ESTIMATED_HEIGHT[this.outline.level] ?? SEMANTIC_HEADING_ESTIMATED_HEIGHT[2]!;
+  }
+
+  eq(other: SemanticHeadingWidget): boolean {
+    return this.from === other.from
+      && this.to === other.to
+      && this.outline.level === other.outline.level
+      && this.outline.kind === other.outline.kind
+      && this.outline.label === other.outline.label
+      && this.outline.text === other.outline.text
+      && this.outline.slug === other.outline.slug;
+  }
+
+  toDOM(view: EditorView): HTMLElement {
+    const div = document.createElement("div");
+    div.className = "cm-semantic-heading aaronnote-section-heading";
+    div.dataset.sectionKind = this.outline.kind;
+    div.dataset.sectionLabel = this.outline.label;
+    div.dataset.outlineLevel = String(this.outline.level);
+    div.style.setProperty("--outline-level", String(this.outline.level));
+    setSourceRange(div, this.from, this.to);
+
+    const inner = document.createElement("div");
+    inner.className = "aaronnote-section-heading-inner";
+
+    const label = document.createElement("span");
+    label.className = "aaronnote-section-label";
+    label.textContent = this.outline.label;
+    const title = document.createElement("span");
+    title.className = "aaronnote-section-title";
+    title.textContent = this.outline.text;
+    inner.append(label, title);
+    div.append(inner);
+
+    div.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      view.dispatch({ selection: { anchor: this.from }, scrollIntoView: true });
+      view.focus();
+    });
+    window.requestAnimationFrame(() => {
+      if (div.isConnected && view.dom.isConnected) view.requestMeasure();
+    });
+    return this.registerMeasured(div, view);
+  }
+
+  ignoreEvent(): boolean { return false; }
 }
 
 function tocSignature(headings: TocHeading[]): string {
   return headings.map((h) => `${h.pos}\t${h.level}\t${h.text}`).join("\n");
 }
 
-function headingTextAndPos(state: EditorState, from: number, to: number): { text: string; pos: number } {
-  const doc = state.doc;
-  const first = doc.lineAt(from);
-  const raw = first.text;
-  const atx = raw.match(/^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$/);
-  if (atx) {
-    const prefix = raw.indexOf(atx[2] ?? "");
-    return {
-      text: atx[2] ?? "",
-      pos: first.from + Math.max(0, prefix),
-    };
-  }
-  const text = doc.sliceString(from, Math.min(to, first.to)).trim();
-  const leading = raw.search(/\S/);
-  return {
-    text,
-    pos: first.from + Math.max(0, leading),
-  };
-}
-
-function collectHeadings(state: EditorState): TocHeading[] {
-  const headings: TocHeading[] = [];
-  const blockMathRanges = getBlockMathRanges(state);
-  syntaxTree(state).iterate({
-    enter(node) {
-      if (rangeInsideAny(node.from, node.to, blockMathRanges)) return false;
-      const atx = node.name.match(/^ATXHeading([1-6])$/);
-      const setext = node.name.match(/^SetextHeading([12])$/);
-      if (!atx && !setext) return;
-      const level = Number(atx?.[1] ?? setext?.[1] ?? 1);
-      const { text, pos } = headingTextAndPos(state, node.from, node.to);
-      headings.push({ level, text, pos });
-      return false;
-    },
-  });
-  return headings;
-}
-
-const ATX_HEADING_RE = /^#{1,6}\s/;
-const SETEXT_UNDERLINE_RE = /^[=-]{2,}\s*$/;
-
-function docHasHeading(doc: Text): boolean {
-  for (let lineNum = 1; lineNum <= doc.lines; lineNum++) {
-    const text = doc.line(lineNum).text;
-    if (ATX_HEADING_RE.test(text)) return true;
-    if (text.trim() && lineNum < doc.lines && SETEXT_UNDERLINE_RE.test(doc.line(lineNum + 1).text)) return true;
-  }
-  return false;
-}
-
-const headingsField = StateField.define<readonly TocHeading[]>({
-  create: collectHeadings,
-  update(headings, tr) {
-    if (tr.docChanged) {
-      if (!canMapHeadings(tr.startState.doc, tr.changes)) {
-        if (headings.length === 0 && !docHasHeading(tr.state.doc)) return headings;
-        return collectHeadings(tr.state);
-      }
-      return headings.map((heading) => ({ ...heading, pos: tr.changes.mapPos(heading.pos) }));
-    }
-    return headings;
-  },
-});
-
-function canMapHeadings(doc: Text, changes: ChangeSet): boolean {
-  let canMap = true;
-  changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
-    if (!canMap) return;
-    const fromLine = doc.lineAt(Math.min(fromA, doc.length));
-    const toLine = doc.lineAt(Math.min(Math.max(fromA, toA), doc.length));
-    const oldText = doc.sliceString(fromLine.from, toLine.to);
-    const newText = inserted.toString();
-    if (/[\n#=-]/.test(oldText) || /[\n#=-]/.test(newText)) {
-      canMap = false;
-    }
-  });
-  return canMap;
-}
-
 function scanBlockExtraLineRanges(
   doc: Text,
   startLine = 1,
   endLine = doc.lines,
-): Pick<BlockExtraRanges, "toc" | "includes" | "hrs"> {
+): Pick<BlockExtraRanges, "toc" | "includes" | "semanticHeadings" | "hrs"> {
   const toc: Array<{ from: number; to: number }> = [];
   const includes: Array<{ from: number; to: number; ref: string }> = [];
+  const semanticHeadings: Array<{ from: number; to: number; outline: SemanticOutline }> = [];
   const hrs: Array<{ from: number; to: number }> = [];
   for (let lineNum = Math.max(1, startLine); lineNum <= Math.min(doc.lines, endLine); lineNum++) {
     const line = doc.line(lineNum);
     if (TOC_LINE_RE.test(line.text)) toc.push({ from: line.from, to: line.to });
     const includeMatch = INCLUDE_LINE_RE.exec(line.text);
     if (includeMatch?.[1]?.trim()) includes.push({ from: line.from, to: line.to, ref: includeMatch[1].trim() });
+    const trimmed = line.text.trim();
+    if (trimmed.startsWith("@@part") || trimmed.startsWith("@@section")) {
+      const command = scanInlineCommands(trimmed)[0];
+      const outline = command && command.fullFrom === 0 && command.fullTo === trimmed.length
+        ? semanticOutlineFromCommand(command)
+        : null;
+      if (outline) semanticHeadings.push({ from: line.from, to: line.to, outline });
+    }
     if (HR_LINE_RE.test(line.text)) hrs.push({ from: line.from, to: line.to });
   }
-  return { toc, includes, hrs };
+  return { toc, includes, semanticHeadings, hrs };
 }
 
 function scanBlockExtraRanges(doc: Text): BlockExtraRanges {
-  const { toc, includes, hrs } = scanBlockExtraLineRanges(doc);
-  return { toc, includes, hrs, frontMatter: scanFrontMatter(doc) };
+  const { toc, includes, semanticHeadings, hrs } = scanBlockExtraLineRanges(doc);
+  return { toc, includes, semanticHeadings, hrs, frontMatter: scanFrontMatter(doc) };
 }
 
 const blockExtraRangesField = StateField.define<BlockExtraRanges>({
@@ -763,7 +800,7 @@ function canMapBlockExtraRanges(doc: Text, changes: ChangeSet, ranges: BlockExtr
     const toLine = doc.lineAt(Math.min(Math.max(fromA, toA), doc.length));
     const oldText = doc.sliceString(fromLine.from, toLine.to);
     const newText = inserted.toString();
-    if (/[\n\[\]\-*_]/.test(oldText) || /[\n\[\]\-*_]/.test(newText)) {
+    if (/[\n\[\]\-*_@(){}]/.test(oldText) || /[\n\[\]\-*_@(){}]/.test(newText)) {
       canMap = false;
       return;
     }
@@ -800,6 +837,7 @@ function mapBlockExtraRanges(ranges: BlockExtraRanges, changes: ChangeSet): Bloc
   return {
     toc: ranges.toc.map((range) => ({ from: changes.mapPos(range.from), to: changes.mapPos(range.to) })),
     includes: ranges.includes.map((range) => ({ from: changes.mapPos(range.from), to: changes.mapPos(range.to), ref: range.ref })),
+    semanticHeadings: ranges.semanticHeadings.map((range) => ({ from: changes.mapPos(range.from), to: changes.mapPos(range.to), outline: range.outline })),
     hrs: ranges.hrs.map((range) => ({ from: changes.mapPos(range.from), to: changes.mapPos(range.to) })),
     frontMatter: ranges.frontMatter
       ? {
@@ -838,6 +876,10 @@ function patchBlockExtraRangesNearChanges(
       ...mapped.includes.filter((range) => range.to < affectedFrom || range.from > affectedTo),
       ...scanned.includes,
     ].sort((a, b) => a.from - b.from || a.to - b.to),
+    semanticHeadings: [
+      ...mapped.semanticHeadings.filter((range) => range.to < affectedFrom || range.from > affectedTo),
+      ...scanned.semanticHeadings,
+    ].sort((a, b) => a.from - b.from || a.to - b.to),
     hrs: [
       ...mapped.hrs.filter((range) => range.to < affectedFrom || range.from > affectedTo),
       ...scanned.hrs,
@@ -846,7 +888,7 @@ function patchBlockExtraRangesNearChanges(
   };
 }
 
-class OrgEnvOpenWidget extends WidgetType {
+class OrgEnvOpenWidget extends MeasuredWidget {
   kind: string;
   title: string;
   anchor: number;
@@ -859,6 +901,12 @@ class OrgEnvOpenWidget extends WidgetType {
     this.anchor = anchor;
     this.depth = depth;
   }
+
+  protected measureKey(): string { return "oopen:" + this.kind + ":" + this.title; }
+
+  protected measureGroupKey(): string { return "oopen:" + this.kind; }
+
+  protected estimatedHeightFallback(): number { return this.kind === "lean4" ? 26 : -1; }
 
   eq(other: OrgEnvOpenWidget): boolean {
     return this.kind === other.kind
@@ -887,13 +935,13 @@ class OrgEnvOpenWidget extends WidgetType {
       view.dispatch({ selection: { anchor: this.anchor }, scrollIntoView: true });
       view.focus();
     });
-    return div;
+    return this.registerMeasured(div, view);
   }
 
   ignoreEvent(): boolean { return false; }
 }
 
-class OrgEnvEndWidget extends WidgetType {
+class OrgEnvEndWidget extends MeasuredWidget {
   kind: string;
   depth: number;
 
@@ -903,16 +951,22 @@ class OrgEnvEndWidget extends WidgetType {
     this.depth = depth;
   }
 
+  protected measureKey(): string { return "oend:" + this.kind; }
+
+  protected measureGroupKey(): string { return "oend:" + this.kind; }
+
+  protected estimatedHeightFallback(): number { return this.kind === "lean4" ? 7 : -1; }
+
   eq(other: OrgEnvEndWidget): boolean {
     return this.kind === other.kind && this.depth === other.depth;
   }
 
-  toDOM(): HTMLElement {
+  toDOM(view: EditorView): HTMLElement {
     const div = document.createElement("div");
     div.className = "cm-org-env-end-widget";
     div.dataset.orgEnvKind = this.kind;
     div.style.setProperty("--org-env-depth", String(this.depth));
-    return div;
+    return this.registerMeasured(div, view);
   }
 
   ignoreEvent(): boolean { return false; }
@@ -946,7 +1000,7 @@ function envLabel(kind: string): string {
   return labels[kind] ?? kind;
 }
 
-class MetaWidget extends WidgetType {
+class MetaWidget extends MeasuredWidget {
   body: string;
   from: number;
   to: number;
@@ -957,6 +1011,12 @@ class MetaWidget extends WidgetType {
     this.from = from;
     this.to = to;
   }
+
+  protected measureKey(): string { return "meta:" + shortHash(this.body); }
+
+  protected measureGroupKey(): string { return "meta"; }
+
+  protected estimatedHeightFallback(): number { return 210; }
 
   eq(other: MetaWidget): boolean {
     return this.body === other.body && this.from === other.from && this.to === other.to;
@@ -969,13 +1029,13 @@ class MetaWidget extends WidgetType {
     div.setAttribute("data-kind", "meta");
     div.dataset.label = envLabel("meta");
     renderMetaWidget(div, view, this.body, this.from, this.to);
-    return div;
+    return this.registerMeasured(div, view);
   }
 
   ignoreEvent(): boolean { return true; }
 }
 
-class CommentWidget extends WidgetType {
+class CommentWidget extends MeasuredWidget {
   title: string;
   body: string;
   from: number;
@@ -991,6 +1051,16 @@ class CommentWidget extends WidgetType {
     this.depth = depth;
   }
 
+  protected measureKey(): string { return "cmnt:" + shortHash(this.title + ":" + this.body); }
+
+  protected measureGroupKey(): string {
+    return `cmnt:lines:${Math.min(8, Math.ceil(this.body.split(/\n/).length / 5))}`;
+  }
+
+  protected estimatedHeightFallback(): number {
+    return 54 + this.body.split(/\n/).length * 22;
+  }
+
   eq(other: CommentWidget): boolean {
     return this.title === other.title
       && this.body === other.body
@@ -999,7 +1069,7 @@ class CommentWidget extends WidgetType {
       && this.depth === other.depth;
   }
 
-  toDOM(): HTMLElement {
+  toDOM(view: EditorView): HTMLElement {
     const block = document.createElement("org-env-block");
     block.className = "cm-org-env-comment-widget org-env-block";
     setSourceRange(block, this.from, this.to);
@@ -1031,6 +1101,7 @@ class CommentWidget extends WidgetType {
       block.setAttribute("data-comment-open", open ? "true" : "false");
       button.setAttribute("aria-expanded", open ? "true" : "false");
       state.textContent = open ? "hide" : "show";
+      if (block.isConnected) view.requestMeasure();
     });
 
     const content = document.createElement("div");
@@ -1041,13 +1112,13 @@ class CommentWidget extends WidgetType {
     stopInteractiveWidgetEvents(content);
 
     block.append(button, content);
-    return block;
+    return this.registerMeasured(block, view);
   }
 
   ignoreEvent(): boolean { return false; }
 }
 
-class HtmlWidget extends WidgetType {
+class HtmlWidget extends MeasuredWidget {
   body: string;
   from: number;
   to: number;
@@ -1059,23 +1130,33 @@ class HtmlWidget extends WidgetType {
     this.to = to;
   }
 
+  protected measureKey(): string { return "html:" + shortHash(this.body); }
+
+  protected measureGroupKey(): string {
+    return `html:lines:${Math.min(8, Math.ceil(this.body.split(/\n/).length / 6))}`;
+  }
+
+  protected estimatedHeightFallback(): number {
+    return Math.max(48, this.body.split(/\n/).length * 24);
+  }
+
   eq(other: HtmlWidget): boolean {
     return this.body === other.body && this.from === other.from && this.to === other.to;
   }
 
-  toDOM(): HTMLElement {
+  toDOM(view: EditorView): HTMLElement {
     const div = document.createElement("div");
     div.className = "cm-html-env-widget";
     setSourceRange(div, this.from, this.to);
     div.innerHTML = renderMarkdownHTML(buildOrgEnvSource("html", "", this.body));
     stopInteractiveWidgetEvents(div);
-    return div;
+    return this.registerMeasured(div, view);
   }
 
   ignoreEvent(): boolean { return true; }
 }
 
-class TikzWidget extends WidgetType {
+class TikzWidget extends MeasuredWidget {
   title: string;
   body: string;
   from: number;
@@ -1090,6 +1171,12 @@ class TikzWidget extends WidgetType {
     this.to = to;
     this.dirty = dirty;
   }
+
+  protected measureKey(): string { return "tikz:" + this.title; }
+
+  protected measureGroupKey(): string { return "tikz"; }
+
+  protected estimatedHeightFallback(): number { return 260; }
 
   eq(other: TikzWidget): boolean {
     return this.title === other.title && this.body === other.body && this.from === other.from && this.to === other.to && this.dirty === other.dirty;
@@ -1115,12 +1202,12 @@ class TikzWidget extends WidgetType {
         return current.changed ? `${current.id} ${current.timestamp}${current.attrsRaw ? ` ${current.attrsRaw}` : ""}` : null;
       });
       stopInteractiveWidgetEvents(figure);
-      return figure;
+      return this.registerMeasured(figure, view);
     }
     if (!file) {
       card.textContent = "TikZ render needs a saved note file";
       stopInteractiveWidgetEvents(figure);
-      return figure;
+      return this.registerMeasured(figure, view);
     }
 
     const sourceCacheKey = tikzSourceCacheKey(file, meta.id);
@@ -1137,7 +1224,7 @@ class TikzWidget extends WidgetType {
         return `${current.id} ${timestamp}${current.attrsRaw ? ` ${current.attrsRaw}` : ""}`;
       }, [clearTikzDirtyEffect.of(meta.id)]);
       stopInteractiveWidgetEvents(figure);
-      return figure;
+      return this.registerMeasured(figure, view);
     }
 
     card.textContent = "Rendering TikZ...";
@@ -1146,6 +1233,7 @@ class TikzWidget extends WidgetType {
       if (!result.ok || !result.markdownPath) {
         tikzPendingSourceByAsset.delete(sourceCacheKey);
         card.textContent = result.message || "TikZ render failed";
+        view.requestMeasure();
         return;
       }
       tikzRenderedSourceByAsset.set(sourceCacheKey, this.body);
@@ -1156,11 +1244,14 @@ class TikzWidget extends WidgetType {
       img.alt = `TikZ ${meta.id}`;
       img.loading = "lazy";
       img.decoding = "async";
+      img.addEventListener("load", () => { if (figure.isConnected) view.requestMeasure(); });
+      img.addEventListener("error", () => { if (figure.isConnected) view.requestMeasure(); });
       figure.replaceChildren(img);
+      view.requestMeasure();
     });
 
     stopInteractiveWidgetEvents(figure);
-    return figure;
+    return this.registerMeasured(figure, view);
   }
 
   ignoreEvent(): boolean { return false; }
@@ -1314,7 +1405,7 @@ function renderMetaWidget(
   root.append(meta);
 }
 
-class FrontMatterWidget extends WidgetType {
+class FrontMatterWidget extends MeasuredWidget {
   body: string;
   from: number;
   to: number;
@@ -1326,11 +1417,21 @@ class FrontMatterWidget extends WidgetType {
     this.to = to;
   }
 
+  protected measureKey(): string { return "fm:" + shortHash(this.body); }
+
+  protected measureGroupKey(): string {
+    return `fm:lines:${Math.min(5, Math.ceil(this.body.split(/\n/).length / 4))}`;
+  }
+
+  protected estimatedHeightFallback(): number {
+    return 36 + this.body.split(/\n/).length * 18;
+  }
+
   eq(other: FrontMatterWidget): boolean {
     return this.body === other.body && this.from === other.from && this.to === other.to;
   }
 
-  toDOM(): HTMLElement {
+  toDOM(view: EditorView): HTMLElement {
     const div = document.createElement("div");
     div.className = "cm-front-matter-block";
     setSourceRange(div, this.from, this.to);
@@ -1341,13 +1442,13 @@ class FrontMatterWidget extends WidgetType {
     content.className = "cm-front-matter-content";
     content.textContent = this.body.trim();
     div.append(label, content);
-    return div;
+    return this.registerMeasured(div, view);
   }
 
   ignoreEvent(): boolean { return false; }
 }
 
-class HorizontalRuleWidget extends WidgetType {
+class HorizontalRuleWidget extends MeasuredWidget {
   from: number;
   to: number;
 
@@ -1357,15 +1458,21 @@ class HorizontalRuleWidget extends WidgetType {
     this.to = to;
   }
 
+  protected measureKey(): string { return "hr"; }
+
+  protected measureGroupKey(): string { return "hr"; }
+
+  protected estimatedHeightFallback(): number { return 46; }
+
   eq(other: HorizontalRuleWidget): boolean {
     return this.from === other.from && this.to === other.to;
   }
 
-  toDOM(): HTMLElement {
+  toDOM(view: EditorView): HTMLElement {
     const hr = document.createElement("hr");
     hr.className = "cm-horizontal-rule";
     setSourceRange(hr, this.from, this.to);
-    return hr;
+    return this.registerMeasured(hr, view);
   }
 
   ignoreEvent(): boolean { return false; }
@@ -1816,7 +1923,7 @@ function buildBlockExtraDecos(state: EditorState): DecorationSet {
   const occupied: Array<[number, number]> = [];
   const sel = state.selection.main;
   const blockMathRanges = getBlockMathRanges(state);
-  const headings = state.field(headingsField, false) ?? collectHeadings(state);
+  const headings = tocIndexFromState(state).headings;
   const ranges = state.field(blockExtraRangesField, false) ?? scanBlockExtraRanges(state.doc);
 
   // ── [toc] ──────────────────────────────────────────────────────────────
@@ -1840,6 +1947,20 @@ function buildBlockExtraDecos(state: EditorState): DecorationSet {
     }
     decos.push(
       Decoration.replace({ widget: new IncludeWidget(range.ref), block: true }).range(range.from, range.to),
+    );
+    occupied.push([range.from, range.to]);
+  }
+
+  // ── @@part / @@section semantic headings ──────────────────────────────
+  for (const range of ranges.semanticHeadings) {
+    if (rangeOverlapsAny(range.from, range.to, blockMathRanges)) continue;
+    if (occupied.some(([from, to]) => range.from < to && range.to > from)) continue;
+    if (sel.from >= range.from && sel.from <= range.to) {
+      decos.push(Decoration.mark({ class: "syntax-hint" }).range(range.from, range.to));
+      continue;
+    }
+    decos.push(
+      Decoration.replace({ widget: new SemanticHeadingWidget(range.outline, range.from, range.to), block: true }).range(range.from, range.to),
     );
     occupied.push([range.from, range.to]);
   }
@@ -1913,6 +2034,9 @@ function activeBlockExtraKey(state: EditorState): string {
   for (const range of ranges.includes) {
     if (sel.from <= range.to && sel.to >= range.from) parts.push(`include:${range.from}:${range.to}`);
   }
+  for (const range of ranges.semanticHeadings) {
+    if (sel.from <= range.to && sel.to >= range.from) parts.push(`semantic:${range.from}:${range.to}`);
+  }
   if (ranges.frontMatter && sel.from < ranges.frontMatter.to && sel.to > ranges.frontMatter.from) {
     parts.push(`front:${ranges.frontMatter.from}:${ranges.frontMatter.to}`);
   }
@@ -1938,12 +2062,13 @@ function canMapBlockExtraDecos(state: EditorState, changes: ChangeSet): boolean 
   const ranges = state.field(blockExtraRangesField, false) ?? scanBlockExtraRanges(state.doc);
   const blocks = state.field(orgEnvBlocksField, false) ?? orgEnvBlocksFromState(state);
 
-  if (!canMapHeadings(state.doc, changes)) return false;
+  if (ranges.toc.length > 0) return false;
   if (!canMapBlockExtraRanges(state.doc, changes, ranges)) return false;
   if (!canMapOrgEnvBlocks(state.doc, blocks, changes)) return false;
 
   if (ranges.toc.some((range) => changesTouchRange(changes, range.from, range.to))) return false;
   if (ranges.includes.some((range) => changesTouchRange(changes, range.from, range.to))) return false;
+  if (ranges.semanticHeadings.some((range) => changesTouchRange(changes, range.from, range.to))) return false;
   if (ranges.hrs.some((range) => changesTouchRange(changes, range.from, range.to))) return false;
   if (ranges.frontMatter && changesTouchRange(changes, ranges.frontMatter.from, ranges.frontMatter.to)) return false;
   if (blocks.some((block) => (
@@ -2019,7 +2144,6 @@ const blockExtrasDecorations = StateField.define<DecorationSet>({
 const orgEnvRailExtension = ViewPlugin.fromClass(OrgEnvRailPlugin);
 
 export const blockExtrasExtension: Extension = [
-  headingsField,
   bookContextField,
   blockExtraRangesField,
   orgEnvBlocksField,

@@ -7,7 +7,6 @@ import {
   hoverTooltip,
   highlightActiveLine,
   highlightActiveLineGutter,
-  WidgetType,
     keymap,
     lineNumbers,
     showTooltip,
@@ -17,6 +16,7 @@ import {
   type Tooltip,
   type ViewUpdate,
 } from "@codemirror/view";
+import { MeasuredWidget } from "./measured-widget.ts";
 import { defaultKeymap, history, historyKeymap, redo, undo } from "@codemirror/commands";
 import {
   acceptCompletion,
@@ -2516,13 +2516,19 @@ function leanEditorExtensions(
   ];
 }
 
-class LeanPlaceholderWidget extends WidgetType {
+class LeanPlaceholderWidget extends MeasuredWidget {
   readonly cmd: InlineCommand;
 
   constructor(cmd: InlineCommand) {
     super();
     this.cmd = cmd;
   }
+
+  protected measureKey(): string { return "lean:" + this.cmd.context.trim(); }
+
+  protected measureGroupKey(): string { return "lean:placeholder"; }
+
+  protected estimatedHeightFallback(): number { return 420; }
 
   eq(other: LeanPlaceholderWidget): boolean {
     return this.cmd.context === other.cmd.context;
@@ -3116,10 +3122,11 @@ class LeanPlaceholderWidget extends WidgetType {
         card.classList.add("is-error");
       });
 
-    return outer;
+    return this.registerMeasured(outer, parentView);
   }
 
   destroy(dom: HTMLElement): void {
+    super.destroy(dom);
     const state = dom as HTMLElement & { __leanChild?: EditorView; __leanUnsub?: () => void; __leanTooltips?: HTMLDivElement };
     state.__leanUnsub?.();
     state.__leanChild?.destroy();

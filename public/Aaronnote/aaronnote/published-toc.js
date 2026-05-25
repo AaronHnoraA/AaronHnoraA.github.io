@@ -1,6 +1,6 @@
 const STORAGE_KEY = "aaronnote-published-toc-collapsed";
 const BOOK_STORAGE_KEY = "aaronnote-published-book-toc-collapsed";
-const HEADING_SELECTOR = "h1:not(.title), h2, h3, h4, h5, h6";
+const HEADING_SELECTOR = ".aaronnote-section-heading, h1:not(.title), h2, h3, h4, h5, h6";
 
 function normalizeText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -39,11 +39,16 @@ function collectHeadings(article) {
   const headings = Array.from(article.querySelectorAll(HEADING_SELECTOR))
     .filter((heading) => heading instanceof HTMLElement)
     .filter((heading) => !heading.closest("[hidden], [aria-hidden='true']"));
+  const hasSemantic = headings.some((heading) => heading.classList.contains("aaronnote-section-heading"));
   ensureHeadingIds(headings);
   return headings.map((heading) => ({
     id: heading.id,
-    level: Number(heading.tagName.slice(1)) || 1,
-    text: normalizeText(heading.textContent) || "Untitled",
+    level: heading.classList.contains("aaronnote-section-heading")
+      ? Number(heading.dataset.outlineLevel) || 2
+      : (hasSemantic ? 5 : 0) + (Number(heading.tagName.slice(1)) || 1),
+    text: heading.classList.contains("aaronnote-section-heading")
+      ? normalizeText(heading.querySelector(".aaronnote-section-title")?.textContent || heading.textContent) || "Untitled"
+      : normalizeText(heading.textContent) || "Untitled",
     element: heading,
   }));
 }
@@ -80,7 +85,7 @@ function buildBookTree(items) {
   const roots = [];
   const stack = [];
   items.forEach((item, index) => {
-    const level = Math.max(1, Math.min(6, Number(item.level) || 1));
+    const level = Math.max(1, Math.min(12, Number(item.level) || 1));
     const node = { item, key: bookNodeKey(item, index), level, children: [] };
     while (stack.length > 0 && stack[stack.length - 1].level >= level) stack.pop();
     if (stack.length > 0) stack[stack.length - 1].children.push(node);

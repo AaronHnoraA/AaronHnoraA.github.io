@@ -11,6 +11,7 @@ import { layoutClasses, layoutFromAttrs, layoutStyle, readLayoutAttrsLine, type 
 import { renderMathHTML } from "./math-render.ts";
 import { safeHref } from "./url-safety.ts";
 import { scanInlineCommands } from "./command-syntax.ts";
+import { semanticOutlineFromCommand } from "./semantic-outline.ts";
 import { highlightCode, type CodeHighlightRange } from "./code-highlight.ts";
 import { renderTikzIframe } from "./tikz-render.ts";
 import {
@@ -79,6 +80,15 @@ type LeanRegionTokenMeta = {
   tag: string;
   body: string;
   missing: boolean;
+};
+
+type SemanticHeadingTokenMeta = {
+  kind: string;
+  label: string;
+  level: number;
+  text: string;
+  slug: string;
+  attrs: Record<string, string>;
 };
 
 const ORG_ENV_OPEN_RE = /^\s*#\+\s*begin\s+(\S+)(?:[ \t]+([^\n]*?))?[ \t]*$/i;
@@ -306,6 +316,30 @@ function leanRegionBlockRule(options: RenderMarkdownHTMLOptions) {
     state.line = startLine + 1;
     return true;
   };
+}
+
+function semanticHeadingBlockRule(state: StateBlock, startLine: number, _endLine: number, silent: boolean): boolean {
+  const raw = lineText(state, startLine);
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith("@@part") && !trimmed.startsWith("@@section")) return false;
+  const command = scanInlineCommands(trimmed)[0];
+  if (!command || command.fullFrom !== 0 || command.fullTo !== trimmed.length) return false;
+  const outline = semanticOutlineFromCommand(command);
+  if (!outline) return false;
+  if (silent) return true;
+  const token = state.push("semantic_heading_block", "div", 0);
+  token.block = true;
+  token.map = [startLine, startLine + 1];
+  token.meta = {
+    kind: outline.kind,
+    label: outline.label,
+    level: outline.level,
+    text: outline.text,
+    slug: outline.slug,
+    attrs: outline.attrs,
+  } satisfies SemanticHeadingTokenMeta;
+  state.line = startLine + 1;
+  return true;
 }
 
 function frontMatterRule(state: StateBlock, startLine: number, endLine: number, silent: boolean): boolean {
@@ -594,6 +628,29 @@ function renderLeanRegion(tokens: Token[], idx: number): string {
   return renderLeanCodeCell(meta.tag, meta.body, { missing: meta.missing, region: true });
 }
 
+function renderSemanticHeading(tokens: Token[], idx: number): string {
+  const meta = tokens[idx]!.meta as SemanticHeadingTokenMeta;
+  const attrs = [
+    `id="${escapeAttr(meta.slug)}"`,
+    'class="aaronnote-section-heading"',
+    `data-section-kind="${escapeAttr(meta.kind)}"`,
+    `data-section-label="${escapeAttr(meta.label)}"`,
+    `data-outline-level="${escapeAttr(String(meta.level))}"`,
+  ];
+  for (const [key, value] of Object.entries(meta.attrs || {})) {
+    if (!/^[A-Za-z][\w-]*$/.test(key) || key.toLowerCase() === "id") continue;
+    attrs.push(`data-section-${escapeAttr(key.toLowerCase())}="${escapeAttr(value)}"`);
+  }
+  return [
+    `<div ${attrs.join(" ")}>`,
+    '<div class="aaronnote-section-heading-inner">',
+    `<span class="aaronnote-section-label">${escapeHtml(meta.label)}</span>`,
+    `<span class="aaronnote-section-title">${escapeHtml(meta.text)}</span>`,
+    "</div>",
+    "</div>",
+  ].join("");
+}
+
 function tikzTitleLayout(title: string): LayoutAttrs {
   const raw = String(title || "").trim();
   const open = raw.indexOf("{");
@@ -674,6 +731,7 @@ function createMarkdownIt(options: RenderMarkdownHTMLOptions): MarkdownIt {
   md.block.ruler.before("fence", "front_matter", frontMatterRule, { alt: [] });
   md.block.ruler.before("fence", "org_env_block", orgEnvBlockRule, { alt: ["paragraph", "reference", "blockquote"] });
   md.block.ruler.before("fence", "math_block", mathBlockRule, { alt: ["paragraph", "reference", "blockquote"] });
+  md.block.ruler.before("paragraph", "semantic_heading_block", semanticHeadingBlockRule, { alt: ["paragraph"] });
   md.block.ruler.before("paragraph", "lean_region_block", leanRegionBlockRule(options), { alt: ["paragraph"] });
   md.block.ruler.before("paragraph", "toc_block", tocRule, { alt: ["paragraph"] });
   md.inline.ruler.before("link", "empty_html_link_embed", emptyHtmlLinkEmbedRule);
@@ -683,6 +741,7 @@ function createMarkdownIt(options: RenderMarkdownHTMLOptions): MarkdownIt {
   md.renderer.rules.math_inline = renderMathInline;
   md.renderer.rules.org_env_block = (tokens, idx) => renderOrgEnv(md, tokens, idx);
   md.renderer.rules.lean_region_block = renderLeanRegion;
+  md.renderer.rules.semantic_heading_block = renderSemanticHeading;
   md.renderer.rules.front_matter = (tokens, idx, _opts, _env, _renderer) =>
     `<yaml-block><pre>${escapeHtml(tokens[idx]!.content)}</pre></yaml-block>`;
   md.renderer.rules.toc_block = () => `<div class="toc"><div class="toc-empty">(no headings yet)</div></div>`;

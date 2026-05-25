@@ -19,10 +19,11 @@ import {
   Decoration,
   EditorView,
   ViewPlugin,
-  WidgetType,
   type DecorationSet,
   type ViewUpdate,
 } from "@codemirror/view";
+import { MeasuredWidget } from "./measured-widget.ts";
+import { shortHash } from "./measured-observer.ts";
 import { StateField, type ChangeSet, type EditorState, type Text } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
 import type { Range } from "@codemirror/state";
@@ -43,10 +44,13 @@ function setSourceRange(el: HTMLElement, from: number, to: number, anchor?: numb
 // Lang badge widget
 // ---------------------------------------------------------------------------
 
-class LangBadgeWidget extends WidgetType {
+class LangBadgeWidget extends MeasuredWidget {
   lang: string;
 
   constructor(lang: string) { super(); this.lang = lang; }
+
+  protected measureKey(): string { return ""; }
+  protected get measuredBlock(): boolean { return false; }
 
   eq(other: LangBadgeWidget): boolean { return this.lang === other.lang; }
 
@@ -60,13 +64,16 @@ class LangBadgeWidget extends WidgetType {
   ignoreEvent(): boolean { return false; }
 }
 
-class CodeCopyButtonWidget extends WidgetType {
+class CodeCopyButtonWidget extends MeasuredWidget {
   source: string;
 
   constructor(source: string) {
     super();
     this.source = source;
   }
+
+  protected measureKey(): string { return ""; }
+  protected get measuredBlock(): boolean { return false; }
 
   eq(other: CodeCopyButtonWidget): boolean {
     return this.source === other.source;
@@ -128,7 +135,7 @@ async function copyText(text: string): Promise<boolean> {
 // Mermaid widgets
 // ---------------------------------------------------------------------------
 
-class MermaidWidget extends WidgetType {
+class MermaidWidget extends MeasuredWidget {
   source: string;
   lang: string;
   from: number;
@@ -144,6 +151,19 @@ class MermaidWidget extends WidgetType {
     this.to = to;
     this.sourceFrom = sourceFrom;
     this.layout = layout;
+  }
+
+  protected measureKey(): string { return "mermaid:" + shortHash(this.lang + "\n" + this.source); }
+
+  protected measureGroupKey(): string {
+    const bucket = Math.min(8, Math.ceil(this.source.split(/\n/).length / 8));
+    return ["mermaid", this.lang, this.layout.align, this.layout.wrap ? "wrap" : "block", bucket].join(":");
+  }
+
+  protected estimatedHeightFallback(): number {
+    const explicitHeight = Number.parseFloat(this.layout.height);
+    if (Number.isFinite(explicitHeight) && explicitHeight > 0) return explicitHeight + 24;
+    return Math.max(190, Math.min(460, 120 + this.source.split(/\n/).length * 18));
   }
 
   eq(other: MermaidWidget): boolean {
@@ -168,13 +188,13 @@ class MermaidWidget extends WidgetType {
     applyLayoutAttrs(div, "diagram", this.layout);
     wrap.append(div);
     renderMermaidWidget(this.source, this.lang, div, () => view.requestMeasure());
-    return wrap;
+    return this.registerMeasured(wrap, view);
   }
 
   ignoreEvent(): boolean { return true; }
 }
 
-class MermaidPreviewWidget extends WidgetType {
+class MermaidPreviewWidget extends MeasuredWidget {
   source: string;
   lang: string;
   layout: LayoutAttrs;
@@ -184,6 +204,19 @@ class MermaidPreviewWidget extends WidgetType {
     this.source = source;
     this.lang = lang;
     this.layout = layout;
+  }
+
+  protected measureKey(): string { return "mermp:" + shortHash(this.lang + "\n" + this.source); }
+
+  protected measureGroupKey(): string {
+    const bucket = Math.min(8, Math.ceil(this.source.split(/\n/).length / 8));
+    return ["mermp", this.lang, this.layout.align, this.layout.wrap ? "wrap" : "block", bucket].join(":");
+  }
+
+  protected estimatedHeightFallback(): number {
+    const explicitHeight = Number.parseFloat(this.layout.height);
+    if (Number.isFinite(explicitHeight) && explicitHeight > 0) return explicitHeight + 24;
+    return Math.max(190, Math.min(460, 120 + this.source.split(/\n/).length * 18));
   }
 
   eq(other: MermaidPreviewWidget): boolean {
@@ -204,7 +237,7 @@ class MermaidPreviewWidget extends WidgetType {
     applyLayoutAttrs(div, "diagram", this.layout);
     wrap.append(div);
     renderMermaidWidget(this.source, this.lang, div, () => view.requestMeasure());
-    return wrap;
+    return this.registerMeasured(wrap, view);
   }
 
   ignoreEvent(): boolean { return true; }

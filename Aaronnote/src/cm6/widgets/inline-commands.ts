@@ -10,10 +10,10 @@ import {
   Decoration,
   EditorView,
   ViewPlugin,
-  WidgetType,
   type DecorationSet,
   type ViewUpdate,
 } from "@codemirror/view";
+import { MeasuredWidget } from "./measured-widget.ts";
 import { syntaxTree } from "@codemirror/language";
 import { scanInlineCommands, type InlineCommand } from "../../command-syntax.ts";
 import type { Range } from "@codemirror/state";
@@ -62,13 +62,16 @@ function cleanTag(value: string): string {
 // Widget
 // ---------------------------------------------------------------------------
 
-class TodoWidget extends WidgetType {
+class TodoWidget extends MeasuredWidget {
   cmd: InlineCommand;
 
   constructor(cmd: InlineCommand) {
     super();
     this.cmd = cmd;
   }
+
+  protected measureKey(): string { return ""; }
+  protected get measuredBlock(): boolean { return false; }
 
   eq(other: TodoWidget): boolean {
     return (

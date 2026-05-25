@@ -2,7 +2,7 @@
 // Single dollar signs often appear in prose and prices, so these rules prefer
 // false negatives over wrapping ordinary text in a math box.
 
-export const INLINE_MATH_RE = /(?<![A-Za-z0-9_$])\$(?![\s$0-9])([^$\n]*?\S)\$(?![A-Za-z0-9_$])/g;
+export const INLINE_MATH_RE = /(?<![A-Za-z0-9_$])\$(?![\s$])([^$\n]*?\S)\$(?![A-Za-z0-9_$])/g;
 
 const INLINE_TEXT_WORD_RE = /(?:^|[^\\A-Za-z])([A-Za-z]{3,})(?=$|[^A-Za-z])/g;
 const INLINE_CJK_RE = /[\u3400-\u9fff]/;
@@ -26,7 +26,7 @@ export function isInlineMathOpen(src: string, pos: number): boolean {
   return (
     isInlineDollar(src, pos) &&
     !/[A-Za-z0-9_]/.test(src[pos - 1] ?? "") &&
-    !/[\s0-9]/.test(src[pos + 1] ?? "")
+    !/\s/.test(src[pos + 1] ?? "")
   );
 }
 

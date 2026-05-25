@@ -15,11 +15,11 @@ import {
   Decoration,
   EditorView,
   ViewPlugin,
-  WidgetType,
   hoverTooltip,
   type DecorationSet,
   type ViewUpdate,
 } from "@codemirror/view";
+import { MeasuredWidget } from "./measured-widget.ts";
 import {
   StateEffect,
   StateField,
@@ -401,12 +401,25 @@ function buildSemanticTokenDecorations(splice: LeanSplice, legend: unknown, data
 // Cell output widget
 // ---------------------------------------------------------------------------
 
-class LeanCellOutputWidget extends WidgetType {
+class LeanCellOutputWidget extends MeasuredWidget {
   output: LeanCellOutput;
 
   constructor(output: LeanCellOutput) {
     super();
     this.output = output;
+  }
+
+  protected measureKey(): string { return "leanout:" + this.output.blockIndex; }
+
+  protected measureGroupKey(): string {
+    const lines = this.output.messages.reduce((sum, msg) => sum + Math.max(1, msg.message.split(/\n/).length), 0);
+    return `leanout:lines:${Math.min(8, Math.ceil(lines / 5))}`;
+  }
+
+  protected estimatedHeightFallback(): number {
+    if (this.output.messages.length === 0) return 8;
+    const lines = this.output.messages.reduce((sum, msg) => sum + Math.max(1, msg.message.split(/\n/).length), 0);
+    return Math.max(42, 18 + lines * 20);
   }
 
   eq(other: LeanCellOutputWidget): boolean {
@@ -415,12 +428,12 @@ class LeanCellOutputWidget extends WidgetType {
     return this.output.messages.every((m, i) => m.severity === other.output.messages[i]?.severity && m.message === other.output.messages[i]?.message);
   }
 
-  toDOM(): HTMLElement {
+  toDOM(view: EditorView): HTMLElement {
     const div = document.createElement("div");
     div.className = "cm-lean-cell-output";
     if (this.output.messages.length === 0) {
       div.classList.add("cm-lean-cell-output--empty");
-      return div;
+      return this.registerMeasured(div, view);
     }
     for (const msg of this.output.messages) {
       const row = document.createElement("div");
@@ -431,7 +444,7 @@ class LeanCellOutputWidget extends WidgetType {
       row.append(pre);
       div.append(row);
     }
-    return div;
+    return this.registerMeasured(div, view);
   }
 
   ignoreEvent(): boolean { return true; }
