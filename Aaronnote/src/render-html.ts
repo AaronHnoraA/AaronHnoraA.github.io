@@ -771,8 +771,8 @@ export function renderPublishedNoteHTML(
     </header>
 `;
   const tocHtml = pdf ? "" : `      <aside class="aaronnote-floating-toc is-collapsed" data-floating-toc data-published-toc>
-        <button type="button" data-toc-toggle aria-expanded="false">TOC</button>
-        <nav data-toc-list aria-label="Table of contents"></nav>
+        <button type="button" data-toc-toggle aria-expanded="false" title="Toggle page outline">Page</button>
+        <nav data-toc-list aria-label="Page outline"></nav>
       </aside>
 `;
   const localGraphHtml = pdf ? "" : `      <aside class="aaronnote-local-graph is-collapsed" data-published-local-graph hidden>

@@ -247,6 +247,7 @@ body.site-home.home-wiki #about,
 body.site-home.home-wiki #research,
 body.site-home.home-wiki #current-interests,
 body.site-home.home-wiki #notes-section,
+body.site-home.home-wiki #bookshelf,
 body.site-home.home-wiki #selected-notes,
 body.site-home.home-wiki #recent-updates,
 body.site-home.home-wiki #materials,
@@ -522,6 +523,205 @@ body.site-home.home-wiki .home-columns {
   gap: 12px;
 }
 
+body.site-home.home-wiki .bookshelf-showcase {
+  padding: 16px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--wiki-paper-warm), white 18%), var(--wiki-paper) 128px),
+    var(--wiki-paper);
+}
+
+body.site-home.home-wiki .home-bookshelf {
+  display: grid;
+  grid-template-columns: minmax(360px, 1fr) minmax(320px, 0.72fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+body.site-home.home-wiki .bookshelf-case {
+  position: relative;
+  isolation: isolate;
+  min-height: 314px;
+  padding: 20px 18px 18px;
+  overflow: hidden;
+  border: 1px solid var(--wiki-line);
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 34%), transparent 84px),
+    repeating-linear-gradient(90deg, rgb(108 99 88 / 7%) 0 1px, transparent 1px 46px),
+    repeating-linear-gradient(180deg, rgb(108 99 88 / 5%) 0 1px, transparent 1px 32px),
+    linear-gradient(180deg, var(--wiki-paper-soft), color-mix(in srgb, var(--wiki-paper), #d9c9ad 18%));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 74%),
+    inset 0 -18px 28px rgb(120 100 70 / 8%);
+}
+
+body.site-home.home-wiki .bookshelf-back {
+  position: absolute;
+  inset: 14px 15px 54px;
+  z-index: 0;
+  border: 1px solid var(--wiki-line-soft);
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 52%), transparent 62%),
+    repeating-linear-gradient(90deg, rgb(108 99 88 / 5%) 0 1px, transparent 1px 42px),
+    var(--wiki-paper);
+  box-shadow: inset 0 14px 22px rgb(120 100 70 / 7%);
+}
+
+body.site-home.home-wiki .bookshelf-books {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  min-height: 234px;
+  padding: 12px 8px 0;
+}
+
+body.site-home.home-wiki .bookshelf-volume {
+  --book-top: #f8f4ea;
+  --book-bottom: #ece4d3;
+  --book-mark: var(--wiki-link);
+  position: relative;
+  display: flex;
+  flex: 1 1 96px;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 82px;
+  max-width: 132px;
+  height: var(--book-height, 226px);
+  padding: 12px 9px 13px;
+  border: 1px solid #b8c0c8;
+  border-left: 6px solid var(--book-mark);
+  border-right-color: #9ea8b2;
+  border-radius: 2px;
+  background:
+    linear-gradient(90deg, rgb(255 255 255 / 58%) 0 18px, transparent 18px),
+    repeating-linear-gradient(180deg, rgb(108 99 88 / 7%) 0 1px, transparent 1px 8px),
+    linear-gradient(180deg, var(--book-top), var(--book-bottom));
+  box-shadow:
+    0 8px 14px rgb(38 30 20 / 10%),
+    inset 0 1px 0 rgb(255 255 255 / 78%),
+    inset -10px 0 18px rgb(120 100 70 / 7%);
+  color: var(--wiki-ink);
+  cursor: pointer;
+  font-family: var(--aaron-font-sans, "Avenir Next", "Segoe UI", system-ui, sans-serif);
+  text-align: left;
+  transform-origin: center bottom;
+  transition: transform 160ms ease, filter 160ms ease, box-shadow 160ms ease;
+}
+
+body.site-home.home-wiki .bookshelf-volume:nth-child(2n) {
+  --book-height: 214px;
+}
+
+body.site-home.home-wiki .bookshelf-volume:nth-child(3n) {
+  --book-height: 236px;
+}
+
+body.site-home.home-wiki .bookshelf-volume:hover,
+body.site-home.home-wiki .bookshelf-volume.is-active {
+  transform: translateY(-5px);
+  filter: saturate(1.05);
+  box-shadow:
+    0 13px 20px rgb(38 30 20 / 14%),
+    inset 0 1px 0 rgb(255 255 255 / 82%),
+    inset -10px 0 18px rgb(120 100 70 / 8%);
+}
+
+body.site-home.home-wiki .bookshelf-volume-count,
+body.site-home.home-wiki .bookshelf-volume-meta {
+  color: var(--wiki-muted);
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+}
+
+body.site-home.home-wiki .bookshelf-volume-title {
+  display: block;
+  max-width: 9ch;
+  color: var(--wiki-ink);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+}
+
+body.site-home.home-wiki .bookshelf-volume-blue { --book-mark: #3366aa; }
+body.site-home.home-wiki .bookshelf-volume-green { --book-mark: #4d7f5b; }
+body.site-home.home-wiki .bookshelf-volume-red { --book-mark: #9f3f3f; }
+body.site-home.home-wiki .bookshelf-volume-violet { --book-mark: #6b5c91; }
+body.site-home.home-wiki .bookshelf-volume-gold { --book-mark: #9a6b22; }
+body.site-home.home-wiki .bookshelf-volume-gray { --book-mark: #68737d; }
+
+body.site-home.home-wiki .bookshelf-plank {
+  position: absolute;
+  left: 15px;
+  right: 15px;
+  bottom: 24px;
+  z-index: 3;
+  height: 32px;
+  border-top: 1px solid rgb(255 255 255 / 76%);
+  border-bottom: 1px solid var(--wiki-line);
+  background:
+    repeating-linear-gradient(90deg, rgb(108 99 88 / 7%) 0 1px, transparent 1px 46px),
+    linear-gradient(180deg, #e4d7c3, #cbb99e);
+  box-shadow: 0 -6px 12px rgb(120 100 70 / 10%), inset 0 1px 0 rgb(255 255 255 / 72%);
+}
+
+body.site-home.home-wiki .bookshelf-preview-stack {
+  position: relative;
+  min-height: 314px;
+}
+
+body.site-home.home-wiki .bookshelf-preview {
+  display: none;
+  min-height: 100%;
+  padding: 16px 18px 18px;
+  border: 1px solid var(--wiki-line);
+  background:
+    linear-gradient(90deg, rgb(196 171 132 / 22%) 0 15px, transparent 15px),
+    linear-gradient(180deg, rgb(255 253 247 / 78%), var(--wiki-paper-soft)),
+    repeating-linear-gradient(180deg, rgb(108 99 88 / 5%) 0 1px, transparent 1px 30px);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 65%) inset;
+}
+
+body.site-home.home-wiki .bookshelf-preview.is-active {
+  display: block;
+}
+
+body.site-home.home-wiki .bookshelf-preview h3 {
+  margin-bottom: 8px;
+  font-size: 1.22rem;
+}
+
+body.site-home.home-wiki .bookshelf-preview-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-bottom: 8px;
+  color: var(--wiki-muted);
+  font-family: var(--aaron-font-sans, "Avenir Next", "Segoe UI", system-ui, sans-serif);
+  font-size: 0.82rem;
+}
+
+body.site-home.home-wiki .bookshelf-toc-preview {
+  margin: 12px 0 14px;
+  padding-left: 23px;
+}
+
+body.site-home.home-wiki .bookshelf-toc-preview li {
+  margin: 4px 0;
+}
+
+body.site-home.home-wiki .bookshelf-open-link {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  padding: 0 10px;
+  border: 1px solid #a2a9b1;
+  border-radius: 2px;
+  background: var(--wiki-paper-soft);
+  font-family: var(--aaron-font-sans, "Avenir Next", "Segoe UI", system-ui, sans-serif);
+}
+
 body.site-home.home-wiki .academic-panel {
   padding: 0;
   border: 0;
@@ -631,6 +831,10 @@ body.site-home.site-archive.home-wiki .site-footer {
   body.site-home.home-wiki .knowledge-grid {
     grid-template-columns: 1fr;
   }
+
+  body.site-home.home-wiki .home-bookshelf {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 760px) {
@@ -685,6 +889,28 @@ body.site-home.site-archive.home-wiki .site-footer {
 
   body.site-home.home-wiki .knowledge-grid {
     display: block;
+  }
+
+  body.site-home.home-wiki .bookshelf-case {
+    min-height: 0;
+    padding: 16px 13px 16px;
+  }
+
+  body.site-home.home-wiki .bookshelf-books {
+    flex-wrap: wrap;
+    min-height: 0;
+    padding-bottom: 38px;
+  }
+
+  body.site-home.home-wiki .bookshelf-volume {
+    flex-basis: calc(50% - 5px);
+    max-width: none;
+    height: 188px;
+  }
+
+  body.site-home.home-wiki .bookshelf-volume:hover,
+  body.site-home.home-wiki .bookshelf-volume.is-active {
+    transform: none;
   }
 
   body.site-home.home-wiki .index-panel {

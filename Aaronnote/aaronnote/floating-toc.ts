@@ -164,7 +164,7 @@ export function createFloatingTocPanel(options: {
     const relatedCount = relatedIds.length;
     const tagCount = tags.length;
     const anchorCount = anchors.length;
-    options.toggleButton.textContent = headings.length > 0 ? `TOC ${headings.length}` : "TOC";
+    options.toggleButton.textContent = headings.length > 0 ? `Page ${headings.length}` : "Page";
     if (headings.length === 0 && relatedIds.length === 0 && tagCount === 0 && anchorCount === 0) {
       const empty = document.createElement("div");
       empty.className = "aaronnote-toc-empty";

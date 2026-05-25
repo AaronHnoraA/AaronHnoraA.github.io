@@ -123,13 +123,13 @@ function initPublishedBookToc(article, genericToc, bookData) {
   trigger.className = "aaronnote-published-book-trigger";
   trigger.setAttribute("aria-expanded", "false");
   trigger.title = "Toggle book contents";
-  trigger.textContent = "TOC";
+  trigger.textContent = "Book";
 
   const drawer = document.createElement("aside");
   drawer.className = "aaronnote-published-book-toc is-collapsed";
-  drawer.setAttribute("aria-label", "Book table of contents");
+  drawer.setAttribute("aria-label", "Book contents");
   const list = document.createElement("nav");
-  list.setAttribute("aria-label", "Book table of contents");
+  list.setAttribute("aria-label", "Book contents");
   drawer.append(list);
   document.body.append(drawer, trigger);
 
@@ -292,7 +292,7 @@ function initPublishedToc() {
     }
     renderKey = key;
     toc.hidden = headings.length === 0;
-    toggle.textContent = headings.length > 0 ? `TOC ${headings.length}` : "TOC";
+    toggle.textContent = headings.length > 0 ? `Page ${headings.length}` : "Page";
     if (headings.length === 0) {
       list.replaceChildren();
       return;

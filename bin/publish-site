@@ -1119,7 +1119,7 @@ def add_book_toc_after_meta(markdown_text: str, note: Note, notes_by_rel: dict[s
     toc = "\n".join([
         "#+begin html",
         '<nav class="aaronnote-book-cover-toc" aria-label="Book contents">',
-        "<strong>Contents</strong>",
+        "<strong>Book contents</strong>",
         f"<ol>{items}</ol>",
         "</nav>",
         "#+end html",

@@ -321,13 +321,13 @@ root.innerHTML = `
     <aside class="aaronnote-lean-panel" data-lean-panel hidden></aside>
     <button type="button" class="aaronnote-lean-trigger" data-lean-trigger hidden title="Toggle Lean Infoview">⊢</button>
     <aside class="aaronnote-floating-toc is-collapsed" data-floating-toc>
-      <button type="button" data-toc-toggle aria-expanded="false">TOC</button>
-      <nav data-toc-list aria-label="Table of contents"></nav>
+      <button type="button" data-toc-toggle aria-expanded="false" title="Toggle page outline">Page</button>
+      <nav data-toc-list aria-label="Page outline"></nav>
     </aside>
     <aside class="aaronnote-book-toc is-collapsed" data-book-toc hidden>
-      <nav data-book-toc-list aria-label="Book table of contents"></nav>
+      <nav data-book-toc-list aria-label="Book contents"></nav>
     </aside>
-    <button type="button" class="aaronnote-book-trigger" data-book-toc-toggle aria-expanded="false" hidden title="Toggle book contents">TOC</button>
+    <button type="button" class="aaronnote-book-trigger" data-book-toc-toggle aria-expanded="false" hidden title="Toggle book contents">Book</button>
     <aside class="aaronnote-local-graph is-collapsed" data-local-graph hidden>
       <button type="button" data-local-graph-toggle aria-expanded="false">Graph</button>
       <section class="aaronnote-local-graph-panel" aria-label="Local graph">
@@ -4938,7 +4938,7 @@ function renderBookTocPanel(context: BookEditorContext | null): void {
   if (key === bookTocRenderKey) return;
   bookTocRenderKey = key;
 
-  bookTocToggle.textContent = "TOC";
+  bookTocToggle.textContent = "Book";
   bookTocToggle.title = `${context?.title || "Book"} · ${items.length} headings`;
   const frag = document.createDocumentFragment();
   const status = document.createElement("div");
