@@ -2631,12 +2631,41 @@ body.book-toc-open .aaronnote-editor {
   font: 700 11px/1 var(--aaron-font-sans);
 }
 
+.aaronnote-book-toc-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  min-height: 30px;
+  padding-left: calc(var(--book-depth, 0) * 14px);
+}
+
+.aaronnote-book-toc-branch,
+.aaronnote-book-toc-spacer {
+  width: 24px;
+  height: 26px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--aaron-muted);
+  cursor: pointer;
+  font: 800 12px/1 var(--aaron-font-sans);
+}
+
+.aaronnote-book-toc-spacer {
+  cursor: default;
+}
+
+.aaronnote-book-toc-branch:hover {
+  background: var(--aaron-paper-soft);
+  color: var(--aaron-red-dark);
+}
+
 .aaronnote-book-toc-item {
   width: 100%;
   min-height: 28px;
   border: 0;
   border-radius: 2px;
-  padding: 5px 8px 5px calc(9px + var(--book-depth) * 14px);
+  padding: 5px 8px;
   background: transparent;
   color: var(--aaron-muted);
   cursor: pointer;

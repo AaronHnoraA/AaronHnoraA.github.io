@@ -329,6 +329,95 @@ describe("server note refs", () => {
     }
   });
 
+  test("deferred book saves return resolved book metadata", async () => {
+    const root = await setupRoot("aaronnote-book-save-");
+    try {
+      await mkdir(join(root, "books/demo/chapters"), { recursive: true });
+      const coverFile = join(root, "books/demo/index.md");
+      const childFile = join(root, "books/demo/chapters/chapter-1.md");
+      await writeFile(coverFile, [
+        "#+begin meta",
+        "id: book-save-demo",
+        "title: Save Demo Book",
+        "book: true",
+        "#+end meta",
+        "",
+        "@@include [chapters/chapter-1.md]",
+        "",
+      ].join("\n"), "utf8");
+      await writeFile(childFile, [
+        "#+begin meta",
+        "title: Chapter One",
+        "book: included@../index.md",
+        "#+end meta",
+        "",
+        "# Chapter One",
+        "",
+      ].join("\n"), "utf8");
+
+      await notesIndexPayload();
+      const savedCover = await saveNote({
+        file: coverFile,
+        content: [
+          "#+begin meta",
+          "id: book-save-demo",
+          "title: Save Demo Book",
+          "book: true",
+          "#+end meta",
+          "",
+          "# Cover Heading",
+          "",
+          "@@include [chapters/chapter-1.md]",
+          "",
+        ].join("\n"),
+        clientId: "book-save-test",
+        seq: 1,
+        force: true,
+        refresh: "deferred",
+      }) as { notesRefresh?: string; note?: any; notes?: any[] };
+      expect(savedCover.notesRefresh).toBe("book");
+      expect(savedCover.note).toMatchObject({
+        id: "book-save-demo",
+        bookRole: "cover",
+        bookIncludedPaths: ["books/demo/chapters/chapter-1.md"],
+      });
+      expect(savedCover.note?.bookToc).toEqual(expect.arrayContaining([
+        expect.objectContaining({ text: "Cover Heading", path: "books/demo/index.md" }),
+        expect.objectContaining({ text: "Chapter One", path: "books/demo/chapters/chapter-1.md" }),
+      ]));
+
+      const savedChild = await saveNote({
+        file: childFile,
+        content: [
+          "#+begin meta",
+          "title: Chapter One",
+          "book: included@../index.md",
+          "#+end meta",
+          "",
+          "# Chapter One",
+          "",
+          "## Child Update",
+          "",
+        ].join("\n"),
+        clientId: "book-save-test",
+        seq: 2,
+        force: true,
+        refresh: "deferred",
+      }) as { notesRefresh?: string; note?: any; notes?: any[] };
+      expect(savedChild.notesRefresh).toBe("book");
+      expect(savedChild.note).toMatchObject({
+        bookRole: "included",
+        bookCoverId: "book-save-demo",
+      });
+      const cover = savedChild.notes?.find((note) => note.id === "book-save-demo");
+      expect(cover?.bookToc).toEqual(expect.arrayContaining([
+        expect.objectContaining({ text: "Child Update", path: "books/demo/chapters/chapter-1.md" }),
+      ]));
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   test("roam-hidden notes stay in the file index but leave roam graph and tag index", async () => {
     const root = await setupRoot("aaronnote-hidden-roam-");
     try {

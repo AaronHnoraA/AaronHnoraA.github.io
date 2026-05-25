@@ -895,6 +895,11 @@ async function readNoteTextSafe(file) {
   }
 }
 
+function contentMayAffectBook(text) {
+  const bookMeta = bookMetaFromContent(text);
+  return Boolean(bookMeta.role || includeRefsFromContent(text).length > 0);
+}
+
 async function applyBookMetadata(notes) {
   const covers = notes.filter((note) => note.bookRole === "cover" && note.id);
   const notesByFile = new Map(notes.map((note) => [note.file, note]));
@@ -4584,6 +4589,8 @@ export function configure(options = {}) {
 export async function saveNote(body) {
   const file = safeOpenFile(body.file);
   const content = String(body.content ?? "");
+  const previousContent = await readFile(file, "utf8").catch(() => "");
+  const bookSensitiveSave = contentMayAffectBook(previousContent) || contentMayAffectBook(content);
   const force = body.force === true;
   const baseMtimeMs = Number(body.baseMtimeMs);
   const wrote = await enqueueSaveWrite(file, async () => {
@@ -4615,6 +4622,24 @@ export async function saveNote(body) {
   const refresh = body.refresh === "deferred" ? "deferred" : "full";
   if (refresh === "deferred") {
     markNotesDirty(file);
+    if (bookSensitiveSave) {
+      const notes = await scanNotes();
+      scheduleRoamDbSync(notes, file);
+      const note = notes.find((item) => item.file === file) || await noteSummaryForFile(file, content);
+      return {
+        type: "saved",
+        ok: true,
+        file,
+        message: "Saved",
+        note,
+        notes,
+        kind: kindFromContent(content),
+        notesRefresh: "book",
+        standalone: false,
+        mtimeMs: wrote.mtimeMs,
+        size: wrote.size,
+      };
+    }
     scheduleRoamDbSync(null, file);
     return { type: "saved", ok: true, file, message: "Saved", note: await noteSummaryForFile(file, content), kind: kindFromContent(content), notesRefresh: "deferred", standalone: false, mtimeMs: wrote.mtimeMs, size: wrote.size };
   }

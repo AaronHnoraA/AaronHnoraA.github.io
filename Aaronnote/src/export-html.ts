@@ -217,7 +217,7 @@ export function cleanEditorHTML(root: HTMLElement): string {
   const protectedSrcdoc = protectVisualSrcdoc(protectedFrameAttrs.html);
   const sanitized = DOMPurify.sanitize(protectedSrcdoc.html, {
     USE_PROFILES: { html: true, svg: true, mathMl: true },
-    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|file|zotero|roam|aaronnote-asset):|[#/]|\.{0,2}\/|[^a-z])/i,
+    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|file|zotero|roam|aaronnote-asset):|[#/]|\.{0,2}\/|[A-Za-z0-9._~!$&'()*+,;=@%-]+(?:[/?#]|$))/i,
     ADD_TAGS: [
       "math",
       "mrow",
@@ -280,6 +280,7 @@ export function cleanEditorHTML(root: HTMLElement): string {
       "data-aaronnote-visual-kind",
       "data-aaronnote-protected-srcdoc",
       "data-aaronnote-protected-frame-attrs",
+      "href",
       "src",
       "srcdoc",
       "title",

@@ -327,7 +327,7 @@ root.innerHTML = `
     <aside class="aaronnote-book-toc is-collapsed" data-book-toc hidden>
       <nav data-book-toc-list aria-label="Book table of contents"></nav>
     </aside>
-    <button type="button" class="aaronnote-book-trigger" data-book-toc-toggle aria-expanded="false" hidden title="Toggle book contents">Book</button>
+    <button type="button" class="aaronnote-book-trigger" data-book-toc-toggle aria-expanded="false" hidden title="Toggle book contents">TOC</button>
     <aside class="aaronnote-local-graph is-collapsed" data-local-graph hidden>
       <button type="button" data-local-graph-toggle aria-expanded="false">Graph</button>
       <section class="aaronnote-local-graph-panel" aria-label="Local graph">
@@ -679,6 +679,7 @@ let pathSuggestions: string[] = [];
 let pendingEquationTag = params.get("eqTag") || "";
 let pendingInlineTag = params.get("tag") || "";
 let pendingDomTarget = params.get("dom") || "";
+let pendingOpenAtTop = false;
 let activeNoteKind = "";
 let noteKindCleanup: (() => void) | null = null;
 let noteKindLoadSeq = 0;
@@ -697,8 +698,9 @@ const draftStoragePrefix = "aaronnote.draft.";
 let pluginOverrides: PluginOverrideMap = {};
 let pluginOverridesLoaded = false;
 type StoredDraft = { file: string; content: string; revision: number; updatedAt: number };
-type OpenNoteOptions = { newWindow?: boolean; equationTag?: string; inlineTag?: string; domTarget?: string; recordJump?: boolean };
+type OpenNoteOptions = { newWindow?: boolean; equationTag?: string; inlineTag?: string; domTarget?: string; recordJump?: boolean; scrollTop?: boolean };
 type BookTocItem = NonNullable<NoteSummary["bookToc"]>[number];
+type BookTocNode = { item: BookTocItem | BookEditorTocItem; key: string; level: number; children: BookTocNode[] };
 type JumpTarget = {
   pos: number;
   label: string;
@@ -1420,12 +1422,33 @@ function noteNeedsRelationshipRefresh(previous: NoteSummary | undefined, next: N
     || !stringArrayEqual(previous.refs ?? [], next.refs ?? []);
 }
 
+function mergeBookDerivedFields(previous: NoteSummary, next: NoteSummary): NoteSummary {
+  if (!previous.bookRole || previous.bookRole !== next.bookRole) return next;
+  const merged = { ...next };
+  const keepString = (key: "bookCoverId" | "bookCoverPath" | "bookParentPath") => {
+    if (!merged[key] && previous[key]) merged[key] = previous[key];
+  };
+  const keepArray = <K extends "bookIncludedPaths" | "bookToc" | "bookDomTargets" | "bookDiagnostics">(key: K) => {
+    if ((merged[key] == null || merged[key]?.length === 0) && previous[key]?.length) {
+      merged[key] = previous[key] as NoteSummary[K];
+    }
+  };
+  keepString("bookCoverId");
+  keepString("bookCoverPath");
+  keepString("bookParentPath");
+  keepArray("bookIncludedPaths");
+  keepArray("bookToc");
+  keepArray("bookDomTargets");
+  keepArray("bookDiagnostics");
+  return merged;
+}
+
 function upsertCurrentNoteSummary(note: NoteSummary, options: { preserveBacklinks?: boolean } = {}): void {
   if (!note.file) return;
   const index = notes.findIndex((item) => item.file === note.file);
   if (index >= 0) {
     const previous = notes[index]!;
-    const merged = { ...previous, ...note };
+    const merged = { ...previous, ...mergeBookDerivedFields(previous, note) };
     if (options.preserveBacklinks && (note.backlinks == null || note.backlinks.length === 0)) {
       merged.backlinks = previous.backlinks;
     }
@@ -2039,6 +2062,15 @@ function openBookTocItem(item: BookTocItem | BookEditorTocItem, options: { newWi
   });
 }
 
+function openBookIncludeRef(ref: string): void {
+  const target = resolvePhysicalInternalNoteHref(ref) || resolveNoteRef(ref);
+  if (!target?.file) {
+    setStatus(`Include target not found: ${ref}`);
+    return;
+  }
+  openNote(target, { recordJump: true, scrollTop: true });
+}
+
 function resolveRoamLikeNoteTarget(href: string): { note?: NoteSummary; equationTag?: string; inlineTag?: string; domTarget?: string } | null {
   const target = splitRoamLikeHref(href);
   if (!target) return null;
@@ -2057,6 +2089,15 @@ function resolveInternalNoteHref(href: string): NoteSummary | undefined {
   for (const candidate of internalNoteCandidates(href)) {
     const note = resolveNoteRef(candidate);
     if (note) return note;
+  }
+  return undefined;
+}
+
+function resolvePhysicalInternalNoteHref(href: string): NoteSummary | undefined {
+  if (!markdownNoteHref(href)) return undefined;
+  for (const candidate of internalNoteCandidates(href)) {
+    const note = notes.find((item) => noteMatchesBookPath(item, candidate));
+    if (note?.file) return note;
   }
   return undefined;
 }
@@ -4790,6 +4831,93 @@ function updateFloatingToc(): void {
 }
 
 let bookTocRenderKey = "";
+const expandedBookTocKeys = new Set<string>();
+
+function bookTocNodeKey(item: BookTocItem | BookEditorTocItem, index: number): string {
+  return [
+    item.path || "",
+    item.slug || "",
+    item.text || "",
+    String(index),
+  ].join("\t");
+}
+
+function buildBookTocTree(items: Array<BookTocItem | BookEditorTocItem>): BookTocNode[] {
+  const roots: BookTocNode[] = [];
+  const stack: BookTocNode[] = [];
+  items.forEach((item, index) => {
+    const level = Math.max(1, Number(item.level || 1));
+    const node: BookTocNode = { item, key: bookTocNodeKey(item, index), level, children: [] };
+    while (stack.length > 0 && stack[stack.length - 1].level >= level) stack.pop();
+    const parent = stack[stack.length - 1];
+    if (parent) parent.children.push(node);
+    else roots.push(node);
+    stack.push(node);
+  });
+  return roots;
+}
+
+function renderBookTocNode(
+  frag: DocumentFragment,
+  node: BookTocNode,
+  context: BookEditorContext,
+  currentPath: string,
+  activeSlug: string,
+): void {
+  const item = node.item;
+  const row = document.createElement("div");
+  row.className = "aaronnote-book-toc-row";
+  row.style.setProperty("--book-depth", String(Math.max(0, node.level - 1)));
+  const expanded = expandedBookTocKeys.has(node.key);
+  const hasChildren = node.children.length > 0;
+
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = hasChildren ? "aaronnote-book-toc-branch" : "aaronnote-book-toc-spacer";
+  toggle.setAttribute("aria-label", expanded ? "Collapse section" : "Expand section");
+  toggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+  toggle.textContent = hasChildren ? (expanded ? "▾" : "▸") : "";
+  toggle.disabled = !hasChildren;
+  toggle.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!hasChildren) return;
+    if (expandedBookTocKeys.has(node.key)) expandedBookTocKeys.delete(node.key);
+    else expandedBookTocKeys.add(node.key);
+    bookTocRenderKey = "";
+    renderBookTocPanel(context);
+  });
+  row.appendChild(toggle);
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "aaronnote-book-toc-item";
+  button.dataset.path = item.path || "";
+  button.dataset.slug = item.slug || "";
+  button.textContent = item.text || item.path || "Untitled";
+  button.title = [item.text || "", item.path || ""].filter(Boolean).join(" · ");
+  const sameFile = bookPathKey(item.path) === currentPath;
+  if (sameFile) button.classList.add("is-current-file");
+  if (sameFile && activeSlug && (item.slug === activeSlug || slugDomTarget(item.text || "") === activeSlug)) {
+    button.classList.add("is-active");
+    button.setAttribute("aria-current", "location");
+  }
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    openBookTocItem(item, { newWindow: event.altKey || event.metaKey });
+  });
+  button.addEventListener("auxclick", (event) => {
+    if (event.button !== 1) return;
+    event.preventDefault();
+    openBookTocItem(item, { newWindow: true });
+  });
+  row.appendChild(button);
+  frag.appendChild(row);
+
+  if (hasChildren && expanded) {
+    for (const child of node.children) renderBookTocNode(frag, child, context, currentPath, activeSlug);
+  }
+}
 
 function renderBookTocPanel(context: BookEditorContext | null): void {
   syncEditorBookContext(context);
@@ -4810,7 +4938,7 @@ function renderBookTocPanel(context: BookEditorContext | null): void {
   if (key === bookTocRenderKey) return;
   bookTocRenderKey = key;
 
-  bookTocToggle.textContent = "Book";
+  bookTocToggle.textContent = "TOC";
   bookTocToggle.title = `${context?.title || "Book"} · ${items.length} headings`;
   const frag = document.createDocumentFragment();
   const status = document.createElement("div");
@@ -4822,32 +4950,7 @@ function renderBookTocPanel(context: BookEditorContext | null): void {
   ].filter(Boolean).join(" · ");
   frag.appendChild(status);
 
-  for (const item of items) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "aaronnote-book-toc-item";
-    button.style.setProperty("--book-depth", String(Math.max(0, Number(item.level || 1) - 1)));
-    button.dataset.path = item.path || "";
-    button.dataset.slug = item.slug || "";
-    button.textContent = item.text || item.path || "Untitled";
-    button.title = [item.text || "", item.path || ""].filter(Boolean).join(" · ");
-    const sameFile = bookPathKey(item.path) === currentPath;
-    if (sameFile) button.classList.add("is-current-file");
-    if (sameFile && activeSlug && (item.slug === activeSlug || slugDomTarget(item.text || "") === activeSlug)) {
-      button.classList.add("is-active");
-      button.setAttribute("aria-current", "location");
-    }
-    button.addEventListener("click", (event) => {
-      event.preventDefault();
-      openBookTocItem(item, { newWindow: event.altKey || event.metaKey });
-    });
-    button.addEventListener("auxclick", (event) => {
-      if (event.button !== 1) return;
-      event.preventDefault();
-      openBookTocItem(item, { newWindow: true });
-    });
-    frag.appendChild(button);
-  }
+  for (const node of buildBookTocTree(items)) renderBookTocNode(frag, node, context, currentPath, activeSlug);
   bookTocList.replaceChildren(frag);
 }
 
@@ -4887,6 +4990,7 @@ function openNote(note: NoteSummary, options: OpenNoteOptions = {}): void {
   pendingEquationTag = equationTag;
   pendingInlineTag = inlineTag;
   pendingDomTarget = domTarget;
+  pendingOpenAtTop = options.scrollTop === true;
   void openStandaloneFile(note.file);
   showEditorPage();
 }
@@ -7349,6 +7453,8 @@ function applyOpen(msg: Extract<Inbound, { type: "open" }>, options: { preserveF
   pendingInlineTag = "";
   const domTarget = normalizeDomTarget(pendingDomTarget);
   pendingDomTarget = "";
+  const openAtTop = pendingOpenAtTop;
+  pendingOpenAtTop = false;
   const todoFocus = pendingTodoFocus && pendingTodoFocus.file === currentFile ? pendingTodoFocus : null;
   if (todoFocus) pendingTodoFocus = null;
   const jumped = !options.preserveFocus && equationTag ? jumpToEquationTag(equationTag) : false;
@@ -7361,7 +7467,11 @@ function applyOpen(msg: Extract<Inbound, { type: "open" }>, options: { preserveF
   const selectedTemplate = !options.preserveFocus && !jumped && !inlineJumped && !domJumped && !todoJumped && templateSelection
     ? (editor.setMarkdownSelection(templateSelection.from, templateSelection.to), true)
     : false;
-  const restored = !options.preserveFocus && !jumped && !inlineJumped && !domJumped && !todoJumped && !selectedTemplate && currentFile ? restoreCursorPosition(currentFile) : false;
+  if (openAtTop && !jumped && !inlineJumped && !domJumped && !todoJumped && !selectedTemplate) {
+    editor.setMarkdownSelection(0, 0);
+    host.scrollTop = 0;
+  }
+  const restored = !options.preserveFocus && !openAtTop && !jumped && !inlineJumped && !domJumped && !todoJumped && !selectedTemplate && currentFile ? restoreCursorPosition(currentFile) : false;
   if (!options.preserveFocus && !jumped && !inlineJumped && !domJumped && !todoJumped && !selectedTemplate && !restored) editor.focus();
   vim.setMode("insert");
   if (equationTag) {
@@ -7744,6 +7854,14 @@ document.addEventListener("aaronnote:book-toc-open", (event) => {
   if (!item) return;
   event.preventDefault();
   openBookTocItem(item);
+});
+
+document.addEventListener("aaronnote:book-include-open", (event) => {
+  const custom = event as CustomEvent<{ ref?: string }>;
+  const ref = custom.detail?.ref || "";
+  if (!ref) return;
+  event.preventDefault();
+  openBookIncludeRef(ref);
 });
 
 document.addEventListener("aaronnote:attachment-context-menu", (event) => {

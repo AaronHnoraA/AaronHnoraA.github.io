@@ -7,6 +7,7 @@ from pathlib import Path
 import hashlib
 import json
 import os
+import posixpath
 import re
 import shutil
 import subprocess
@@ -19,7 +20,7 @@ ROAM_ROOT = ROOT / "roam"   # symlink → ~/Documents/AaronNote (own git repo)
 PUBLIC = ROOT / "public"
 PUBLISH_STATE = PUBLIC / ".publish-state.json"
 ASSET_VERSION = "20260517-md"
-NOTE_THEME_VERSION = "20260522-local-graph"
+NOTE_THEME_VERSION = "20260525-book-toc"
 BOOK_CACHE_SCHEMA = 1
 BOOK_CACHE_DIR = ROOT / "var" / "Aaronnote" / "book"
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".avif"}
@@ -857,7 +858,7 @@ def git_inputs_dirty() -> bool:
 
 def publish_outputs_exist(notes: list[Note]) -> bool:
     required = [PUBLIC / "js" / "data.js", PUBLIC / "index.html", PUBLIC / "notes.html"]
-    required.extend(PUBLIC / note.link for note in notes if note.book_role != "included")
+    required.extend(PUBLIC / note.link for note in notes)
     return all(path.exists() for path in required)
 
 
@@ -946,6 +947,14 @@ def deps_for_note(note: Note, notes_by_rel: dict[str, Note] | None = None) -> se
                 child_has_lean = False
             if child_lean.exists() or child_has_lean:
                 deps.add(project_rel_path(child_lean).as_posix())
+    if notes_by_rel and note.book_role == "included":
+        cover = book_cover_for_note(note, notes_by_rel)
+        if cover:
+            deps.add(project_rel_path(cover.path).as_posix())
+            for rel_path in cover.book_included_paths:
+                child = notes_by_rel.get(rel_path)
+                if child:
+                    deps.add(project_rel_path(child.path).as_posix())
     deps.update(path.relative_to(ROOT).as_posix() for path in note_kind_asset_paths(note))
     return deps
 
@@ -1097,11 +1106,11 @@ def html_escape(value: object) -> str:
     )
 
 
-def add_book_toc_after_meta(markdown_text: str, note: Note) -> str:
+def add_book_toc_after_meta(markdown_text: str, note: Note, notes_by_rel: dict[str, Note] | None = None) -> str:
     if note.book_role != "cover" or not note.book_toc:
         return markdown_text
     items = "\n".join(
-        f'<li data-level="{int(item.get("level") or 1)}"><a href="#{html_escape(item.get("slug"))}">{html_escape(item.get("text"))}</a></li>'
+        f'<li data-level="{int(item.get("level") or 1)}"><a href="{html_escape(book_toc_item_href(note, item))}">{html_escape(item.get("text"))}</a></li>'
         for item in note.book_toc
         if int(item.get("level") or 1) <= 3
     )
@@ -1120,6 +1129,47 @@ def add_book_toc_after_meta(markdown_text: str, note: Note) -> str:
     if match:
         return f"{markdown_text[:match.end()].rstrip()}\n\n{toc}{markdown_text[match.end():].lstrip()}"
     return f"{toc}{markdown_text}"
+
+
+def book_include_card_html(note: Note, raw_ref: str, notes_by_rel: dict[str, Note]) -> str:
+    child_path = resolve_include_path(note, raw_ref)
+    child: Note | None = None
+    if child_path:
+        try:
+            child = notes_by_rel.get(project_rel_path(child_path).as_posix())
+        except ValueError:
+            child = None
+    if not child:
+        return "\n".join([
+            "#+begin html",
+            '<div class="aaronnote-book-include-card is-missing">',
+            '<span class="aaronnote-book-include-badge">Include</span>',
+            f"<strong>Missing include</strong>",
+            f"<small>{html_escape(raw_ref)}</small>",
+            "</div>",
+            "#+end html",
+        ])
+    href = relative_site_href(note_output_link(note), note_output_link(child))
+    return "\n".join([
+        "#+begin html",
+        f'<a class="aaronnote-book-include-card" href="{html_escape(href)}">',
+        '<span class="aaronnote-book-include-badge">Include</span>',
+        f"<strong>{html_escape(child.public_title)}</strong>",
+        f"<small>{html_escape(child.rel_path)}</small>",
+        "</a>",
+        "#+end html",
+    ])
+
+
+def render_book_include_cards(markdown_text: str, note: Note, notes_by_rel: dict[str, Note]) -> str:
+    if not note.book_include_refs:
+        return markdown_text
+
+    def replace_include(match: re.Match[str]) -> str:
+        raw_ref = match.group(1).strip()
+        return f"\n\n{book_include_card_html(note, raw_ref, notes_by_rel)}\n\n"
+
+    return INCLUDE_RE.sub(replace_include, markdown_text)
 
 
 def lean_regions_for_book(note: Note, markdown_text: str, notes_by_rel: dict[str, Note] | None = None) -> dict[str, str]:
@@ -1154,12 +1204,62 @@ def note_output_link(note: Note) -> str:
     return note.link
 
 
+def note_link_for_rel_path(rel_path: str) -> str:
+    return Path(rel_path).with_suffix(".html").as_posix()
+
+
+def relative_site_href(from_link: str, to_link: str) -> str:
+    from_dir = posixpath.dirname(from_link) or "."
+    return posixpath.relpath(to_link, from_dir)
+
+
+def book_cover_for_note(note: Note, notes_by_rel: dict[str, Note] | None = None) -> Note | None:
+    if note.book_role == "cover":
+        return note
+    if not notes_by_rel or note.book_role != "included" or not note.book_cover_id:
+        return None
+    for candidate in notes_by_rel.values():
+        if candidate.id == note.book_cover_id:
+            return candidate
+    return None
+
+
+def book_toc_item_href(from_note: Note, item: dict[str, object]) -> str:
+    slug = str(item.get("slug") or "").strip()
+    target_path = str(item.get("path") or from_note.rel_path).strip() or from_note.rel_path
+    hash_part = f"#{slug}" if slug else ""
+    if target_path == from_note.rel_path:
+        return hash_part or "#"
+    return f"{relative_site_href(note_output_link(from_note), note_link_for_rel_path(target_path))}{hash_part}"
+
+
+def published_book_payload(note: Note, notes_by_rel: dict[str, Note] | None = None) -> dict[str, object] | None:
+    cover = book_cover_for_note(note, notes_by_rel)
+    if not cover or not cover.book_toc:
+        return None
+    toc = []
+    for item in cover.book_toc:
+        next_item = dict(item)
+        next_item["href"] = book_toc_item_href(note, item)
+        toc.append(next_item)
+    return {
+        "id": cover.public_id,
+        "title": cover.public_title,
+        "role": note.book_role,
+        "coverPath": cover.rel_path,
+        "currentPath": note.rel_path,
+        "coverHref": relative_site_href(note_output_link(note), note_output_link(cover)),
+        "toc": toc,
+    }
+
+
 def note_page_html(
     note: Note,
     markdown_text: str,
     *,
     include_private_content: bool = False,
     lean_regions: dict[str, str] | None = None,
+    notes_by_rel: dict[str, Note] | None = None,
 ) -> str:
     root = site_root_for(note_output_link(note))
     kind = active_note_kind(note)
@@ -1180,6 +1280,7 @@ def note_page_html(
             "private": note.private,
             "includePrivateContent": include_private_content,
             "leanRegions": lean_regions or {},
+            "book": published_book_payload(note, notes_by_rel),
         },
     })
     return HTML_MD_LINK_RE.sub(r'href="\1.html\2"', rendered)
@@ -1199,9 +1300,11 @@ def render_note_html(
         return "skipped"
     output_file.parent.mkdir(parents=True, exist_ok=True)
     deps_file.parent.mkdir(parents=True, exist_ok=True)
-    markdown_text = expanded_book_markdown(note, notes_by_rel or {}) if note.book_role == "cover" else note.path.read_text(encoding="utf-8")
+    markdown_text = note.path.read_text(encoding="utf-8")
     if note.book_role == "cover":
-        markdown_text = add_book_toc_after_meta(markdown_text, note)
+        markdown_text = add_book_toc_after_meta(markdown_text, note, notes_by_rel)
+    if notes_by_rel:
+        markdown_text = render_book_include_cards(markdown_text, note, notes_by_rel)
     if not include_private_content:
         markdown_text = sanitize_published_metadata_tags(markdown_text)
     lean_regions = lean_regions_for_book(note, markdown_text, notes_by_rel)
@@ -1211,6 +1314,7 @@ def render_note_html(
             markdown_text,
             include_private_content=include_private_content,
             lean_regions=lean_regions,
+            notes_by_rel=notes_by_rel,
         ),
         encoding="utf-8",
     )
@@ -1435,7 +1539,7 @@ def copy_static(notes: list[Note]) -> None:
 
 
 def clean_stale_outputs(notes: list[Note]) -> None:
-    expected_html = {note.link for note in notes if note.book_role != "included"}
+    expected_html = {note.link for note in notes}
     private_assets = private_static_asset_paths(notes)
     roam_public = PUBLIC / "roam"
     if roam_public.exists():
@@ -1639,9 +1743,6 @@ def main() -> None:
     rendered = 0
     skipped = 0
     for note in notes:
-        if note.book_role == "included":
-            skipped += 1
-            continue
         copy_note_static_assets(note, PUBLIC, notes_by_rel)
         status = render_note_html(note, notes_by_rel=notes_by_rel)
         rendered += status == "rendered"

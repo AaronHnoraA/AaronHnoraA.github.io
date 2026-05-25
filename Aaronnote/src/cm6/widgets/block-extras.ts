@@ -44,6 +44,7 @@ import { supportedDiagramLang } from "../../diagram-langs.ts";
 
 // [toc] alone on a line
 const TOC_LINE_RE = /^[ \t]*\[toc\][ \t]*$/im;
+const INCLUDE_LINE_RE = /^[ \t]*@@include[ \t]+\[([^\]\n]+)\][ \t]*$/i;
 
 const HR_LINE_RE = /^[ \t]{0,3}((?:-[ \t]*){3,}|(?:\*[ \t]*){3,}|(?:_[ \t]*){3,})$/;
 
@@ -281,6 +282,7 @@ export type BookEditorContext = {
 
 interface BlockExtraRanges {
   toc: Array<{ from: number; to: number }>;
+  includes: Array<{ from: number; to: number; ref: string }>;
   hrs: Array<{ from: number; to: number }>;
   frontMatter: { from: number; to: number; body: string } | null;
 }
@@ -450,6 +452,55 @@ class BookContentsWidget extends WidgetType {
   ignoreEvent(): boolean { return true; }
 }
 
+class IncludeWidget extends WidgetType {
+  ref: string;
+
+  constructor(ref: string) {
+    super();
+    this.ref = ref;
+  }
+
+  eq(other: IncludeWidget): boolean {
+    return this.ref === other.ref;
+  }
+
+  toDOM(view: EditorView): HTMLElement {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.tabIndex = -1;
+    button.className = "cm-book-include";
+    button.title = this.ref;
+
+    const label = document.createElement("span");
+    label.className = "cm-book-include-label";
+    label.textContent = "Include";
+    const path = document.createElement("span");
+    path.className = "cm-book-include-path";
+    path.textContent = this.ref;
+    button.append(label, path);
+
+    button.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+    button.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      view.dom.dispatchEvent(new CustomEvent("aaronnote:book-include-open", {
+        bubbles: true,
+        detail: { ref: this.ref },
+      }));
+    });
+    return button;
+  }
+
+  ignoreEvent(): boolean { return true; }
+}
+
 function tocSignature(headings: TocHeading[]): string {
   return headings.map((h) => `${h.pos}\t${h.level}\t${h.text}`).join("\n");
 }
@@ -537,20 +588,23 @@ function scanBlockExtraLineRanges(
   doc: Text,
   startLine = 1,
   endLine = doc.lines,
-): Pick<BlockExtraRanges, "toc" | "hrs"> {
+): Pick<BlockExtraRanges, "toc" | "includes" | "hrs"> {
   const toc: Array<{ from: number; to: number }> = [];
+  const includes: Array<{ from: number; to: number; ref: string }> = [];
   const hrs: Array<{ from: number; to: number }> = [];
   for (let lineNum = Math.max(1, startLine); lineNum <= Math.min(doc.lines, endLine); lineNum++) {
     const line = doc.line(lineNum);
     if (TOC_LINE_RE.test(line.text)) toc.push({ from: line.from, to: line.to });
+    const includeMatch = INCLUDE_LINE_RE.exec(line.text);
+    if (includeMatch?.[1]?.trim()) includes.push({ from: line.from, to: line.to, ref: includeMatch[1].trim() });
     if (HR_LINE_RE.test(line.text)) hrs.push({ from: line.from, to: line.to });
   }
-  return { toc, hrs };
+  return { toc, includes, hrs };
 }
 
 function scanBlockExtraRanges(doc: Text): BlockExtraRanges {
-  const { toc, hrs } = scanBlockExtraLineRanges(doc);
-  return { toc, hrs, frontMatter: scanFrontMatter(doc) };
+  const { toc, includes, hrs } = scanBlockExtraLineRanges(doc);
+  return { toc, includes, hrs, frontMatter: scanFrontMatter(doc) };
 }
 
 const blockExtraRangesField = StateField.define<BlockExtraRanges>({
@@ -611,6 +665,7 @@ function canPatchBlockExtraRangesNearChanges(doc: Text, changes: ChangeSet, rang
 function mapBlockExtraRanges(ranges: BlockExtraRanges, changes: ChangeSet): BlockExtraRanges {
   return {
     toc: ranges.toc.map((range) => ({ from: changes.mapPos(range.from), to: changes.mapPos(range.to) })),
+    includes: ranges.includes.map((range) => ({ from: changes.mapPos(range.from), to: changes.mapPos(range.to), ref: range.ref })),
     hrs: ranges.hrs.map((range) => ({ from: changes.mapPos(range.from), to: changes.mapPos(range.to) })),
     frontMatter: ranges.frontMatter
       ? {
@@ -644,6 +699,10 @@ function patchBlockExtraRangesNearChanges(
     toc: [
       ...mapped.toc.filter((range) => range.to < affectedFrom || range.from > affectedTo),
       ...scanned.toc,
+    ].sort((a, b) => a.from - b.from || a.to - b.to),
+    includes: [
+      ...mapped.includes.filter((range) => range.to < affectedFrom || range.from > affectedTo),
+      ...scanned.includes,
     ].sort((a, b) => a.from - b.from || a.to - b.to),
     hrs: [
       ...mapped.hrs.filter((range) => range.to < affectedFrom || range.from > affectedTo),
@@ -1509,6 +1568,20 @@ function buildBlockExtraDecos(state: EditorState): DecorationSet {
     }
   }
 
+  // ── @@include [path] ───────────────────────────────────────────────────
+  for (const range of ranges.includes) {
+    if (rangeOverlapsAny(range.from, range.to, blockMathRanges)) continue;
+    if (occupied.some(([from, to]) => range.from < to && range.to > from)) continue;
+    if (sel.from >= range.from && sel.from <= range.to) {
+      decos.push(Decoration.mark({ class: "syntax-hint" }).range(range.from, range.to));
+      continue;
+    }
+    decos.push(
+      Decoration.replace({ widget: new IncludeWidget(range.ref), block: true }).range(range.from, range.to),
+    );
+    occupied.push([range.from, range.to]);
+  }
+
   // ── org-env #+begin … #+end ────────────────────────────────────────────
   // Org-env is intentionally not a nested editor. The body remains normal CM6
   // markdown so snippets, math widgets, cursor movement, and editing behavior
@@ -1575,6 +1648,9 @@ function activeBlockExtraKey(state: EditorState): string {
   for (const range of ranges.toc) {
     if (sel.from <= range.to && sel.to >= range.from) parts.push(`toc:${range.from}:${range.to}`);
   }
+  for (const range of ranges.includes) {
+    if (sel.from <= range.to && sel.to >= range.from) parts.push(`include:${range.from}:${range.to}`);
+  }
   if (ranges.frontMatter && sel.from < ranges.frontMatter.to && sel.to > ranges.frontMatter.from) {
     parts.push(`front:${ranges.frontMatter.from}:${ranges.frontMatter.to}`);
   }
@@ -1605,6 +1681,7 @@ function canMapBlockExtraDecos(state: EditorState, changes: ChangeSet): boolean 
   if (!canMapOrgEnvBlocks(state.doc, blocks, changes)) return false;
 
   if (ranges.toc.some((range) => changesTouchRange(changes, range.from, range.to))) return false;
+  if (ranges.includes.some((range) => changesTouchRange(changes, range.from, range.to))) return false;
   if (ranges.hrs.some((range) => changesTouchRange(changes, range.from, range.to))) return false;
   if (ranges.frontMatter && changesTouchRange(changes, ranges.frontMatter.from, ranges.frontMatter.to)) return false;
   if (blocks.some((block) => (
