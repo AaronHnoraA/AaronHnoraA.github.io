@@ -21,7 +21,7 @@ import {
   type ViewUpdate,
 } from "@codemirror/view";
 import { syntaxTree } from "@codemirror/language";
-import { StateField, type ChangeSet, type EditorState, type Extension, type Text } from "@codemirror/state";
+import { StateEffect, StateField, type ChangeSet, type EditorState, type Extension, type Text } from "@codemirror/state";
 import type { Range as CMRange } from "@codemirror/state";
 import {
   getBlockMathRanges,
@@ -262,10 +262,43 @@ type TocHeading = {
   pos: number;
 };
 
+export type BookEditorTocItem = {
+  level?: number;
+  text?: string;
+  slug?: string;
+  path?: string;
+  id?: string;
+};
+
+export type BookEditorContext = {
+  role?: "" | "cover" | "included";
+  title?: string;
+  coverPath?: string;
+  currentPath?: string;
+  includedCount?: number;
+  toc?: BookEditorTocItem[];
+};
+
 interface BlockExtraRanges {
   toc: Array<{ from: number; to: number }>;
   hrs: Array<{ from: number; to: number }>;
   frontMatter: { from: number; to: number; body: string } | null;
+}
+
+export const setBookContextEffect = StateEffect.define<BookEditorContext | null>();
+
+const bookContextField = StateField.define<BookEditorContext | null>({
+  create: () => null,
+  update(value, tr) {
+    for (const effect of tr.effects) {
+      if (effect.is(setBookContextEffect)) return effect.value;
+    }
+    return value;
+  },
+});
+
+export function setBookContext(view: EditorView, context: BookEditorContext | null): void {
+  view.dispatch({ effects: setBookContextEffect.of(context) });
 }
 
 class TocWidget extends WidgetType {
@@ -318,6 +351,100 @@ class TocWidget extends WidgetType {
     }
     div.append(ul);
     return div;
+  }
+
+  ignoreEvent(): boolean { return true; }
+}
+
+function bookPathKey(path: string | undefined): string {
+  return String(path || "").replace(/\\/g, "/").replace(/^\.\/+/, "").replace(/^roam\//, "");
+}
+
+function bookContextSignature(context: BookEditorContext | null): string {
+  if (!context) return "";
+  return [
+    context.role || "",
+    context.title || "",
+    context.coverPath || "",
+    context.currentPath || "",
+    String(context.includedCount || 0),
+    ...(context.toc || []).map((item) => [
+      item.level || 1,
+      item.text || "",
+      item.slug || "",
+      item.path || "",
+      item.id || "",
+    ].join("\t")),
+  ].join("\n");
+}
+
+class BookContentsWidget extends WidgetType {
+  context: BookEditorContext;
+
+  constructor(context: BookEditorContext) {
+    super();
+    this.context = context;
+  }
+
+  eq(other: BookContentsWidget): boolean {
+    return bookContextSignature(this.context) === bookContextSignature(other.context);
+  }
+
+  toDOM(view: EditorView): HTMLElement {
+    const root = document.createElement("section");
+    root.className = "cm-book-contents";
+    root.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+
+    const title = document.createElement("div");
+    title.className = "cm-book-contents-title";
+    title.textContent = this.context.title || "Book contents";
+    root.append(title);
+
+    const toc = (this.context.toc || []).filter((item) => item.text || item.path);
+    const meta = document.createElement("div");
+    meta.className = "cm-book-contents-meta";
+    meta.textContent = [
+      `${toc.length} headings`,
+      this.context.includedCount ? `${this.context.includedCount} files` : "",
+    ].filter(Boolean).join(" · ");
+    root.append(meta);
+
+    if (toc.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "cm-book-contents-empty";
+      empty.textContent = "No book headings yet";
+      root.append(empty);
+      return root;
+    }
+
+    const currentPath = bookPathKey(this.context.currentPath || this.context.coverPath);
+    const list = document.createElement("div");
+    list.className = "cm-book-contents-list";
+    for (const item of toc) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "cm-book-contents-item";
+      button.style.setProperty("--book-depth", String(Math.max(0, Number(item.level || 1) - 1)));
+      button.dataset.path = item.path || "";
+      button.dataset.slug = item.slug || "";
+      button.textContent = item.text || item.path || "Untitled";
+      button.title = [item.text || "", item.path || ""].filter(Boolean).join(" · ");
+      if (bookPathKey(item.path) === currentPath) button.classList.add("is-current-file");
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        view.dom.dispatchEvent(new CustomEvent("aaronnote:book-toc-open", {
+          bubbles: true,
+          detail: { item },
+        }));
+      });
+      list.append(button);
+    }
+    root.append(list);
+    return root;
   }
 
   ignoreEvent(): boolean { return true; }
@@ -1328,6 +1455,16 @@ function addOrgEnvBlockExtraDecos(
       }).range(block.from, block.to),
     );
     occupied?.push([block.from, block.to]);
+    const bookContext = state.field(bookContextField, false);
+    if (bookContext?.role === "cover" && (bookContext.toc || []).length > 0) {
+      decos.push(
+        Decoration.widget({
+          widget: new BookContentsWidget(bookContext),
+          block: true,
+          side: 1,
+        }).range(block.to),
+      );
+    }
     return;
   }
   if (block.kind === "html") {
@@ -1518,6 +1655,9 @@ function scanFrontMatter(doc: Text): { from: number; to: number; body: string } 
 const blockExtrasDecorations = StateField.define<DecorationSet>({
   create: (state) => buildBlockExtraDecos(state),
   update(value, tr) {
+    if (tr.effects.some((effect) => effect.is(setBookContextEffect))) {
+      return buildBlockExtraDecos(tr.state);
+    }
     if (tr.docChanged) {
       if (canMapBlockExtraDecos(tr.startState, tr.changes)) {
         return value.map(tr.changes);
@@ -1540,6 +1680,7 @@ const orgEnvRailExtension = ViewPlugin.fromClass(OrgEnvRailPlugin);
 
 export const blockExtrasExtension: Extension = [
   headingsField,
+  bookContextField,
   blockExtraRangesField,
   orgEnvBlocksField,
   blockExtrasDecorations,

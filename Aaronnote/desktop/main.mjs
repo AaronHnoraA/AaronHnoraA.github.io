@@ -1016,8 +1016,7 @@ ipcMain.handle("aaronnote:trash-note", async (_event, file = "") => {
   if (!inside(resolved, noteRoot)) {
     throw new Error(`File is outside note root: ${resolved}`);
   }
-  await shell.trashItem(resolved);
-  return { ok: true, file: resolved };
+  return deleteNote({ file: resolved });
 });
 
 ipcMain.handle("aaronnote:export-pdf", async (event, options = {}) => {

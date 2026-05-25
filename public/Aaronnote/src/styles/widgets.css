@@ -458,6 +458,68 @@
 .cm-editor .cm-toc .toc-h5,
 .cm-editor .cm-toc .toc-h6 { font-size: 0.95em; }
 
+.cm-editor .cm-book-contents {
+  margin: 1.2rem auto 1.6rem;
+  max-width: min(720px, 100%);
+  border: 1px solid color-mix(in srgb, var(--aaron-paper-line, #d8d0c2), var(--aaron-red, #7f1118) 20%);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--aaron-paper-soft, #f7f1e5), transparent 20%);
+  box-shadow: 0 12px 32px color-mix(in srgb, #3b1d1d, transparent 88%);
+  overflow: hidden;
+}
+
+.cm-editor .cm-book-contents-title {
+  padding: 12px 14px 4px;
+  color: var(--aaron-red-dark, #6f1017);
+  font: 800 14px/1.25 var(--aaron-font-sans, system-ui, sans-serif);
+}
+
+.cm-editor .cm-book-contents-meta {
+  padding: 0 14px 10px;
+  color: var(--aaron-muted, #6b6258);
+  font: 700 11px/1.2 var(--aaron-font-sans, system-ui, sans-serif);
+}
+
+.cm-editor .cm-book-contents-list {
+  border-top: 1px solid color-mix(in srgb, var(--aaron-paper-line, #d8d0c2), transparent 20%);
+  padding: 6px;
+}
+
+.cm-editor .cm-book-contents-item {
+  display: block;
+  width: 100%;
+  min-height: 30px;
+  border: 0;
+  border-radius: 3px;
+  padding: 6px 9px 6px calc(10px + var(--book-depth, 0) * 16px);
+  background: transparent;
+  color: var(--aaron-ink, #26211c);
+  cursor: pointer;
+  text-align: left;
+  font: 12px/1.35 var(--aaron-font-sans, system-ui, sans-serif);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cm-editor .cm-book-contents-item:hover,
+.cm-editor .cm-book-contents-item.is-current-file {
+  background: color-mix(in srgb, var(--aaron-paper-soft, #f7f1e5), var(--aaron-red, #7f1118) 9%);
+  color: var(--aaron-red-dark, #6f1017);
+}
+
+.cm-editor .cm-book-contents-item.is-current-file {
+  box-shadow: inset 3px 0 0 var(--aaron-red, #7f1118);
+  font-weight: 750;
+}
+
+.cm-editor .cm-book-contents-empty {
+  border-top: 1px solid color-mix(in srgb, var(--aaron-paper-line, #d8d0c2), transparent 20%);
+  padding: 10px 14px;
+  color: var(--aaron-muted, #6b6258);
+  font: 12px/1.35 var(--aaron-font-sans, system-ui, sans-serif);
+}
+
 /* ─── CM6 org-env block ──────────────────────────────────────────── */
 .cm-editor .cm-org-env-block {
   --block-c: var(--c-note, #a8f0e3);

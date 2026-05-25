@@ -16,6 +16,7 @@ import { writeMirror, deleteMirror, renameMirror } from "./lean-mirror.mjs";
 import {
   deleteLeanRegion,
   ensureLeanRegion,
+  getLeanRegion,
   normalizeLeanTag,
   readLeanRegion,
   updateLeanRegion,
@@ -1016,7 +1017,7 @@ export async function handleLeanRequest(action, body = {}) {
         leanPath = await migrateLeanFileIfNeeded(leanPath, notesRoot);
         try { leanPath = realpathSync(leanPath); } catch {}
       } else {
-        await writeMirror(notePath, leanText, notesRoot);
+        await writeMirror(notePath, leanText, notesRoot, { create: false });
       }
       const client = getClient();
       await client.ensureReady();
@@ -1100,7 +1101,7 @@ export async function handleLeanRequest(action, body = {}) {
   if (action === "get-region-meta") {
     const { notePath, tag } = body;
     if (!notePath || !tag) return { ok: false, message: "Missing params" };
-    const result = await ensureLeanRegion({ notePath: String(notePath), notesRoot, tag: String(tag) });
+    const result = await getLeanRegion({ notePath: String(notePath), notesRoot, tag: String(tag) });
     return {
       ok: true,
       leanPath: result.leanPath,
@@ -1120,7 +1121,7 @@ export async function handleLeanRequest(action, body = {}) {
     const documentState = client.changeDocument(leanPath, leanText);
     if (notePath && !String(notePath).toLowerCase().endsWith(".lean")) {
       try {
-        await writeMirror(String(notePath), leanText, notesRoot);
+        await writeMirror(String(notePath), leanText, notesRoot, { create: false });
       } catch (err) {
         const message = String(err?.message || err);
         log("lean-mirror-write-error", { notePath, leanPath, message });
@@ -1145,7 +1146,7 @@ export async function handleLeanRequest(action, body = {}) {
     const { notePath, leanText } = body;
     if (!notePath || typeof leanText !== "string") return { ok: false, message: "Missing params" };
     if (!notePath.toLowerCase().endsWith(".lean")) {
-      await writeMirror(notePath, leanText, notesRoot);
+      await writeMirror(notePath, leanText, notesRoot, { create: false });
     }
     return { ok: true };
   }

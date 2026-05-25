@@ -12,6 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const currentInterestsPanel = document.getElementById("current-interests-panel");
   const selectedNotesPanel = document.getElementById("selected-notes-panel");
   const recentUpdatesPanel = document.getElementById("recent-updates-panel");
+  const booksPanel = document.getElementById("books-panel");
 
   if (!knowledge || !app || !searchWrapper || !searchInput || !resetBtn || !tagCloud || !sortSelect) {
     return;
@@ -236,6 +237,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function renderAcademicPanels() {
+    const books = Array.isArray(knowledge.books) ? knowledge.books : [];
     const qcNotes = selectableNotes.filter((note) => note.groupLabel === "QC" || note.tags.includes("qc"));
     const tcsNotes = selectableNotes.filter((note) => note.tags.includes("tcs") || /tcs|complexity|algorithm/i.test(note.groupLabel));
     const selectedTitles = ["Quantum State", "Density Operator", "Observable & Expectation", "Hilbert Space"];
@@ -272,6 +274,25 @@ document.addEventListener("DOMContentLoaded", () => {
           </article>
         </div>
       `;
+    }
+
+    if (booksPanel) {
+      booksPanel.innerHTML = books.length > 0
+        ? `
+          <div class="selected-note-list book-note-list">
+            ${books.map((book) => `
+              <article class="selected-note-item book-note-item">
+                <div class="selected-note-meta">
+                  <span>${escapeHtml(String(book.includedCount || 0))} files</span>
+                  <span>${escapeHtml(String(book.tocCount || 0))} headings</span>
+                </div>
+                <h3><a href="${escapeHtml(book.link)}">${escapeHtml(book.title)}</a></h3>
+                <p>${escapeHtml(book.summary || "Long-form Aaronnote book.")}</p>
+              </article>
+            `).join("")}
+          </div>
+        `
+        : `<div class="active-filter-empty">No public books yet.</div>`;
     }
 
     if (selectedNotesPanel) {

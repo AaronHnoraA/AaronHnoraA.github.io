@@ -121471,7 +121471,7 @@ $$
 $$
 
 An algorithm for $\Pi$ only needs to be correct on inputs satisfying the
-promise. This differs from a language decision problem, where every string this ishar to use as my 
+promise. This differs from a language decision problem, where every string this ishar to use as my thing这个有意思 this is hard 
 over the alphabet must be classified.
 
 #+begin define Polynomial-time many-one reduction for promise problems

@@ -27,6 +27,7 @@ import {
 import { createFloatingTocPanel, inlineTagAnchorsFromText, markdownHeadingsFromText } from "./floating-toc.ts";
 import { createLeanPanel } from "./lean-panel.ts";
 import { leanSpliceField, setLeanNotePath } from "../src/cm6/widgets/lean-block.ts";
+import { setBookContext, type BookEditorContext, type BookEditorTocItem } from "../src/cm6/widgets/block-extras.ts";
 import { createGraphPanel } from "./graph-panel.ts";
 import { createLinkPreviewController, type LinkPreviewTarget } from "./link-preview.ts";
 import { createLocalGraphPanel } from "./local-graph.ts";
@@ -50,7 +51,7 @@ import { createVimCursor, updateVimCursor } from "./vim-cursor.ts";
 
 declare global {
   interface Window {
-    SITE_DATA?: { meta?: Record<string, unknown>; notes?: NoteSummary[] };
+    SITE_DATA?: { meta?: Record<string, unknown>; notes?: NoteSummary[]; books?: unknown[] };
     KNOWLEDGE_DATA?: {
       notes: Array<NoteSummary & { key: string }>;
       tags: Array<{ name: string; count: number; notes: string[] }>;
@@ -323,6 +324,10 @@ root.innerHTML = `
       <button type="button" data-toc-toggle aria-expanded="false">TOC</button>
       <nav data-toc-list aria-label="Table of contents"></nav>
     </aside>
+    <aside class="aaronnote-book-toc is-collapsed" data-book-toc hidden>
+      <nav data-book-toc-list aria-label="Book table of contents"></nav>
+    </aside>
+    <button type="button" class="aaronnote-book-trigger" data-book-toc-toggle aria-expanded="false" hidden title="Toggle book contents">Book</button>
     <aside class="aaronnote-local-graph is-collapsed" data-local-graph hidden>
       <button type="button" data-local-graph-toggle aria-expanded="false">Graph</button>
       <section class="aaronnote-local-graph-panel" aria-label="Local graph">
@@ -415,6 +420,9 @@ const leanTriggerBtn = document.querySelector<HTMLButtonElement>("[data-lean-tri
 const toc = document.querySelector<HTMLElement>("[data-floating-toc]")!;
 const tocList = document.querySelector<HTMLElement>("[data-toc-list]")!;
 const tocToggle = document.querySelector<HTMLButtonElement>("[data-toc-toggle]")!;
+const bookToc = document.querySelector<HTMLElement>("[data-book-toc]")!;
+const bookTocList = document.querySelector<HTMLElement>("[data-book-toc-list]")!;
+const bookTocToggle = document.querySelector<HTMLButtonElement>("[data-book-toc-toggle]")!;
 const localGraph = document.querySelector<HTMLElement>("[data-local-graph]")!;
 const localGraphToggle = document.querySelector<HTMLButtonElement>("[data-local-graph-toggle]")!;
 const localGraphDepth = document.querySelector<HTMLInputElement>("[data-local-graph-depth]")!;
@@ -690,6 +698,7 @@ let pluginOverrides: PluginOverrideMap = {};
 let pluginOverridesLoaded = false;
 type StoredDraft = { file: string; content: string; revision: number; updatedAt: number };
 type OpenNoteOptions = { newWindow?: boolean; equationTag?: string; inlineTag?: string; domTarget?: string; recordJump?: boolean };
+type BookTocItem = NonNullable<NoteSummary["bookToc"]>[number];
 type JumpTarget = {
   pos: number;
   label: string;
@@ -1924,7 +1933,110 @@ function internalNoteCandidates(href: string): string[] {
 
 function resolveNoteRef(ref: string): NoteSummary | undefined {
   if (currentNoteTarget(ref)) return currentNote() ?? (currentFile ? { file: currentFile, path: currentFile, title: fileNameFromPath(currentFile), standalone: currentStandalone } : undefined);
-  return resolveSharedNoteReference(notes, ref) as NoteSummary | undefined;
+  const note = resolveSharedNoteReference(notes, ref) as NoteSummary | undefined;
+  return externalBookNote(note);
+}
+
+function externalBookNote(note: NoteSummary | undefined): NoteSummary | undefined {
+  if (!note || note.bookRole !== "included" || !note.bookCoverId) return note;
+  return notes.find((item) =>
+    item.bookRole === "cover"
+    && (item.id === note.bookCoverId || item.key === note.bookCoverId || canonicalRoamNoteId(item) === note.bookCoverId))
+    || note;
+}
+
+function bookPathKey(value: unknown): string {
+  let path = normalizeNotePath(String(value || "").replace(/\\/g, "/").replace(/^\.\/+/, ""));
+  const roamIndex = path.indexOf("/roam/");
+  if (roamIndex >= 0) path = path.slice(roamIndex + "/roam/".length);
+  return path.replace(/^roam\//, "");
+}
+
+function noteMatchesBookPath(note: NoteSummary, path: unknown): boolean {
+  const key = bookPathKey(path);
+  if (!key) return false;
+  return [note.path, note.file, note.source, note.link]
+    .map(bookPathKey)
+    .some((value) => value === key);
+}
+
+function bookCoverForNote(note: NoteSummary | undefined): NoteSummary | undefined {
+  const external = externalBookNote(note);
+  return external?.bookRole === "cover" ? external : undefined;
+}
+
+function currentBookContext(): BookEditorContext | null {
+  const note = currentNote();
+  const cover = bookCoverForNote(note);
+  if (!cover || (cover.bookToc ?? []).length === 0) return null;
+  return {
+    role: note?.bookRole || cover.bookRole || "",
+    title: cover.title || cover.id || "Book",
+    coverPath: cover.path || cover.file || "",
+    currentPath: note?.path || note?.file || currentFile,
+    includedCount: cover.bookIncludedPaths?.length || 0,
+    toc: cover.bookToc as BookEditorTocItem[],
+  };
+}
+
+function bookContextKey(context: BookEditorContext | null): string {
+  if (!context) return "";
+  return [
+    context.role || "",
+    context.title || "",
+    context.coverPath || "",
+    context.currentPath || "",
+    String(context.includedCount || 0),
+    ...(context.toc || []).map((item) => [
+      item.level || 1,
+      item.text || "",
+      item.slug || "",
+      item.path || "",
+      item.id || "",
+    ].join("\t")),
+  ].join("\n");
+}
+
+let syncedBookContextKey = "";
+
+function syncEditorBookContext(context: BookEditorContext | null): void {
+  const key = bookContextKey(context);
+  if (key === syncedBookContextKey) return;
+  syncedBookContextKey = key;
+  setBookContext(editor.view, context);
+}
+
+function resolveBookTocItemNote(item: BookTocItem | BookEditorTocItem): NoteSummary | undefined {
+  const itemPath = item.path || "";
+  if (itemPath) {
+    const match = notes.find((note) => noteMatchesBookPath(note, itemPath));
+    if (match?.file) return match;
+  }
+  const cover = bookCoverForNote(currentNote());
+  return cover?.file ? cover : undefined;
+}
+
+function activeBookHeadingSlug(): string {
+  const pos = editor.getMarkdownSelection().from;
+  let slug = "";
+  for (const heading of markdownHeadingsFromText(editor.view.state.doc)) {
+    if (heading.pos > pos) break;
+    slug = slugDomTarget(heading.text);
+  }
+  return slug;
+}
+
+function openBookTocItem(item: BookTocItem | BookEditorTocItem, options: { newWindow?: boolean } = {}): void {
+  const target = resolveBookTocItemNote(item);
+  if (!target?.file) {
+    setStatus("Book target not found");
+    return;
+  }
+  openNote(target, {
+    domTarget: item.text || item.slug || "",
+    newWindow: options.newWindow,
+    recordJump: true,
+  });
 }
 
 function resolveRoamLikeNoteTarget(href: string): { note?: NoteSummary; equationTag?: string; inlineTag?: string; domTarget?: string } | null {
@@ -3988,19 +4100,21 @@ function encodeMarkdownHrefPath(path: string): string {
 }
 
 function noteAnchorHref(note: NoteSummary | undefined, hash: string): string {
-  const targetHref = !currentStandalone && note?.roam ? roamHrefForNote(note, hash) : "";
+  const externalNote = externalBookNote(note);
+  const targetHref = !currentStandalone && externalNote?.roam ? roamHrefForNote(externalNote, hash) : "";
   if (targetHref) return targetHref;
-  const targetPath = note?.path || note?.link || currentFile || note?.source || fileNameFromPath(currentFile || "note.md");
+  const targetPath = externalNote?.path || externalNote?.link || currentFile || externalNote?.source || fileNameFromPath(currentFile || "note.md");
   return `${encodeMarkdownHrefPath(targetPath)}#${hash}`;
 }
 
 function noteDomHref(note: NoteSummary | undefined, domTarget: string): string {
+  const externalNote = externalBookNote(note);
   const clean = slugDomTarget(domTarget);
   const encoded = encodeURIComponent(clean);
-  if (!encoded) return noteAnchorHref(note, "");
-  const targetHref = !currentStandalone && note?.roam ? roamHrefForNote(note).replace(/#.*$/, "") : "";
+  if (!encoded) return noteAnchorHref(externalNote, "");
+  const targetHref = !currentStandalone && externalNote?.roam ? roamHrefForNote(externalNote).replace(/#.*$/, "") : "";
   if (targetHref) return `${targetHref}@${encoded}`;
-  const targetPath = note?.path || note?.link || currentFile || note?.source || fileNameFromPath(currentFile || "note.md");
+  const targetPath = externalNote?.path || externalNote?.link || currentFile || externalNote?.source || fileNameFromPath(currentFile || "note.md");
   return `${encodeMarkdownHrefPath(targetPath)}@${encoded}`;
 }
 
@@ -4277,6 +4391,9 @@ function showNotesPage(tab = "filesystem"): void {
   notesPage.hidden = false;
   pluginPage.hidden = true;
   toc.hidden = true;
+  bookToc.hidden = true;
+  bookTocToggle.hidden = true;
+  document.body.classList.remove("book-toc-open");
   localGraph.hidden = true;
   localGraphPanel.collapse();
   notesButton.hidden = true;
@@ -4582,6 +4699,9 @@ function showPluginPage(): void {
   notesPage.hidden = true;
   pluginPage.hidden = false;
   toc.hidden = true;
+  bookToc.hidden = true;
+  bookTocToggle.hidden = true;
+  document.body.classList.remove("book-toc-open");
   localGraph.hidden = true;
   localGraphPanel.collapse();
   notesButton.hidden = true;
@@ -4635,6 +4755,7 @@ function showEditorPage(): void {
   pluginPage.hidden = true;
   host.hidden = false;
   toc.hidden = false;
+  updateBookToc();
   notesButton.hidden = false;
   relationButton.hidden = false;
   agendaButton.hidden = false;
@@ -4658,9 +4779,80 @@ function showEditorPage(): void {
 }
 
 function updateFloatingToc(): void {
-  if (host.hidden || toc.hidden) return;
-  floatingTocPanel.update();
+  if (host.hidden) {
+    syncEditorBookContext(null);
+    bookToc.hidden = true;
+    return;
+  }
+  if (!toc.hidden) floatingTocPanel.update();
+  updateBookToc();
   leanPanel.refresh();
+}
+
+let bookTocRenderKey = "";
+
+function renderBookTocPanel(context: BookEditorContext | null): void {
+  syncEditorBookContext(context);
+  const items = context?.toc || [];
+  const visible = Boolean(context && items.length > 0 && !host.hidden);
+  bookToc.hidden = !visible;
+  bookTocToggle.hidden = !visible;
+  document.body.classList.toggle("book-toc-open", visible && !bookToc.classList.contains("is-collapsed"));
+  if (!visible) {
+    bookTocRenderKey = "";
+    bookTocList.replaceChildren();
+    return;
+  }
+
+  const currentPath = bookPathKey(context?.currentPath || "");
+  const activeSlug = activeBookHeadingSlug();
+  const key = `${bookContextKey(context)}\n${activeSlug}\n${bookToc.classList.contains("is-collapsed")}`;
+  if (key === bookTocRenderKey) return;
+  bookTocRenderKey = key;
+
+  bookTocToggle.textContent = "Book";
+  bookTocToggle.title = `${context?.title || "Book"} · ${items.length} headings`;
+  const frag = document.createDocumentFragment();
+  const status = document.createElement("div");
+  status.className = "aaronnote-book-toc-status";
+  status.textContent = [
+    context?.title || "Book",
+    `${items.length} headings`,
+    context?.includedCount ? `${context.includedCount} files` : "",
+  ].filter(Boolean).join(" · ");
+  frag.appendChild(status);
+
+  for (const item of items) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "aaronnote-book-toc-item";
+    button.style.setProperty("--book-depth", String(Math.max(0, Number(item.level || 1) - 1)));
+    button.dataset.path = item.path || "";
+    button.dataset.slug = item.slug || "";
+    button.textContent = item.text || item.path || "Untitled";
+    button.title = [item.text || "", item.path || ""].filter(Boolean).join(" · ");
+    const sameFile = bookPathKey(item.path) === currentPath;
+    if (sameFile) button.classList.add("is-current-file");
+    if (sameFile && activeSlug && (item.slug === activeSlug || slugDomTarget(item.text || "") === activeSlug)) {
+      button.classList.add("is-active");
+      button.setAttribute("aria-current", "location");
+    }
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      openBookTocItem(item, { newWindow: event.altKey || event.metaKey });
+    });
+    button.addEventListener("auxclick", (event) => {
+      if (event.button !== 1) return;
+      event.preventDefault();
+      openBookTocItem(item, { newWindow: true });
+    });
+    frag.appendChild(button);
+  }
+  bookTocList.replaceChildren(frag);
+}
+
+function updateBookToc(): void {
+  renderBookTocPanel(currentBookContext());
 }
 
 function openNote(note: NoteSummary, options: OpenNoteOptions = {}): void {
@@ -5017,6 +5209,7 @@ function noteInlineTagsForCompletion(note: NoteSummary): string[] {
 }
 
 function matchingTagCompletions(note: NoteSummary, prefix: string): SnippetSummary[] {
+  note = externalBookNote(note) || note;
   const query = prefix.toLowerCase().replace(/^tag-/, "");
   return noteInlineTagsForCompletion(note)
     .filter((tag) => tag.toLowerCase().includes(query))
@@ -5032,9 +5225,24 @@ function matchingTagCompletions(note: NoteSummary, prefix: string): SnippetSumma
 }
 
 function domTargetsForCompletion(note: NoteSummary): Array<{ label: string; slug: string }> {
-  const rawTargets = note.file === currentFile
+  const externalNote = externalBookNote(note) || note;
+  const bookTargets = externalNote.bookDomTargets ?? [];
+  if (bookTargets.length > 0) {
+    const seen = new Set<string>();
+    return bookTargets
+      .map((target) => ({
+        label: normalizeDomTarget(target.label || target.slug || ""),
+        slug: slugDomTarget(target.slug || target.label || ""),
+      }))
+      .filter((target) => {
+        if (!target.label || !target.slug || seen.has(target.slug)) return false;
+        seen.add(target.slug);
+        return true;
+      });
+  }
+  const rawTargets = externalNote.file === currentFile
     ? currentDomTargets().map((target) => target.label)
-    : [note.title || note.path || note.file || canonicalRoamNoteId(note)].filter(Boolean);
+    : [externalNote.title || externalNote.path || externalNote.file || canonicalRoamNoteId(externalNote)].filter(Boolean);
   const seen = new Set<string>();
   const targets: Array<{ label: string; slug: string }> = [];
   for (const label of rawTargets) {
@@ -5048,6 +5256,7 @@ function domTargetsForCompletion(note: NoteSummary): Array<{ label: string; slug
 }
 
 function matchingDomCompletions(note: NoteSummary, prefix: string): SnippetSummary[] {
+  note = externalBookNote(note) || note;
   const query = normalizeDomTarget(prefix).toLowerCase();
   return domTargetsForCompletion(note)
     .filter((target) => target.slug.includes(query) || target.label.toLowerCase().includes(query))
@@ -5148,7 +5357,7 @@ function matchingPathCompletions(prefix: string): SnippetSummary[] {
     .slice(0, 8)
     .map((path) => {
       const displayPath = displayPathCompletion(path, prefix);
-      const note = resolveInternalNoteHref(displayPath);
+      const note = externalBookNote(resolveInternalNoteHref(displayPath));
       const roamId = note?.roam ? canonicalRoamNoteId(note) : "";
       return {
         key: displayPath,
@@ -7529,6 +7738,14 @@ document.addEventListener("aaronnote:preview-url", (event) => {
   linkPreview.show(href, Number(custom.detail?.x) || window.innerWidth / 2, Number(custom.detail?.y) || 80);
 });
 
+document.addEventListener("aaronnote:book-toc-open", (event) => {
+  const custom = event as CustomEvent<{ item?: BookTocItem | BookEditorTocItem }>;
+  const item = custom.detail?.item;
+  if (!item) return;
+  event.preventDefault();
+  openBookTocItem(item);
+});
+
 document.addEventListener("aaronnote:attachment-context-menu", (event) => {
   const custom = event as CustomEvent<{ href?: string }>;
   const href = custom.detail?.href;
@@ -7680,6 +7897,13 @@ leanProjectRoot.addEventListener("click", (event) => {
 });
 tocToggle.addEventListener("click", () => {
   floatingTocPanel.toggle();
+});
+bookTocToggle.addEventListener("click", () => {
+  bookToc.classList.toggle("is-collapsed");
+  bookTocToggle.setAttribute("aria-expanded", bookToc.classList.contains("is-collapsed") ? "false" : "true");
+  document.body.classList.toggle("book-toc-open", !bookToc.classList.contains("is-collapsed") && !bookToc.hidden);
+  bookTocRenderKey = "";
+  updateBookToc();
 });
 relationRefresh.addEventListener("click", () => renderRelationPanel(true));
 relationClose.addEventListener("click", closeRelationPanel);

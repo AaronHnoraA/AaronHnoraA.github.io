@@ -3,7 +3,7 @@
  *
  * notes/path/foo.md  →  notesRoot/.lean/path/foo.lean
  */
-import { mkdir, readFile, rm, stat, writeFile, rename } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm, stat, writeFile, rename } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
 
@@ -17,11 +17,21 @@ export function leanMirrorPath(notePath, notesRoot) {
 }
 
 /**
+ * Compute the mirror directory for a managed note directory.
+ */
+export function leanMirrorDirPath(dirPath, notesRoot) {
+  const rel = relative(notesRoot, dirPath);
+  return resolve(notesRoot, ".lean", rel);
+}
+
+/**
  * Write the generated lean text to the mirror path, only if content changed.
  * Returns true if a write was performed, false if skipped (same content).
  */
-export async function writeMirror(notePath, leanText, notesRoot) {
+export async function writeMirror(notePath, leanText, notesRoot, options = {}) {
   const dest = leanMirrorPath(notePath, notesRoot);
+  const create = options.create !== false;
+  if (!create && !existsSync(dest)) return false;
   // check existing content to avoid spurious mtime updates (Lake rebuilds on mtime)
   if (existsSync(dest)) {
     try {
@@ -38,9 +48,17 @@ export async function writeMirror(notePath, leanText, notesRoot) {
  * Delete the .lean mirror for a note (when the note is deleted/trashed).
  */
 export async function deleteMirror(notePath, notesRoot) {
-  const dest = leanMirrorPath(notePath, notesRoot);
+  return deleteMirrorPath(notePath, notesRoot, { directory: false });
+}
+
+/**
+ * Delete the mirror for a managed note path. For directories, this removes the
+ * corresponding subtree under .lean/.
+ */
+export async function deleteMirrorPath(path, notesRoot, options = {}) {
+  const dest = options.directory ? leanMirrorDirPath(path, notesRoot) : leanMirrorPath(path, notesRoot);
   try {
-    await rm(dest, { force: true });
+    await rm(dest, { force: true, recursive: options.directory === true });
     // clean up empty parent dirs under .lean/
     await pruneEmptyDirs(dirname(dest), resolve(notesRoot, ".lean"));
   } catch {}
@@ -50,12 +68,31 @@ export async function deleteMirror(notePath, notesRoot) {
  * Rename/move the .lean mirror when a note is renamed/moved.
  */
 export async function renameMirror(oldNotePath, newNotePath, notesRoot) {
-  const oldDest = leanMirrorPath(oldNotePath, notesRoot);
-  const newDest = leanMirrorPath(newNotePath, notesRoot);
+  return renameMirrorPath(oldNotePath, newNotePath, notesRoot, { directory: false });
+}
+
+/**
+ * Rename/move the mirror for a managed note path. For directories, this moves
+ * the corresponding mirror subtree under .lean/.
+ */
+export async function renameMirrorPath(oldPath, newPath, notesRoot, options = {}) {
+  const oldDest = options.directory ? leanMirrorDirPath(oldPath, notesRoot) : leanMirrorPath(oldPath, notesRoot);
+  const newDest = options.directory ? leanMirrorDirPath(newPath, notesRoot) : leanMirrorPath(newPath, notesRoot);
   if (!existsSync(oldDest)) return;
   await mkdir(dirname(newDest), { recursive: true });
   await rename(oldDest, newDest);
   await pruneEmptyDirs(dirname(oldDest), resolve(notesRoot, ".lean"));
+}
+
+/**
+ * Copy the mirror for a managed note file, if it exists.
+ */
+export async function copyMirrorPath(oldPath, newPath, notesRoot) {
+  const oldDest = leanMirrorPath(oldPath, notesRoot);
+  const newDest = leanMirrorPath(newPath, notesRoot);
+  if (!existsSync(oldDest)) return;
+  await mkdir(dirname(newDest), { recursive: true });
+  await copyFile(oldDest, newDest);
 }
 
 async function pruneEmptyDirs(dir, stopAt) {

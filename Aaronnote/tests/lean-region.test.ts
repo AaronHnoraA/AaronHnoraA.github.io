@@ -209,4 +209,54 @@ describe("lean tagged regions", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  test("legacy whole-note Lean save does not create a missing markdown mirror", async () => {
+    const root = await mkdtemp(join(tmpdir(), "aaronnote-lean-save-no-create-"));
+    try {
+      setNotesRoot(root);
+      const notePath = join(root, "plain.md");
+      const leanPath = join(root, ".lean", "plain.lean");
+      await writeFile(notePath, "# Plain\n", "utf8");
+
+      const saved = await handleLeanRequest("save-note", {
+        notePath,
+        leanText: "#check Nat\n",
+      }) as { ok?: boolean };
+
+      expect(saved.ok).toBe(true);
+      await expect(readFile(leanPath, "utf8")).rejects.toThrow();
+
+      await mkdir(join(root, ".lean"), { recursive: true });
+      await writeFile(leanPath, "-- existing\n", "utf8");
+      await handleLeanRequest("save-note", {
+        notePath,
+        leanText: "#check Nat\n",
+      });
+
+      expect(await readFile(leanPath, "utf8")).toBe("#check Nat\n");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("passive region metadata lookup does not create a missing markdown mirror", async () => {
+    const root = await mkdtemp(join(tmpdir(), "aaronnote-lean-meta-no-create-"));
+    try {
+      setNotesRoot(root);
+      const notePath = join(root, "plain.md");
+      const leanPath = join(root, ".lean", "plain.lean");
+      await writeFile(notePath, "@@lean4 [proof]\n", "utf8");
+
+      const meta = await handleLeanRequest("get-region-meta", {
+        notePath,
+        tag: "proof",
+      }) as { ok?: boolean; region?: unknown };
+
+      expect(meta.ok).toBe(true);
+      expect(meta.region).toBeNull();
+      await expect(readFile(leanPath, "utf8")).rejects.toThrow();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });

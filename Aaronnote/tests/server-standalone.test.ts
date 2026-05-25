@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 // @ts-ignore The server is a Node ESM module outside the TS app graph.
 import { configure } from "../server/lib/state.mjs";
 // @ts-ignore The server is a Node ESM module outside the TS app graph.
-import { createNode, duplicateManagedFile, moveManagedPath, renameManagedPath, trashManagedPath } from "../server/lib/fs-ops.mjs";
+import { createNode, deleteNote, duplicateManagedFile, moveManagedPath, renameManagedPath, trashManagedPath } from "../server/lib/fs-ops.mjs";
 // @ts-ignore The server is a Node ESM module outside the TS app graph.
 import { getTodos, notesIndexPayload, readNote, scanTemplates } from "../server/lib/index.mjs";
 
@@ -190,6 +190,68 @@ describe("server standalone notes", () => {
     const trashed = await trashManagedPath({ path: "archive/hero-copy.png" }) as { ok?: boolean };
     expect(trashed.ok).toBe(true);
     await expect(readFile(join(notes, "archive", "hero-copy.png"), "utf8")).rejects.toThrow();
+  });
+
+  test("filesystem APIs keep existing Lean mirror files with managed notes", async () => {
+    const { notes } = await setupRoot();
+    await mkdir(join(notes, "a"), { recursive: true });
+    await mkdir(join(notes, "b"), { recursive: true });
+    await mkdir(join(notes, ".lean", "a"), { recursive: true });
+    await writeFile(join(notes, "a", "one.md"), "# One\n@@lean4 [proof]\n", "utf8");
+    await writeFile(join(notes, ".lean", "a", "one.lean"), "-- @aaronnote proof\n#check Nat\n", "utf8");
+
+    const renamed = await renameManagedPath({ path: "a/one.md", name: "two.md" }) as { ok?: boolean };
+    expect(renamed.ok).toBe(true);
+    await expect(readFile(join(notes, ".lean", "a", "one.lean"), "utf8")).rejects.toThrow();
+    expect(await readFile(join(notes, ".lean", "a", "two.lean"), "utf8")).toContain("#check Nat");
+
+    const moved = await moveManagedPath({ path: "a/two.md", directory: "b" }) as { ok?: boolean };
+    expect(moved.ok).toBe(true);
+    await expect(readFile(join(notes, ".lean", "a", "two.lean"), "utf8")).rejects.toThrow();
+    expect(await readFile(join(notes, ".lean", "b", "two.lean"), "utf8")).toContain("#check Nat");
+
+    const duplicated = await duplicateManagedFile({ path: "b/two.md", target: "b/two-copy.md" }) as { ok?: boolean };
+    expect(duplicated.ok).toBe(true);
+    expect(await readFile(join(notes, ".lean", "b", "two-copy.lean"), "utf8")).toContain("#check Nat");
+
+    const trashed = await trashManagedPath({ path: "b/two-copy.md" }) as { ok?: boolean };
+    expect(trashed.ok).toBe(true);
+    await expect(readFile(join(notes, ".lean", "b", "two-copy.lean"), "utf8")).rejects.toThrow();
+  });
+
+  test("filesystem APIs move and trash Lean mirror directories with managed folders", async () => {
+    const { notes } = await setupRoot();
+    await mkdir(join(notes, "a", "nested"), { recursive: true });
+    await mkdir(join(notes, "b"), { recursive: true });
+    await mkdir(join(notes, ".lean", "a", "nested"), { recursive: true });
+    await writeFile(join(notes, "a", "nested", "one.md"), "# One\n@@lean4 [proof]\n", "utf8");
+    await writeFile(join(notes, ".lean", "a", "nested", "one.lean"), "-- @aaronnote proof\n#check Nat\n", "utf8");
+
+    const moved = await moveManagedPath({ path: "a", directory: "b" }) as { ok?: boolean };
+    expect(moved.ok).toBe(true);
+    await expect(readFile(join(notes, ".lean", "a", "nested", "one.lean"), "utf8")).rejects.toThrow();
+    expect(await readFile(join(notes, ".lean", "b", "a", "nested", "one.lean"), "utf8")).toContain("#check Nat");
+
+    const renamed = await renameManagedPath({ path: "b/a", name: "c" }) as { ok?: boolean };
+    expect(renamed.ok).toBe(true);
+    await expect(readFile(join(notes, ".lean", "b", "a", "nested", "one.lean"), "utf8")).rejects.toThrow();
+    expect(await readFile(join(notes, ".lean", "b", "c", "nested", "one.lean"), "utf8")).toContain("#check Nat");
+
+    const trashed = await trashManagedPath({ path: "b/c", confirm: "TRASH" }) as { ok?: boolean };
+    expect(trashed.ok).toBe(true);
+    await expect(readFile(join(notes, ".lean", "b", "c", "nested", "one.lean"), "utf8")).rejects.toThrow();
+  });
+
+  test("delete note removes its existing Lean mirror file", async () => {
+    const { notes } = await setupRoot();
+    await mkdir(join(notes, ".lean"), { recursive: true });
+    await writeFile(join(notes, "one.md"), "# One\n@@lean4 [proof]\n", "utf8");
+    await writeFile(join(notes, ".lean", "one.lean"), "-- @aaronnote proof\n#check Nat\n", "utf8");
+
+    const deleted = await deleteNote({ file: join(notes, "one.md") }) as { ok?: boolean };
+
+    expect(deleted.ok).toBe(true);
+    await expect(readFile(join(notes, ".lean", "one.lean"), "utf8")).rejects.toThrow();
   });
 
   test("filesystem move does not create implicit target folders", async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "@voidzero-dev/vite-plus-test";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -255,6 +255,75 @@ describe("server note refs", () => {
         }),
       ]));
       expect(payload.meta).toMatchObject({ tagCount: 2, noteCount: 2 });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("treats included book files as part of the cover roam node", async () => {
+    const root = await setupRoot("aaronnote-book-");
+    try {
+      await mkdir(join(root, "books/demo/chapters"), { recursive: true });
+      await writeFile(join(root, "books/demo/index.md"), [
+        "#+begin meta",
+        "id: book-demo",
+        "title: Demo Book",
+        "book: true",
+        "tags: book",
+        "#+end meta",
+        "",
+        "@@include [chapters/chapter-1.md]",
+        "",
+      ].join("\n"), "utf8");
+      await writeFile(join(root, "books/demo/chapters/chapter-1.md"), [
+        "#+begin meta",
+        "title: Chapter One",
+        "book: included@../index.md",
+        "#+end meta",
+        "",
+        "# Chapter One",
+        "",
+        "@@tag[chapter-anchor]",
+        "",
+      ].join("\n"), "utf8");
+      await writeFile(join(root, "source.md"), [
+        "---",
+        "id: source-id",
+        "---",
+        "# Source",
+        "",
+        "[chapter](books/demo/chapters/chapter-1.md)",
+        "",
+      ].join("\n"), "utf8");
+
+      const payload = await notesIndexPayload();
+      const cover = payload.notes.find((note: { id: string }) => note.id === "book-demo");
+      const child = payload.notes.find((note: { path: string }) => note.path === "books/demo/chapters/chapter-1.md");
+      const source = payload.notes.find((note: { id: string }) => note.id === "source-id");
+
+      expect(cover).toMatchObject({
+        id: "book-demo",
+        roam: true,
+        bookRole: "cover",
+        bookIncludedPaths: ["books/demo/chapters/chapter-1.md"],
+      });
+      expect(cover.inlineTags).toContain("chapter-anchor");
+      expect(child).toMatchObject({
+        roam: false,
+        bookRole: "included",
+        bookCoverId: "book-demo",
+      });
+      expect(source.refs).toEqual(["book-demo"]);
+
+      const cache = JSON.parse(await readFile(join(root, "var/Aaronnote/book/book-demo.json"), "utf8"));
+      expect(cache).toMatchObject({
+        id: "book-demo",
+        title: "Demo Book",
+        coverPath: "books/demo/index.md",
+      });
+      expect(cache.toc).toEqual(expect.arrayContaining([
+        expect.objectContaining({ text: "Chapter One", path: "books/demo/chapters/chapter-1.md" }),
+      ]));
     } finally {
       await rm(root, { recursive: true, force: true });
     }

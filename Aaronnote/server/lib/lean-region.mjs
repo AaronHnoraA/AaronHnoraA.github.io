@@ -108,6 +108,22 @@ export async function ensureLeanRegion({ notePath, notesRoot, tag, beforeTag = "
   return { leanPath, tag: cleanTag, created: true, text: nextText, region };
 }
 
+export async function getLeanRegion({ notePath, notesRoot, tag }) {
+  const cleanTag = normalizeLeanTag(tag);
+  if (!cleanTag) throw new Error("Missing Lean tag");
+  const leanPath = leanPathForMarkdownNote(notePath, notesRoot);
+  const text = await readLeanFile(leanPath);
+  const region = findLeanRegion(text, cleanTag);
+  return {
+    leanPath,
+    tag: cleanTag,
+    created: false,
+    text,
+    region,
+    body: region?.body ?? "",
+  };
+}
+
 export async function readLeanRegion({ notePath, notesRoot, tag, beforeTag = "", afterTag = "" }) {
   const ensured = await ensureLeanRegion({ notePath, notesRoot, tag, beforeTag, afterTag });
   return {

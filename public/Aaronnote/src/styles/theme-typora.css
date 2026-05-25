@@ -10,7 +10,7 @@
  */
 
 .cm-editor {
-  font-family: var(--aaron-font-body, var(--aaron-font-chinese, serif), var(--aaron-font-english, serif), serif);
+  font-family: var(--aaron-font-body, var(--aaron-font-english, serif), var(--aaron-font-chinese, serif), serif);
   font-size: 16px;
   line-height: 1.46;
   color: var(--aaron-ink, #24201a);
@@ -215,7 +215,7 @@
   padding: 0.12rem 0 0.16rem var(--orgenv-pad-left);
   white-space: pre-wrap;
   color: var(--aaron-ink, #24201a);
-  font-family: var(--aaron-font-body, var(--aaron-font-chinese, serif), var(--aaron-font-english, serif), serif);
+  font-family: var(--aaron-font-body, var(--aaron-font-english, serif), var(--aaron-font-chinese, serif), serif);
 }
 
 .cm-editor org-env-block .org-env-heading {
@@ -400,7 +400,7 @@
   border-radius: 10px;
   background: #fff7ed;
   box-shadow: 0 14px 34px rgb(68 45 23 / 16%);
-  font-family: var(--aaron-font-body, var(--aaron-font-chinese, serif), var(--aaron-font-english, serif), serif);
+  font-family: var(--aaron-font-body, var(--aaron-font-english, serif), var(--aaron-font-chinese, serif), serif);
 }
 
 .cm-editor org-env-block[data-kind="comment"] .org-env-content[hidden] {
@@ -511,7 +511,7 @@
 /* ─── CM6 kernel: Paper-theme equivalents ────────────────────────── */
 /* Root typography (extends widgets.css base) */
 .cm-editor {
-  font-family: var(--aaron-font-body, var(--aaron-font-chinese, serif), var(--aaron-font-english, serif), serif);
+  font-family: var(--aaron-font-body, var(--aaron-font-english, serif), var(--aaron-font-chinese, serif), serif);
   font-size: 16px;
   color: var(--aaron-ink, #24201a);
 }
