@@ -1284,6 +1284,18 @@ org-env-block[data-kind="lean4"] .code-token-punctuation { color: #bac2de; }
 .cm-editor .cm-mermaid-block-preview {
   cursor: default;
 }
+.aaronnote-tikz,
+.cm-editor .cm-tikz-env-widget {
+  width: fit-content;
+  max-width: 100%;
+}
+.aaronnote-tikz-embed {
+  width: var(--aaronnote-image-width, min(100%, var(--note-image-max, 620px)));
+  height: var(--aaronnote-image-height, min(52vh, 420px));
+}
+.cm-editor .cm-tikz-env-widget {
+  cursor: pointer;
+}
 .cm-editor .cm-mermaid-widget > .cm-mermaid-block,
 .cm-editor .cm-mermaid-widget > .cm-mermaid-block-preview {
   margin-top: 0;

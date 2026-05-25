@@ -67,6 +67,7 @@ contextBridge.exposeInMainWorld("aaronnoteApi", {
   assets: {
     upload: (body = {}) => invoke("aaronnote:api:assets:upload", body),
     storeFromPath: (body = {}) => invoke("aaronnote:api:assets:store-from-path", body),
+    renderTikz: (body = {}) => invoke("aaronnote:api:assets:render-tikz", body),
     scanOrphans: () => invoke("aaronnote:api:assets:scan-orphans"),
     trashOrphans: (files = []) => invoke("aaronnote:api:assets:trash-orphans", files),
   },

@@ -63,6 +63,35 @@ $$
     expect(html).not.toContain("<org-env-block");
   });
 
+  test("renders spaced tikz org env as sandboxed TikZJax iframe fallback", () => {
+    const html = renderMarkdownHTML([
+      "#+ begin tikz axis 20260525-120000",
+      "\\draw (0,0) -- (1,1);",
+      "#+ end tikz",
+    ].join("\n"));
+
+    expect(html).toContain("aaronnote-tikz");
+    expect(html).toContain('class="aaronnote-tikz-embed aaronnote-visual-embed"');
+    expect(html).toContain('sandbox="allow-scripts"');
+    expect(html).toContain("tikzjax.js");
+    expect(html).toContain("\\begin{tikzpicture}");
+    expect(html).toContain("\\draw (0,0) -- (1,1);");
+    expect(html).not.toContain("<org-env-block");
+  });
+
+  test("applies image layout attrs to tikz org env fallback", () => {
+    const html = renderMarkdownHTML([
+      "#+ begin tikz axis 20260525-120000 {size:320 align:right wrap}",
+      "\\draw (0,0) -- (1,1);",
+      "#+ end tikz",
+    ].join("\n"));
+
+    expect(html).toContain("aaronnote-image-align-right");
+    expect(html).toContain("aaronnote-image-wrap");
+    expect(html).toContain('data-aaronnote-image-wrap="true"');
+    expect(html).toContain("--aaronnote-image-width: 320px");
+  });
+
   test("renders lean4 org env as a code cell without markdown parsing", () => {
     const html = renderMarkdownHTML([
       "#+begin lean4 basic",
@@ -128,6 +157,22 @@ $$
     expect(html).toContain("--aaronnote-image-max-width: none");
     expect(html).toContain("--aaronnote-image-max-height: none");
     expect(html).not.toContain("{size:300%");
+  });
+
+  test("accepts bare wrap layout attrs", () => {
+    const imageHtml = renderMarkdownHTML("![plot](./images/plot.png){size:40% align:left wrap}");
+    expect(imageHtml).toContain("aaronnote-image-wrap");
+    expect(imageHtml).toContain("aaronnote-image-align-left");
+    expect(imageHtml).toContain('data-aaronnote-image-wrap="true"');
+    expect(imageHtml).toContain("--aaronnote-image-width: 40%");
+
+    const diagramHtml = renderMarkdownHTML([
+      "```marmind",
+      "Root",
+      "```",
+      "{wrap}",
+    ].join("\n"));
+    expect(diagramHtml).toContain("aaronnote-diagram-wrap");
   });
 
   test("renders draw.io image syntax as a visual attachment iframe", () => {

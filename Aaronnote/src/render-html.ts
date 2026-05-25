@@ -12,6 +12,7 @@ import { renderMathHTML } from "./math-render.ts";
 import { safeHref } from "./url-safety.ts";
 import { scanInlineCommands } from "./command-syntax.ts";
 import { highlightCode, type CodeHighlightRange } from "./code-highlight.ts";
+import { renderTikzIframe } from "./tikz-render.ts";
 import {
   VISUAL_ATTACHMENT_IFRAME_ALLOW,
   visualAttachmentEmbeddableP,
@@ -80,7 +81,7 @@ type LeanRegionTokenMeta = {
   missing: boolean;
 };
 
-const ORG_ENV_OPEN_RE = /^\s*#\+begin\s+(\S+)(?:[ \t]+([^\n]*?))?[ \t]*$/i;
+const ORG_ENV_OPEN_RE = /^\s*#\+\s*begin\s+(\S+)(?:[ \t]+([^\n]*?))?[ \t]*$/i;
 const TABLE_ROW_LINE_RE = /^\s*\|.*\|\s*$/;
 const FENCE_CLOSE_LINE_RE = /^[ \t]{0,3}(`{3,}|~{3,})\s*$/;
 
@@ -220,6 +221,7 @@ function envLabel(kind: string): string {
     info: "Info",
     comment: "Comment",
     summary: "Summary",
+    tikz: "TikZ",
   };
   return labels[kind] ?? kind;
 }
@@ -233,7 +235,7 @@ function orgEnvBlockRule(state: StateBlock, startLine: number, endLine: number, 
   const open = openLine.match(ORG_ENV_OPEN_RE);
   if (!open) return false;
   const kind = open[1]!;
-  const closeRe = new RegExp(`^\\s*#\\+end\\s+${kind.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*$`, "i");
+  const closeRe = new RegExp(`^\\s*#\\+\\s*end\\s+${kind.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*$`, "i");
 
   let closeLine = -1;
   for (let line = startLine + 1; line < endLine; line++) {
@@ -592,12 +594,30 @@ function renderLeanRegion(tokens: Token[], idx: number): string {
   return renderLeanCodeCell(meta.tag, meta.body, { missing: meta.missing, region: true });
 }
 
+function tikzTitleLayout(title: string): LayoutAttrs {
+  const raw = String(title || "").trim();
+  const open = raw.indexOf("{");
+  if (open < 0) return layoutFromAttrs({});
+  const trailing = readImageTrailingAttrs(raw, open);
+  if (!trailing || raw.slice(trailing.to).trim()) return layoutFromAttrs({});
+  return imageLayoutFromAttrs(trailing.attrs);
+}
+
 function renderOrgEnv(md: MarkdownIt, tokens: Token[], idx: number): string {
   const meta = tokens[idx]!.meta as OrgEnvTokenMeta;
   const kind = meta.kind;
   if (kind.toLowerCase() === "meta") return renderMetaCover(meta.body);
   if (kind.toLowerCase() === "html") {
     return meta.body.trim() ? `<div class="aaronnote-html">${meta.body}</div>` : "";
+  }
+  if (kind.toLowerCase() === "tikz") {
+    const layout = tikzTitleLayout(meta.title);
+    const classes = classList("aaronnote-tikz", imageLayoutClasses(layout));
+    const style = imageLayoutStyle(layout);
+    const styleAttr = style ? ` style="${escapeAttr(style)}"` : "";
+    return meta.body.trim()
+      ? `<div class="${escapeAttr(classes)}" data-aaronnote-image-align="${escapeAttr(layout.align)}" data-aaronnote-image-wrap="${layout.wrap ? "true" : "false"}"${styleAttr}>${renderTikzIframe(meta.body)}</div>`
+      : "";
   }
   if (kind.toLowerCase() === "lean4") return renderLeanOrgEnv(meta);
   const title = meta.title;

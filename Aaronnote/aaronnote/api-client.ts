@@ -63,6 +63,7 @@ type NativeApi = {
   assets?: {
     upload?: (body: { file: string; name: string; type: string; data: string }) => Promise<unknown>;
     storeFromPath?: (body: { file: string; path: string; name?: string; type?: string }) => Promise<unknown>;
+    renderTikz?: (body: { file: string; id: string; timestamp: string; source: string }) => Promise<unknown>;
     scanOrphans?: () => Promise<unknown>;
     trashOrphans?: (files: string[]) => Promise<unknown>;
   };
@@ -349,6 +350,11 @@ export const api = {
     async storeFromPath(body: { file: string; path: string; name?: string; type?: string }): Promise<UploadedAsset> {
       const native = requireMethod(requireNative().assets?.storeFromPath, "Native asset import");
       return ensureOk(await native(body) as UploadedAsset, "Asset upload failed");
+    },
+
+    async renderTikz(body: { file: string; id: string; timestamp: string; source: string }): Promise<UploadedAsset & { rendered?: boolean; mtimeMs?: number }> {
+      const native = requireMethod(requireNative().assets?.renderTikz, "TikZ render");
+      return ensureOk(await native(body) as UploadedAsset & { rendered?: boolean; mtimeMs?: number }, "TikZ render failed");
     },
 
     async scanOrphans(): Promise<{ assets?: UnusedAsset[]; message?: string }> {

@@ -41,7 +41,7 @@ import {
   scanTemplates,
 } from "../server/lib/index.mjs";
 import { configure, markNotesDirty } from "../server/lib/state.mjs";
-import { storeAsset, storeAssetFromPath, scanUnusedAssets, trashUnusedAssets } from "../server/lib/assets.mjs";
+import { storeAsset, storeAssetFromPath, renderTikzAsset, scanUnusedAssets, trashUnusedAssets } from "../server/lib/assets.mjs";
 import {
   createNode,
   createFolder,
@@ -549,6 +549,7 @@ function registerApiIpc() {
 
   registerApiHandler("aaronnote:api:assets:upload", (body) => storeAsset(body || {}));
   registerApiHandler("aaronnote:api:assets:store-from-path", (body) => storeAssetFromPath(body || {}));
+  registerApiHandler("aaronnote:api:assets:render-tikz", (body) => renderTikzAsset(body || {}));
   registerApiHandler("aaronnote:api:assets:scan-orphans", async () => ({ type: "unused-assets", assets: await scanUnusedAssets(), root: noteRoot }));
   registerApiHandler("aaronnote:api:assets:trash-orphans", async (files) => {
     try {

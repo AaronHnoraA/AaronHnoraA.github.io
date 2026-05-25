@@ -130,23 +130,32 @@ function restoreMathML(html: string, math: readonly string[]): string {
   });
 }
 
-function protectVisualSrcdoc(html: string): { html: string; srcdocs: string[] } {
-  const srcdocs: string[] = [];
-  return {
-    html: html.replace(/<iframe\b(?=[^>]*\baaronnote-visual-embed\b)([^>]*)\ssrcdoc="([^"]*)"([^>]*)>/g, (_match, before, value, after) => {
-      const index = srcdocs.push(value) - 1;
-      return `<iframe${before} data-aaronnote-protected-srcdoc="${index}"${after}>`;
-    }),
-    srcdocs,
-  };
-}
-
 function restoreVisualSrcdoc(html: string, srcdocs: readonly string[]): string {
   return html.replace(/\sdata-aaronnote-protected-srcdoc="(\d+)"/g, (_match, rawIndex: string) => {
     const index = Number(rawIndex);
     const value = srcdocs[index];
     return value === undefined ? "" : ` srcdoc="${value}"`;
   });
+}
+
+function protectVisualSrcdocAttrs(root: HTMLElement): string[] {
+  const srcdocs: string[] = [];
+  root.querySelectorAll<HTMLIFrameElement>("iframe.aaronnote-visual-embed[srcdoc]").forEach((frame) => {
+    const value = frame.getAttribute("srcdoc");
+    if (value == null) return;
+    const index = srcdocs.push(escapeAttrForProtectedSrcdoc(value)) - 1;
+    frame.removeAttribute("srcdoc");
+    frame.setAttribute("data-aaronnote-protected-srcdoc", String(index));
+  });
+  return srcdocs;
+}
+
+function escapeAttrForProtectedSrcdoc(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 function protectVisualIframeAttrs(html: string): { html: string; attrs: string[] } {
@@ -212,10 +221,10 @@ export function cleanEditorHTML(root: HTMLElement): string {
   clone.querySelectorAll("[hidden]").forEach((node) => node.remove());
   clone.querySelectorAll("*").forEach(stripAttrs);
   stripAttrs(clone);
+  const protectedSrcdocs = protectVisualSrcdocAttrs(clone);
   const protectedHtml = protectMathML(clone.innerHTML);
   const protectedFrameAttrs = protectVisualIframeAttrs(protectedHtml.html);
-  const protectedSrcdoc = protectVisualSrcdoc(protectedFrameAttrs.html);
-  const sanitized = DOMPurify.sanitize(protectedSrcdoc.html, {
+  const sanitized = DOMPurify.sanitize(protectedFrameAttrs.html, {
     USE_PROFILES: { html: true, svg: true, mathMl: true },
     ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|file|zotero|roam|aaronnote-asset):|[#/]|\.{0,2}\/|[A-Za-z0-9._~!$&'()*+,;=@%-]+(?:[/?#]|$))/i,
     ADD_TAGS: [
@@ -290,7 +299,7 @@ export function cleanEditorHTML(root: HTMLElement): string {
       "referrerpolicy",
     ],
   });
-  const restoredSrcdoc = restoreVisualSrcdoc(sanitized, protectedSrcdoc.srcdocs);
-  const restoredFrameAttrs = restoreVisualIframeAttrs(restoredSrcdoc, protectedFrameAttrs.attrs);
-  return restoreMathML(restoredFrameAttrs, protectedHtml.math);
+  const restoredFrameAttrs = restoreVisualIframeAttrs(sanitized, protectedFrameAttrs.attrs);
+  const restoredSrcdoc = restoreVisualSrcdoc(restoredFrameAttrs, protectedSrcdocs);
+  return restoreMathML(restoredSrcdoc, protectedHtml.math);
 }

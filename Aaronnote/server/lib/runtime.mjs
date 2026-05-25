@@ -1,6 +1,6 @@
 import { copyFile, mkdir, mkdtemp, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, delimiter, dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { homedir, tmpdir } from "node:os";
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
@@ -329,6 +329,210 @@ export async function storeAssetFromPath(body) {
     isImage,
     markdownPath: markdownRelativePath(current, target),
   };
+}
+
+function tikzVersionMs(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return 0;
+  if (/^\d{13}$/.test(raw)) return Number(raw);
+  if (/^\d{10}$/.test(raw)) return Number(raw) * 1000;
+  const compact = raw.match(/^(\d{4})(\d{2})(\d{2})(?:[-_T]?(\d{2})(\d{2})(\d{2})?)?$/);
+  if (compact) {
+    const [, y, m, d, hh = "00", mm = "00", ss = "00"] = compact;
+    return new Date(Number(y), Number(m) - 1, Number(d), Number(hh), Number(mm), Number(ss)).getTime();
+  }
+  const parsed = Date.parse(raw);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function normalizeTikzForLatex(source) {
+  const cleaned = String(source || "")
+    .split(/\r?\n/)
+    .map((line) => {
+      for (let i = 0; i < line.length; i++) {
+        if (line[i] !== "%") continue;
+        let slashCount = 0;
+        for (let j = i - 1; j >= 0 && line[j] === "\\"; j--) slashCount++;
+        if (slashCount % 2 === 0) return line.slice(0, i).trimEnd();
+      }
+      return line;
+    })
+    .join("\n")
+    .trim();
+  if (!cleaned) return "";
+  if (/\\documentclass\b|\\begin\s*\{\s*document\s*\}/.test(cleaned)) return cleaned;
+  if (/\\begin\s*\{\s*tikzpicture\s*\}/.test(cleaned)) {
+    return [
+      "\\documentclass[tikz,border=2pt]{standalone}",
+      "\\begin{document}",
+      cleaned,
+      "\\end{document}",
+    ].join("\n");
+  }
+  return [
+    "\\documentclass[tikz,border=2pt]{standalone}",
+    "\\begin{document}",
+    "\\begin{tikzpicture}",
+    cleaned,
+    "\\end{tikzpicture}",
+    "\\end{document}",
+  ].join("\n");
+}
+
+function executablePath(command) {
+  if (String(command || "").includes(sep) && existsSync(command)) return command;
+  const paths = [
+    ...(process.env.PATH || "").split(delimiter),
+    join(homedir(), ".nix-profile", "bin"),
+    "/run/current-system/sw/bin",
+    "/opt/homebrew/bin",
+    "/usr/local/bin",
+    "/usr/bin",
+    "/bin",
+  ].filter(Boolean);
+  for (const dir of paths) {
+    const candidate = join(dir, command);
+    if (existsSync(candidate)) return candidate;
+  }
+  return command;
+}
+
+function commandOutputTail(err) {
+  const parts = [
+    err?.message,
+    err?.stderr,
+    err?.stdout,
+  ].filter(Boolean).map((part) => String(part).trim()).filter(Boolean);
+  const text = parts.join("\n");
+  if (!text) return "";
+  return text.split(/\r?\n/).slice(-8).join("\n");
+}
+
+export async function renderTikzAsset(body) {
+  const current = body.file ? safeOpenFile(body.file) : "";
+  if (!current) {
+    const err = new Error("Missing current note file");
+    err.statusCode = 400;
+    throw err;
+  }
+  const id = sanitizeAssetName(body.id || createHash("sha1").update(String(body.source || "")).digest("hex").slice(0, 12), "tikz");
+  const timestamp = String(body.timestamp || body.version || "").trim();
+  const baseDir = dirname(current);
+  const allowedRoot = current && standaloneFile(current) ? baseDir : noteRoot;
+  const targetDir = join(baseDir, "images", assetFolderName(current));
+  if (!inside(targetDir, noteRoot) && !inside(targetDir, allowedRoot)) {
+    const err = new Error(`Asset directory is outside the current document folder: ${targetDir}`);
+    err.statusCode = 403;
+    throw err;
+  }
+  const target = join(targetDir, `tikz-${id}.svg`);
+  const wantedMs = tikzVersionMs(timestamp);
+  const existing = existsSync(target) ? await stat(target) : null;
+  if (existing && (!wantedMs || existing.mtimeMs >= wantedMs)) {
+    return {
+      ok: true,
+      file: target,
+      name: basename(target),
+      type: "image/svg+xml",
+      isImage: true,
+      markdownPath: markdownRelativePath(current, target),
+      rendered: false,
+      mtimeMs: existing.mtimeMs,
+    };
+  }
+
+  const tex = normalizeTikzForLatex(body.source || "");
+  if (!tex) {
+    const err = new Error("Missing TikZ source");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const tmp = await mkdtemp(join(tmpdir(), "aaronnote-tikz-"));
+  let latexError = null;
+  let dvisvgmError = null;
+  let mutoolError = null;
+  try {
+    const texFile = join(tmp, "main.tex");
+    const pdfFile = join(tmp, "main.pdf");
+    const svgFile = join(tmp, "out.svg");
+    await writeFile(texFile, tex, "utf8");
+    try {
+      await execFileAsync(executablePath("pdflatex"), [
+        "-interaction=nonstopmode",
+        "-halt-on-error",
+        `-output-directory=${tmp}`,
+        texFile,
+      ], { timeout: 20_000, maxBuffer: 8 * 1024 * 1024 });
+    } catch (err) {
+      latexError = err;
+      throw err;
+    }
+
+    try {
+      await execFileAsync(executablePath("dvisvgm"), [
+        "--pdf",
+        "--no-fonts",
+        "--exact",
+        "--bbox=min",
+        "-o",
+        svgFile,
+        pdfFile,
+      ], { timeout: 20_000, maxBuffer: 8 * 1024 * 1024 });
+    } catch (err) {
+      dvisvgmError = err;
+      try {
+        await execFileAsync(executablePath("mutool"), [
+          "convert",
+          "-o",
+          svgFile,
+          pdfFile,
+        ], { timeout: 20_000, maxBuffer: 8 * 1024 * 1024 });
+      } catch (fallbackErr) {
+        mutoolError = fallbackErr;
+        throw fallbackErr;
+      }
+    }
+    const renderedSvgFile = existsSync(svgFile)
+      ? svgFile
+      : existsSync(join(tmp, "out1.svg"))
+        ? join(tmp, "out1.svg")
+        : svgFile;
+    if (!existsSync(renderedSvgFile)) {
+      throw new Error("TikZ SVG conversion did not produce an SVG file");
+    }
+    await mkdir(targetDir, { recursive: true });
+    await copyFile(renderedSvgFile, target);
+    const info = await stat(target);
+    return {
+      ok: true,
+      file: target,
+      name: basename(target),
+      type: "image/svg+xml",
+      isImage: true,
+      markdownPath: markdownRelativePath(current, target),
+      rendered: true,
+      mtimeMs: info.mtimeMs,
+    };
+  } catch (err) {
+    const details = [
+      latexError ? `pdflatex: ${commandOutputTail(latexError)}` : "",
+      dvisvgmError ? `dvisvgm: ${commandOutputTail(dvisvgmError)}` : "",
+      mutoolError ? `mutool: ${commandOutputTail(mutoolError)}` : "",
+    ].filter(Boolean).join("\n\n");
+    return {
+      ok: false,
+      file: target,
+      name: basename(target),
+      type: "image/svg+xml",
+      isImage: true,
+      markdownPath: markdownRelativePath(current, target),
+      rendered: false,
+      message: details || (err instanceof Error ? err.message : String(err)),
+    };
+  } finally {
+    await rm(tmp, { recursive: true, force: true });
+  }
 }
 
 export async function pathSuggestionsForFile(file) {

@@ -20,12 +20,30 @@ export function parseAttrArgs(raw = ""): AttrMap {
   const body = raw.trim().replace(/^\{/, "").replace(/\}$/, "").trim();
   if (!body) return {};
   const out: AttrMap = {};
-  for (const part of body.split(/[;,]/)) {
-    const match = part.trim().match(/^([A-Za-z][\w-]*)\s*[:=]\s*(.+)$/);
-    if (!match) continue;
-    const key = match[1]!.toLowerCase();
-    const value = cleanAttrValue(match[2]!);
-    if (key && value) out[key] = value;
+  for (const chunk of body.split(/[;,]/)) {
+    const item = chunk.trim();
+    if (!item) continue;
+    const attrPattern = /([A-Za-z][\w-]*)(?:\s*[:=]\s*("[^"]*"|'[^']*'|.*?))?(?=\s+[A-Za-z][\w-]*(?:\s*[:=]|\s*$)|$)/g;
+    let matched = false;
+    for (const match of item.matchAll(attrPattern)) {
+      matched = true;
+      const key = match[1]!.toLowerCase();
+      const value = cleanAttrValue(match[2] ?? key);
+      if (key && value) out[key] = value;
+    }
+    if (matched) continue;
+    const match = item.match(/^([A-Za-z][\w-]*)\s*[:=]\s*(.+)$/);
+    if (match) {
+      const key = match[1]!.toLowerCase();
+      const value = cleanAttrValue(match[2]!);
+      if (key && value) out[key] = value;
+      continue;
+    }
+    const bare = item.match(/^([A-Za-z][\w-]*)$/);
+    if (bare) {
+      const key = bare[1]!.toLowerCase();
+      out[key] = key;
+    }
   }
   return out;
 }

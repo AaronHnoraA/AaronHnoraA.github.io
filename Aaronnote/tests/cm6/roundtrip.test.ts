@@ -423,6 +423,134 @@ $$
     cleanup();
   });
 
+  test("tikz env stays previewed as a stable rendered svg asset", async () => {
+    const originalApi = window.aaronnoteApi;
+    const originalCurrentFile = window.AaronnoteCurrentFile;
+    const originalResolveAssetUrl = window.AaronnoteResolveAssetUrl;
+    window.AaronnoteCurrentFile = () => "/notes/demo.md";
+    window.AaronnoteResolveAssetUrl = (src: string) => `asset://${src}`;
+    window.aaronnoteApi = {
+      assets: {
+        renderTikz: async (body: unknown) => ({
+          ok: true,
+          markdownPath: "./images/demo/tikz-axis.svg",
+          body,
+        }),
+      },
+    } as typeof window.aaronnoteApi;
+    const md = [
+      "before",
+      "",
+      "#+ begin tikz axis 20260525-120000 {size:320 align:right wrap}",
+      "\\draw (0,0) -- (1,1);",
+      "#+ end tikz",
+      "",
+      "after",
+    ].join("\n");
+    const { editor, cleanup } = mountCM6(md);
+    try {
+      const view = editor.view as typeof editor.view & { contentDOM: HTMLElement };
+      editor.setMarkdownSelection(md.length);
+
+      expect(document.querySelector(".cm-tikz-env-widget")?.classList.contains("cm-image-widget")).toBe(true);
+      expect(document.querySelector(".cm-tikz-env-widget")?.classList.contains("aaronnote-image-align-right")).toBe(true);
+      expect(document.querySelector(".cm-tikz-env-widget")?.classList.contains("aaronnote-image-wrap")).toBe(true);
+      expect((document.querySelector<HTMLElement>(".cm-tikz-env-widget")?.style.getPropertyValue("--aaronnote-image-width") || "").trim()).toBe("320px");
+      expect(document.querySelector('.cm-org-env-rail[data-org-env-kind="tikz"]')).toBeNull();
+      expect(view.contentDOM.textContent).not.toContain("#+ begin tikz");
+
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+      const img = document.querySelector<HTMLImageElement>(".cm-tikz-env-widget img");
+      expect(img).toBeTruthy();
+      expect(img!.src).toBe("asset://./images/demo/tikz-axis.svg");
+
+      editor.toggleSource();
+      expect(view.contentDOM.textContent).toContain("#+ begin tikz");
+    } finally {
+      cleanup();
+      window.aaronnoteApi = originalApi;
+      window.AaronnoteCurrentFile = originalCurrentFile;
+      window.AaronnoteResolveAssetUrl = originalResolveAssetUrl;
+    }
+  });
+
+  test("tikz env fills missing id and timestamp on first preview", async () => {
+    const originalApi = window.aaronnoteApi;
+    const originalCurrentFile = window.AaronnoteCurrentFile;
+    window.AaronnoteCurrentFile = () => "/notes/demo.md";
+    window.aaronnoteApi = {
+      assets: {
+        renderTikz: async () => ({
+          ok: true,
+          markdownPath: "./images/demo/tikz-auto.svg",
+        }),
+      },
+    } as typeof window.aaronnoteApi;
+    const md = [
+      "#+ begin tikz {wrap}",
+      "\\draw (0,0) -- (1,1);",
+      "#+ end tikz",
+    ].join("\n");
+    const { editor, cleanup } = mountCM6(md);
+    try {
+      editor.setMarkdownSelection(md.length);
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
+
+      expect(editor.getMarkdown()).toMatch(/^#\+ begin tikz tikz-\d{8}-\d{6} \d{8}-\d{6} \{wrap\}/);
+    } finally {
+      cleanup();
+      window.aaronnoteApi = originalApi;
+      window.AaronnoteCurrentFile = originalCurrentFile;
+    }
+  });
+
+  test("tikz env bumps timestamp after body edits before rerendering", async () => {
+    const originalApi = window.aaronnoteApi;
+    const originalCurrentFile = window.AaronnoteCurrentFile;
+    window.AaronnoteCurrentFile = () => "/notes/demo.md";
+    const renderCalls: Array<{ timestamp?: string }> = [];
+    window.aaronnoteApi = {
+      assets: {
+        renderTikz: async (body: { timestamp?: string }) => {
+          renderCalls.push(body);
+          return {
+            ok: true,
+            markdownPath: "./images/demo/tikz-axis.svg",
+          };
+        },
+      },
+    } as typeof window.aaronnoteApi;
+    const md = [
+      "#+ begin tikz dirty-axis 20260525-120000",
+      "\\draw (0,0) -- (1,1);",
+      "#+ end tikz",
+      "",
+      "after",
+    ].join("\n");
+    const { editor, cleanup } = mountCM6(md);
+    try {
+      editor.setMarkdownSelection(md.length);
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+      expect(renderCalls.length).toBe(1);
+
+      editor.toggleSource();
+      const from = editor.getMarkdown().indexOf("(1,1)");
+      editor.view.dispatch({
+        changes: { from, to: from + "(1,1)".length, insert: "(2,2)" },
+        selection: { anchor: editor.getMarkdown().length },
+      });
+      editor.toggleSource();
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
+
+      expect(editor.getMarkdown()).toMatch(/^#\+ begin tikz dirty-axis (?!20260525-120000)\d{8}-\d{6}/);
+      expect(renderCalls.at(-1)?.timestamp).not.toBe("20260525-120000");
+    } finally {
+      cleanup();
+      window.aaronnoteApi = originalApi;
+      window.AaronnoteCurrentFile = originalCurrentFile;
+    }
+  });
+
   test("clicking org-env display math uses the same source opening as outside", () => {
     const md = String.raw`#+begin theorem
 Before

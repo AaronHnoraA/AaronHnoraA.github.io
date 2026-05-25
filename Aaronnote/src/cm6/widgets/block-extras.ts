@@ -36,7 +36,9 @@ import {
   renderMarkdownHTML,
   showMetaTag,
 } from "../../render-html.ts";
+import { applyImageLayout, imageLayoutFromAttrs, readImageTrailingAttrs, type ImageLayoutAttrs } from "../../image-attrs.ts";
 import { supportedDiagramLang } from "../../diagram-langs.ts";
+import { api } from "../../../aaronnote/api-client.ts";
 
 // ---------------------------------------------------------------------------
 // Regexes / parsers
@@ -80,6 +82,22 @@ interface OrgEnvTitlePatch {
   newBlock: OrgEnvBlock;
 }
 
+declare global {
+  interface Window {
+    AaronnoteCurrentFile?: () => string;
+    AaronnoteResolveAssetUrl?: (src: string) => string;
+  }
+}
+
+const ORG_ENV_OPEN_LINE_RE = /^([ \t]*#\+\s*begin\s+)(\S+)(?:([ \t]+)([^\n]*?))?[ \t]*$/i;
+const ORG_ENV_SCAN_OPEN_RE = /^[ \t]*#\+\s*begin\s+(\S+)(?:[ \t]+([^\n]*))?[ \t]*$/i;
+
+function orgEnvBoundaryRe(kind: string, boundary: "begin" | "end"): RegExp {
+  const escapedKind = kind.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (boundary === "begin") return new RegExp(`^[ \\t]*#\\+\\s*begin\\s+${escapedKind}(?:\\s|$)`, "i");
+  return new RegExp(`^[ \\t]*#\\+\\s*end\\s+${escapedKind}[ \\t]*$`, "i");
+}
+
 // Depth-aware scanner: handles nested #+begin <kind> … #+end <kind>.
 function scanOrgEnvBlocks(
   text: string,
@@ -95,7 +113,7 @@ function scanOrgEnvBlocks(
     const lineEndPos = lineEnd === -1 ? text.length : lineEnd;
     if (positionInsideAnyRange(baseOffset + i, blockMathRanges)) { i = lineEndPos + 1; continue; }
     const line = text.slice(i, lineEndPos);
-    const openMatch = /^[ \t]*#\+begin\s+(\S+)(?:[ \t]+([^\n]*))?[ \t]*$/i.exec(line);
+    const openMatch = ORG_ENV_SCAN_OPEN_RE.exec(line);
     if (!openMatch) { i = lineEndPos + 1; continue; }
 
     const kind = openMatch[1].toLowerCase();
@@ -104,9 +122,8 @@ function scanOrgEnvBlocks(
     const bodyStart = lineEndPos + 1;
 
     // Find matching #+end kind at this depth level
-    const escapedKind = kind.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const openRe = new RegExp(`^[ \\t]*#\\+begin\\s+${escapedKind}(?:\\s|$)`, "i");
-    const closeRe = new RegExp(`^[ \\t]*#\\+end\\s+${escapedKind}[ \\t]*$`, "i");
+    const openRe = orgEnvBoundaryRe(kind, "begin");
+    const closeRe = orgEnvBoundaryRe(kind, "end");
 
     let depth = 1, pos = bodyStart, closeFrom = -1, closeTo = -1;
     while (pos < text.length) {
@@ -196,7 +213,7 @@ function buildOrgEnvOpenLine(kind: string, title: string): string {
 }
 
 function parseOrgEnvOpenLine(line: string): OrgEnvOpenLineInfo | null {
-  const match = /^([ \t]*#\+begin\s+)(\S+)(?:([ \t]+)([^\n]*?))?[ \t]*$/i.exec(line);
+  const match = ORG_ENV_OPEN_LINE_RE.exec(line);
   if (!match) return null;
   const rawTitle = match[4] ?? "";
   const title = rawTitle.trim();
@@ -251,6 +268,123 @@ function stopInteractiveWidgetEvents(root: HTMLElement): void {
   for (const type of ["mousedown", "mouseup", "click", "dblclick", "keydown", "keyup", "beforeinput", "input"]) {
     root.addEventListener(type, stopEditorPropagation);
   }
+}
+
+type TikzAssetResult = {
+  ok?: boolean;
+  markdownPath?: string;
+  message?: string;
+};
+
+const clearTikzDirtyEffect = StateEffect.define<string>();
+const tikzAssetCache = new Map<string, Promise<TikzAssetResult>>();
+const tikzRenderedSourceByAsset = new Map<string, string>();
+const tikzPendingSourceByAsset = new Map<string, string>();
+
+function pad2(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
+function tikzTimestamp(date = new Date()): string {
+  return [
+    String(date.getFullYear()),
+    pad2(date.getMonth() + 1),
+    pad2(date.getDate()),
+    "-",
+    pad2(date.getHours()),
+    pad2(date.getMinutes()),
+    pad2(date.getSeconds()),
+  ].join("");
+}
+
+function nextTikzTimestamp(previous: string): string {
+  const next = tikzTimestamp();
+  return next === previous ? tikzTimestamp(new Date(Date.now() + 1000)) : next;
+}
+
+function tikzGeneratedId(timestamp: string): string {
+  return `tikz-${timestamp}`;
+}
+
+function splitTikzTitle(title: string): { head: string; attrsRaw: string; layout: ImageLayoutAttrs } {
+  const raw = String(title || "").trim();
+  const open = raw.indexOf("{");
+  if (open < 0) return { head: raw, attrsRaw: "", layout: imageLayoutFromAttrs({}) };
+  const trailing = readImageTrailingAttrs(raw, open);
+  if (!trailing || raw.slice(trailing.to).trim()) return { head: raw, attrsRaw: "", layout: imageLayoutFromAttrs({}) };
+  return {
+    head: raw.slice(0, open).trim(),
+    attrsRaw: trailing.raw,
+    layout: imageLayoutFromAttrs(trailing.attrs),
+  };
+}
+
+function completeTikzTitle(title: string): { id: string; timestamp: string; attrsRaw: string; layout: ImageLayoutAttrs; changed: boolean } {
+  const parsed = splitTikzTitle(title);
+  const parts = parsed.head.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return { id: parts[0]!, timestamp: parts[1]!, attrsRaw: parsed.attrsRaw, layout: parsed.layout, changed: false };
+  const timestamp = tikzTimestamp();
+  const id = parts[0] || tikzGeneratedId(timestamp);
+  return { id, timestamp, attrsRaw: parsed.attrsRaw, layout: parsed.layout, changed: true };
+}
+
+function tikzDirtyKeyFromTitle(title: string): string {
+  const parsed = splitTikzTitle(title);
+  return parsed.head.split(/\s+/, 1)[0] || "";
+}
+
+function currentNoteFile(): string {
+  return window.AaronnoteCurrentFile?.() || "";
+}
+
+function resolveAssetSrc(src: string): string {
+  return window.AaronnoteResolveAssetUrl?.(src) ?? src;
+}
+
+function ensureTikzAsset(file: string, id: string, timestamp: string, source: string): Promise<TikzAssetResult> {
+  const key = `${file}\n${id}\n${timestamp}\n${source}`;
+  let existing = tikzAssetCache.get(key);
+  if (!existing) {
+    existing = api.assets.renderTikz({ file, id, timestamp, source })
+      .catch((err: unknown) => ({
+        ok: false,
+        message: err instanceof Error ? err.message : String(err),
+      }));
+    tikzAssetCache.set(key, existing);
+    if (tikzAssetCache.size > 128) {
+      const oldest = tikzAssetCache.keys().next().value as string | undefined;
+      if (oldest) tikzAssetCache.delete(oldest);
+    }
+  }
+  return existing;
+}
+
+function tikzSourceCacheKey(file: string, id: string): string {
+  return `${file}\n${id}`;
+}
+
+function scheduleTikzOpenLineUpdate(
+  view: EditorView,
+  from: number,
+  makeTitle: (info: OrgEnvOpenLineInfo) => string | null,
+  effects: StateEffect<unknown>[] = [],
+): void {
+  window.requestAnimationFrame(() => {
+    if (!view.dom.isConnected) return;
+    const line = view.state.doc.lineAt(from);
+    const info = parseOrgEnvOpenLine(line.text);
+    if (!info || info.kind !== "tikz") return;
+    const title = makeTitle(info);
+    if (!title) return;
+    view.dispatch({
+      changes: {
+        from: line.from,
+        to: line.to,
+        insert: `#+ begin tikz ${title}`,
+      },
+      effects,
+    });
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -807,6 +941,7 @@ function envLabel(kind: string): string {
     comment: "Comment",
     summary: "Summary",
     lean4: "Lean 4",
+    tikz: "TikZ",
   };
   return labels[kind] ?? kind;
 }
@@ -938,6 +1073,97 @@ class HtmlWidget extends WidgetType {
   }
 
   ignoreEvent(): boolean { return true; }
+}
+
+class TikzWidget extends WidgetType {
+  title: string;
+  body: string;
+  from: number;
+  to: number;
+  dirty: boolean;
+
+  constructor(title: string, body: string, from: number, to: number, dirty: boolean) {
+    super();
+    this.title = title;
+    this.body = body;
+    this.from = from;
+    this.to = to;
+    this.dirty = dirty;
+  }
+
+  eq(other: TikzWidget): boolean {
+    return this.title === other.title && this.body === other.body && this.from === other.from && this.to === other.to && this.dirty === other.dirty;
+  }
+
+  toDOM(view: EditorView): HTMLElement {
+    const figure = document.createElement("figure");
+    figure.className = "cm-image-widget cm-visual-attachment cm-visual-attachment-html cm-tikz-env-widget aaronnote-tikz";
+    setSourceRange(figure, this.from, this.to);
+    figure.dataset.cmOpenSource = "true";
+
+    const card = document.createElement("div");
+    card.className = "cm-image-render cm-visual-file-card cm-visual-file-card-html cm-tikz-env-card";
+    figure.append(card);
+
+    const meta = completeTikzTitle(this.title);
+    applyImageLayout(figure, meta.layout);
+    const file = currentNoteFile();
+    if (meta.changed) {
+      card.textContent = "Preparing TikZ...";
+      scheduleTikzOpenLineUpdate(view, this.from, (info) => {
+        const current = completeTikzTitle(info.title);
+        return current.changed ? `${current.id} ${current.timestamp}${current.attrsRaw ? ` ${current.attrsRaw}` : ""}` : null;
+      });
+      stopInteractiveWidgetEvents(figure);
+      return figure;
+    }
+    if (!file) {
+      card.textContent = "TikZ render needs a saved note file";
+      stopInteractiveWidgetEvents(figure);
+      return figure;
+    }
+
+    const sourceCacheKey = tikzSourceCacheKey(file, meta.id);
+    const previousRenderedSource = tikzRenderedSourceByAsset.get(sourceCacheKey);
+    const pendingSource = tikzPendingSourceByAsset.get(sourceCacheKey);
+    const bodyChanged = this.dirty || (previousRenderedSource !== undefined && previousRenderedSource !== this.body);
+    if (bodyChanged && pendingSource !== this.body) {
+      card.textContent = "Updating TikZ...";
+      tikzPendingSourceByAsset.set(sourceCacheKey, this.body);
+      scheduleTikzOpenLineUpdate(view, this.from, (info) => {
+        const current = completeTikzTitle(info.title);
+        if (current.changed) return `${current.id} ${current.timestamp}${current.attrsRaw ? ` ${current.attrsRaw}` : ""}`;
+        const timestamp = nextTikzTimestamp(current.timestamp);
+        return `${current.id} ${timestamp}${current.attrsRaw ? ` ${current.attrsRaw}` : ""}`;
+      }, [clearTikzDirtyEffect.of(meta.id)]);
+      stopInteractiveWidgetEvents(figure);
+      return figure;
+    }
+
+    card.textContent = "Rendering TikZ...";
+    void ensureTikzAsset(file, meta.id, meta.timestamp, this.body).then((result) => {
+      if (!figure.isConnected) return;
+      if (!result.ok || !result.markdownPath) {
+        tikzPendingSourceByAsset.delete(sourceCacheKey);
+        card.textContent = result.message || "TikZ render failed";
+        return;
+      }
+      tikzRenderedSourceByAsset.set(sourceCacheKey, this.body);
+      tikzPendingSourceByAsset.delete(sourceCacheKey);
+      const img = document.createElement("img");
+      img.className = "cm-image-render cm-tikz-env-image";
+      img.src = resolveAssetSrc(result.markdownPath);
+      img.alt = `TikZ ${meta.id}`;
+      img.loading = "lazy";
+      img.decoding = "async";
+      figure.replaceChildren(img);
+    });
+
+    stopInteractiveWidgetEvents(figure);
+    return figure;
+  }
+
+  ignoreEvent(): boolean { return false; }
 }
 
 function renderMetaWidget(
@@ -1200,6 +1426,29 @@ const orgEnvBlocksField = StateField.define<readonly OrgEnvBlock[]>({
         ?? scanOrgEnvBlocks(tr.state.doc.toString(), 0, 0, getBlockMathRanges(tr.state));
     }
     return blocks.map((block) => mapOrgEnvBlock(block, tr.changes, tr.state.doc));
+  },
+});
+
+const dirtyTikzBlocksField = StateField.define<ReadonlySet<string>>({
+  create: () => new Set<string>(),
+  update(value, tr) {
+    let next: Set<string> | null = null;
+    for (const effect of tr.effects) {
+      if (!effect.is(clearTikzDirtyEffect)) continue;
+      if (!next) next = new Set(value);
+      next.delete(effect.value);
+    }
+    if (!tr.docChanged) return next ?? value;
+    const blocks = tr.startState.field(orgEnvBlocksField, false) ?? [];
+    for (const block of blocks) {
+      if (block.kind !== "tikz") continue;
+      const key = tikzDirtyKeyFromTitle(block.title);
+      if (!key) continue;
+      if (!changesTouchRange(tr.changes, block.bodyFrom, block.bodyTo)) continue;
+      if (!next) next = new Set(value);
+      next.add(key);
+    }
+    return next ?? value;
   },
 });
 
@@ -1476,6 +1725,7 @@ function measureOrgEnvRails(view: EditorView): OrgEnvRailMeasure[] {
       block.kind !== "meta"
       && block.kind !== "comment"
       && block.kind !== "html"
+      && block.kind !== "tikz"
       && block.openFrom <= visibleTo
       && block.closeTo >= visibleFrom
     ))
@@ -1530,6 +1780,18 @@ function addOrgEnvBlockExtraDecos(
     decos.push(
       Decoration.replace({
         widget: new HtmlWidget(block.body, block.from, block.to),
+        block: true,
+      }).range(block.from, block.to),
+    );
+    occupied?.push([block.from, block.to]);
+    return;
+  }
+  if (block.kind === "tikz") {
+    const dirtyTikzBlocks = state.field(dirtyTikzBlocksField, false);
+    const dirtyKey = tikzDirtyKeyFromTitle(block.title);
+    decos.push(
+      Decoration.replace({
+        widget: new TikzWidget(block.title, block.body, block.from, block.to, Boolean(dirtyKey && dirtyTikzBlocks?.has(dirtyKey))),
         block: true,
       }).range(block.from, block.to),
     );
@@ -1685,7 +1947,8 @@ function canMapBlockExtraDecos(state: EditorState, changes: ChangeSet): boolean 
   if (ranges.hrs.some((range) => changesTouchRange(changes, range.from, range.to))) return false;
   if (ranges.frontMatter && changesTouchRange(changes, ranges.frontMatter.from, ranges.frontMatter.to)) return false;
   if (blocks.some((block) => (
-    (block.kind === "meta" || block.kind === "comment" || block.kind === "html") && changesTouchRange(changes, block.from, block.to)
+    (block.kind === "meta" || block.kind === "comment" || block.kind === "html" || block.kind === "tikz")
+    && changesTouchRange(changes, block.from, block.to)
   ))) {
     return false;
   }
@@ -1760,6 +2023,7 @@ export const blockExtrasExtension: Extension = [
   bookContextField,
   blockExtraRangesField,
   orgEnvBlocksField,
+  dirtyTikzBlocksField,
   blockExtrasDecorations,
   orgEnvBodyLineDecorations,
   orgEnvRailExtension,

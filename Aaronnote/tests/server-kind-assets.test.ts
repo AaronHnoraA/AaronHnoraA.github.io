@@ -40,4 +40,13 @@ describe("server note kind assets", () => {
     expect(html?.mode).toBe("markdown-mode");
     expect(html?.body).toContain("#+begin html\n$1\n#+end html");
   });
+
+  test("loads the tikz org env snippet", async () => {
+    const snippets = await scanSnippets({ force: true }) as ServerSnippet[];
+    const tikz = snippets.find((snippet) => snippet.kind === "" && snippet.key === "tikz");
+    expect(tikz?.mode).toBe("markdown-mode");
+    expect(tikz?.body).toContain("#+ begin tikz");
+    expect(tikz?.body).toContain("\\draw[->]");
+    expect(tikz?.body).toContain("#+ end tikz");
+  });
 });

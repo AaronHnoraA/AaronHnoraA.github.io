@@ -495,6 +495,36 @@ input {
   font: 12px/1.45 var(--aaron-font-mono);
 }
 
+.aaronnote-ranger-media-preview {
+  display: grid;
+  place-items: center;
+  min-height: 160px;
+  max-height: min(46vh, 360px);
+  margin: 0 0 14px;
+  border: 1px solid var(--aaron-paper-line);
+  background: var(--aaron-paper);
+  overflow: hidden;
+}
+
+.aaronnote-ranger-media-preview img,
+.aaronnote-ranger-media-preview video {
+  display: block;
+  max-width: 100%;
+  max-height: min(46vh, 360px);
+  object-fit: contain;
+}
+
+.aaronnote-ranger-media-preview audio {
+  width: calc(100% - 24px);
+}
+
+.aaronnote-ranger-media-preview iframe {
+  width: 100%;
+  height: min(46vh, 360px);
+  border: 0;
+  background: white;
+}
+
 .aaronnote-ranger-preview dl {
   display: grid;
   grid-template-columns: 66px minmax(0, 1fr);

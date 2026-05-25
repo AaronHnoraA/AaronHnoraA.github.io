@@ -56,6 +56,72 @@ function fileNameFromPath(path: string): string {
   return path.split(/[\\/]/).filter(Boolean).at(-1) || "attachment";
 }
 
+function fileExtension(path: string): string {
+  const name = fileNameFromPath(path).toLowerCase();
+  const index = name.lastIndexOf(".");
+  return index >= 0 ? name.slice(index + 1) : "";
+}
+
+function fileMediaUrl(file: FileSummary): string {
+  const source = file.file || file.path || "";
+  const url = new URL("aaronnote-asset://media/");
+  url.searchParams.set("file", source);
+  return url.toString();
+}
+
+function filePreviewKind(file: FileSummary): "image" | "pdf" | "audio" | "video" | "text" | "html" | "" {
+  const type = String(file.type || "").toLowerCase();
+  const ext = String(file.ext || fileExtension(file.path || file.file || "")).toLowerCase();
+  if (type.startsWith("image/") || ["avif", "bmp", "gif", "jpeg", "jpg", "png", "svg", "webp"].includes(ext)) return "image";
+  if (type === "application/pdf" || ext === "pdf") return "pdf";
+  if (type.startsWith("audio/") || ["mp3", "m4a", "ogg", "wav", "flac"].includes(ext)) return "audio";
+  if (type.startsWith("video/") || ["mp4", "mov", "webm", "m4v"].includes(ext)) return "video";
+  if (type === "text/html" || type.startsWith("text/html;") || ["html", "htm"].includes(ext)) return "html";
+  if (type.startsWith("text/") || ["css", "csv", "json", "log", "md", "mjs", "js", "tex", "txt", "xml", "yaml", "yml"].includes(ext)) return "text";
+  return "";
+}
+
+function renderFilePreviewMedia(file: FileSummary): HTMLElement | null {
+  const kind = filePreviewKind(file);
+  if (!kind) return null;
+  const box = document.createElement("div");
+  box.className = `aaronnote-ranger-media-preview aaronnote-ranger-media-preview-${kind}`;
+  const src = fileMediaUrl(file);
+  const label = file.name || fileNameFromPath(file.path || file.file || "");
+  if (kind === "image") {
+    const img = document.createElement("img");
+    img.src = src;
+    img.alt = label;
+    img.loading = "lazy";
+    img.decoding = "async";
+    box.appendChild(img);
+    return box;
+  }
+  if (kind === "audio") {
+    const audio = document.createElement("audio");
+    audio.src = src;
+    audio.controls = true;
+    audio.preload = "metadata";
+    box.appendChild(audio);
+    return box;
+  }
+  if (kind === "video") {
+    const video = document.createElement("video");
+    video.src = src;
+    video.controls = true;
+    video.preload = "metadata";
+    box.appendChild(video);
+    return box;
+  }
+  const frame = document.createElement("iframe");
+  frame.src = src;
+  frame.title = label;
+  frame.loading = "lazy";
+  if (kind === "html") frame.setAttribute("sandbox", "allow-scripts allow-forms allow-popups allow-downloads");
+  box.appendChild(frame);
+  return box;
+}
+
 function pathParts(path: string): string[] {
   return path.replace(/^\.\/?/, "").split(/[\\/]/).filter(Boolean);
 }
@@ -1033,6 +1099,8 @@ export function createFilesystemBrowser(options: {
     path.className = "aaronnote-ranger-path";
     path.textContent = file.path || file.file || "";
     preview.append(badge, title, path);
+    const media = renderFilePreviewMedia(file);
+    if (media) preview.appendChild(media);
     const stats = document.createElement("dl");
     const fields: Array<[string, string]> = [
       ["Folder", file.groupKey || "Root"],

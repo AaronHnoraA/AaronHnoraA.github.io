@@ -121780,7 +121780,18 @@ $$
 |\psi\rangle\langle \psi|.
 $$
 
-This operator is positive semidefinite, Hermitian, trace-one, and idempotent.
+This operator is positive semidefinite, Hermitian, trace-one, and idempotent. this is hard this is hard to use 
+#+begin proof
+adasd aadsadasd
+
+
+
+$x^5$ + 4 
+
+
+
+#+end proof
+
 
 $$
 \rho_\psi^\dagger = \rho_\psi.
@@ -121816,7 +121827,8 @@ $$
 #+begin note Positivity and Hermitian structure
 In finite-dimensional quantum theory, positivity already implies
 self-adjointness. However, listing Hermitian symmetry explicitly is often
-pedagogically useful because it reminds us that observables and density
+pedagogically useful because it reminds us that observables and density this is hard to use 
+
 operators belong to the real vector space of Hermitian operators.
 
 中文直觉：正半定保证测量概率非负；迹为一保证总概率为一。
@@ -121830,7 +121842,7 @@ $$
 \operatorname{tr}(\rho A).
 $$
 
-For a pure state, this agrees with the vector-state formula:
+For a pure state, this agrees with the vector-state formula: this is hard 
 
 $$
 \operatorname{tr}(|\psi\rangle\langle \psi|A)
@@ -121840,8 +121852,8 @@ $$
 
 ## 224.2. Mixed states and ensemble decompositions
 
-A mixed state represents classical uncertainty over quantum states. Suppose
-the system is prepared in state $|\psi_j\rangle$ with probability $p_j$.
+A mixed state represents classical uncertainty over quantum states. Suppose this is hard to use 
+the system is prepared in state $|\psi_j\rangle$ with probability $p_j$. this is hard t ouse 
 The probability constraints are
 
 $$
