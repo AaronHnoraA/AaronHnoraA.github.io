@@ -26,6 +26,17 @@ type SaveBody = {
   force?: boolean;
 };
 
+export type ProseDiagnostic = {
+  source: "vale" | "cspell" | "browser";
+  from: number;
+  to: number;
+  severity?: "info" | "warning" | "error";
+  message: string;
+  rule?: string;
+  word?: string;
+  suggestions?: string[];
+};
+
 type NativeApi = {
   notes?: {
     bootstrap?: (file?: string) => Promise<unknown>;
@@ -95,7 +106,11 @@ type NativeApi = {
     showInFolder?: (file: string) => Promise<unknown>;
     openPath?: (file: string) => Promise<unknown>;
     showAttachmentMenu?: (file: string, base?: string) => Promise<unknown>;
-    showEditorContextMenu?: () => Promise<unknown>;
+    showEditorContextMenu?: (options?: unknown) => Promise<unknown>;
+  };
+  proseCheck?: {
+    run?: (body: { file?: string; content?: string; ranges?: Array<{ from: number; to: number }>; segments?: Array<{ from: number; to: number; text: string }>; totalChars?: number }) => Promise<unknown>;
+    browserSpellcheck?: (words: string[]) => Array<{ word?: string; misspelled?: boolean; suggestions?: string[] }>;
   };
   copilot?: {
     request?: (action: string, body?: unknown) => Promise<unknown>;
@@ -476,9 +491,22 @@ export const api = {
       ensureOk(await native(file, base), "Attachment menu failed");
     },
 
-    async showEditorContextMenu(): Promise<void> {
+    async showEditorContextMenu(options: unknown = {}): Promise<void> {
       const native = requireMethod(requireNative().shell?.showEditorContextMenu, "Native shell integration");
-      ensureOk(await native(), "Context menu failed");
+      ensureOk(await native(options), "Context menu failed");
+    },
+  },
+
+  proseCheck: {
+    async run(body: { file?: string; content?: string; ranges?: Array<{ from: number; to: number }>; segments?: Array<{ from: number; to: number; text: string }>; totalChars?: number }): Promise<{ diagnostics?: ProseDiagnostic[]; tools?: Array<{ source?: string; ok?: boolean; message?: string; optional?: boolean }>; message?: string }> {
+      const native = requireMethod(requireNative().proseCheck?.run, "Prose check");
+      return ensureOk(await native(body) as { diagnostics?: ProseDiagnostic[]; tools?: Array<{ source?: string; ok?: boolean; message?: string; optional?: boolean }>; message?: string }, "Prose check failed");
+    },
+
+    browserSpellcheck(words: string[]): Array<{ word?: string; misspelled?: boolean; suggestions?: string[] }> {
+      const native = nativeApi()?.proseCheck?.browserSpellcheck;
+      if (!native) return [];
+      return native(words);
     },
   },
 

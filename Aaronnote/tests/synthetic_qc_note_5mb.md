@@ -12,7 +12,7 @@ source: generated/synthetic_qc_note_5mb.md
 This generated document is designed to test a Markdown editor with realistic
 research-note density.
 
-It contains:
+It containssssssss ss:
 
 - long prose paragraphs;
 - displayed equations;
@@ -654,7 +654,7 @@ $$
 $$
 
 #+begin define Density operator
-Let $H$ be a finite-dimensional Hilbert space. A density operator on $H$
+Let $H$ be a finite-dimensional Hilbert space. A dggggensity operator on $H$
 is a linear operator
 
 $$
@@ -677,6 +677,9 @@ In finite-dimensional quantum theory, positivity already implies
 self-adjointness. However, listing Hermitian symmetry explicitly is often
 pedagogically useful because it reminds us that observables and density
 operators belong to the real vector space of Hermitian operators.
+
+this is hrad to use 
+
 
 中文直觉：正半定保证测量概率非负；迹为一保证总概率为一。
 #+end note
@@ -121947,7 +121950,7 @@ object.
 
 #+begin remark Coordinates versus invariance
 Coordinates are useful for computation because they give arrays of field
-elements. Invariance is useful for mathematics because it identifies the
+elements. Invariance is useful for mathematics because it identifies the this is
 features of the object that do not depend on the chosen basis.
 
 中文直觉：坐标是“输入格式”，不变量是“结构本身留下的影子”。
@@ -123474,6 +123477,10 @@ $$
 
 #+begin note Positivity and Hermitian structure
 In finite-dimensional quantum theory, positivity already implies
+
+
+this is hard to use  as something hard to use 
+
 self-adjointness. However, listing Hermitian symmetry explicitly is often
 pedagogically useful because it reminds us that observables and density
 operators belong to the real vector space of Hermitian operators.
@@ -123870,7 +123877,7 @@ $$
 ## 227.9. Algorithmic skeleton
 
 The following pseudocode is not intended to solve tensor isomorphism. It
-only gives a schematic form of an invariant-refinement strategy.
+only gives a schematic form of an invariant-refinement strategysss.
 
 ```python
 from dataclasses import dataclass

@@ -13,6 +13,7 @@ export default defineConfig(({ command }) => ({
   build: {
     outDir: "../dist/aaronnote",
     emptyOutDir: true,
+    chunkSizeWarningLimit: 700,
     modulePreload: {
       resolveDependencies(filename, deps) {
         if (filename.includes("diagram-render") || filename.includes("index-")) {

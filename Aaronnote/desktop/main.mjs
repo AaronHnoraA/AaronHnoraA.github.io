@@ -58,6 +58,7 @@ import { handleCopilotRequest } from "../server/lib/copilot.mjs";
 import { handleRoamLookupRequest } from "../server/lib/roamlookup.mjs";
 import { handleLeanRequest, registerLeanPushHandlers, setNotesRoot as setLeanNotesRoot } from "../server/lib/lean.mjs";
 import { resolveMediaFile, fileContentType } from "../server/lib/media.mjs";
+import { runExternalProseChecks } from "../server/lib/prose-check.mjs";
 
 const desktopDir = dirname(fileURLToPath(import.meta.url));
 const projectDir = resolve(desktopDir, "..");
@@ -586,6 +587,7 @@ function registerApiIpc() {
   registerApiHandler("aaronnote:api:meta:tag", (body) => updateCurrentNoteMeta(body || {}, "tag"));
   registerApiHandler("aaronnote:api:meta:hide-roam", (body) => updateCurrentNoteMeta(body || {}, "hide-roam"));
   registerApiHandler("aaronnote:api:meta:activate-roam", (body) => updateCurrentNoteMeta(body || {}, "activate-roam"));
+  registerApiHandler("aaronnote:api:prose-check:run", (body) => runExternalProseChecks(body || {}));
   registerApiHandler("aaronnote:api:shell:show-in-folder", (file) => {
     const target = resolveShellPath(file);
     shell.showItemInFolder(target);
@@ -606,9 +608,10 @@ function registerApiIpc() {
     ]).popup();
     return { ok: true, file: target };
   });
-  ipcMain.handle("aaronnote:api:shell:show-editor-context-menu", (event) => {
+  ipcMain.handle("aaronnote:api:shell:show-editor-context-menu", (event, options = {}) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     Menu.buildFromTemplate([
+      ...proseDiagnosticMenuItems(win, options),
       {
         label: "Toggle Lean Panel",
         click: () => runInSpecificWindow(win, dispatchCommandScript("toggle-lean-panel")),
@@ -629,6 +632,29 @@ function registerApiIpc() {
   registerApiHandler("aaronnote:api:lean:request", (action, body) => handleLeanRequest(String(action || ""), body || {}));
   registerApiHandler("aaronnote:api:graph", async () => graphPayload(await scanNotes()));
   registerApiHandler("aaronnote:api:tags", async () => tagIndexPayload(await scanNotes()));
+}
+
+function proseDiagnosticMenuItems(win, options = {}) {
+  const diagnostics = Array.isArray(options?.diagnostics) ? options.diagnostics.slice(0, 6) : [];
+  const items = [];
+  for (const diag of diagnostics) {
+    const source = String(diag?.source || "prose");
+    const message = String(diag?.message || "Prose issue").replace(/\s+/g, " ").slice(0, 140);
+    const from = Number(diag?.from);
+    const to = Number(diag?.to);
+    items.push({ label: `${source}: ${message}`, enabled: false });
+    const suggestions = [...new Set(Array.isArray(diag?.suggestions) ? diag.suggestions.map((item) => String(item)) : [])].slice(0, 8);
+    if (Number.isFinite(from) && Number.isFinite(to) && from < to) {
+      for (const suggestion of suggestions) {
+        const label = suggestion ? `Replace with "${suggestion.slice(0, 72)}"` : "Remove";
+        items.push({
+          label,
+          click: () => runInSpecificWindow(win, dispatchProseFixScript(from, to, suggestion)),
+        });
+      }
+    }
+  }
+  return items.length > 0 ? [...items, { type: "separator" }] : [];
 }
 
 function resolveShellPath(file) {
@@ -897,6 +923,11 @@ function dispatchKeyScript(key) {
 
 function dispatchCommandScript(command) {
   return `window.dispatchEvent(new CustomEvent('aaronnote:command', { detail: { command: ${JSON.stringify(command)} } }))`;
+}
+
+function dispatchProseFixScript(from, to, replacement) {
+  const detail = { command: "apply-prose-fix", from, to, replacement };
+  return `window.dispatchEvent(new CustomEvent('aaronnote:command', { detail: ${JSON.stringify(detail)} }))`;
 }
 
 function pdfNameForFile(file, fallback = "Aaronnote.pdf") {
@@ -1317,6 +1348,11 @@ function buildMenu() {
   {
     label: "Note",
     submenu: [
+      {
+        label: "Check Spelling and Prose",
+        accelerator: "CmdOrCtrl+Shift+S",
+        click: () => runInWindow(dispatchCommandScript("check-prose")),
+      },
       {
         label: "Insert Block...",
         accelerator: "Cmd+Enter",

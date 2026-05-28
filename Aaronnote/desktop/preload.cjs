@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require("electron");
+const { contextBridge, ipcRenderer, webFrame } = require("electron");
 
 contextBridge.exposeInMainWorld("AaronnoteDesktop", {
   chooseNotePath(options = {}) {
@@ -103,7 +103,22 @@ contextBridge.exposeInMainWorld("aaronnoteApi", {
       String(file || ""),
       String(base || ""),
     ),
-    showEditorContextMenu: () => invoke("aaronnote:api:shell:show-editor-context-menu"),
+    showEditorContextMenu: (options = {}) => invoke("aaronnote:api:shell:show-editor-context-menu", options),
+  },
+  proseCheck: {
+    run: (body = {}) => invoke("aaronnote:api:prose-check:run", body),
+    browserSpellcheck(words = []) {
+      const list = Array.isArray(words) ? words.map((word) => String(word || "")).filter(Boolean).slice(0, 2500) : [];
+      return list.map((word) => {
+        let misspelled = false;
+        let suggestions = [];
+        try {
+          misspelled = webFrame.isWordMisspelled(word);
+          suggestions = misspelled ? webFrame.getWordSuggestions(word).slice(0, 8) : [];
+        } catch {}
+        return { word, misspelled, suggestions };
+      });
+    },
   },
   copilot: {
     request: (action = "", body = {}) => invoke("aaronnote:api:copilot:request", String(action || ""), body),

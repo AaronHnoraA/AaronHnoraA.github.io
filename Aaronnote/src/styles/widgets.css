@@ -227,6 +227,24 @@
   text-underline-offset: 3px;
 }
 
+.cm-editor .cm-prose-diagnostic {
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+  text-underline-offset: 3px;
+}
+
+.cm-editor .cm-prose-diagnostic-vale {
+  text-decoration-color: rgba(217, 119, 6, 0.95);
+}
+
+.cm-editor .cm-prose-diagnostic-cspell {
+  text-decoration-color: rgba(220, 38, 38, 0.95);
+}
+
+.cm-editor .cm-prose-diagnostic-browser {
+  text-decoration-color: rgba(37, 99, 235, 0.95);
+}
+
 /* ─── CM6 math widgets ───────────────────────────────────────────── */
 .cm-editor .cm-math-inline {
   display: inline;

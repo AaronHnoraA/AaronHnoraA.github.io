@@ -6,6 +6,7 @@ import { createEditor, type Editor, type EditorCommand, type QuickInsertItem } f
 import type { EditorView } from "@codemirror/view";
 import { setFindHighlightRanges } from "../src/cm6/find-highlight.ts";
 import { setKnownRoamRefs } from "../src/cm6/roam-link-status.ts";
+import { proseDiagnosticsAt, setProseDiagnostics, type ProseDiagnostic } from "../src/cm6/prose-diagnostics.ts";
 import { equationTagsFromText, getEquationTagHits } from "../src/equation-tags.ts";
 import { INLINE_MATH_RE, isLikelyInlineMath } from "../src/inline-math.ts";
 import { getBlockMathRanges, rangeAtPosition, rangeOverlapsAny } from "../src/cm6/math-ranges.ts";
@@ -48,6 +49,7 @@ import type { CursorPosition, DirectorySummary, FileSummary, Inbound, NoteSummar
 import { api } from "./api-client.ts";
 import { createVimLite, type VimLiteMode } from "./vim-lite.ts";
 import { createVimCursor, updateVimCursor } from "./vim-cursor.ts";
+import { collectBrowserSpellWords, maskAaronnoteProse } from "../shared/prose-mask.mjs";
 
 declare global {
   interface Window {
@@ -658,6 +660,7 @@ let findIndex = -1;
 let findRefreshTimer = 0;
 let findFullScanTimer = 0;
 let saveRequestSeq = 0;
+let proseCheckSeq = 0;
 let editRevision = 0;
 let savedRevision = 0;
 let currentFileMtimeMs = 0;
@@ -2528,6 +2531,230 @@ async function syncRoamDbFull(): Promise<void> {
   } catch (err) {
     setStatus(err instanceof Error ? err.message : "Full sync failed");
   }
+}
+
+function normalizeProseDiagnostic(diag: unknown): ProseDiagnostic | null {
+  const item = diag as Partial<ProseDiagnostic> | null;
+  const source = item?.source;
+  const from = Number(item?.from);
+  const to = Number(item?.to);
+  if (source !== "vale" && source !== "cspell" && source !== "browser") return null;
+  if (!Number.isFinite(from) || !Number.isFinite(to) || from < 0 || to <= from) return null;
+  if (to > editor.view.state.doc.length) return null;
+  return {
+    source,
+    from,
+    to,
+    severity: item.severity === "error" || item.severity === "warning" || item.severity === "info" ? item.severity : "warning",
+    message: String(item.message || "Prose issue"),
+    rule: item.rule ? String(item.rule) : undefined,
+    word: item.word ? String(item.word) : undefined,
+    suggestions: Array.isArray(item.suggestions) ? item.suggestions.map((value) => String(value)).slice(0, 8) : [],
+  };
+}
+
+type ProseCheckRange = { from: number; to: number };
+
+const PROSE_FULL_DOCUMENT_LIMIT = 180_000;
+const PROSE_VISIBLE_PADDING = 24_000;
+const PROSE_SELECTION_PADDING = 1_200;
+const PROSE_BROWSER_WORD_LIMIT = 1_200;
+const PROSE_BROWSER_BATCH_SIZE = 140;
+const PROSE_BROWSER_DIAGNOSTIC_LIMIT = 240;
+const PROSE_DIAGNOSTIC_LIMIT = 520;
+
+function expandProseRange(from: number, to: number, padding: number): ProseCheckRange {
+  const doc = editor.view.state.doc;
+  const docLength = doc.length;
+  const start = Math.max(0, Math.min(docLength, Math.min(from, to) - padding));
+  const end = Math.max(0, Math.min(docLength, Math.max(from, to) + padding));
+  return {
+    from: doc.lineAt(start).from,
+    to: doc.lineAt(end).to,
+  };
+}
+
+function mergeProseRanges(ranges: ProseCheckRange[]): ProseCheckRange[] {
+  const sorted = ranges
+    .filter((range) => Number.isFinite(range.from) && Number.isFinite(range.to) && range.to > range.from)
+    .sort((a, b) => a.from - b.from || a.to - b.to);
+  const merged: ProseCheckRange[] = [];
+  for (const range of sorted) {
+    const previous = merged[merged.length - 1];
+    if (previous && range.from <= previous.to + 1) {
+      previous.to = Math.max(previous.to, range.to);
+    } else {
+      merged.push({ ...range });
+    }
+  }
+  return merged;
+}
+
+function proseCheckScope(markdown: string): { ranges: ProseCheckRange[]; label: string } {
+  if (markdown.length <= PROSE_FULL_DOCUMENT_LIMIT) return { ranges: [], label: "" };
+  const selected = editor.view.state.selection.ranges
+    .filter((range) => !range.empty)
+    .map((range) => expandProseRange(range.from, range.to, PROSE_SELECTION_PADDING));
+  if (selected.length > 0) return { ranges: mergeProseRanges(selected), label: "selection" };
+  const visible = editor.view.visibleRanges.length > 0
+    ? editor.view.visibleRanges
+    : [{ from: editor.view.state.selection.main.from, to: editor.view.state.selection.main.to }];
+  return {
+    ranges: mergeProseRanges(visible.map((range) => expandProseRange(range.from, range.to, PROSE_VISIBLE_PADDING))),
+    label: "visible area",
+  };
+}
+
+function proseScopeSegments(markdown: string, ranges: ProseCheckRange[]): Array<{ from: number; to: number; text: string }> {
+  return ranges.map((range) => {
+    const from = Math.max(0, Math.min(markdown.length, range.from));
+    const to = Math.max(from, Math.min(markdown.length, range.to));
+    return { from, to, text: markdown.slice(from, to) };
+  }).filter((segment) => segment.to > segment.from);
+}
+
+function proseCheckPayload(file: string, markdown: string, ranges: ProseCheckRange[]): { file: string; content: string; ranges?: ProseCheckRange[]; segments?: Array<{ from: number; to: number; text: string }>; totalChars?: number } {
+  const segments = proseScopeSegments(markdown, ranges);
+  if (segments.length > 0) return { file, content: "", segments, totalChars: markdown.length };
+  return { file, content: markdown, ranges };
+}
+
+function yieldForProseCheck(): Promise<void> {
+  const idle = window.requestIdleCallback as ((callback: () => void, options?: { timeout: number }) => number) | undefined;
+  if (idle) return new Promise((resolve) => idle(() => resolve(), { timeout: 80 }));
+  return new Promise((resolve) => window.setTimeout(resolve, 0));
+}
+
+function browserSpellEntries(masked: string, ranges: ProseCheckRange[]): Array<{ word: string; ranges: ProseCheckRange[] }> {
+  if (ranges.length === 0) {
+    return collectBrowserSpellWords(masked, PROSE_BROWSER_WORD_LIMIT) as Array<{ word: string; ranges: ProseCheckRange[] }>;
+  }
+  const byWord = new Map<string, { word: string; ranges: ProseCheckRange[] }>();
+  for (const range of ranges) {
+    if (byWord.size >= PROSE_BROWSER_WORD_LIMIT) break;
+    const from = Math.max(0, Math.min(masked.length, range.from));
+    const to = Math.max(from, Math.min(masked.length, range.to));
+    const entries = collectBrowserSpellWords(masked.slice(from, to), PROSE_BROWSER_WORD_LIMIT - byWord.size) as Array<{ word: string; ranges: ProseCheckRange[] }>;
+    for (const entry of entries) {
+      const existing = byWord.get(entry.word) ?? { word: entry.word, ranges: [] };
+      existing.ranges.push(...entry.ranges.map((item) => ({ from: item.from + from, to: item.to + from })));
+      byWord.set(entry.word, existing);
+      if (byWord.size >= PROSE_BROWSER_WORD_LIMIT) break;
+    }
+  }
+  return [...byWord.values()];
+}
+
+async function browserProseDiagnostics(markdown: string, ranges: ProseCheckRange[], seq: number): Promise<ProseDiagnostic[]> {
+  await yieldForProseCheck();
+  if (seq !== proseCheckSeq) return [];
+  const segments = proseScopeSegments(markdown, ranges);
+  const diagnostics: ProseDiagnostic[] = [];
+  const entries = segments.length > 0
+    ? segments.flatMap((segment) => {
+      const masked = maskAaronnoteProse(segment.text);
+      return browserSpellEntries(masked, []).map((entry) => ({
+        word: entry.word,
+        ranges: entry.ranges.map((range) => ({ from: range.from + segment.from, to: range.to + segment.from })),
+      }));
+    }).slice(0, PROSE_BROWSER_WORD_LIMIT)
+    : browserSpellEntries(maskAaronnoteProse(markdown), ranges);
+  if (entries.length === 0) return [];
+  for (let i = 0; i < entries.length; i += PROSE_BROWSER_BATCH_SIZE) {
+    if (seq !== proseCheckSeq) return [];
+    const batch = entries.slice(i, i + PROSE_BROWSER_BATCH_SIZE);
+    const results = api.proseCheck.browserSpellcheck(batch.map((entry) => entry.word));
+    const byWord = new Map(results.map((result) => [String(result.word || ""), result]));
+    for (const entry of batch) {
+      const result = byWord.get(entry.word);
+      if (!result?.misspelled) continue;
+      for (const range of entry.ranges) {
+        diagnostics.push({
+          source: "browser",
+          from: range.from,
+          to: range.to,
+          severity: "warning",
+          message: `Possible misspelling: ${entry.word}`,
+          word: entry.word,
+          suggestions: Array.isArray(result.suggestions) ? result.suggestions.map(String).slice(0, 8) : [],
+        });
+        if (diagnostics.length >= PROSE_BROWSER_DIAGNOSTIC_LIMIT) return diagnostics;
+      }
+    }
+    await yieldForProseCheck();
+  }
+  return diagnostics;
+}
+
+function proseToolWarnings(tools: Array<{ source?: string; ok?: boolean; message?: string; optional?: boolean }> = []): string {
+  const failed = tools
+    .filter((tool) => tool.ok === false && !tool.optional)
+    .map((tool) => `${tool.source || "tool"}: ${tool.message || "unavailable"}`);
+  return failed.length ? ` (${failed.join("; ")})` : "";
+}
+
+async function checkProse(): Promise<void> {
+  const seq = ++proseCheckSeq;
+  const markdown = editor.getMarkdown();
+  const file = currentFile || "Scratch.md";
+  const scope = proseCheckScope(markdown);
+  setStatus(scope.label ? `Checking prose in ${scope.label}` : "Checking prose");
+
+  const diagnostics: ProseDiagnostic[] = [];
+  let warnings = "";
+  let externalDone = false;
+  let browserDone = false;
+
+  const applyProseResults = (): void => {
+    if (seq !== proseCheckSeq) return;
+    diagnostics.sort((a, b) => a.from - b.from || a.to - b.to || a.source.localeCompare(b.source));
+    const shown = diagnostics.slice(0, PROSE_DIAGNOSTIC_LIMIT);
+    setProseDiagnostics(editor.view, shown);
+    const scopeText = scope.label ? ` in ${scope.label}` : "";
+    const limitText = diagnostics.length > shown.length ? `, showing first ${shown.length}` : "";
+    const pendingText = externalDone && !browserDone ? ", browser spellcheck finishing" : "";
+    setStatus(`Prose check: ${shown.length} issue${shown.length === 1 ? "" : "s"}${scopeText}${limitText}${pendingText}${warnings}`);
+  };
+
+  const externalTask = api.proseCheck.run(proseCheckPayload(file, markdown, scope.ranges))
+    .then((result) => {
+      if (seq !== proseCheckSeq) return;
+      diagnostics.push(...(result.diagnostics ?? []).map(normalizeProseDiagnostic).filter((item): item is ProseDiagnostic => !!item));
+      warnings = proseToolWarnings(result.tools);
+    })
+    .catch((err) => {
+      if (seq !== proseCheckSeq) return;
+      warnings = ` (${err instanceof Error ? err.message : "external checks failed"})`;
+    })
+    .finally(() => {
+      externalDone = true;
+      applyProseResults();
+    });
+
+  const browserTask = browserProseDiagnostics(markdown, scope.ranges, seq)
+    .then((result) => {
+      if (seq !== proseCheckSeq) return;
+      diagnostics.push(...result);
+    })
+    .catch(() => {})
+    .finally(() => {
+      browserDone = true;
+      applyProseResults();
+    });
+
+  await Promise.allSettled([externalTask, browserTask]);
+}
+
+function applyProseFixFromCommand(detail: { from?: unknown; to?: unknown; replacement?: unknown }): void {
+  const from = Number(detail.from);
+  const to = Number(detail.to);
+  if (!Number.isFinite(from) || !Number.isFinite(to) || from < 0 || to <= from || to > editor.view.state.doc.length) {
+    setStatus("Suggestion range is no longer valid");
+    return;
+  }
+  const replacement = String(detail.replacement ?? "");
+  editor.view.dispatch({ changes: { from, to, insert: replacement } });
+  setStatus(replacement ? `Applied suggestion: ${replacement}` : "Removed flagged text");
 }
 
 async function restoreCurrentFileVersion(): Promise<void> {
@@ -5800,6 +6027,7 @@ function commandPaletteCommands(): AaronnoteCommand[] {
     { id: "source", title: editor.isSourceMode() ? "Switch to preview" : "Switch to source", group: "Editor", keywords: ["markdown", "raw"], run: toggleSourceMode },
     { id: "focus", title: writingMode.focusMode ? "Disable focus mode" : "Enable focus mode", group: "Editor", keywords: ["writing"], run: toggleFocusMode },
     { id: "find", title: "Find and replace", group: "Editor", keywords: ["search"], run: openFindTool },
+    { id: "check-prose", title: "Check spelling and prose", group: "Editor", keywords: ["vale", "cspell", "spellcheck"], run: () => void checkProse() },
     { id: "block-menu", title: "Open block menu", group: "Editor", keywords: ["slash", "insert"], run: openBlockMenu },
     { id: "insert-lean-block", title: "Insert Lean block", group: "Editor", keywords: ["lean4", "proof"], enabled: () => !!currentFile && !currentStandalone, run: () => void insertLeanBlock() },
     { id: "clean-lean-block", title: "Clean current Lean block", group: "Editor", keywords: ["lean4", "delete", "tag"], enabled: () => !!currentFile && !currentStandalone, run: () => void cleanCurrentLeanBlock() },
@@ -7637,6 +7865,12 @@ document.addEventListener("keydown", (event) => {
     openCommandPalette();
     return;
   }
+  if (primaryMod && event.shiftKey && !event.altKey && event.key.toLowerCase() === "s") {
+    event.preventDefault();
+    event.stopPropagation();
+    void checkProse();
+    return;
+  }
   if (primaryMod && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "j") {
     event.preventDefault();
     event.stopPropagation();
@@ -7892,6 +8126,22 @@ host.addEventListener("contextmenu", (event) => {
       .catch((err) => setStatus(err instanceof Error ? err.message : "Attachment menu failed"));
     return;
   }
+  const pos = editor.view.posAtCoords({ x: event.clientX, y: event.clientY });
+  const proseDiagnostics = pos == null ? [] : proseDiagnosticsAt(editor.view, pos);
+  if (proseDiagnostics.length > 0) {
+    event.preventDefault();
+    event.stopPropagation();
+    void api.shell.showEditorContextMenu({
+      diagnostics: proseDiagnostics.map((diag) => ({
+        source: diag.source,
+        from: diag.from,
+        to: diag.to,
+        message: diag.message,
+        suggestions: diag.suggestions ?? [],
+      })),
+    }).catch((err) => setStatus(err instanceof Error ? err.message : "Context menu failed"));
+    return;
+  }
   event.preventDefault();
   event.stopPropagation();
   void api.shell.showEditorContextMenu()
@@ -7924,7 +8174,8 @@ document.addEventListener("knowledge:apply-tag", (event) => {
 });
 
 window.addEventListener("aaronnote:command", (event) => {
-  const command = (event as CustomEvent<{ command?: string }>).detail?.command;
+  const detail = (event as CustomEvent<{ command?: string; from?: unknown; to?: unknown; replacement?: unknown }>).detail ?? {};
+  const command = detail.command;
   if (command === "new-markdown-note") void createMarkdownNote();
   if (command === "new-roam-node") void createRoamNode();
   if (command === "new-node") void createNode();
@@ -7966,6 +8217,8 @@ window.addEventListener("aaronnote:command", (event) => {
   if (command === "toggle-lean-panel") leanPanel.toggle();
   if (command === "toggle-source") toggleSourceMode();
   if (command === "restart-lean-server") void restartLeanServerForCurrentNote();
+  if (command === "check-prose") void checkProse();
+  if (command === "apply-prose-fix") applyProseFixFromCommand(detail);
   if (command === "save-now") save();
   if (command === "flush-state") flushState({ keepalive: true });
 });

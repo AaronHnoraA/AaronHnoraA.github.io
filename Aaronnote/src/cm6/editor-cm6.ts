@@ -30,7 +30,6 @@ import { syntaxTree } from "@codemirror/language";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { livePreviewExtension } from "./live-preview.ts";
 import { disposeHighlightWorker } from "../code-highlight-async.ts";
-import { disposeDiagramRuntime } from "../diagram-render.ts";
 import { disposeMathRuntime } from "../math-render.ts";
 import { mathExtension } from "./widgets/math.ts";
 import { fencedCodeExtension } from "./widgets/fenced-code.ts";
@@ -53,6 +52,7 @@ import { blockMathRangesExtension } from "./math-ranges.ts";
 import { findHighlightExtension } from "./find-highlight.ts";
 import { roamLinkStatusExtension } from "./roam-link-status.ts";
 import { tocIndexExtension } from "./toc-index.ts";
+import { proseDiagnosticsExtension } from "./prose-diagnostics.ts";
 
 import type { SyntaxNode } from "@lezer/common";
 import type {
@@ -626,7 +626,7 @@ export function createEditorCM6(host: HTMLElement, options: EditorOptions): Edit
       caretFlash.remove();
       wrap.remove();
       disposeHighlightWorker();
-      disposeDiagramRuntime();
+      void import("../diagram-render.ts").then(({ disposeDiagramRuntime }) => disposeDiagramRuntime());
       disposeMathRuntime();
     },
 
@@ -787,6 +787,7 @@ function buildExtensions(options: EditorOptions, previewCompartment: Compartment
     previewCompartment.of(isSourceMode() ? [] : previewExtensions()),
     findHighlightExtension,
     roamLinkStatusExtension,
+    proseDiagnosticsExtension,
     EditorView.lineWrapping,
     EditorView.updateListener.of((update) => {
       if (update.docChanged && options.onChange) {
