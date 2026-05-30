@@ -3,6 +3,7 @@ import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { access, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
+import { leanExternalNvimCommand } from "./lean-external.mjs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { homedir } from "node:os";
 import { promisify } from "node:util";
@@ -625,6 +626,47 @@ function registerApiIpc() {
     ]).popup({ window: win ?? undefined });
     return { ok: true };
   });
+  ipcMain.handle("aaronnote:api:shell:show-lean-editor-menu", (event, options = {}) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const editorId = String(options?.editorId ?? "");
+    const line = Number(options?.line ?? 0);
+    const character = Number(options?.character ?? 0);
+    const lsp = (action, label) => ({ label, click: () => runInSpecificWindow(win, leanMenuActionScript(editorId, "lsp", action, line, character)) });
+    const edit = (action, label) => ({ label, click: () => runInSpecificWindow(win, leanMenuActionScript(editorId, "edit", action, line, character)) });
+    Menu.buildFromTemplate([
+      {
+        label: "Lean Symbol",
+        submenu: [
+          lsp("definition", "Go to Definition"),
+          lsp("declaration", "Go to Declaration"),
+          lsp("typeDefinition", "Go to Type Definition"),
+          lsp("implementation", "Go to Implementation"),
+          lsp("references", "Find References"),
+          lsp("hover", "Show Hover"),
+        ],
+      },
+      {
+        label: "Lean Edit",
+        submenu: [
+          edit("toggleLineComment", "Toggle Line Comment"),
+          edit("toggleBlockComment", "Toggle Block Comment"),
+          { type: "separator" },
+          edit("duplicateUp", "Duplicate Up"),
+          edit("duplicateDown", "Duplicate Down"),
+          edit("moveUp", "Move Lines Up"),
+          edit("moveDown", "Move Lines Down"),
+          { type: "separator" },
+          edit("joinLines", "Join Lines"),
+          edit("deleteTrailingWhitespace", "Delete Trailing Whitespace"),
+          { type: "separator" },
+          edit("indent", "Indent"),
+          edit("outdent", "Outdent"),
+        ],
+      },
+    ]).popup({ window: win ?? undefined });
+    return { ok: true };
+  });
+  ipcMain.handle("aaronnote:api:shell:open-lean-location", (_event, target = {}) => openLeanLocation(target || {}));
   registerApiHandler("aaronnote:api:copilot:request", (action, body) => handleCopilotRequest(String(action || ""), body || {}));
   registerApiHandler("aaronnote:api:roamlookup:request", (action, body) => handleRoamLookupRequest(String(action || ""), body || {}));
   registerApiHandler("aaronnote:api:lean:request", (action, body) => handleLeanRequest(String(action || ""), body || {}));
@@ -958,6 +1000,40 @@ function dispatchCommandScript(command, detail = {}) {
 function dispatchProseFixScript(from, to, replacement) {
   const detail = { command: "apply-prose-fix", from, to, replacement };
   return `window.dispatchEvent(new CustomEvent('aaronnote:command', { detail: ${JSON.stringify(detail)} }))`;
+}
+
+function leanMenuActionScript(editorId, kind, action, line, character) {
+  return dispatchCommandScript("lean-editor-menu-action", { editorId, kind, action, line, character });
+}
+
+const LEAN_EXTERNAL_KITTY = "/opt/homebrew/bin/kitty";
+const LEAN_EXTERNAL_NVIM = "/opt/homebrew/bin/nvim";
+
+/**
+ * Open a Lean source location (e.g. Mathlib/prelude) in a fresh Kitty window
+ * running Neovim at the target line/character. Paths are passed as an argv
+ * array — never shell-concatenated. Missing kitty/nvim/file is reported back so
+ * the renderer can surface it in the status bar.
+ */
+function openLeanLocation(target) {
+  const file = String(target?.file ?? "");
+  if (!file || !existsSync(file)) return { ok: false, message: `Lean source not found: ${file}` };
+  if (!existsSync(LEAN_EXTERNAL_KITTY)) return { ok: false, message: `Kitty not found at ${LEAN_EXTERNAL_KITTY}` };
+  if (!existsSync(LEAN_EXTERNAL_NVIM)) return { ok: false, message: `Neovim not found at ${LEAN_EXTERNAL_NVIM}` };
+  const { command, args } = leanExternalNvimCommand({
+    kitty: LEAN_EXTERNAL_KITTY,
+    nvim: LEAN_EXTERNAL_NVIM,
+    file,
+    line: target?.line,
+    character: target?.character,
+  });
+  try {
+    const child = execFile(command, args, { detached: true });
+    child.unref();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Failed to open Kitty" };
+  }
 }
 
 function pdfNameForFile(file, fallback = "Aaronnote.pdf") {

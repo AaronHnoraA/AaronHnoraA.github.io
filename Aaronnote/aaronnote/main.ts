@@ -7,6 +7,14 @@ import type { EditorView } from "@codemirror/view";
 import { setFindHighlightRanges } from "../src/cm6/find-highlight.ts";
 import { setKnownRoamRefs } from "../src/cm6/roam-link-status.ts";
 import { proseDiagnosticsAt, setProseDiagnostics, type ProseDiagnostic } from "../src/cm6/prose-diagnostics.ts";
+import {
+  activeLeanController,
+  getLeanController,
+  setLeanLocationsPicker,
+  type LeanEditAction,
+  type LeanLocation,
+  type LeanLspAction,
+} from "../src/cm6/widgets/lean-placeholder.ts";
 import { equationTagsFromText, getEquationTagHits } from "../src/equation-tags.ts";
 import { INLINE_MATH_RE, isLikelyInlineMath } from "../src/inline-math.ts";
 import { getBlockMathRanges, rangeAtPosition, rangeOverlapsAny } from "../src/cm6/math-ranges.ts";
@@ -561,6 +569,23 @@ commandPalette.innerHTML = `
 document.body.appendChild(commandPalette);
 const commandQuery = commandPalette.querySelector<HTMLInputElement>("[data-command-query]")!;
 const commandList = commandPalette.querySelector<HTMLElement>("[data-command-list]")!;
+
+const leanLocationsPicker = document.createElement("div");
+leanLocationsPicker.className = "aaronnote-command-palette aaronnote-lean-locations-picker";
+leanLocationsPicker.hidden = true;
+leanLocationsPicker.innerHTML = `
+  <div class="aaronnote-command-scrim" data-lean-locations-close></div>
+  <section class="aaronnote-command-panel" role="dialog" aria-modal="true" aria-label="Lean locations">
+    <input data-lean-locations-query type="search" placeholder="Filter locations" autocomplete="off" spellcheck="false" />
+    <div data-lean-locations-list class="aaronnote-command-list" role="listbox"></div>
+  </section>
+`;
+document.body.appendChild(leanLocationsPicker);
+const leanLocationsQuery = leanLocationsPicker.querySelector<HTMLInputElement>("[data-lean-locations-query]")!;
+const leanLocationsList = leanLocationsPicker.querySelector<HTMLElement>("[data-lean-locations-list]")!;
+let leanLocationsItems: LeanLocation[] = [];
+let leanLocationsOnPick: ((location: LeanLocation) => void) | null = null;
+let leanLocationsIndex = 0;
 
 const jumpStackPanel = document.createElement("div");
 jumpStackPanel.className = "aaronnote-jump-stack-panel";
@@ -6216,6 +6241,7 @@ function hideEditorOverlays(options: { keepFind?: boolean; keepCommandPalette?: 
   linkPreview.hide();
   if (!options.keepFind) findTool.hidden = true;
   if (!options.keepCommandPalette) closeCommandPalette(false);
+  closeLeanLocationsPicker();
 }
 
 function placeFloating(el: HTMLElement, rect: { left: number; top: number; bottom: number } | null, width = 320): void {
@@ -6524,6 +6550,21 @@ function commandPaletteCommands(): AaronnoteCommand[] {
     { id: "clean-lean-block", title: "Clean current Lean block", group: "Editor", keywords: ["lean4", "delete", "tag"], enabled: () => !!currentFile && !currentStandalone, run: () => void cleanCurrentLeanBlock() },
     { id: "toggle-lean-panel", title: "Toggle Lean panel", group: "Editor", keywords: ["lean4", "infoview", "lsp"], enabled: () => !leanTriggerBtn.hidden, run: () => leanPanel.toggle() },
 
+    { id: "lean-goto-definition", title: "Lean: Go to Definition", group: "Lean", keywords: ["lsp", "lean4", "gd"], enabled: () => !!activeLeanController(), run: () => void activeLeanController()?.runLspAction("definition") },
+    { id: "lean-goto-declaration", title: "Lean: Go to Declaration", group: "Lean", keywords: ["lsp", "lean4", "gD"], enabled: () => !!activeLeanController(), run: () => void activeLeanController()?.runLspAction("declaration") },
+    { id: "lean-goto-type-definition", title: "Lean: Go to Type Definition", group: "Lean", keywords: ["lsp", "lean4", "gy"], enabled: () => !!activeLeanController(), run: () => void activeLeanController()?.runLspAction("typeDefinition") },
+    { id: "lean-goto-implementation", title: "Lean: Go to Implementation", group: "Lean", keywords: ["lsp", "lean4", "gi"], enabled: () => !!activeLeanController(), run: () => void activeLeanController()?.runLspAction("implementation") },
+    { id: "lean-find-references", title: "Lean: Find References", group: "Lean", keywords: ["lsp", "lean4", "gr"], enabled: () => !!activeLeanController(), run: () => void activeLeanController()?.runLspAction("references") },
+    { id: "lean-show-hover", title: "Lean: Show Hover", group: "Lean", keywords: ["lsp", "lean4", "K", "docs"], enabled: () => !!activeLeanController(), run: () => void activeLeanController()?.runLspAction("hover") },
+    { id: "lean-toggle-line-comment", title: "Lean: Toggle Line Comment", group: "Lean", keywords: ["edit", "lean4", "--"], enabled: () => !!activeLeanController(), run: () => activeLeanController()?.runEditAction("toggleLineComment") },
+    { id: "lean-toggle-block-comment", title: "Lean: Toggle Block Comment", group: "Lean", keywords: ["edit", "lean4", "/-"], enabled: () => !!activeLeanController(), run: () => activeLeanController()?.runEditAction("toggleBlockComment") },
+    { id: "lean-duplicate-down", title: "Lean: Duplicate Line Down", group: "Lean", keywords: ["edit", "lean4", "copy"], enabled: () => !!activeLeanController(), run: () => activeLeanController()?.runEditAction("duplicateDown") },
+    { id: "lean-duplicate-up", title: "Lean: Duplicate Line Up", group: "Lean", keywords: ["edit", "lean4", "copy"], enabled: () => !!activeLeanController(), run: () => activeLeanController()?.runEditAction("duplicateUp") },
+    { id: "lean-move-down", title: "Lean: Move Lines Down", group: "Lean", keywords: ["edit", "lean4"], enabled: () => !!activeLeanController(), run: () => activeLeanController()?.runEditAction("moveDown") },
+    { id: "lean-move-up", title: "Lean: Move Lines Up", group: "Lean", keywords: ["edit", "lean4"], enabled: () => !!activeLeanController(), run: () => activeLeanController()?.runEditAction("moveUp") },
+    { id: "lean-join-lines", title: "Lean: Join Lines", group: "Lean", keywords: ["edit", "lean4", "J"], enabled: () => !!activeLeanController(), run: () => activeLeanController()?.runEditAction("joinLines") },
+    { id: "lean-delete-trailing-whitespace", title: "Lean: Delete Trailing Whitespace", group: "Lean", keywords: ["edit", "lean4", "trim"], enabled: () => !!activeLeanController(), run: () => activeLeanController()?.runEditAction("deleteTrailingWhitespace") },
+
     { id: "notes", title: "Open notes", group: "Navigation", keywords: ["filesystem"], run: () => showNotesPage("filesystem") },
     { id: "relation", title: "Open relation", group: "Navigation", keywords: ["backlinks", "refs", "links"], enabled: () => !!currentFile, run: toggleRelationPanel },
     { id: "local-graph", title: "Toggle local graph", group: "Navigation", keywords: ["obsidian", "depth", "backlinks"], enabled: currentNoteSupportsLocalGraph, run: localGraphPanel.toggle },
@@ -6680,6 +6721,128 @@ function handleCommandPaletteKey(event: KeyboardEvent): boolean {
     return true;
   }
   return false;
+}
+
+function leanLocationLabel(file: string): string {
+  const parts = String(file).split("/").filter(Boolean);
+  return parts.slice(-2).join("/") || file;
+}
+
+function filteredLeanLocations(): LeanLocation[] {
+  const query = leanLocationsQuery.value.trim().toLowerCase();
+  if (!query) return leanLocationsItems;
+  return leanLocationsItems.filter((loc) => `${loc.file} ${loc.summary}`.toLowerCase().includes(query));
+}
+
+function renderLeanLocationsPicker(): void {
+  const items = filteredLeanLocations();
+  leanLocationsIndex = items.length ? Math.max(0, Math.min(leanLocationsIndex, items.length - 1)) : 0;
+  leanLocationsList.innerHTML = "";
+  if (items.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "aaronnote-command-empty";
+    empty.textContent = "No locations";
+    leanLocationsList.append(empty);
+    return;
+  }
+  items.forEach((loc, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = index === leanLocationsIndex ? "aaronnote-command-option is-active" : "aaronnote-command-option";
+    button.setAttribute("role", "option");
+    button.setAttribute("aria-selected", index === leanLocationsIndex ? "true" : "false");
+    const title = document.createElement("span");
+    title.className = "aaronnote-command-title";
+    title.textContent = loc.summary || leanLocationLabel(loc.file);
+    const group = document.createElement("span");
+    group.className = "aaronnote-command-group";
+    group.textContent = `${leanLocationLabel(loc.file)}:${loc.range.start.line + 1}:${loc.range.start.character + 1}`;
+    button.append(title, group);
+    button.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+      leanLocationsIndex = index;
+      chooseLeanLocation();
+    });
+    leanLocationsList.append(button);
+  });
+}
+
+function openLeanLocationsPicker(locations: LeanLocation[], onPick: (location: LeanLocation) => void): void {
+  leanLocationsItems = locations;
+  leanLocationsOnPick = onPick;
+  leanLocationsIndex = 0;
+  leanLocationsQuery.value = "";
+  leanLocationsPicker.hidden = false;
+  renderLeanLocationsPicker();
+  leanLocationsQuery.focus();
+}
+
+function closeLeanLocationsPicker(): void {
+  if (leanLocationsPicker.hidden) return;
+  leanLocationsPicker.hidden = true;
+  leanLocationsItems = [];
+  leanLocationsOnPick = null;
+}
+
+function chooseLeanLocation(): void {
+  const loc = filteredLeanLocations()[leanLocationsIndex];
+  const onPick = leanLocationsOnPick;
+  closeLeanLocationsPicker();
+  if (loc && onPick) onPick(loc);
+}
+
+function handleLeanLocationsPickerKey(event: KeyboardEvent): boolean {
+  if (leanLocationsPicker.hidden) return false;
+  if (event.key === "Escape") {
+    event.preventDefault();
+    closeLeanLocationsPicker();
+    editor.focus();
+    return true;
+  }
+  const items = filteredLeanLocations();
+  if (event.key === "ArrowDown") {
+    event.preventDefault();
+    leanLocationsIndex = items.length ? (leanLocationsIndex + 1) % items.length : 0;
+    renderLeanLocationsPicker();
+    leanLocationsList.querySelector(".aaronnote-command-option.is-active")?.scrollIntoView({ block: "nearest" });
+    return true;
+  }
+  if (event.key === "ArrowUp") {
+    event.preventDefault();
+    leanLocationsIndex = items.length ? (leanLocationsIndex + items.length - 1) % items.length : 0;
+    renderLeanLocationsPicker();
+    leanLocationsList.querySelector(".aaronnote-command-option.is-active")?.scrollIntoView({ block: "nearest" });
+    return true;
+  }
+  if (event.key === "Enter") {
+    event.preventDefault();
+    chooseLeanLocation();
+    return true;
+  }
+  return false;
+}
+
+leanLocationsQuery.addEventListener("input", () => {
+  leanLocationsIndex = 0;
+  renderLeanLocationsPicker();
+});
+leanLocationsPicker.querySelector("[data-lean-locations-close]")?.addEventListener("mousedown", (event) => {
+  event.preventDefault();
+  closeLeanLocationsPicker();
+  editor.focus();
+});
+setLeanLocationsPicker(openLeanLocationsPicker);
+
+function handleLeanEditorMenuAction(detail: Record<string, unknown>): void {
+  const editorId = String(detail?.editorId ?? "");
+  const controller = getLeanController(editorId) ?? activeLeanController();
+  if (!controller) return;
+  const kind = String(detail?.kind ?? "");
+  const action = String(detail?.action ?? "");
+  const line = Number(detail?.line ?? 0);
+  const character = Number(detail?.character ?? 0);
+  if (kind === "lsp") void controller.runLspAction(action as LeanLspAction, { line, character });
+  else if (kind === "edit") controller.runEditAction(action as LeanEditAction);
 }
 
 function quickInsertPrefix(before: string): { query: string; deleteBefore: number } | null {
@@ -8352,6 +8515,10 @@ document.addEventListener("keydown", (event) => {
     return;
   }
   if (!ctrlEnter && fromLeanEmbeddedEditor) return;
+  if (handleLeanLocationsPickerKey(event)) {
+    event.stopPropagation();
+    return;
+  }
   if (handleCommandPaletteKey(event)) {
     event.stopPropagation();
     return;
@@ -8720,8 +8887,37 @@ window.addEventListener("aaronnote:command", (event) => {
   if (command === "restart-lean-server") void restartLeanServerForCurrentNote();
   if (command === "check-prose") void checkProse();
   if (command === "apply-prose-fix") applyProseFixFromCommand(detail);
+  if (command === "lean-editor-menu-action") handleLeanEditorMenuAction(detail as Record<string, unknown>);
   if (command === "save-now") save();
   if (command === "flush-state") flushState({ keepalive: true });
+});
+
+// Record the current cursor before a Lean LSP navigation so `jumpBack` returns here.
+window.addEventListener("aaronnote:lean-push-jump", () => pushJumpPoint());
+
+// Surface Lean navigation/editor status (no results, external-open failures) in the status bar.
+window.addEventListener("aaronnote:lean-status", (event) => {
+  const message = String((event as CustomEvent<{ message?: string }>).detail?.message ?? "").trim();
+  if (message) setStatus(message);
+});
+
+// Cross-note Lean jumps: the target region lives in a note that isn't open. Open
+// it, then re-dispatch the region-jump a few times while the embedded editor and
+// its region (loaded async) come up; the now-mounted widget consumes it.
+window.addEventListener("aaronnote:lean-region-jump", (event) => {
+  const detail = (event as CustomEvent<{ notePath?: string; leanPath?: string; line?: number; character?: number; tag?: string; selector?: string }>).detail;
+  if (!detail?.notePath || detail.notePath === currentFile) return;
+  const target = { ...detail };
+  void openStandaloneFile(target.notePath as string)
+    .then(() => {
+      for (const delay of [120, 350, 700, 1200]) {
+        window.setTimeout(() => {
+          if (currentFile !== target.notePath) return;
+          window.dispatchEvent(new CustomEvent("aaronnote:lean-region-jump", { detail: target }));
+        }, delay);
+      }
+    })
+    .catch(() => {});
 });
 
 notesButton.addEventListener("click", () => showNotesPage());

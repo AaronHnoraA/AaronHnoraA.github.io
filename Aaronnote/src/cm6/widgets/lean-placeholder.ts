@@ -3555,6 +3555,29 @@ class LeanPlaceholderWidget extends MeasuredWidget {
       void ctx.ensureLspOpen?.().then((ok) => { if (ok) renderGoals(child); });
       registerCopilotEditor();
     });
+    child.dom.addEventListener("contextmenu", (event) => {
+      if (!ctx.leanPath || !ctx.region) return;
+      const pos = child.posAtCoords({ x: event.clientX, y: event.clientY });
+      if (pos == null) return;
+      // Stop the outer-editor context menu (it is `composed` and would otherwise
+      // bubble out of the shadow root to the host's contextmenu handler).
+      event.preventDefault();
+      event.stopPropagation();
+      setActiveLeanController(copilotEditorId);
+      // Move the cursor to the right-click target so symbol/edit actions operate
+      // there, matching the click position (unless a selection already exists).
+      if (child.state.selection.main.empty) child.dispatch({ selection: { anchor: pos } });
+      const fullOffset = localOffsetToFull(ctx, pos);
+      const leanPos = fullOffset == null ? { line: 0, character: 0 } : offsetToPosition(ctx.leanText, fullOffset);
+      void api.shell.showLeanEditorMenu?.({
+        editorId: copilotEditorId,
+        leanPath: ctx.leanPath,
+        tag,
+        selector,
+        line: leanPos.line,
+        character: leanPos.character,
+      });
+    });
     (outer as HTMLElement & { __leanChild?: EditorView; __leanTooltips?: HTMLDivElement }).__leanChild = child;
     (outer as HTMLElement & { __leanChild?: EditorView; __leanTooltips?: HTMLDivElement }).__leanTooltips = tooltipContainer;
     (outer as HTMLElement & { __leanHistory?: { undo: () => boolean; redo: () => boolean } }).__leanHistory = {

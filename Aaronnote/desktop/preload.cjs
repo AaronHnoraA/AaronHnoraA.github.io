@@ -104,6 +104,8 @@ contextBridge.exposeInMainWorld("aaronnoteApi", {
       String(base || ""),
     ),
     showEditorContextMenu: (options = {}) => invoke("aaronnote:api:shell:show-editor-context-menu", options),
+    showLeanEditorMenu: (options = {}) => invoke("aaronnote:api:shell:show-lean-editor-menu", options),
+    openLeanLocation: (target = {}) => invoke("aaronnote:api:shell:open-lean-location", target),
   },
   proseCheck: {
     run: (body = {}) => invoke("aaronnote:api:prose-check:run", body),
