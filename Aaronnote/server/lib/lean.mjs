@@ -424,7 +424,16 @@ class LeanLspClient extends LspClient {
 
   notify(method, params) {
     pushClientNotification?.({ method, params });
-    super.notify(method, params);
+    try {
+      super.notify(method, params);
+      return true;
+    } catch (err) {
+      if (err instanceof Error && err.message === "LSP server is not running") {
+        log("lean-notify-dropped", { method, reason: err.message });
+        return false;
+      }
+      throw err;
+    }
   }
 
   async ensureReady() {
@@ -760,8 +769,7 @@ class LeanLspClient extends LspClient {
     if (String(method || "").startsWith("$/lean/rpc/")) {
       log("lean-rpc-notify", { method: String(method || ""), params: JSON.stringify(params ?? {}).slice(0, 500) });
     }
-    this.notify(String(method || ""), params ?? {});
-    return true;
+    return this.notify(String(method || ""), params ?? {});
   }
 
   async getDefinition(leanPath, line, character) {
