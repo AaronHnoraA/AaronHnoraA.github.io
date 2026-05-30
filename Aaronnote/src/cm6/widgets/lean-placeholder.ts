@@ -87,7 +87,7 @@ type LeanRegionMeta = {
   bodyTo: number;
 };
 
-type LeanContext = {
+export type LeanContext = {
   notePath: string;
   tag: string;
   selector: string;
@@ -1976,20 +1976,194 @@ function unindentLeanSelection(view: EditorView): boolean {
   return true;
 }
 
+/** Line numbers (1-based) touched by the primary selection, or the cursor line. */
+function leanSelectedLineNumbers(state: EditorState): number[] {
+  const sel = state.selection.main;
+  const startLine = state.doc.lineAt(sel.from);
+  const endPos = sel.empty ? sel.from : Math.max(sel.from, sel.to - 1);
+  const endLine = state.doc.lineAt(endPos);
+  const out: number[] = [];
+  for (let n = startLine.number; n <= endLine.number; n++) out.push(n);
+  return out;
+}
+
+const leanLineCommentRe = /^(\s*)--[ \t]?/;
+
+function toggleLeanLineComment(view: EditorView): void {
+  const { state } = view;
+  const lines = leanSelectedLineNumbers(state).map((n) => state.doc.line(n));
+  const nonBlank = lines.filter((line) => line.text.trim().length > 0);
+  const decisionLines = nonBlank.length > 0 ? nonBlank : lines;
+  const allCommented = decisionLines.every((line) => leanLineCommentRe.test(line.text));
+  const changes: ChangeSpec[] = [];
+  if (allCommented) {
+    for (const line of lines) {
+      const match = leanLineCommentRe.exec(line.text);
+      if (!match) continue;
+      changes.push({ from: line.from + match[1].length, to: line.from + match[0].length, insert: "" });
+    }
+  } else {
+    for (const line of lines) {
+      if (line.text.trim().length === 0 && lines.length > 1) continue;
+      const indent = /^\s*/.exec(line.text)?.[0] ?? "";
+      changes.push({ from: line.from + indent.length, insert: "-- " });
+    }
+  }
+  if (changes.length === 0) return;
+  view.dispatch({ changes, scrollIntoView: true });
+}
+
+function toggleLeanBlockComment(view: EditorView): void {
+  const { state } = view;
+  const sel = state.selection.main;
+  let from = sel.from;
+  let to = sel.to;
+  if (from === to) {
+    const line = state.doc.lineAt(from);
+    const indent = /^\s*/.exec(line.text)?.[0] ?? "";
+    from = line.from + indent.length;
+    to = line.to;
+  }
+  const text = state.doc.sliceString(from, to);
+  const trimmed = text.trim();
+  if (trimmed.startsWith("/-") && trimmed.endsWith("-/") && trimmed.length >= 4) {
+    const inner = text.replace(/^(\s*)\/-[ \t]?/, "$1").replace(/[ \t]?-\/(\s*)$/, "$1");
+    view.dispatch({
+      changes: { from, to, insert: inner },
+      selection: EditorSelection.range(from, from + inner.length),
+      scrollIntoView: true,
+    });
+    return;
+  }
+  const insert = `/- ${text} -/`;
+  view.dispatch({
+    changes: { from, to, insert },
+    selection: EditorSelection.range(from, from + insert.length),
+    scrollIntoView: true,
+  });
+}
+
+function duplicateLeanLines(view: EditorView, where: "up" | "down"): void {
+  const { state } = view;
+  const sel = state.selection.main;
+  const from = state.doc.lineAt(sel.from).from;
+  const to = state.doc.lineAt(sel.to).to;
+  const block = state.doc.sliceString(from, to);
+  if (where === "down") {
+    view.dispatch({
+      changes: { from: to, insert: `\n${block}` },
+      selection: EditorSelection.range(to + 1, to + 1 + block.length),
+      scrollIntoView: true,
+    });
+  } else {
+    view.dispatch({
+      changes: { from, insert: `${block}\n` },
+      selection: EditorSelection.range(from, from + block.length),
+      scrollIntoView: true,
+    });
+  }
+}
+
+function moveLeanLines(view: EditorView, dir: "up" | "down"): void {
+  const { state } = view;
+  const sel = state.selection.main;
+  const startLine = state.doc.lineAt(sel.from);
+  const endLine = state.doc.lineAt(sel.to);
+  const block = state.doc.sliceString(startLine.from, endLine.to);
+  if (dir === "up") {
+    if (startLine.number === 1) return;
+    const prev = state.doc.line(startLine.number - 1);
+    const insert = `${block}\n${prev.text}`;
+    const shift = startLine.from - prev.from;
+    view.dispatch({
+      changes: { from: prev.from, to: endLine.to, insert },
+      selection: EditorSelection.range(sel.from - shift, sel.to - shift),
+      scrollIntoView: true,
+    });
+  } else {
+    if (endLine.number === state.doc.lines) return;
+    const next = state.doc.line(endLine.number + 1);
+    const insert = `${next.text}\n${block}`;
+    const shift = next.text.length + 1;
+    view.dispatch({
+      changes: { from: startLine.from, to: next.to, insert },
+      selection: EditorSelection.range(sel.from + shift, sel.to + shift),
+      scrollIntoView: true,
+    });
+  }
+}
+
+function joinLeanLines(view: EditorView): void {
+  const { state } = view;
+  const sel = state.selection.main;
+  const startLine = state.doc.lineAt(sel.from);
+  let endLineNumber = state.doc.lineAt(sel.to).number;
+  if (startLine.number === endLineNumber) {
+    if (startLine.number >= state.doc.lines) return;
+    endLineNumber = startLine.number + 1;
+  }
+  const changes: ChangeSpec[] = [];
+  for (let n = startLine.number; n < endLineNumber; n++) {
+    const line = state.doc.line(n);
+    const next = state.doc.line(n + 1);
+    const nextIndent = /^[ \t]*/.exec(next.text)?.[0]?.length ?? 0;
+    const sep = line.text.trim().length > 0 && next.text.trim().length > 0 ? " " : "";
+    changes.push({ from: line.to, to: next.from + nextIndent, insert: sep });
+  }
+  if (changes.length === 0) return;
+  view.dispatch({ changes, scrollIntoView: true });
+}
+
+function deleteLeanTrailingWhitespace(view: EditorView): void {
+  const { state } = view;
+  const changes: ChangeSpec[] = [];
+  for (let n = 1; n <= state.doc.lines; n++) {
+    const line = state.doc.line(n);
+    const trimmed = line.text.replace(/[ \t]+$/, "");
+    if (trimmed.length !== line.text.length) {
+      changes.push({ from: line.from + trimmed.length, to: line.to, insert: "" });
+    }
+  }
+  if (changes.length === 0) return;
+  view.dispatch({ changes, scrollIntoView: true });
+}
+
 /**
  * Region-local editing tools for the embedded Lean editor. Each action mutates
  * only the child document (the region body) in a single transaction so Undo
- * reverses it in one step. Additional actions are implemented incrementally.
+ * reverses it in one step.
  */
-function runLeanEditAction(view: EditorView, action: LeanEditAction): void {
+export function runLeanEditAction(view: EditorView, action: LeanEditAction): void {
   switch (action) {
+    case "toggleLineComment":
+      toggleLeanLineComment(view);
+      break;
+    case "toggleBlockComment":
+      toggleLeanBlockComment(view);
+      break;
+    case "duplicateUp":
+      duplicateLeanLines(view, "up");
+      break;
+    case "duplicateDown":
+      duplicateLeanLines(view, "down");
+      break;
+    case "moveUp":
+      moveLeanLines(view, "up");
+      break;
+    case "moveDown":
+      moveLeanLines(view, "down");
+      break;
+    case "joinLines":
+      joinLeanLines(view);
+      break;
+    case "deleteTrailingWhitespace":
+      deleteLeanTrailingWhitespace(view);
+      break;
     case "indent":
       indentLeanSelection(view);
       break;
     case "outdent":
       unindentLeanSelection(view);
-      break;
-    default:
       break;
   }
 }
@@ -2244,12 +2418,12 @@ function renderLeanJumpOverlay(state: LeanJumpModeState | null): void {
   }
 }
 
-function createLeanVimController(ctx: LeanContext) {
+export function createLeanVimController(ctx: LeanContext) {
   let mode: LeanVimMode = "insert";
   let pending = "";
   let goalColumn: number | null = null;
   let visualAnchor: number | null = null;
-  let register = "";
+  let register: { text: string; linewise: boolean } = { text: "", linewise: false };
   let jumpMode: LeanJumpModeState | null = null;
 
   const setMode = (view: EditorView, next: LeanVimMode): void => {
@@ -2262,19 +2436,35 @@ function createLeanVimController(ctx: LeanContext) {
     view.dom.dataset.leanVimMode = next;
   };
 
-  const yank = (text: string): void => {
+  const yank = (text: string, linewise = false): void => {
     if (!text) return;
-    register = text;
+    register = { text, linewise };
     void navigator.clipboard?.writeText(text).catch(() => {});
   };
 
   const paste = (view: EditorView, where: "before" | "after"): void => {
-    if (!register) return;
+    if (!register.text) return;
+    if (register.linewise) {
+      // Linewise paste: drop the copied line(s) on a fresh line below (p) or
+      // above (P) the current line, matching Vim's yy/dd/p/P semantics.
+      const content = register.text.replace(/\n$/, "");
+      const line = view.state.doc.lineAt(view.state.selection.main.head);
+      if (where === "after") {
+        const atLineEnd = line.to >= view.state.doc.length;
+        const insertAt = atLineEnd ? line.to : line.to + 1;
+        const insert = atLineEnd ? `\n${content}` : `${content}\n`;
+        const cursor = atLineEnd ? insertAt + 1 : insertAt;
+        view.dispatch({ changes: { from: insertAt, insert }, selection: { anchor: cursor }, scrollIntoView: true });
+      } else {
+        view.dispatch({ changes: { from: line.from, insert: `${content}\n` }, selection: { anchor: line.from }, scrollIntoView: true });
+      }
+      return;
+    }
     const selection = view.state.selection.main;
     const insertAt = where === "after" ? Math.min(view.state.doc.length, selection.to + 1) : selection.from;
     view.dispatch({
-      changes: { from: insertAt, insert: register },
-      selection: { anchor: insertAt + register.length },
+      changes: { from: insertAt, insert: register.text },
+      selection: { anchor: insertAt + register.text.length },
       scrollIntoView: true,
     });
   };
@@ -2297,14 +2487,14 @@ function createLeanVimController(ctx: LeanContext) {
   const normalCommand = (view: EditorView, key: string): boolean => {
     if (pending === "d") {
       pending = "";
-      if (key === "d") yank(deleteLeanLine(view));
+      if (key === "d") yank(deleteLeanLine(view), true);
       return true;
     }
     if (pending === "y") {
       pending = "";
       if (key === "y") {
         const line = view.state.doc.lineAt(leanCursor(view));
-        yank(view.state.doc.sliceString(line.from, line.to < view.state.doc.length ? line.to + 1 : line.to));
+        yank(view.state.doc.sliceString(line.from, line.to < view.state.doc.length ? line.to + 1 : line.to), true);
       }
       return true;
     }
@@ -2316,11 +2506,17 @@ function createLeanVimController(ctx: LeanContext) {
     if (pending === "g") {
       pending = "";
       if (key === "g") leanDocBoundary(view, "start");
+      else if (key === "c") pending = "gc";
       else if (key === "d") void runLeanLocationAction(ctx, view, "definition");
       else if (key === "D") void runLeanLocationAction(ctx, view, "declaration");
       else if (key === "y") void runLeanLocationAction(ctx, view, "typeDefinition");
       else if (key === "i") void runLeanLocationAction(ctx, view, "implementation");
       else if (key === "r") void runLeanLocationAction(ctx, view, "references");
+      return true;
+    }
+    if (pending === "gc") {
+      pending = "";
+      if (key === "c") runLeanEditAction(view, "toggleLineComment");
       return true;
     }
     if (pending === "s" || pending === "S") {
@@ -2383,6 +2579,9 @@ function createLeanVimController(ctx: LeanContext) {
         return true;
       case "K":
         void runLeanLocationAction(ctx, view, "hover");
+        return true;
+      case "J":
+        runLeanEditAction(view, "joinLines");
         return true;
       case "i":
         setMode(view, "insert");
@@ -2491,7 +2690,20 @@ function createLeanVimController(ctx: LeanContext) {
   };
 
   const visualCommand = (view: EditorView, key: string): boolean => {
+    if (pending === "g") {
+      pending = "";
+      if (key === "c") { runLeanEditAction(view, "toggleLineComment"); setMode(view, "normal"); }
+      else if (key === "b") { runLeanEditAction(view, "toggleBlockComment"); setMode(view, "normal"); }
+      return true;
+    }
     switch (key) {
+      case "g":
+        pending = "g";
+        return true;
+      case "J":
+        runLeanEditAction(view, "joinLines");
+        setMode(view, "normal");
+        return true;
       case "h":
       case "ArrowLeft":
       case "Backspace":
@@ -2707,6 +2919,43 @@ function handleLeanPopupEscapeKey(event: KeyboardEvent, view: EditorView): boole
   return true;
 }
 
+/**
+ * Lean Edit keyboard shortcuts, handled in both insert and Vim modes:
+ *   Cmd/Ctrl+/        Toggle Line Comment
+ *   Alt+Shift+A       Toggle Block Comment
+ *   Alt+Shift+Up/Down Duplicate Up/Down
+ *   Alt+Up/Down       Move Lines Up/Down
+ * Uses `event.code` for letter combos because Alt mangles `event.key` on macOS.
+ * Intercepting Cmd/Ctrl+/ here also enforces the context split: when focus is in
+ * the Lean child it toggles a comment, leaving the Markdown source/preview toggle
+ * for everywhere else.
+ */
+function handleLeanEditToolKey(event: KeyboardEvent, view: EditorView): boolean {
+  if (event.isComposing) return false;
+  const isMac = /Mac/.test(navigator.platform);
+  const primary = isMac ? event.metaKey && !event.ctrlKey && !event.altKey : event.ctrlKey && !event.metaKey && !event.altKey;
+  if (primary && !event.shiftKey && event.code === "Slash") {
+    blockKey(event);
+    runLeanEditAction(view, "toggleLineComment");
+    return true;
+  }
+  if (event.altKey && !event.metaKey && !event.ctrlKey) {
+    if (event.shiftKey && event.code === "KeyA") {
+      blockKey(event);
+      runLeanEditAction(view, "toggleBlockComment");
+      return true;
+    }
+    if (event.code === "ArrowUp" || event.code === "ArrowDown") {
+      blockKey(event);
+      const down = event.code === "ArrowDown";
+      if (event.shiftKey) runLeanEditAction(view, down ? "duplicateDown" : "duplicateUp");
+      else runLeanEditAction(view, down ? "moveDown" : "moveUp");
+      return true;
+    }
+  }
+  return false;
+}
+
 function handleLeanUndoRedoKey(event: KeyboardEvent, view: EditorView): boolean {
   const key = event.key.toLowerCase();
   const isMac = /Mac/.test(navigator.platform);
@@ -2779,6 +3028,7 @@ function leanKeyboardIsolation(ctx: LeanContext): Extension {
       if (handleLeanUndoRedoKey(event, view)) return true;
       if (handleLeanPopupEscapeKey(event, view)) return true;
       if (handleLeanCompletionKey(event, view)) return true;
+      if (handleLeanEditToolKey(event, view)) return true;
       if (vim.handleKeyDown(event, view)) return true;
       event.stopPropagation();
       return false;
