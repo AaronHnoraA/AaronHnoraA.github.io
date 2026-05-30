@@ -48,6 +48,63 @@ describe("lean tagged regions", () => {
     }
   });
 
+  test("creates regions in extra mirror and linked Lean files", async () => {
+    const root = await mkdtemp(join(tmpdir(), "aaronnote-lean-region-selector-"));
+    try {
+      const notePath = join(root, "math", "multi.md");
+      const extra = await ensureLeanRegion({ notePath, notesRoot: root, selector: "newfile:2", tag: "extra" });
+      const linked = await ensureLeanRegion({ notePath, notesRoot: root, selector: "imports/shared", tag: "linked" });
+
+      expect(extra.leanPath).toBe(join(root, ".lean", "math", "multi.mirror-2.lean"));
+      expect(extra.targetKind).toBe("extra-mirror");
+      expect(linked.leanPath).toBe(join(root, ".lean", "math", "imports", "shared.lean"));
+      expect(linked.targetKind).toBe("link");
+
+      await updateLeanRegion({
+        notePath,
+        notesRoot: root,
+        selector: "newfile:2",
+        tag: "extra",
+        body: "#check Nat\n",
+      });
+      await updateLeanRegion({
+        notePath,
+        notesRoot: root,
+        selector: "imports/shared",
+        tag: "linked",
+        body: "#check Int\n",
+      });
+
+      expect((await readLeanRegion({ notePath, notesRoot: root, selector: "newfile:2", tag: "extra" })).body).toBe("#check Nat\n");
+      expect((await readLeanRegion({ notePath, notesRoot: root, selector: "imports/shared", tag: "linked" })).body).toBe("#check Int\n");
+      await expect(readFile(join(root, ".lean", "math", "multi.lean"), "utf8")).rejects.toThrow();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("selectors from an open Lean file resolve relative to that Lean file", async () => {
+    const root = await mkdtemp(join(tmpdir(), "aaronnote-lean-region-open-lean-file-"));
+    try {
+      const notePath = join(root, ".lean", "math", "Current.lean");
+      const linked = await ensureLeanRegion({ notePath, notesRoot: root, selector: "../shared/Util", tag: "linked" });
+
+      expect(linked.leanPath).toBe(join(root, ".lean", "shared", "Util.lean"));
+      expect(linked.targetKind).toBe("link");
+      await updateLeanRegion({
+        notePath,
+        notesRoot: root,
+        selector: "../shared/Util",
+        tag: "linked",
+        body: "#check Nat\n",
+      });
+      expect(await readFile(join(root, ".lean", "shared", "Util.lean"), "utf8")).toContain("#check Nat");
+      await expect(readFile(join(root, ".lean", ".lean", "math", "Current.lean"), "utf8")).rejects.toThrow();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   test("creates a new region between surrounding tags", async () => {
     const root = await mkdtemp(join(tmpdir(), "aaronnote-lean-region-order-"));
     try {
@@ -183,6 +240,23 @@ describe("lean tagged regions", () => {
     }
   });
 
+  test("deleting the only managed mirror region removes the Lean file", async () => {
+    const root = await mkdtemp(join(tmpdir(), "aaronnote-lean-region-delete-only-file-"));
+    try {
+      const notePath = join(root, "math", "delete-only-file.md");
+      await ensureLeanRegion({ notePath, notesRoot: root, tag: "only" });
+      await updateLeanRegion({ notePath, notesRoot: root, tag: "only", body: "#check Nat\n" });
+
+      const deleted = await deleteLeanRegion({ notePath, notesRoot: root, tag: "only" });
+
+      expect(deleted.deleted).toBe(true);
+      expect(deleted.removedFile).toBe(true);
+      await expect(readFile(join(root, ".lean", "math", "delete-only-file.lean"), "utf8")).rejects.toThrow();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   test("server ensure-region honors caller insertion neighbors for a new markdown tag", async () => {
     const root = await mkdtemp(join(tmpdir(), "aaronnote-lean-region-server-order-"));
     try {
@@ -205,6 +279,74 @@ describe("lean tagged regions", () => {
       expect(result.ok).toBe(true);
       const text = await readFile(result.leanPath, "utf8");
       expect(scanLeanRegions(text).map((region: { tag: string }) => region.tag)).toEqual(["first", "second", "third"]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("server insertion neighbors are scoped to the selected Lean target", async () => {
+    const root = await mkdtemp(join(tmpdir(), "aaronnote-lean-region-server-selector-order-"));
+    try {
+      setNotesRoot(root);
+      const notePath = join(root, "math", "server-selector-order.md");
+      await mkdir(join(root, "math"), { recursive: true });
+      await writeFile(notePath, [
+        "@@lean4 [default-first]",
+        "@@lean4(newfile:1) [mirror-first]",
+        "@@lean4 [default-third]",
+        "@@lean4(newfile:1) [mirror-third]",
+        "@@lean4(newfile:1) [mirror-second]",
+        "",
+      ].join("\n"), "utf8");
+      for (const tag of ["default-first", "default-third"]) {
+        await ensureLeanRegion({ notePath, notesRoot: root, tag });
+      }
+      for (const tag of ["mirror-first", "mirror-third"]) {
+        await ensureLeanRegion({ notePath, notesRoot: root, selector: "newfile:1", tag });
+      }
+
+      const result = await handleLeanRequest("ensure-region", {
+        notePath,
+        selector: "newfile:1",
+        tag: "mirror-second",
+      }) as { ok?: boolean; leanPath: string };
+
+      expect(result.ok).toBe(true);
+      expect(result.leanPath).toBe(join(root, ".lean", "math", "server-selector-order.mirror-1.lean"));
+      const text = await readFile(result.leanPath, "utf8");
+      expect(scanLeanRegions(text).map((region: { tag: string }) => region.tag))
+        .toEqual(["mirror-first", "mirror-third", "mirror-second"]);
+      const defaultText = await readFile(join(root, ".lean", "math", "server-selector-order.lean"), "utf8");
+      expect(scanLeanRegions(defaultText).map((region: { tag: string }) => region.tag))
+        .toEqual(["default-first", "default-third"]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("server serializes concurrent region updates that share a Lean target", async () => {
+    const root = await mkdtemp(join(tmpdir(), "aaronnote-lean-region-server-queue-"));
+    try {
+      setNotesRoot(root);
+      const notePath = join(root, "math", "server-queue.md");
+      await ensureLeanRegion({ notePath, notesRoot: root, tag: "first" });
+      await ensureLeanRegion({ notePath, notesRoot: root, tag: "second" });
+
+      await Promise.all([
+        handleLeanRequest("update-region", {
+          notePath,
+          tag: "first",
+          body: "#check Nat\n",
+        }),
+        handleLeanRequest("update-region", {
+          notePath,
+          tag: "second",
+          body: "#check Int\n",
+        }),
+      ]);
+
+      expect((await readLeanRegion({ notePath, notesRoot: root, tag: "first" })).body).toBe("#check Nat\n");
+      expect((await readLeanRegion({ notePath, notesRoot: root, tag: "second" })).body).toBe("#check Int\n");
     } finally {
       await rm(root, { recursive: true, force: true });
     }

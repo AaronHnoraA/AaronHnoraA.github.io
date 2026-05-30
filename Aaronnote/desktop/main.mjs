@@ -59,6 +59,7 @@ import { handleRoamLookupRequest } from "../server/lib/roamlookup.mjs";
 import { handleLeanRequest, registerLeanPushHandlers, setNotesRoot as setLeanNotesRoot } from "../server/lib/lean.mjs";
 import { resolveMediaFile, fileContentType } from "../server/lib/media.mjs";
 import { runExternalProseChecks } from "../server/lib/prose-check.mjs";
+import { normalizePickedNotePath } from "./path-selection.mjs";
 
 const desktopDir = dirname(fileURLToPath(import.meta.url));
 const projectDir = resolve(desktopDir, "..");
@@ -617,13 +618,10 @@ function registerApiIpc() {
         click: () => runInSpecificWindow(win, dispatchCommandScript("toggle-lean-panel")),
       },
       {
-        label: "Insert Lean Block",
-        click: () => runInSpecificWindow(win, dispatchCommandScript("insert-lean-block")),
+        label: "Insert Lean Block...",
+        click: () => runInSpecificWindow(win, dispatchCommandScript("open-lean-block-manager")),
       },
-      {
-        label: "Clean Current Lean Block",
-        click: () => runInSpecificWindow(win, dispatchCommandScript("clean-lean-block")),
-      },
+      leanCleanMenuItem(win, options),
     ]).popup({ window: win ?? undefined });
     return { ok: true };
   });
@@ -655,6 +653,23 @@ function proseDiagnosticMenuItems(win, options = {}) {
     }
   }
   return items.length > 0 ? [...items, { type: "separator" }] : [];
+}
+
+function leanCleanMenuItem(win, options = {}) {
+  const block = options?.leanBlock && typeof options.leanBlock === "object" ? options.leanBlock : null;
+  const tag = String(block?.tag ?? "").trim();
+  const selector = String(block?.selector ?? "");
+  if (!tag) {
+    return {
+      label: "Clean Current Lean Block",
+      click: () => runInSpecificWindow(win, dispatchCommandScript("clean-lean-block")),
+    };
+  }
+  const target = selector || "default";
+  return {
+    label: `Clean Lean Block (${target} #${tag})`,
+    click: () => runInSpecificWindow(win, dispatchCommandScript("clean-lean-block", { tag, selector })),
+  };
 }
 
 function resolveShellPath(file) {
@@ -835,8 +850,20 @@ function urlForFile(baseUrl, file = "") {
   return url.toString();
 }
 
+function leanSourceFile(file) {
+  return /\.lean$/i.test(String(file || ""));
+}
+
+function notifyLeanManualOpen() {
+  showTaskNotification("AaronNote", "Lean files are edited manually.");
+}
+
 function sendOpenFileToWindow(win, file) {
   const resolved = resolve(file);
+  if (leanSourceFile(resolved)) {
+    notifyLeanManualOpen();
+    return;
+  }
   if (!win || win.isDestroyed()) return;
   if (!win.aaronnoteRendererReady) {
     win.aaronnotePendingOpenFile = resolved;
@@ -921,8 +948,11 @@ function dispatchKeyScript(key) {
   return `document.dispatchEvent(new KeyboardEvent('keydown', { key: ${JSON.stringify(key)}, metaKey: true, bubbles: true }))`;
 }
 
-function dispatchCommandScript(command) {
-  return `window.dispatchEvent(new CustomEvent('aaronnote:command', { detail: { command: ${JSON.stringify(command)} } }))`;
+function dispatchCommandScript(command, detail = {}) {
+  const payload = detail && typeof detail === "object" && !Array.isArray(detail)
+    ? { ...detail, command }
+    : { command };
+  return `window.dispatchEvent(new CustomEvent('aaronnote:command', { detail: ${JSON.stringify(payload)} }))`;
 }
 
 function dispatchProseFixScript(from, to, replacement) {
@@ -1003,10 +1033,10 @@ async function chooseAndOpenMarkdown() {
 }
 
 ipcMain.handle("aaronnote:choose-note-path", async (event, options = {}) => {
-  const mode = options.mode === "directory" ? "directory" : "file";
+  const mode = options.mode === "directory" ? "directory" : options.mode === "openFile" ? "openFile" : "file";
   const suggestedPath = typeof options.suggestedPath === "string" && options.suggestedPath.trim()
     ? options.suggestedPath.trim()
-    : mode === "directory" ? "." : "untitled.md";
+    : mode === "directory" ? "." : mode === "openFile" ? ".lean" : "untitled.md";
   const defaultPath = resolve(noteRoot, suggestedPath);
   const owner = BrowserWindow.fromWebContents(event.sender) || targetAppWindow() || undefined;
   if (mode === "directory") {
@@ -1020,10 +1050,24 @@ ipcMain.handle("aaronnote:choose-note-path", async (event, options = {}) => {
       : await dialog.showOpenDialog(dialogOptions);
     const picked = result.filePaths[0];
     if (result.canceled || !picked) return "";
-    const rel = relative(noteRoot, resolve(picked));
-    if (!rel.startsWith("..") && !rel.startsWith("/") && rel !== "") return rel.replace(/\\/g, "/");
-    if (rel === "") return ".";
-    return picked;
+    return normalizePickedNotePath(noteRoot, picked);
+  }
+  if (mode === "openFile") {
+    const dialogOptions = {
+      title: typeof options.title === "string" ? options.title : "Choose File",
+      defaultPath,
+      properties: ["openFile"],
+      filters: [
+        { name: "Lean", extensions: ["lean"] },
+        { name: "All Files", extensions: ["*"] },
+      ],
+    };
+    const result = owner
+      ? await dialog.showOpenDialog(owner, dialogOptions)
+      : await dialog.showOpenDialog(dialogOptions);
+    const picked = result.filePaths[0];
+    if (result.canceled || !picked) return "";
+    return normalizePickedNotePath(noteRoot, picked);
   }
   const dialogOptions = {
     title: typeof options.title === "string" ? options.title : "Choose Note Path",
@@ -1038,9 +1082,7 @@ ipcMain.handle("aaronnote:choose-note-path", async (event, options = {}) => {
     ? await dialog.showSaveDialog(owner, dialogOptions)
     : await dialog.showSaveDialog(dialogOptions);
   if (result.canceled || !result.filePath) return "";
-  const rel = relative(noteRoot, resolve(result.filePath));
-  if (!rel.startsWith("..") && !rel.startsWith("/") && rel !== "") return rel.replace(/\\/g, "/");
-  return result.filePath;
+  return normalizePickedNotePath(noteRoot, result.filePath);
 });
 
 ipcMain.handle("aaronnote:trash-note", async (_event, file = "") => {
@@ -1106,6 +1148,10 @@ ipcMain.handle("aaronnote:export-pdf", async (event, options = {}) => {
 
 function openFileInWindow(file) {
   const resolved = resolve(file);
+  if (leanSourceFile(resolved)) {
+    notifyLeanManualOpen();
+    return;
+  }
   pendingOpenFile = resolved;
   if (!app.isReady()) return;
   if (!mainWindow || mainWindow.isDestroyed()) createWindow();

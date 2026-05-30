@@ -1377,6 +1377,50 @@ $$
     cleanup();
   });
 
+  test("renders lean4 linked-file placeholders when the selector contains parentheses", () => {
+    const selector = "../../../../project/UNSW/ISO(202603)/GraphTensor.lean";
+    const md = `@@lean4(${selector}) [lean-mps0spux]\nplain`;
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection(md.length);
+
+    const widget = document.querySelector<HTMLElement>(".cm-lean-placeholder-widget");
+    expect(widget).toBeTruthy();
+    expect(widget!.dataset.leanSelector).toBe(selector);
+    expect(widget!.dataset.leanTag).toBe("lean-mps0spux");
+    cleanup();
+  });
+
+  test("keeps distant lean4 widgets indexed when another line gains a newline", () => {
+    const selector = "../../../../project/UNSW/ISO(202603)/GraphTensor.lean";
+    const md = `before\n@@lean4(${selector}) [lean-mps0spux]\nafter`;
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection("before".length);
+
+    editor.insertText("\nextra");
+
+    const widget = document.querySelector<HTMLElement>(".cm-lean-placeholder-widget");
+    expect(widget).toBeTruthy();
+    expect(widget!.dataset.leanSelector).toBe(selector);
+    expect(widget!.dataset.leanTag).toBe("lean-mps0spux");
+    cleanup();
+  });
+
+  test("reparses only the changed lean4 command line into an updated widget", () => {
+    const selector = "../../../../project/UNSW/ISO(202603)/GraphTensor.lean";
+    const initial = "@@lean4 [before]";
+    const replacement = `@@lean4(${selector}) [after]`;
+    const { editor, cleanup } = mountCM6(`${initial}\nplain`);
+
+    editor.replaceMarkdownRange(0, initial.length, replacement, "end");
+    editor.setMarkdownSelection(editor.getMarkdown().length);
+
+    const widget = document.querySelector<HTMLElement>(".cm-lean-placeholder-widget");
+    expect(widget).toBeTruthy();
+    expect(widget!.dataset.leanSelector).toBe(selector);
+    expect(widget!.dataset.leanTag).toBe("after");
+    cleanup();
+  });
+
   test("org-env scanner ignores boundary-looking lines inside display math", () => {
     const md = String.raw`#+begin proof
 before
@@ -1945,6 +1989,18 @@ maybeDescribe("cm6 kernel: surface", () => {
     expect(document.querySelector(".syntax-hidden")).toBeNull();
     expect((editor.view as unknown as { contentDOM: HTMLElement }).contentDOM.textContent)
       .toContain("**new**");
+    cleanup();
+  });
+
+  test("resetting the document recalculates CJK font spans", () => {
+    const { editor, cleanup } = mountCM6("plain ascii");
+    expect(editor.view.dom.querySelector(".cm-cjk-text")).toBeNull();
+
+    editor.setMarkdown("中文 line", { history: "reset" });
+
+    const cjk = editor.view.dom.querySelector<HTMLElement>(".cm-cjk-text");
+    expect(cjk).toBeTruthy();
+    expect(cjk!.textContent).toContain("中文");
     cleanup();
   });
 

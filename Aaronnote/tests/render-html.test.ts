@@ -136,6 +136,17 @@ $$
     expect(html).not.toContain("@@lean4");
   });
 
+  test("renders @@lean4 linked-file regions when the selector contains parentheses", () => {
+    const html = renderMarkdownHTML(
+      "@@lean4(../../../../project/UNSW/ISO(202603)/GraphTensor.lean) [lean-mps0spux]",
+      { leanRegions: { "lean-mps0spux": "#check Nat\n" } },
+    );
+
+    expect(html).toContain("org-env-lean4-region");
+    expect(html).toContain("#check");
+    expect(html).not.toContain("@@lean4");
+  });
+
   test("renders semantic part and section headings as outline blocks", () => {
     const html = renderMarkdownHTML([
       "@@part [Foundations]",

@@ -38,7 +38,7 @@ import { imageExtension } from "./widgets/image.ts";
 import { blockExtrasExtension, orgEnvExitTarget } from "./widgets/block-extras.ts";
 import { inlineCommandsExtension } from "./widgets/inline-commands.ts";
 import { leanExtension } from "./widgets/lean-block.ts";
-import { leanPlaceholderExtension } from "./widgets/lean-placeholder.ts";
+import { leanPlaceholderEditingExtension, leanPlaceholderPreviewExtension } from "./widgets/lean-placeholder.ts";
 import {
   runCommandCM6,
   getBlockContextCM6,
@@ -702,7 +702,7 @@ function previewExtensions(): Extension[] {
     fencedCodeExtension,
     taskListExtension,
     imageExtension,
-    leanPlaceholderExtension,
+    leanPlaceholderPreviewExtension,
     inlineCommandsExtension,
     leanExtension,
   ];
@@ -784,6 +784,7 @@ function buildExtensions(options: EditorOptions, previewCompartment: Compartment
     markdown({ base: markdownLanguage }),
     highlightActiveLine(),
     tocIndexExtension,
+    leanPlaceholderEditingExtension,
     previewCompartment.of(isSourceMode() ? [] : previewExtensions()),
     findHighlightExtension,
     roamLinkStatusExtension,

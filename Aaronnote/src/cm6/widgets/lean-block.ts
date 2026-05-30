@@ -28,7 +28,6 @@ import {
 } from "@codemirror/state";
 import type { Range } from "@codemirror/state";
 import {
-  buildFullFileLeanSplice,
   leanOffsetToNote,
   leanOffsetToPosition,
   leanPositionToOffset,
@@ -98,6 +97,32 @@ function scanLean4OrgEnvBlocks(state: EditorState): OrgEnvBlock[] {
   return results;
 }
 
+function lineWindowMightAffectLean4OrgEnv(doc: EditorState["doc"], from: number, to: number): boolean {
+  const startLine = Math.max(1, doc.lineAt(Math.max(0, Math.min(from, doc.length))).number - 1);
+  const endLine = Math.min(doc.lines, doc.lineAt(Math.max(0, Math.min(to, doc.length))).number + 1);
+  for (let lineNo = startLine; lineNo <= endLine; lineNo++) {
+    const text = doc.line(lineNo).text;
+    if (text.includes("#+") || /lean4/i.test(text)) return true;
+  }
+  return false;
+}
+
+function changesMightAffectLean4OrgEnvSyntax(startState: EditorState, state: EditorState, changes: ViewUpdate["changes"]): boolean {
+  let found = false;
+  changes.iterChanges((fromA, toA, fromB, toB, inserted) => {
+    if (found) return;
+    const removed = startState.doc.sliceString(fromA, toA);
+    const added = inserted.toString();
+    found = removed.includes("#+")
+      || added.includes("#+")
+      || /lean4/i.test(removed)
+      || /lean4/i.test(added)
+      || lineWindowMightAffectLean4OrgEnv(startState.doc, fromA, toA)
+      || lineWindowMightAffectLean4OrgEnv(state.doc, fromB, toB);
+  });
+  return found;
+}
+
 // Cached scan — only re-scans when doc changes affect lean4 syntax.
 // For typical edits (typing outside lean4 blocks), positions are remapped without re-scanning.
 const lean4OrgEnvBlocksField = StateField.define<OrgEnvBlock[]>({
@@ -105,33 +130,36 @@ const lean4OrgEnvBlocksField = StateField.define<OrgEnvBlock[]>({
   update(value, tr) {
     if (!tr.docChanged) return value;
 
-    let needRescan = false;
-    tr.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
+    let needRescan = changesMightAffectLean4OrgEnvSyntax(tr.startState, tr.state, tr.changes);
+    tr.changes.iterChanges((fromA, toA) => {
       if (needRescan) return;
-      const removed = tr.startState.doc.sliceString(fromA, toA);
-      const ins = inserted.toString();
-      if (
-        removed.includes("lean4") || ins.includes("lean4") ||
-        removed.includes("#+") || ins.includes("#+") ||
-        removed.includes("\n") || ins.includes("\n") ||
-        value.some((b) => fromA < b.to && toA > b.from)
-      ) needRescan = true;
+      if (value.some((b) => (
+        (fromA <= b.openTo && toA >= b.openFrom)
+        || (fromA <= b.closeTo && toA >= b.closeFrom)
+      ))) needRescan = true;
     });
     if (needRescan) return scanLean4OrgEnvBlocks(tr.state);
 
     if (value.length === 0) return value;
-    return value.map((b) => ({
-      ...b,
-      from: tr.changes.mapPos(b.from),
-      to: tr.changes.mapPos(b.to),
-      openFrom: tr.changes.mapPos(b.openFrom),
-      openTo: tr.changes.mapPos(b.openTo),
-      bodyFrom: tr.changes.mapPos(b.bodyFrom),
-      bodyTo: tr.changes.mapPos(b.bodyTo),
-      closeFrom: tr.changes.mapPos(b.closeFrom),
-      closeTo: tr.changes.mapPos(b.closeTo),
-      titleAnchor: tr.changes.mapPos(b.titleAnchor),
-    }));
+    return value.map((b) => {
+      const bodyFrom = tr.changes.mapPos(b.bodyFrom);
+      const bodyTo = tr.changes.mapPos(b.bodyTo);
+      return {
+        ...b,
+        from: tr.changes.mapPos(b.from),
+        to: tr.changes.mapPos(b.to),
+        openFrom: tr.changes.mapPos(b.openFrom),
+        openTo: tr.changes.mapPos(b.openTo),
+        bodyFrom,
+        bodyTo,
+        closeFrom: tr.changes.mapPos(b.closeFrom),
+        closeTo: tr.changes.mapPos(b.closeTo),
+        body: tr.changes.touchesRange(b.bodyFrom, b.bodyTo)
+          ? tr.state.doc.sliceString(bodyFrom, bodyTo)
+          : b.body,
+        titleAnchor: tr.changes.mapPos(b.titleAnchor),
+      };
+    });
   },
 });
 
@@ -157,16 +185,28 @@ export const leanNotePathFacet = EditorView.editorAttributes.of({});
 // We store the note path in a module-level map keyed by view instance.
 const viewNotePaths = new WeakMap<EditorView, string>();
 const viewNotesRoots = new WeakMap<EditorView, string>();
+const SetLeanNoteInfoEffect = StateEffect.define<{ notePath: string; notesRoot: string }>();
+
+export const leanNoteInfoField = StateField.define<{ notePath: string; notesRoot: string }>({
+  create: () => ({ notePath: "", notesRoot: "" }),
+  update(value, tr) {
+    for (const effect of tr.effects) {
+      if (effect.is(SetLeanNoteInfoEffect)) return effect.value;
+    }
+    return value;
+  },
+});
 
 export function setLeanNotePath(view: EditorView, notePath: string, notesRoot: string): void {
   viewNotePaths.set(view, notePath);
   viewNotesRoots.set(view, notesRoot);
-  view.dispatch({});
+  view.dispatch({ effects: SetLeanNoteInfoEffect.of({ notePath, notesRoot }) });
 }
 
 function getNoteInfo(view: EditorView): { notePath: string; notesRoot: string } | null {
-  const notePath = viewNotePaths.get(view);
-  const notesRoot = viewNotesRoots.get(view);
+  const fieldInfo = view.state.field(leanNoteInfoField, false);
+  const notePath = fieldInfo?.notePath || viewNotePaths.get(view);
+  const notesRoot = fieldInfo?.notesRoot || viewNotesRoots.get(view);
   if (!notePath || !notesRoot) return null;
   return { notePath, notesRoot };
 }
@@ -473,7 +513,6 @@ class LeanBlockPlugin {
   private goalSeq = 0;
   private lspVersion = 0;
   private syncedNotePath = "";
-  private openNotePath = "";
   private openLeanPath = "";
   private visualTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingDiagnostics: { uri: string; raw: unknown[] } | null = null;
@@ -679,7 +718,8 @@ class LeanBlockPlugin {
       // Skip goal queries entirely when lean is not active (no splice = no lean content).
       const splice = update.view.state.field(leanSpliceField, false);
       if (splice) {
-        if (isCursorInLean4Block(update.view.state)) {
+        const isLeanFile = getNoteInfo(update.view)?.notePath.toLowerCase().endsWith(".lean") ?? false;
+        if (isLeanFile || isCursorInLean4Block(update.view.state)) {
           this.goalTimer = setTimeout(() => {
             this.goalTimer = null;
             void this.queryGoals();
@@ -705,30 +745,11 @@ class LeanBlockPlugin {
       return;
     }
     this.syncedNotePath = noteInfo.notePath;
-    const isLeanFile = noteInfo.notePath.toLowerCase().endsWith(".lean");
-    if (!isLeanFile) {
-      // .md files: lean integration handled via @@lean4 region widgets, not this plugin.
-      this.syncSeq++;
-      if (currentSplice !== null) this.view.dispatch({ effects: SetSpliceEffect.of(null) });
-      if (this.isOpen) this.closeLean();
-      return;
-    }
-    const mdText = this.view.state.doc.toString();
-    const splice = buildFullFileLeanSplice(noteInfo.notePath, mdText);
-    if (!splice) {
-      this.syncSeq++;
-      if (currentSplice !== null) this.view.dispatch({ effects: SetSpliceEffect.of(null) });
-      if (this.isOpen) this.closeLean();
-      return;
-    }
-    this.view.dispatch({ effects: SetSpliceEffect.of(splice) });
-
-    if (this.isOpen && this.openNotePath && this.openNotePath !== noteInfo.notePath) {
-      this.closeLean();
-    }
-    this.lastSplice = splice;
-
-    void this.sendLeanSync(noteInfo, splice);
+    // Lean integration is owned by @@lean4 region widgets for markdown and by
+    // the full-file Lean child editor for .lean files.
+    this.syncSeq++;
+    if (currentSplice !== null) this.view.dispatch({ effects: SetSpliceEffect.of(null) });
+    if (this.isOpen) this.closeLean();
   }
 
   async sendLeanSync(noteInfo: { notePath: string; notesRoot: string }, splice: LeanSplice): Promise<void> {
@@ -753,12 +774,10 @@ class LeanBlockPlugin {
       if (response?.ok === false) throw new Error(response.message || "Lean sync failed");
       if (typeof response?.lspVersion === "number") this.lspVersion = response.lspVersion;
       this.isOpen = true;
-      this.openNotePath = noteInfo.notePath;
       this.openLeanPath = response?.leanPath || splice.leanPath;
     } catch (err) {
       if (seq !== this.syncSeq) return;
       this.isOpen = false;
-      this.openNotePath = "";
       this.openLeanPath = "";
       console.warn("[lean] sync failed", err);
     }
@@ -772,7 +791,6 @@ class LeanBlockPlugin {
     }
     this.isOpen = false;
     this.lspVersion = 0;
-    this.openNotePath = "";
     this.openLeanPath = "";
   }
 
@@ -860,6 +878,7 @@ const leanHoverTooltip = hoverTooltip(async (view, pos) => {
 
 export const leanExtension: Extension = [
   lean4OrgEnvBlocksField,
+  leanNoteInfoField,
   leanSpliceField,
   leanDiagnosticsField,
   leanProgressField,

@@ -5,7 +5,7 @@ contextBridge.exposeInMainWorld("AaronnoteDesktop", {
     return ipcRenderer.invoke("aaronnote:choose-note-path", {
       suggestedPath: String(options.suggestedPath || ""),
       title: String(options.title || ""),
-      mode: options.mode === "directory" ? "directory" : "file",
+      mode: options.mode === "directory" ? "directory" : options.mode === "openFile" ? "openFile" : "file",
     });
   },
   trashNote(file = "") {

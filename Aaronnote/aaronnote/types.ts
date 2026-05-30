@@ -29,6 +29,7 @@ export type NoteSummary = {
   bookToc?: Array<{ level?: number; text?: string; slug?: string; path?: string; id?: string }>;
   bookDomTargets?: Array<{ label?: string; slug?: string; path?: string; level?: number }>;
   bookDiagnostics?: Array<{ level?: string; message?: string; path?: string }>;
+  leanBlocks?: Array<{ tag?: string; selector?: string; targetKind?: string; leanPath?: string }>;
   standalone?: boolean;
   mtimeMs?: number;
   size?: number;

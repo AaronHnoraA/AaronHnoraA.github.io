@@ -6,8 +6,9 @@ import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createHash } from "node:crypto";
-import { changedRoamFilesSince, commitRoam, fileHistory, restoreFileFromCommit, discardFileChanges, roamRepoStatus, roamRepoChanges, diffRoamFile, diffRoamCommit, pullRoam, pushRoam, repoHistory } from "./roam-git.mjs";
-import { copyMirrorPath, deleteMirrorPath, renameMirrorPath } from "./lean-mirror.mjs";
+import { changedRoamFilesSince, commitRoam, fileHistory, restoreFileFromCommit, discardFileChanges, roamRepoStatus, roamRepoChanges, diffRoamFile, diffRoamCommit, pullRoam, pushRoam, repoHistory, headSha } from "./roam-git.mjs";
+import { resolveLeanTargetPath } from "./lean-mirror.mjs";
+import { scanMarkdownLeanPlaceholders } from "../../shared/lean-placeholder.mjs";
 
 const appDir = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 let workspaceRoot = resolve(process.env.AARONNOTE_WORKSPACE_ROOT || resolve(appDir, ".."));
@@ -19,7 +20,7 @@ let noteRoot = resolveUserPath(process.env.AARONNOTE_ROOT || join(appDir, "..", 
 let noteScanRoot = noteRoot;
 const excludedDirs = new Set(["_typst", "public", "var", ".git", ".direnv", ".venv", "node_modules"]);
 const generatedAttachmentDirs = new Set(["asset", "assets", "attachment", "attachments", "file", "files", "img", "imgs", "image", "images", "media", "pdf", "pdfs"]);
-const noteExts = new Set([".typ", ".md", ".markdown", ".lean"]);
+const noteExts = new Set([".typ", ".md", ".markdown"]);
 const hiddenRoamTag = "roam-hidden";
 const defaultNoteKind = "default";
 const defaultNoteKindAliases = new Set(["", "default", "note"]);
@@ -48,6 +49,7 @@ let queuedRoamSyncChangedFiles = [];
 let atomicWriteCounter = 0;
 const CURRENT_DB_SCHEMA = 1;
 const BOOK_CACHE_SCHEMA = 1;
+const ASSET_CLEANUP_SCHEMA = 2;
 const scanConcurrency = Math.max(1, Math.min(64, Number(process.env.AARONNOTE_SCAN_CONCURRENCY) || 16));
 const roamLookupIdleMs = Math.max(10_000, Number(process.env.AARONNOTE_ROAMLOOKUP_IDLE_MS) || 60_000);
 const roamLookupQueryTimeoutMs = Math.max(30_000, Number(process.env.AARONNOTE_ROAMLOOKUP_QUERY_TIMEOUT_MS) || 180_000);
@@ -151,6 +153,10 @@ function standaloneMarkdownFile(file) {
   return /\.(?:md|markdown)$/i.test(file);
 }
 
+function leanSourceFile(file) {
+  return /\.lean$/i.test(String(file || ""));
+}
+
 function safeOpenFile(input) {
   const file = resolveUserPath(input);
   if (inside(file, noteRoot)) return file;
@@ -171,19 +177,92 @@ function shouldSyncLeanMirror(file) {
   return inside(resolved, root) && !inside(resolved, leanRoot);
 }
 
+function markdownNoteFile(file) {
+  return /\.(?:md|markdown)$/i.test(String(file || ""));
+}
+
+async function leanManagedSelectorsForFile(file, fallbackFile = "") {
+  const sourceFile = existsSync(file) ? file : fallbackFile;
+  if (!markdownNoteFile(sourceFile || file)) return [""];
+  try {
+    const text = await readFile(sourceFile || file, "utf8");
+    return ["", ...new Set(scanMarkdownLeanPlaceholders(text)
+      .map((placeholder) => placeholder.selector)
+      .filter(Boolean))];
+  } catch {
+    return [""];
+  }
+}
+
+function leanManagedTarget(file, selector) {
+  try {
+    const target = resolveLeanTargetPath(file, noteRoot, selector);
+    if (target.kind === "link") return null;
+    return target.leanPath;
+  } catch {
+    return null;
+  }
+}
+
+async function managedMarkdownFilesInDirectory(dir) {
+  return walkFiles(dir, (file) => markdownNoteFile(file));
+}
+
+async function managedLeanTargetsForPath(file, info) {
+  const targets = [];
+  if (!shouldSyncLeanMirror(file)) return targets;
+  if (info?.isDirectory?.() === true) {
+    const files = await managedMarkdownFilesInDirectory(file);
+    const nested = await mapLimit(files, scanConcurrency, (item) =>
+      managedLeanTargetsForPath(item, { isDirectory: () => false, isFile: () => true }));
+    for (const items of nested) targets.push(...items);
+    return targets;
+  }
+  for (const selector of await leanManagedSelectorsForFile(file)) {
+    const target = leanManagedTarget(file, selector);
+    if (target) targets.push(target);
+  }
+  return targets;
+}
+
+async function deleteLeanTargets(targets) {
+  await mapLimit(targets ?? [], scanConcurrency, (target) => rm(target, { force: true }));
+}
+
 async function deleteManagedLeanMirror(file, info) {
-  if (!shouldSyncLeanMirror(file)) return;
-  await deleteMirrorPath(file, noteRoot, { directory: info?.isDirectory?.() === true });
+  await deleteLeanTargets(await managedLeanTargetsForPath(file, info));
 }
 
 async function renameManagedLeanMirror(file, target, info) {
   if (!shouldSyncLeanMirror(file) || !shouldSyncLeanMirror(target)) return;
-  await renameMirrorPath(file, target, noteRoot, { directory: info?.isDirectory?.() === true });
+  if (info?.isDirectory?.() === true) {
+    const enumRoot = existsSync(file) ? file : target;
+    const files = await managedMarkdownFilesInDirectory(enumRoot);
+    await mapLimit(files, scanConcurrency, async (item) => {
+      const oldPath = enumRoot === file ? item : resolve(file, relative(target, item));
+      const newPath = enumRoot === file ? resolve(target, relative(file, item)) : item;
+      await renameManagedLeanMirror(oldPath, newPath, { isDirectory: () => false, isFile: () => true });
+    });
+    return;
+  }
+  for (const selector of await leanManagedSelectorsForFile(file, target)) {
+    const from = leanManagedTarget(file, selector);
+    const to = leanManagedTarget(target, selector);
+    if (!from || !to || !existsSync(from)) continue;
+    await mkdir(dirname(to), { recursive: true });
+    await rename(from, to);
+  }
 }
 
 async function copyManagedLeanMirror(file, target, info) {
   if (!shouldSyncLeanMirror(file) || !shouldSyncLeanMirror(target) || info?.isFile?.() !== true) return;
-  await copyMirrorPath(file, target, noteRoot);
+  for (const selector of await leanManagedSelectorsForFile(file)) {
+    const from = leanManagedTarget(file, selector);
+    const to = leanManagedTarget(target, selector);
+    if (!from || !to || !existsSync(from)) continue;
+    await mkdir(dirname(to), { recursive: true });
+    await copyFile(from, to);
+  }
 }
 
 export function fileContentType(file) {
@@ -568,9 +647,16 @@ export async function pathSuggestionsForFile(file) {
 
 function assetCandidateFile(file) {
   const relParts = relative(noteRoot, file).split(sep).map((part) => part.toLowerCase());
+  if (relParts.includes(".lean")) return false;
   if (!relParts.includes("images") && !relParts.includes("attachments")) return false;
   const ext = extname(file).toLowerCase();
-  return !noteExts.has(ext) && basename(file) !== ".aaronnote-keep";
+  return !leanSourceFile(file) && !noteExts.has(ext) && basename(file) !== ".aaronnote-keep";
+}
+
+function assetReferenceSourceFile(file) {
+  const relParts = relative(noteRoot, file).split(sep).map((part) => part.toLowerCase());
+  if (relParts.includes(".lean")) return false;
+  return /\.(?:md|markdown|typ)$/i.test(file);
 }
 
 function resolveReferencedAsset(href, noteFile) {
@@ -584,29 +670,134 @@ function resolveReferencedAsset(href, noteFile) {
 
 export function assetRefsFromContent(content, noteFile) {
   const refs = new Set();
-  for (const href of markdownLinkHrefs(content)) {
+  const addHref = (href) => {
     const file = resolveReferencedAsset(href, noteFile);
     if (file) refs.add(file);
+  };
+  for (const href of markdownLinkHrefs(content)) {
+    addHref(href);
   }
-  for (const match of content.matchAll(/\b(?:src|href)\s*=\s*["']([^"']+)["']/gi)) {
-    const file = resolveReferencedAsset(match[1], noteFile);
-    if (file) refs.add(file);
+  for (const match of content.matchAll(/\b(?:src|href|poster|data-src)\s*=\s*["']([^"']+)["']/gi)) {
+    addHref(match[1]);
+  }
+  for (const match of content.matchAll(/\bsrcset\s*=\s*["']([^"']+)["']/gi)) {
+    for (const item of String(match[1] || "").split(",")) {
+      const href = item.trim().split(/\s+/, 1)[0] || "";
+      addHref(href);
+    }
+  }
+  for (const match of content.matchAll(/\burl\(\s*(['"]?)([^'")]+)\1\s*\)/gi)) {
+    addHref(match[2]);
+  }
+  for (const match of content.matchAll(/\[\[(?:file:)?([^\]\n]+?)(?:\][^\]\n]*)?\]\]/gi)) {
+    addHref(match[1]);
+  }
+  for (const match of content.matchAll(/^\s*#\+include:\s+["<]?([^">\n]+)[">]?/gim)) {
+    addHref(match[1]);
   }
   return [...refs];
 }
 
-export async function scanUnusedAssets() {
-  const noteFiles = await walkFiles(noteScanRoot, (file) => {
-    const dot = file.lastIndexOf(".");
-    return dot >= 0 && noteExts.has(file.slice(dot).toLowerCase());
-  });
-  const referenced = new Set();
-  await mapLimit(noteFiles, scanConcurrency, async (file) => {
+function assetCleanupStateFile() {
+  return join(noteRoot, ".aaronnote-asset-cleanup-state.json");
+}
+
+async function readAssetCleanupState() {
+  try {
+    const raw = await readFile(assetCleanupStateFile(), "utf8");
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+async function writeAssetCleanupState(next) {
+  await writeFile(assetCleanupStateFile(), `${JSON.stringify(next, null, 2)}\n`, "utf8");
+}
+
+async function assetReferenceFiles() {
+  return walkFiles(noteScanRoot, assetReferenceSourceFile);
+}
+
+async function assetSourceStats(files) {
+  const stats = {};
+  await mapLimit(files, scanConcurrency, async (file) => {
     try {
-      const content = await readFile(file, "utf8");
-      for (const ref of assetRefsFromContent(content, file)) referenced.add(ref);
+      const info = await stat(file);
+      stats[file] = { mtimeMs: info.mtimeMs, size: info.size };
     } catch {}
   });
+  return stats;
+}
+
+async function assetRefsForFiles(files) {
+  const refsByFile = {};
+  await mapLimit(files, scanConcurrency, async (file) => {
+    try {
+      const content = await readFile(file, "utf8");
+      refsByFile[file] = assetRefsFromContent(content, file);
+    } catch {
+      refsByFile[file] = [];
+    }
+  });
+  return refsByFile;
+}
+
+async function assetRefsByFileIncremental() {
+  const state = await readAssetCleanupState();
+  const schemaOk = state.schemaVersion === ASSET_CLEANUP_SCHEMA;
+  const cachedRefs = state.refsByFile && typeof state.refsByFile === "object" ? state.refsByFile : {};
+  const sourceFiles = await assetReferenceFiles();
+  const sourceSet = new Set(sourceFiles);
+  const sourceStats = await assetSourceStats(sourceFiles);
+  const previousStats = state.sourceStats && typeof state.sourceStats === "object" ? state.sourceStats : {};
+  const forceFull = !schemaOk
+    || !state.lastScannedCommit
+    || Math.random() < 0.02;
+  let refsByFile = {};
+  let full = forceFull;
+  let changedFiles = null;
+  if (!full) {
+    changedFiles = await changedRoamFilesSince(noteRoot, state.lastScannedCommit);
+    if (changedFiles === null) full = true;
+  }
+  if (full) {
+    refsByFile = await assetRefsForFiles(sourceFiles);
+  } else {
+    refsByFile = { ...cachedRefs };
+    for (const file of Object.keys(refsByFile)) {
+      if (!sourceSet.has(file)) delete refsByFile[file];
+    }
+    const statChanged = sourceFiles.filter((file) => {
+      const prev = previousStats[file];
+      const next = sourceStats[file];
+      return !prev || !next || Number(prev.mtimeMs) !== Number(next.mtimeMs) || Number(prev.size) !== Number(next.size);
+    });
+    const changedSources = [...new Set([
+      ...(changedFiles || []).map((file) => resolveUserPath(file)).filter((file) => sourceSet.has(file)),
+      ...statChanged,
+    ])];
+    Object.assign(refsByFile, await assetRefsForFiles(changedSources));
+  }
+  const sha = await headSha(noteRoot);
+  await writeAssetCleanupState({
+    schemaVersion: ASSET_CLEANUP_SCHEMA,
+    lastScannedCommit: sha || state.lastScannedCommit || "",
+    lastFullAt: full ? new Date().toISOString() : state.lastFullAt || "",
+    lastScannedAt: new Date().toISOString(),
+    sourceStats,
+    refsByFile,
+  }).catch(() => {});
+  return refsByFile;
+}
+
+export async function scanUnusedAssets() {
+  const refsByFile = await assetRefsByFileIncremental();
+  const referenced = new Set();
+  for (const refs of Object.values(refsByFile)) {
+    if (!Array.isArray(refs)) continue;
+    for (const ref of refs) referenced.add(resolve(String(ref)));
+  }
   const files = await walkFiles(noteRoot, assetCandidateFile);
   const assets = await mapLimit(files, scanConcurrency, async (file) => {
     try {
@@ -1929,7 +2120,7 @@ async function scanFilesystemEntries(notes = []) {
         await walk(full, childGenerated);
       } else if (entry.isFile()) {
         const ext = extname(entry.name).toLowerCase();
-        if (noteExts.has(ext) || entry.name === ".aaronnote-keep") continue;
+        if (ext === ".lean" || noteExts.has(ext) || entry.name === ".aaronnote-keep") continue;
         try {
           const info = await stat(full);
           const path = displayPathForScanRoot(full, noteScanRoot);
@@ -2053,6 +2244,7 @@ function cloneNote(note) {
     bookDomTargets: [...(note.bookDomTargets || [])],
     bookRawRefs: [...(note.bookRawRefs || [])],
     bookDiagnostics: [...(note.bookDiagnostics || [])],
+    leanBlocks: [...(note.leanBlocks || [])],
   };
 }
 
@@ -2092,6 +2284,20 @@ async function noteFromFileForIndex(file) {
     const bookMeta = bookMetaFromContent(content);
     const roam = hasRoamMeta(content);
     const inlineTags = inlineTagsFromContent(content);
+    const leanBlocks = markdownNoteFile(file)
+      ? scanMarkdownLeanPlaceholders(content).map((placeholder) => {
+        let target = null;
+        try {
+          target = resolveLeanTargetPath(file, noteRoot, placeholder.selector);
+        } catch {}
+        return {
+          tag: placeholder.tag,
+          selector: target?.selector ?? placeholder.selector,
+          targetKind: target?.kind ?? "",
+          leanPath: target?.leanPath ?? "",
+        };
+      })
+      : [];
     const note = {
       key: id,
       id,
@@ -2124,6 +2330,7 @@ async function noteFromFileForIndex(file) {
       bookDomTargets: [],
       bookRawRefs: [],
       bookDiagnostics: [],
+      leanBlocks,
       standalone: standaloneFile(file),
     };
     const todoContent = contentMayHaveTodos(content) ? content : "";
@@ -3786,6 +3993,11 @@ export async function handleRoamLookupRequest(action, body = {}) {
 
 export async function readNote(file, options = {}) {
   const safe = safeOpenFile(file);
+  if (leanSourceFile(safe)) {
+    const err = new Error("Lean files are edited manually");
+    err.statusCode = 400;
+    throw err;
+  }
   noteScanRoot = scanRootForOpenFile(safe);
   const info = await stat(safe);
   if (!info.isFile()) {
@@ -4342,12 +4554,13 @@ export async function deleteNote(body) {
   try {
     info = await stat(file);
   } catch {}
+  const leanTargets = await managedLeanTargetsForPath(file, info);
   try {
     trashedTo = await moveToTrash(file);
   } catch (err) {
     if (err?.code !== "ENOENT") throw err;
   }
-  await deleteManagedLeanMirror(file, info);
+  await deleteLeanTargets(leanTargets);
   markNotesDirty(file);
   const index = await notesIndexPayload();
   if (!standaloneFile(file)) queueRoamDbSync(index.notes, [file]);
@@ -4557,8 +4770,9 @@ export async function trashManagedPath(body) {
     err.statusCode = 400;
     throw err;
   }
+  const leanTargets = await managedLeanTargetsForPath(file, info);
   const trashedTo = await moveToTrash(file);
-  await deleteManagedLeanMirror(file, info);
+  await deleteLeanTargets(leanTargets);
   markNotesDirty();
   return fsPayload({
     type: "fs-trashed",

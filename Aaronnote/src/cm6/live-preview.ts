@@ -77,10 +77,8 @@ const BLOCK_MARK_NODES = new Set([
 
 const CJK_TEXT_RE = /[\u2E80-\u2EFF\u3000-\u303F\u31C0-\u31EF\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF\uFF00-\uFFEF]+/g;
 const WIKILINK_RE = /\[\[([^\]\n]+)\]\]/g;
-// Keyed by line number \u2192 relative offsets within the line.
-// Cleared on docChanged (line numbers shift on insert/delete).
-// Survives pure viewport scrolls so CJK highlights don't re-scan on every scroll.
-const cjkLineCache = new Map<number, Array<{ relFrom: number; relTo: number }>>();
+type CjkLineRanges = Array<{ relFrom: number; relTo: number }>;
+type CjkLineCache = Map<number, { text: string; ranges: CjkLineRanges }>;
 const cjkLineCacheLimit = 512;
 
 function linkHrefFromSpan(state: EditorState, from: number, to: number): string {
@@ -123,6 +121,7 @@ type LivePreviewToken =
 function collectLivePreviewTokens(
   view: EditorView,
   ranges: readonly { from: number; to: number }[] = view.visibleRanges,
+  cjkLineCache?: CjkLineCache,
 ): LivePreviewToken[] {
   const tokens: LivePreviewToken[] = [];
   const doc = view.state.doc;
@@ -130,7 +129,7 @@ function collectLivePreviewTokens(
   const lean4Ranges = getLean4OrgEnvBodyRanges(view.state);
   const excludedRanges = lean4Ranges.length > 0 ? [...blockMathRanges, ...lean4Ranges] : blockMathRanges;
 
-  addCjkTextTokens(tokens, doc, ranges, excludedRanges);
+  addCjkTextTokens(tokens, doc, ranges, excludedRanges, cjkLineCache);
   addHeadingMarkTokens(tokens, view.state, ranges, excludedRanges);
   addWikilinkTokens(tokens, doc, ranges, excludedRanges);
 
@@ -326,27 +325,31 @@ function addCjkTextTokens(
   doc: Text,
   ranges: readonly { from: number; to: number }[],
   blockMathRanges: readonly { from: number; to: number }[],
+  cjkLineCache?: CjkLineCache,
 ): void {
   for (const { from: visibleFrom, to: visibleTo } of ranges) {
     const firstLineNum = doc.lineAt(visibleFrom).number;
     const lastLineNum = doc.lineAt(Math.min(visibleTo, doc.length > 0 ? doc.length : 0)).number;
     for (let lineNum = firstLineNum; lineNum <= lastLineNum; lineNum++) {
       const line = doc.line(lineNum);
-      let cached = cjkLineCache.get(lineNum);
-      if (!cached) {
-        cached = [];
+      let ranges: CjkLineRanges;
+      const cached = cjkLineCache?.get(lineNum);
+      if (cached?.text === line.text) {
+        ranges = cached.ranges;
+      } else {
+        ranges = [];
         CJK_TEXT_RE.lastIndex = 0;
         let match: RegExpExecArray | null;
         while ((match = CJK_TEXT_RE.exec(line.text)) !== null) {
-          cached.push({ relFrom: match.index, relTo: match.index + match[0].length });
+          ranges.push({ relFrom: match.index, relTo: match.index + match[0].length });
         }
-        cjkLineCache.set(lineNum, cached);
-        if (cjkLineCache.size > cjkLineCacheLimit) {
+        cjkLineCache?.set(lineNum, { text: line.text, ranges });
+        if (cjkLineCache && cjkLineCache.size > cjkLineCacheLimit) {
           const oldest = cjkLineCache.keys().next().value;
           if (oldest !== undefined) cjkLineCache.delete(oldest);
         }
       }
-      for (const { relFrom, relTo } of cached) {
+      for (const { relFrom, relTo } of ranges) {
         const from = line.from + relFrom;
         const to = line.from + relTo;
         if (!rangeOverlapsAny(from, to, blockMathRanges)) tokens.push({ kind: "static", from, to, cls: "cm-cjk-text" });
@@ -404,12 +407,13 @@ function computeDeltaRanges(
 class LivePreviewPlugin {
   decorations: DecorationSet;
   tokens: LivePreviewToken[];
+  private readonly cjkLineCache: CjkLineCache = new Map();
   private lastVpFrom: number;
   private lastVpTo: number;
 
   constructor(view: EditorView) {
     const vr = view.visibleRanges;
-    this.tokens = collectLivePreviewTokens(view, vr);
+    this.tokens = collectLivePreviewTokens(view, vr, this.cjkLineCache);
     this.lastVpFrom = vr[0]?.from ?? 0;
     this.lastVpTo = vr[vr.length - 1]?.to ?? 0;
     this.decorations = buildDecorations(view, this.tokens);
@@ -427,13 +431,13 @@ class LivePreviewPlugin {
       // Lines before the change have stable line numbers and valid cache entries.
       const minLine = firstChangedLine(update.changes, update.view.state.doc);
       if (minLine <= 1) {
-        cjkLineCache.clear();
+        this.cjkLineCache.clear();
       } else {
-        for (const lineNum of cjkLineCache.keys()) {
-          if (lineNum >= minLine) cjkLineCache.delete(lineNum);
+        for (const lineNum of this.cjkLineCache.keys()) {
+          if (lineNum >= minLine) this.cjkLineCache.delete(lineNum);
         }
       }
-      this.tokens = collectLivePreviewTokens(update.view, vr);
+      this.tokens = collectLivePreviewTokens(update.view, vr, this.cjkLineCache);
       this.lastVpFrom = newFrom;
       this.lastVpTo = newTo;
       this.decorations = buildDecorations(update.view, this.tokens);
@@ -442,7 +446,7 @@ class LivePreviewPlugin {
       const delta = computeDeltaRanges(this.lastVpFrom, this.lastVpTo, vr);
       const kept = this.tokens.filter(t => t.to > newFrom && t.from < newTo);
       if (delta.length > 0) {
-        const fresh = collectLivePreviewTokens(update.view, delta);
+        const fresh = collectLivePreviewTokens(update.view, delta, this.cjkLineCache);
         if (fresh.length > 0) {
           const merged = [...kept, ...fresh];
           merged.sort((a, b) => a.from - b.from || a.to - b.to);

@@ -1,6 +1,6 @@
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir, rm } from "node:fs/promises";
 import { dirname } from "node:path";
-import { leanMirrorPath } from "./lean-mirror.mjs";
+import { resolveLeanTargetPath } from "./lean-mirror.mjs";
 
 const TAG_RE = /^--[ \t]*@aaronnote[ \t]+([A-Za-z0-9_.:-]+)[ \t]*$/gm;
 
@@ -13,8 +13,8 @@ export function normalizeLeanTag(value) {
     .slice(0, 80);
 }
 
-export function leanPathForMarkdownNote(notePath, notesRoot) {
-  return leanMirrorPath(notePath, notesRoot);
+export function leanPathForMarkdownNote(notePath, notesRoot, selector = "") {
+  return resolveLeanTargetPath(notePath, notesRoot, selector).leanPath;
 }
 
 export function scanLeanRegions(text) {
@@ -50,7 +50,25 @@ export function scanLeanRegions(text) {
 export function findLeanRegion(text, tag) {
   const clean = normalizeLeanTag(tag);
   if (!clean) return null;
-  return scanLeanRegions(text).find((region) => region.tag === clean) ?? null;
+  TAG_RE.lastIndex = 0;
+  let match;
+  while ((match = TAG_RE.exec(text))) {
+    if (match[1] !== clean) continue;
+    const markerFrom = match.index;
+    const markerTo = TAG_RE.lastIndex;
+    const bodyFrom = text.slice(markerTo, markerTo + 1) === "\n" ? markerTo + 1 : markerTo;
+    const next = TAG_RE.exec(text);
+    const bodyTo = next ? next.index : text.length;
+    return {
+      tag: clean,
+      markerFrom,
+      markerTo,
+      bodyFrom,
+      bodyTo,
+      body: text.slice(bodyFrom, bodyTo),
+    };
+  }
+  return null;
 }
 
 export async function readLeanFile(path) {
@@ -93,29 +111,33 @@ function insertRegionMarker(text, offset, tag) {
   return `${before}${prefix}${marker}${after}`;
 }
 
-export async function ensureLeanRegion({ notePath, notesRoot, tag, beforeTag = "", afterTag = "" }) {
+export async function ensureLeanRegion({ notePath, notesRoot, tag, selector = "", beforeTag = "", afterTag = "" }) {
   const cleanTag = normalizeLeanTag(tag);
   if (!cleanTag) throw new Error("Missing Lean tag");
-  const leanPath = leanPathForMarkdownNote(notePath, notesRoot);
+  const target = resolveLeanTargetPath(notePath, notesRoot, selector);
+  const leanPath = target.leanPath;
   const text = await readLeanFile(leanPath);
   const existing = findLeanRegion(text, cleanTag);
-  if (existing) return { leanPath, tag: cleanTag, created: false, text, region: existing };
+  if (existing) return { leanPath, selector: target.selector, targetKind: target.kind, tag: cleanTag, created: false, text, region: existing };
 
   const offset = regionInsertOffset(text, { beforeTag, afterTag });
   const nextText = insertRegionMarker(text, offset, cleanTag);
   await writeLeanFile(leanPath, nextText);
   const region = findLeanRegion(nextText, cleanTag);
-  return { leanPath, tag: cleanTag, created: true, text: nextText, region };
+  return { leanPath, selector: target.selector, targetKind: target.kind, tag: cleanTag, created: true, text: nextText, region };
 }
 
-export async function getLeanRegion({ notePath, notesRoot, tag }) {
+export async function getLeanRegion({ notePath, notesRoot, tag, selector = "" }) {
   const cleanTag = normalizeLeanTag(tag);
   if (!cleanTag) throw new Error("Missing Lean tag");
-  const leanPath = leanPathForMarkdownNote(notePath, notesRoot);
+  const target = resolveLeanTargetPath(notePath, notesRoot, selector);
+  const leanPath = target.leanPath;
   const text = await readLeanFile(leanPath);
   const region = findLeanRegion(text, cleanTag);
   return {
     leanPath,
+    selector: target.selector,
+    targetKind: target.kind,
     tag: cleanTag,
     created: false,
     text,
@@ -124,10 +146,12 @@ export async function getLeanRegion({ notePath, notesRoot, tag }) {
   };
 }
 
-export async function readLeanRegion({ notePath, notesRoot, tag, beforeTag = "", afterTag = "" }) {
-  const ensured = await ensureLeanRegion({ notePath, notesRoot, tag, beforeTag, afterTag });
+export async function readLeanRegion({ notePath, notesRoot, tag, selector = "", beforeTag = "", afterTag = "" }) {
+  const ensured = await ensureLeanRegion({ notePath, notesRoot, tag, selector, beforeTag, afterTag });
   return {
     leanPath: ensured.leanPath,
+    selector: ensured.selector,
+    targetKind: ensured.targetKind,
     tag: ensured.tag,
     text: ensured.text,
     region: ensured.region,
@@ -136,8 +160,8 @@ export async function readLeanRegion({ notePath, notesRoot, tag, beforeTag = "",
   };
 }
 
-export async function updateLeanRegion({ notePath, notesRoot, tag, body }) {
-  const ensured = await ensureLeanRegion({ notePath, notesRoot, tag });
+export async function updateLeanRegion({ notePath, notesRoot, tag, selector = "", body }) {
+  const ensured = await ensureLeanRegion({ notePath, notesRoot, tag, selector });
   if (!ensured.region) throw new Error("Lean region not found");
   let cleanBody = String(body ?? "");
   if (ensured.region.bodyTo < ensured.text.length && cleanBody && !cleanBody.endsWith("\n")) {
@@ -147,9 +171,15 @@ export async function updateLeanRegion({ notePath, notesRoot, tag, body }) {
   const after = ensured.text.slice(ensured.region.bodyTo);
   const nextText = before + cleanBody + after;
   await writeLeanFile(ensured.leanPath, nextText);
-  const region = findLeanRegion(nextText, ensured.tag);
+  const region = {
+    ...ensured.region,
+    bodyTo: ensured.region.bodyFrom + cleanBody.length,
+    body: cleanBody,
+  };
   return {
     leanPath: ensured.leanPath,
+    selector: ensured.selector,
+    targetKind: ensured.targetKind,
     tag: ensured.tag,
     text: nextText,
     region,
@@ -157,13 +187,14 @@ export async function updateLeanRegion({ notePath, notesRoot, tag, body }) {
   };
 }
 
-export async function deleteLeanRegion({ notePath, notesRoot, tag }) {
+export async function deleteLeanRegion({ notePath, notesRoot, tag, selector = "" }) {
   const cleanTag = normalizeLeanTag(tag);
   if (!cleanTag) throw new Error("Missing Lean tag");
-  const leanPath = leanPathForMarkdownNote(notePath, notesRoot);
+  const target = resolveLeanTargetPath(notePath, notesRoot, selector);
+  const leanPath = target.leanPath;
   const text = await readLeanFile(leanPath);
   const region = findLeanRegion(text, cleanTag);
-  if (!region) return { leanPath, tag: cleanTag, deleted: false, text, region: null };
+  if (!region) return { leanPath, selector: target.selector, targetKind: target.kind, tag: cleanTag, deleted: false, text, region: null };
 
   let from = region.markerFrom;
   let to = region.bodyTo;
@@ -174,6 +205,28 @@ export async function deleteLeanRegion({ notePath, notesRoot, tag }) {
   }
 
   const nextText = text.slice(0, from) + text.slice(to);
+  if (target.kind !== "link" && nextText.trim() === "") {
+    await rm(leanPath, { force: true });
+    return {
+      leanPath,
+      selector: target.selector,
+      targetKind: target.kind,
+      tag: cleanTag,
+      deleted: true,
+      removedFile: true,
+      text: "",
+      region: null,
+    };
+  }
   await writeLeanFile(leanPath, nextText);
-  return { leanPath, tag: cleanTag, deleted: true, text: nextText, region: null };
+  return {
+    leanPath,
+    selector: target.selector,
+    targetKind: target.kind,
+    tag: cleanTag,
+    deleted: true,
+    removedFile: false,
+    text: nextText,
+    region: null,
+  };
 }

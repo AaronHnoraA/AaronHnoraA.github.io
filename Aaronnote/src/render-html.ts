@@ -14,6 +14,7 @@ import { scanInlineCommands } from "./command-syntax.ts";
 import { semanticOutlineFromCommand } from "./semantic-outline.ts";
 import { highlightCode, type CodeHighlightRange } from "./code-highlight.ts";
 import { renderTikzIframe } from "./tikz-render.ts";
+import { parseLeanPlaceholderLine } from "../shared/lean-placeholder.mjs";
 import {
   VISUAL_ATTACHMENT_IFRAME_ALLOW,
   visualAttachmentEmbeddableP,
@@ -297,12 +298,9 @@ function mathBlockRule(state: StateBlock, startLine: number, endLine: number, si
 function leanRegionBlockRule(options: RenderMarkdownHTMLOptions) {
   return function leanRegionBlock(state: StateBlock, startLine: number, _endLine: number, silent: boolean): boolean {
     const raw = lineText(state, startLine);
-    const trimmed = raw.trim();
-    if (!trimmed.startsWith("@@lean4")) return false;
-    const command = scanInlineCommands(trimmed, "lean4")[0];
-    if (!command || command.fullFrom !== 0 || command.fullTo !== trimmed.length) return false;
-    const tag = command.context.trim();
-    if (!tag) return false;
+    const placeholder = parseLeanPlaceholderLine(raw);
+    if (!placeholder) return false;
+    const tag = placeholder.tag;
     if (silent) return true;
     const body = leanRegionBody(options.leanRegions, tag);
     const token = state.push("lean_region_block", "org-env-block", 0);

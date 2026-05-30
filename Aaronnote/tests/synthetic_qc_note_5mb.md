@@ -1080,6 +1080,8 @@ $$
 The following pseudocode is not intended to solve tensor isomorphism. It
 only gives a schematic form of an invariant-refinement strategy.
 
+this is hard to use 
+
 ```python
 from dataclasses import dataclass
 from typing import Any, Dict

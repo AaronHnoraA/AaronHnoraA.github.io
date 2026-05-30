@@ -5,15 +5,70 @@
  */
 import { copyFile, mkdir, readFile, rm, stat, writeFile, rename } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { dirname, relative, resolve } from "node:path";
+import { dirname, extname, relative, resolve } from "node:path";
+import { canonicalLeanSelector, leanNewfileId, normalizeLeanSelector } from "../../shared/lean-placeholder.mjs";
 
 /**
  * Compute the .lean mirror path for a given note path and notes root.
  */
 export function leanMirrorPath(notePath, notesRoot) {
+  if (String(notePath || "").toLowerCase().endsWith(".lean") && inside(notePath, resolve(notesRoot, ".lean"))) {
+    return resolve(notePath);
+  }
   const rel = relative(notesRoot, notePath);
   const leanRel = rel.endsWith(".md") ? rel.slice(0, -3) + ".lean" : rel + ".lean";
   return resolve(notesRoot, ".lean", leanRel);
+}
+
+export function leanExtraMirrorPath(notePath, notesRoot, id) {
+  const cleanId = Math.max(1, Math.floor(Number(id) || 0));
+  const base = leanMirrorPath(notePath, notesRoot);
+  return base.replace(/\.lean$/i, `.mirror-${cleanId}.lean`);
+}
+
+function inside(child, parent) {
+  const rel = relative(resolve(parent), resolve(child));
+  return rel === "" || (!!rel && !rel.startsWith("..") && !rel.startsWith("/"));
+}
+
+function ensureLeanExtension(path) {
+  return extname(path) ? path : `${path}.lean`;
+}
+
+export function resolveLeanTargetPath(notePath, notesRoot, selector = "") {
+  const cleanSelector = canonicalLeanSelector(selector);
+  const defaultPath = leanMirrorPath(notePath, notesRoot);
+  const leanRoot = resolve(notesRoot, ".lean");
+  const newfileId = cleanSelector === "newfile" ? 1 : leanNewfileId(cleanSelector);
+  if (!cleanSelector || newfileId === 0) {
+    return { leanPath: defaultPath, selector: "", kind: "default-mirror" };
+  }
+  if (newfileId != null) {
+    const leanPath = leanExtraMirrorPath(notePath, notesRoot, newfileId);
+    return { leanPath, selector: `newfile:${newfileId}`, kind: "extra-mirror", mirrorId: newfileId };
+  }
+
+  const raw = ensureLeanExtension(normalizeLeanSelector(cleanSelector));
+  const baseDir = dirname(defaultPath);
+  const leanPath = raw.startsWith("/")
+    ? resolve(raw)
+    : resolve(baseDir, raw);
+  if (!inside(leanPath, leanRoot)) {
+    throw new Error(`Lean file is outside .lean project: ${cleanSelector}`);
+  }
+  if (resolve(leanPath) === resolve(defaultPath)) {
+    return { leanPath: defaultPath, selector: "", kind: "default-mirror" };
+  }
+  return { leanPath, selector: cleanSelector, kind: "link" };
+}
+
+export function managedLeanMirrorPaths(notePath, notesRoot, selectors = []) {
+  const out = new Set([leanMirrorPath(notePath, notesRoot)]);
+  for (const selector of selectors) {
+    const target = resolveLeanTargetPath(notePath, notesRoot, selector);
+    if (target.kind === "extra-mirror") out.add(target.leanPath);
+  }
+  return [...out];
 }
 
 /**
