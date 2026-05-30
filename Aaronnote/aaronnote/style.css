@@ -3602,7 +3602,7 @@ body.book-toc-open .aaronnote-editor {
   left: 0;
   top: 41px; /* below the toolbar */
   bottom: 0;
-  z-index: 46;
+  z-index: 88;
   width: var(--lean-panel-width, 340px);
   display: flex;
   flex-direction: column;
@@ -3613,7 +3613,7 @@ body.book-toc-open .aaronnote-editor {
   backdrop-filter: blur(8px);
   font-family: var(--aaron-font-sans);
   font-size: 12px;
-  transform: translateX(0);
+  transform: none;
   transition: transform 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
@@ -4076,6 +4076,7 @@ body.book-toc-open .aaronnote-editor {
 
 .lean-panel-official {
   padding: 0;
+  overflow: visible;
 }
 
 .lean-official-infoview {
@@ -4315,6 +4316,79 @@ body.book-toc-open .aaronnote-editor {
 .lean-official-infoview--error {
   color: #991b1b;
   font: 700 12px/1.45 var(--aaron-font-sans);
+}
+
+/* Lean's official Infoview renders click tooltips with global `.tooltip*`
+   classes. We intentionally avoid importing its whole CSS bundle because it
+   contains broad utility classes, but these popup styles are required for
+   readable hover/click UI and for escaping the editor/preview stacking order. */
+.tooltip {
+  z-index: 89 !important;
+  box-sizing: border-box;
+  display: flex;
+  max-width: min(620px, calc(100vw - 24px));
+  max-height: min(70vh, 560px);
+  overflow: hidden;
+  border: 1px solid #d8caba;
+  border-radius: 7px;
+  background: #fffaf2 !important;
+  color: #181411 !important;
+  box-shadow:
+    0 22px 56px rgb(67 39 25 / 34%),
+    0 0 0 1px rgb(255 255 255 / 65%) inset;
+  opacity: 1 !important;
+  backdrop-filter: none;
+  pointer-events: auto;
+}
+
+.tooltip-content {
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 6px 10px;
+  background: #fffaf2 !important;
+  color: #181411 !important;
+}
+
+.tooltip-menu-content,
+.tooltip-code-content {
+  color: #181411 !important;
+  font: 13px/1.45 var(--aaron-font-sans);
+}
+
+.tooltip-code-content :is(.font-code, .pre-wrap, code, pre) {
+  color: #211b16 !important;
+  font-family: var(--aaron-font-mono);
+}
+
+.tooltip-code-content code {
+  border-radius: 3px;
+  background: #f4efe6 !important;
+  padding: 0 0.35em;
+}
+
+.tooltip-code-content :is(p, .code, ul, ol) {
+  margin: 8px 0;
+}
+
+.tooltip-code-content :is(p, .code, ul, ol):first-child {
+  margin-top: 0;
+}
+
+.tooltip-code-content :is(p, .code, ul, ol):last-child {
+  margin-bottom: 0;
+}
+
+.tooltip-code-content hr {
+  border: 0;
+  border-top: 1px solid #d8caba;
+  margin: 5px -10px;
+}
+
+.tooltip-code-content a,
+.tooltip-menu-content .link {
+  color: #7f1d1d !important;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .lean-messages-list {
