@@ -10,7 +10,7 @@ import { spawn } from "node:child_process";
 import { mkdir, readFile, readdir, rename, rm, symlink } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, relative, resolve, sep } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { LspClient } from "./lsp-base.mjs";
 import { writeMirror, deleteMirror, renameMirror, resolveLeanTargetPath } from "./lean-mirror.mjs";
 import {
@@ -196,6 +196,98 @@ function offsetToLspPosition(text, offset) {
     }
   }
   return { line, character: limit - lineStart };
+}
+
+/** Code-unit offset into `text` for a 0-based LSP line/character position. */
+export function lspPositionToOffset(text, line, character) {
+  const targetLine = Math.max(0, Math.floor(Number(line) || 0));
+  let curLine = 0;
+  let offset = 0;
+  while (curLine < targetLine && offset < text.length) {
+    const nl = text.indexOf("\n", offset);
+    if (nl < 0) { offset = text.length; break; }
+    offset = nl + 1;
+    curLine++;
+  }
+  if (curLine < targetLine) return text.length;
+  const lineEnd = text.indexOf("\n", offset);
+  const limit = lineEnd < 0 ? text.length : lineEnd;
+  return Math.min(limit, offset + Math.max(0, Math.floor(Number(character) || 0)));
+}
+
+const LOCATION_SUMMARY_MAX = 200;
+
+/** Trimmed text of the 0-based `line` in `text`, capped for display. */
+function lineSummary(text, line) {
+  const start = lspPositionToOffset(text, line, 0);
+  const nl = text.indexOf("\n", start);
+  const raw = text.slice(start, nl < 0 ? text.length : nl);
+  return raw.trim().slice(0, LOCATION_SUMMARY_MAX);
+}
+
+/**
+ * Normalize an LSP `textDocument/{definition,references,…}` result — which may be
+ * a single `Location`, a `Location[]`, or a `LocationLink[]` — into a flat list of
+ * `{ uri, file, range, summary }`, deduped by `file:line:character`. Reads each
+ * target file at most once (cached) to extract the target line summary.
+ */
+export async function normalizeLspLocations(raw) {
+  const items = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  const fileTextCache = new Map();
+  const seen = new Set();
+  const locations = [];
+  for (const item of items) {
+    if (!item || typeof item !== "object") continue;
+    const uri = String(item.targetUri ?? item.uri ?? "");
+    if (!uri) continue;
+    const range = item.targetSelectionRange ?? item.targetRange ?? item.range;
+    const start = range?.start ?? { line: 0, character: 0 };
+    const end = range?.end ?? start;
+    let file = "";
+    try { file = fileURLToPath(uri); } catch { file = uri; }
+    const key = `${file}:${start.line ?? 0}:${start.character ?? 0}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    let summary = "";
+    if (!fileTextCache.has(file)) {
+      try { fileTextCache.set(file, await readFile(file, "utf8")); }
+      catch { fileTextCache.set(file, null); }
+    }
+    const text = fileTextCache.get(file);
+    if (text != null) summary = lineSummary(text, Number(start.line ?? 0));
+    locations.push({
+      uri,
+      file,
+      range: {
+        start: { line: Number(start.line ?? 0), character: Number(start.character ?? 0) },
+        end: { line: Number(end.line ?? start.line ?? 0), character: Number(end.character ?? start.character ?? 0) },
+      },
+      summary,
+    });
+  }
+  return locations;
+}
+
+/**
+ * Best-effort inverse of the .lean mirror mapping: given an absolute `.lean`
+ * file, recover the owning note path and selector. Returns `{ external: true }`
+ * for files outside `<notesRoot>/.lean` (Mathlib, prelude, toolchain sources).
+ */
+function leanFileToNote(file) {
+  const abs = resolve(file);
+  const leanRoot = resolve(notesRoot, ".lean");
+  const rel = relative(leanRoot, abs);
+  if (!rel || rel.startsWith("..") || rel.startsWith(sep) || rel.startsWith("/")) {
+    return { external: true, notePath: "", selector: "" };
+  }
+  const extra = rel.match(/\.mirror-(\d+)\.lean$/i);
+  const baseRel = extra ? rel.replace(/\.mirror-\d+\.lean$/i, ".lean") : rel;
+  const selector = extra ? `newfile:${Number(extra[1])}` : "";
+  const mdNote = resolve(notesRoot, baseRel.replace(/\.lean$/i, ".md"));
+  if (existsSync(mdNote)) return { external: false, notePath: mdNote, selector };
+  // Note may itself be a managed `.lean` file under .lean/.
+  if (existsSync(abs)) return { external: false, notePath: abs, selector };
+  return { external: false, notePath: mdNote, selector };
 }
 
 /**
@@ -680,6 +772,46 @@ class LeanLspClient extends LspClient {
         textDocument: { uri },
         position: { line, character },
       }, 10_000);
+    } catch {
+      return null;
+    }
+  }
+
+  /** Generic read-only navigation request (declaration/typeDefinition/implementation). */
+  async getLocationsFor(method, leanPath, line, character) {
+    await this.ensureReady();
+    const uri = pathToFileURL(leanPath).href;
+    try {
+      return await this.request(method, {
+        textDocument: { uri },
+        position: { line, character },
+      }, 10_000);
+    } catch {
+      return null;
+    }
+  }
+
+  async getDeclaration(leanPath, line, character) {
+    return this.getLocationsFor("textDocument/declaration", leanPath, line, character);
+  }
+
+  async getTypeDefinition(leanPath, line, character) {
+    return this.getLocationsFor("textDocument/typeDefinition", leanPath, line, character);
+  }
+
+  async getImplementation(leanPath, line, character) {
+    return this.getLocationsFor("textDocument/implementation", leanPath, line, character);
+  }
+
+  async getReferences(leanPath, line, character) {
+    await this.ensureReady();
+    const uri = pathToFileURL(leanPath).href;
+    try {
+      return await this.request("textDocument/references", {
+        textDocument: { uri },
+        position: { line, character },
+        context: { includeDeclaration: true },
+      }, 15_000);
     } catch {
       return null;
     }
@@ -1388,6 +1520,61 @@ export async function handleLeanRequest(action, body = {}) {
     const client = leanClient;
     if (!client) return { ok: true, diagnostics: [] };
     return { ok: true, diagnostics: client.diagnosticsFor(leanPath) };
+  }
+
+  if (action === "get-locations") {
+    const { leanPath } = body;
+    if (!leanPath) return { ok: false, message: "Missing leanPath" };
+    const client = leanClient;
+    if (!client?.running) return { ok: false, result: null, locations: [] };
+    const navAction = String(body.action ?? "definition");
+    const line = Number(body.line ?? 0);
+    const character = Number(body.character ?? 0);
+    if (navAction === "hover") {
+      const result = await client.getHover(leanPath, line, character);
+      return { ok: true, result };
+    }
+    const lookup = {
+      definition: () => client.getDefinition(leanPath, line, character),
+      declaration: () => client.getDeclaration(leanPath, line, character),
+      typeDefinition: () => client.getTypeDefinition(leanPath, line, character),
+      implementation: () => client.getImplementation(leanPath, line, character),
+      references: () => client.getReferences(leanPath, line, character),
+    };
+    const run = lookup[navAction];
+    if (!run) return { ok: false, message: `Unknown location action: ${navAction}` };
+    const result = await run();
+    const locations = await normalizeLspLocations(result);
+    return { ok: true, locations };
+  }
+
+  if (action === "resolve-location") {
+    const file = String(body.file ?? "");
+    if (!file) return { ok: false, message: "Missing file" };
+    const line = Number(body.line ?? 0);
+    const character = Number(body.character ?? 0);
+    const note = leanFileToNote(file);
+    let text = "";
+    try {
+      text = await readFile(file, "utf8");
+    } catch {
+      return { ok: true, inRegion: false, external: note.external, notePath: note.notePath, selector: note.selector };
+    }
+    const offset = lspPositionToOffset(text, line, character);
+    const region = scanLeanRegions(text).find((r) => offset >= r.bodyFrom && offset < r.bodyTo) ?? null;
+    if (!region) {
+      return { ok: true, inRegion: false, external: note.external, notePath: note.notePath, selector: note.selector };
+    }
+    const bodyStartLine = offsetToLspPosition(text, region.bodyFrom).line;
+    return {
+      ok: true,
+      inRegion: true,
+      external: note.external,
+      notePath: note.notePath,
+      selector: note.selector,
+      tag: region.tag,
+      bodyLine: Math.max(0, line - bodyStartLine),
+    };
   }
 
   return { ok: false, message: `Unknown Lean action: ${action}` };
