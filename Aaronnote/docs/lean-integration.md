@@ -47,6 +47,21 @@ lives in real `.lean` files inside the notes root's `.lean/` Lake project.
 - [x] Parser/region unit tests added.
 - [x] Verified with `npm run build:aaronnote` and
   `npm test -- copilot-plugin`.
+- [x] Multi-selector support: `@@lean4(selector) [tag]` links a placeholder to an
+  alternate Lean file (`newfile:N` mirror or a relative path link). The selector
+  is optional; omitting it keeps the default mirror behavior.
+- [x] Shared placeholder module (`shared/lean-placeholder.mjs`) extracted:
+  `parseLeanPlaceholderLine`, `formatLeanPlaceholder`, `canonicalLeanSelector`,
+  and `scanMarkdownLeanPlaceholders` are now the single source of truth for both
+  the client widget and all server-side region/mirror helpers.
+- [x] Lean block manager modal (`Insert Lean Block`): replaces bare `insertLeanBlock`
+  for interactive use. Shows target mode (default/mirror/link), mirror number with
+  existence hint, and tag selection with duplicate warning.
+- [x] LSP document defer-close (`AARONNOTE_LEAN_DOCUMENT_IDLE_MS`, default 90 s):
+  switching between lean blocks no longer tears down and reopens the LSP document
+  immediately, saving ~500 ms per block switch.
+- [x] Incremental placeholder index: `patchLeanPlaceholderIndex` rescans only
+  changed lines on each keystroke, replacing a full-document scan.
 
 Update this section whenever an implementation stage lands.
 
@@ -60,6 +75,16 @@ The following Lean fragment proves the local claim.
 @@lean4 [group-cancel]
 ```
 
+An optional selector in parentheses points the placeholder to a specific Lean file:
+
+```markdown
+@@lean4(../UNSW/GraphTensor.lean) [graph-iso]   -- relative path link
+@@lean4(newfile:2) [scratch]                    -- extra mirror file
+```
+
+Selectors are normalized by `canonicalLeanSelector` (in `shared/lean-placeholder.mjs`)
+before use. Omitting the selector is equivalent to `selector = ""` (default mirror).
+
 For a Markdown note:
 
 ```text
@@ -69,7 +94,8 @@ roam/math/group.md
 Aaronnote derives the Lean file:
 
 ```text
-roam/.lean/math/group.lean
+roam/.lean/math/group.lean        (default mirror, no selector)
+roam/.lean/math/group.mirror-2.lean   (newfile:2 selector)
 ```
 
 The Lean file contains ordinary Lean source plus Aaronnote tag markers:
@@ -166,15 +192,19 @@ using. Project commands should run from `roam/.lean/` or through the notes-root
 
 ## Insert Flow
 
-The command palette exposes `Insert Lean block`.
+The command palette exposes two commands:
 
-Shortcut:
+- **Insert Lean block** (`Cmd/Ctrl+Shift+L`) — quick insert into the default
+  mirror with a generated tag, no modal.
+- **Lean block manager** — interactive modal that lets you choose the target
+  (default mirror / mirror number / Lean file link), tag mode (new generated tag
+  or existing tag in the selected file), and shows early validation:
+  - "New mirror file will be created" when the mirror number has no existing file.
+  - "Mirror exists with N tags" when the mirror already contains regions.
+  - "Tag already exists — will write to the same region" when a new-tag name
+    matches an existing region (not an error; inserts a second reference).
 
-```text
-Cmd/Ctrl+Shift+L
-```
-
-Default behavior:
+Default quick-insert behavior:
 
 1. Derive the current note's mirror Lean file.
 2. Create the file if it does not exist.
@@ -228,6 +258,20 @@ Default behavior:
 
 - Lean UI markers are derived from already-stored diagnostics, progress, and
   completion items. They must not introduce background polling or full-file scans.
+- Server-side region neighbor lookup (`getRegionNeighbors`) scans the full
+  markdown file to determine insertion ordering. This scan must only run when a
+  region does not yet exist — all request handlers must go through
+  `readOrEnsureLeanRegionFromRequest`, which checks for an existing region first
+  and skips the scan for the common case (region already present).
+- Placeholder index updates are incremental: `patchLeanPlaceholderIndex` rescans
+  only lines touched by the current transaction. Full-document scans happen only
+  on cold load.
+- Widget height re-measurement on window resize is handled by `MeasuredWidget`'s
+  shared `ResizeObserver`. Widgets must not add their own `window.resize`
+  listeners; CM6 and the `ResizeObserver` together are sufficient.
+- LSP documents are kept open for `AARONNOTE_LEAN_DOCUMENT_IDLE_MS` (default
+  90 s) after the last reference drops. Rapid block switching does not cause
+  repeated `didClose`/`didOpen` round-trips.
 - Outline data comes from `textDocument/documentSymbol` on demand and is kept in
   the panel state; the outline UI reuses its existing resize/collapse controls.
 - Copilot auxiliary registration is mount-scoped. Destroying the embedded editor

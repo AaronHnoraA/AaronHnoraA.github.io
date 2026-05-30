@@ -1,4 +1,4 @@
-import { EditorSelection, EditorState, Prec, RangeSet, RangeSetBuilder, StateEffect, StateField, Transaction, type ChangeSpec, type Extension, type Text } from "@codemirror/state";
+import { EditorSelection, EditorState, Prec, RangeSet, RangeSetBuilder, RangeValue, StateEffect, StateField, Transaction, type ChangeSet, type ChangeSpec, type Extension, type Text } from "@codemirror/state";
 import {
   Decoration,
   EditorView,
@@ -40,7 +40,6 @@ import {
 import type { Range } from "@codemirror/state";
 import initLeanTreeSitter, { create_session, free_session, parse_utf16, set_text, type LeanTreeSitterSpan } from "@arborium/lean";
 import leanTreeSitterWasmUrl from "@arborium/lean/grammar_bg.wasm?url";
-import { scanInlineCommands, type InlineCommand } from "../../command-syntax.ts";
 import { leanSummary, renderLeanMarkdown, stripLeanMarkdownFence } from "../../lean-render.ts";
 import { api } from "../../../aaronnote/api-client.ts";
 import { getLeanNoteInfo } from "./lean-block.ts";
@@ -48,12 +47,31 @@ import { findHighlightExtension } from "../find-highlight.ts";
 import leanAbbreviationsRaw from "../../lean4-abbreviations.json";
 import { expandSnippetBody } from "../../../aaronnote/snippets.ts";
 import type { SnippetSummary } from "../../../aaronnote/types.ts";
+import { canonicalLeanSelector, formatLeanPlaceholder, parseLeanPlaceholderLine } from "../../../shared/lean-placeholder.mjs";
 
 type LeanPlaceholder = {
   from: number;
   to: number;
   tag: string;
+  selector: string;
 };
+
+class LeanPlaceholderValue extends RangeValue {
+  readonly tag: string;
+  readonly selector: string;
+
+  constructor(tag: string, selector: string) {
+    super();
+    this.tag = tag;
+    this.selector = selector;
+  }
+
+  eq(other: RangeValue): boolean {
+    return other instanceof LeanPlaceholderValue
+      && other.tag === this.tag
+      && other.selector === this.selector;
+  }
+}
 
 type LeanRegionRead = {
   ok?: boolean;
@@ -72,6 +90,7 @@ type LeanRegionMeta = {
 type LeanContext = {
   notePath: string;
   tag: string;
+  selector: string;
   leanPath: string;
   leanText: string;
   lspVersion?: number;
@@ -86,11 +105,20 @@ type LeanDiagnosticMark = {
   to: number;
   severity: "error" | "warning" | "info";
   message: string;
+  leanTags: LeanDiagnosticTag[];
 };
+
+type LeanDiagnosticTag = "unsolvedGoals" | "goalsAccomplished";
+type LeanProgressKind = "processing" | "fatalError";
 
 type LeanProgressMark = {
   from: number;
   to: number;
+  kind: LeanProgressKind;
+};
+
+type LeanGoalStatusMark = {
+  from: number;
 };
 
 type LeanVimMode = "insert" | "normal" | "visual" | "visual-line";
@@ -106,6 +134,7 @@ type LeanJumpModeState =
 type LeanRegionInfoviewEvent = {
   notePath: string;
   tag: string;
+  selector?: string;
   leanPath?: string;
   uri?: string;
   line?: number;
@@ -119,6 +148,7 @@ type LeanRegionInfoviewEvent = {
 type LeanRegionJumpEvent = CustomEvent<{
   notePath?: string;
   tag?: string;
+  selector?: string;
   leanPath?: string;
   line?: number;
   character?: number;
@@ -171,6 +201,7 @@ type CopilotEditorDetail = {
 
 const SetLeanDiagnostics = StateEffect.define<LeanDiagnosticMark[]>();
 const SetLeanProgress = StateEffect.define<LeanProgressMark[]>();
+const SetLeanGoalStatus = StateEffect.define<LeanGoalStatusMark | null>();
 const SetLeanSemanticTokens = StateEffect.define<{
   text: string;
   region: LeanRegionMeta | null;
@@ -199,26 +230,40 @@ function fileUri(path: string): string {
   return `file://${path.split("/").map((part) => encodeURIComponent(part)).join("/")}`;
 }
 
-function positionToOffset(text: string, line: number, character: number): number {
-  let remaining = line;
-  let offset = 0;
-  while (remaining > 0 && offset < text.length) {
-    if (text[offset] === "\n") remaining--;
-    offset++;
+let indexedLeanText = "";
+let indexedLeanLineStarts = [0];
+
+function leanLineStarts(text: string): number[] {
+  if (text === indexedLeanText) return indexedLeanLineStarts;
+  const starts = [0];
+  let newline = text.indexOf("\n");
+  while (newline >= 0) {
+    starts.push(newline + 1);
+    newline = text.indexOf("\n", newline + 1);
   }
-  return Math.min(text.length, offset + character);
+  indexedLeanText = text;
+  indexedLeanLineStarts = starts;
+  return starts;
+}
+
+function positionToOffset(text: string, line: number, character: number): number {
+  const starts = leanLineStarts(text);
+  const lineNo = Math.max(0, Math.floor(Number(line) || 0));
+  const lineStart = starts[lineNo] ?? text.length;
+  return Math.min(text.length, lineStart + Math.max(0, Math.floor(Number(character) || 0)));
 }
 
 function offsetToPosition(text: string, offset: number): { line: number; character: number } {
-  let line = 0;
-  let lineStart = 0;
-  for (let i = 0; i < offset && i < text.length; i++) {
-    if (text[i] === "\n") {
-      line++;
-      lineStart = i + 1;
-    }
+  const starts = leanLineStarts(text);
+  const pos = Math.max(0, Math.min(text.length, Math.floor(Number(offset) || 0)));
+  let low = 0;
+  let high = starts.length - 1;
+  while (low < high) {
+    const mid = (low + high + 1) >> 1;
+    if ((starts[mid] ?? 0) <= pos) low = mid;
+    else high = mid - 1;
   }
-  return { line, character: offset - lineStart };
+  return { line: low, character: pos - (starts[low] ?? 0) };
 }
 
 function localOffsetToFull(ctx: LeanContext, offset: number): number | null {
@@ -229,6 +274,12 @@ function localOffsetToFull(ctx: LeanContext, offset: number): number | null {
 function spliceRegionText(text: string, region: LeanRegionMeta | null, body: string): string {
   if (!region) return text;
   return `${text.slice(0, region.bodyFrom)}${body}${text.slice(region.bodyTo)}`;
+}
+
+function updateLeanContextBody(ctx: LeanContext, body: string): void {
+  if (!ctx.region) return;
+  ctx.leanText = spliceRegionText(ctx.leanText, ctx.region, body);
+  ctx.region = { ...ctx.region, bodyTo: ctx.region.bodyFrom + body.length };
 }
 
 function fullOffsetToLocal(ctx: LeanContext, offset: number): number | null {
@@ -245,6 +296,19 @@ function severityName(sev: number | undefined): LeanDiagnosticMark["severity"] {
   if (sev === 1) return "error";
   if (sev === 2) return "warning";
   return "info";
+}
+
+function leanDiagnosticTags(rawTags: unknown): LeanDiagnosticTag[] {
+  if (!Array.isArray(rawTags)) return [];
+  const tags: LeanDiagnosticTag[] = [];
+  for (const raw of rawTags) {
+    if (raw === 1 || raw === "1" || raw === "UnsolvedGoals" || raw === "unsolvedGoals") {
+      tags.push("unsolvedGoals");
+    } else if (raw === 2 || raw === "2" || raw === "GoalsAccomplished" || raw === "goalsAccomplished") {
+      tags.push("goalsAccomplished");
+    }
+  }
+  return Array.from(new Set(tags));
 }
 
 function semanticTokenClass(tokenType: string): string {
@@ -569,19 +633,47 @@ function leanInputHandler(view: EditorView, from: number, to: number, text: stri
   return applyLeanAbbreviation(view, abbrev.from, to, abbrev.key);
 }
 
-function scanLeanPlaceholders(doc: Text): LeanPlaceholder[] {
-  const out: LeanPlaceholder[] = [];
+function leanPlaceholderRangeForLine(doc: Text, lineNo: number): Range<LeanPlaceholderValue> | null {
+  const line = doc.line(lineNo);
+  const parsed = parseLeanPlaceholderLine(line.text);
+  if (!parsed) return null;
+  return new LeanPlaceholderValue(parsed.tag, canonicalLeanSelector(parsed.selector))
+    .range(line.from + parsed.commandFrom, line.from + parsed.commandTo);
+}
+
+function scanLeanPlaceholderIndex(doc: Text): RangeSet<LeanPlaceholderValue> {
+  const builder = new RangeSetBuilder<LeanPlaceholderValue>();
   for (let lineNo = 1; lineNo <= doc.lines; lineNo++) {
-    const line = doc.line(lineNo);
-    const trimmed = line.text.trim();
-    if (!trimmed.startsWith("@@lean4")) continue;
-    const commands = scanInlineCommands(trimmed, "lean4");
-    const cmd = commands.find((item) => item.fullFrom === 0 && item.fullTo === trimmed.length);
-    const tag = cmd?.context.trim() ?? "";
-    if (!tag) continue;
-    const leading = line.text.indexOf("@@lean4");
-    out.push({ from: line.from + Math.max(0, leading), to: line.to, tag });
+    const placeholder = leanPlaceholderRangeForLine(doc, lineNo);
+    if (placeholder) builder.add(placeholder.from, placeholder.to, placeholder.value);
   }
+  return builder.finish();
+}
+
+function leanPlaceholderFromRange(from: number, to: number, value: LeanPlaceholderValue): LeanPlaceholder {
+  return { from, to, tag: value.tag, selector: value.selector };
+}
+
+function findLeanPlaceholder(
+  index: RangeSet<LeanPlaceholderValue>,
+  predicate: (placeholder: LeanPlaceholder) => boolean,
+): LeanPlaceholder | null {
+  const cursor = index.iter();
+  while (cursor.value) {
+    const placeholder = leanPlaceholderFromRange(cursor.from, cursor.to, cursor.value);
+    if (predicate(placeholder)) return placeholder;
+    cursor.next();
+  }
+  return null;
+}
+
+function changedLineNumbers(doc: Text, changes: ChangeSet): Set<number> {
+  const out = new Set<number>();
+  changes.iterChanges((_fromA, _toA, fromB, toB) => {
+    const startLine = doc.lineAt(Math.max(0, Math.min(fromB, doc.length))).number;
+    const endLine = doc.lineAt(Math.max(0, Math.min(toB, doc.length))).number;
+    for (let lineNo = startLine; lineNo <= endLine; lineNo++) out.add(lineNo);
+  });
   return out;
 }
 
@@ -602,18 +694,65 @@ function stopEmbeddedKeyboardEvent(event: Event): void {
   }
 }
 
+type NativeCaretPosition = { node: Node; offset: number };
+
+function nativeCaretPositionFromPoint(x: number, y: number): NativeCaretPosition | null {
+  const doc = document as Document & {
+    caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+    caretRangeFromPoint?: (x: number, y: number) => globalThis.Range | null;
+  };
+  const caret = doc.caretPositionFromPoint?.(x, y);
+  if (caret?.offsetNode) return { node: caret.offsetNode, offset: caret.offset };
+  const range = doc.caretRangeFromPoint?.(x, y);
+  if (range) return { node: range.startContainer, offset: range.startOffset };
+  return null;
+}
+
+function eventTargetElement(target: EventTarget | Node | null): Element | null {
+  if (target instanceof Element) return target;
+  if (target instanceof globalThis.Text) return target.parentElement;
+  return null;
+}
+
+// Shadow DOM isolates native caret position from CM6's own posAtCoords, causing
+// click-to-caret drift. Re-dispatch with the correct anchor when they diverge.
+// Shadow-DOM-only — any future shadow widget that embeds a CM6 view needs the same.
+function calibrateLeanEditorClick(view: EditorView, event: MouseEvent): boolean {
+  if (event.button !== 0 || event.shiftKey || event.metaKey || event.ctrlKey || event.altKey) return false;
+  const target = eventTargetElement(event.target);
+  if (target?.closest("input, textarea, select, button, a, [contenteditable='true']")) return false;
+  const caret = nativeCaretPositionFromPoint(event.clientX, event.clientY);
+  if (!caret || !view.contentDOM.contains(caret.node)) return false;
+  let anchor = 0;
+  try {
+    anchor = view.posAtDOM(caret.node, caret.offset);
+  } catch {
+    return false;
+  }
+  const mapped = view.posAtCoords({ x: event.clientX, y: event.clientY });
+  if (mapped != null && Math.abs(mapped - anchor) <= 1) return false;
+  event.preventDefault();
+  event.stopPropagation();
+  window.setTimeout(() => {
+    if (!view.dom.isConnected) return;
+    view.dispatch({ selection: { anchor }, scrollIntoView: true });
+    view.focus();
+  }, 0);
+  return true;
+}
+
 function publishLeanRegionInfoview(detail: LeanRegionInfoviewEvent): void {
   window.dispatchEvent(new CustomEvent("aaronnote:lean-region-infoview", { detail }));
 }
 
 let lastPublishedLeanRegionActive = "";
 
-function publishLeanRegionActive(notePath: string, tag: string): void {
-  const key = `${notePath}\n${tag}`;
+function publishLeanRegionActive(notePath: string, tag: string, selector = "", leanPath = ""): void {
+  const key = `${notePath}\n${selector}\n${tag}\n${leanPath}`;
   if (key === lastPublishedLeanRegionActive) return;
   lastPublishedLeanRegionActive = key;
   window.dispatchEvent(new CustomEvent("aaronnote:lean-region-active", {
-    detail: { notePath, tag },
+    detail: { notePath, tag, selector, leanPath },
   }));
 }
 
@@ -663,7 +802,7 @@ function leanCopilotEditor(view: EditorView): CopilotEditorLike {
 function shadowStyles(): HTMLStyleElement {
   const style = document.createElement("style");
   style.textContent = `
-    :host { all: initial; display: block; }
+    :host { all: initial; display: block; box-sizing: border-box; padding: 10px 0; }
     .lean-card {
       display: block;
       position: relative;
@@ -671,7 +810,7 @@ function shadowStyles(): HTMLStyleElement {
       background: #171615;
       color: #e8e2da;
       font-family: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      margin: 10px 0;
+      margin: 0;
     }
     .lean-card.is-error { border-color: #7f1d1d; }
     .lean-head {
@@ -740,14 +879,17 @@ function shadowStyles(): HTMLStyleElement {
     .lean-host .cm-lean-status-sign {
       display: inline-block;
       width: 1.25em;
-      font-size: 12px;
+      font-family: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 13px;
       line-height: inherit;
       text-align: center;
     }
+    .lean-host .cm-lean-status-sign--success { color: #facc15; }
     .lean-host .cm-lean-status-sign--error { color: #f87171; }
     .lean-host .cm-lean-status-sign--warning { color: #fbbf24; }
     .lean-host .cm-lean-status-sign--info { color: #60a5fa; }
     .lean-host .cm-lean-status-sign--processing { color: #67e8f9; }
+    .lean-host .cm-lean-status-sign--blocked { color: #fb7185; }
     .lean-host .cm-activeLineGutter {
       background: #24211e !important;
       color: #e0d2be !important;
@@ -1222,7 +1364,19 @@ const leanProgressField = StateField.define<LeanProgressMark[]>({
     return value.map((mark) => ({
       from: tr.changes.mapPos(mark.from, -1),
       to: tr.changes.mapPos(mark.to, 1),
+      kind: mark.kind,
     }));
+  },
+});
+
+const leanGoalStatusField = StateField.define<LeanGoalStatusMark | null>({
+  create: () => null,
+  update(value, tr) {
+    for (const effect of tr.effects) {
+      if (effect.is(SetLeanGoalStatus)) return effect.value;
+    }
+    if (!value || !tr.docChanged) return value;
+    return { from: tr.changes.mapPos(value.from, -1) };
   },
 });
 
@@ -1244,20 +1398,24 @@ const leanDiagnosticDecorations = StateField.define<DecorationSet>({
   provide: (field) => EditorView.decorations.from(field),
 });
 
-type LeanStatusSignKind = "processing" | "info" | "warning" | "error";
+type LeanStatusSignKind = "processing" | "success" | "info" | "warning" | "blocked" | "error";
 
 const leanStatusSignRank: Record<LeanStatusSignKind, number> = {
   processing: 0,
   info: 1,
-  warning: 2,
-  error: 3,
+  success: 2,
+  warning: 3,
+  blocked: 4,
+  error: 5,
 };
 
 const leanStatusSignText: Record<LeanStatusSignKind, string> = {
-  processing: "⏳",
-  info: "ℹ",
-  warning: "⚠",
-  error: "✖",
+  processing: "⋯",
+  success: "✓",
+  info: "i",
+  warning: "!",
+  blocked: "⊘",
+  error: "×",
 };
 
 class LeanStatusGutterMarker extends GutterMarker {
@@ -1315,16 +1473,42 @@ function addLeanStatusRange(
   }
 }
 
+function diagnosticStatusSignKind(diag: LeanDiagnosticMark): LeanStatusSignKind {
+  if (diag.leanTags.includes("goalsAccomplished")) return "success";
+  if (diag.leanTags.includes("unsolvedGoals")) return "error";
+  return diag.severity;
+}
+
+function diagnosticStatusTitle(diag: LeanDiagnosticMark): string {
+  if (diag.leanTags.includes("goalsAccomplished")) return diag.message || "Goals accomplished";
+  if (diag.leanTags.includes("unsolvedGoals")) return diag.message || "Unsolved goals";
+  return diag.message;
+}
+
+function progressStatusSignKind(mark: LeanProgressMark): LeanStatusSignKind {
+  return mark.kind === "fatalError" ? "blocked" : "processing";
+}
+
+function progressStatusTitle(mark: LeanProgressMark): string {
+  return mark.kind === "fatalError"
+    ? "Lean hit a fatal file-processing error"
+    : "Lean is elaborating this range";
+}
+
 function buildLeanStatusGutter(state: EditorState): RangeSet<GutterMarker> {
   const byLine = new Map<number, { kind: LeanStatusSignKind; title: string }>();
   const progress = state.field(leanProgressField, false) ?? [];
   const diagnostics = state.field(leanDiagnosticsField, false) ?? [];
+  const goalStatus = state.field(leanGoalStatusField, false);
 
   for (const mark of progress) {
-    addLeanStatusRange(state, byLine, mark.from, mark.to, "processing", "Lean is elaborating this range");
+    addLeanStatusRange(state, byLine, mark.from, mark.to, progressStatusSignKind(mark), progressStatusTitle(mark));
+  }
+  if (goalStatus) {
+    addLeanStatusRange(state, byLine, goalStatus.from, goalStatus.from, "success", "Goals accomplished");
   }
   for (const diag of diagnostics) {
-    addLeanStatusRange(state, byLine, diag.from, diag.to, diag.severity, diag.message);
+    addLeanStatusRange(state, byLine, diag.from, diag.to, diagnosticStatusSignKind(diag), diagnosticStatusTitle(diag));
   }
 
   const builder = new RangeSetBuilder<GutterMarker>();
@@ -1340,7 +1524,7 @@ const leanStatusGutterField = StateField.define<RangeSet<GutterMarker>>({
   create: () => RangeSet.empty,
   update(value, tr) {
     const affected = tr.effects.some((effect) =>
-      effect.is(SetLeanDiagnostics) || effect.is(SetLeanProgress));
+      effect.is(SetLeanDiagnostics) || effect.is(SetLeanProgress) || effect.is(SetLeanGoalStatus));
     if (affected) return buildLeanStatusGutter(tr.state);
     return tr.docChanged ? value.map(tr.changes) : value;
   },
@@ -1357,9 +1541,7 @@ const leanTreeSitterDecorations = StateField.define<DecorationSet>({
   update(value, tr) {
     for (const effect of tr.effects) {
       if (effect.is(SetLeanTreeSitterSpans)) {
-        return effect.value.text === tr.state.doc.toString()
-          ? buildTreeSitterDecorations(effect.value.text, effect.value.spans)
-          : value;
+        return buildTreeSitterDecorations(effect.value.text, effect.value.spans);
       }
     }
     return tr.docChanged ? value.map(tr.changes) : value;
@@ -1409,7 +1591,6 @@ function leanTreeSitterHighlight(): Extension {
         void parseLeanTreeSitter(text)
           .then((spans) => {
             if (generation !== this.generation) return;
-            if (this.view.state.doc.toString() !== text) return;
             this.view.dispatch({ effects: SetLeanTreeSitterSpans.of({ text, spans }) });
           })
           .catch(() => {});
@@ -2450,7 +2631,8 @@ function progressMarksFromLeanNotification(ctx: LeanContext, rawProgress: unknow
       range?: { start?: { line?: number; character?: number }; end?: { line?: number; character?: number } };
       kind?: number;
     };
-    if (progress.kind !== 1) continue;
+    const kind: LeanProgressKind | null = progress.kind === 2 ? "fatalError" : progress.kind === 1 || progress.kind == null ? "processing" : null;
+    if (!kind) continue;
     const start = progress.range?.start;
     const end = progress.range?.end ?? start;
     if (!start || !end) continue;
@@ -2462,6 +2644,7 @@ function progressMarksFromLeanNotification(ctx: LeanContext, rawProgress: unknow
     marks.push({
       from: Math.max(0, Math.min(docLength, from)),
       to: Math.max(0, Math.min(docLength, to ?? from + 1)),
+      kind,
     });
   }
   return marks;
@@ -2470,7 +2653,7 @@ function progressMarksFromLeanNotification(ctx: LeanContext, rawProgress: unknow
 function leanEditorExtensions(
   ctx: LeanContext,
   tooltipParent: HTMLElement,
-  onChange: (text: string) => void,
+  onChange: (view: EditorView) => void,
   onCursor: (view: EditorView) => void,
 ): Extension[] {
   return [
@@ -2482,6 +2665,7 @@ function leanEditorExtensions(
     leanTreeSitterHighlight(),
     leanDiagnosticsField,
     leanProgressField,
+    leanGoalStatusField,
     leanStatusGutterField,
     leanStatusGutter,
     lineNumbers({ formatNumber: (lineNo) => fullLineNumberForLocalLine(ctx, lineNo) }),
@@ -2504,12 +2688,15 @@ function leanEditorExtensions(
     leanHover(ctx),
     leanCursorHover(ctx),
     leanDefinitionClick(ctx),
+    EditorView.domEventHandlers({
+      mousedown: (event, view) => calibrateLeanEditorClick(view, event),
+    }),
     EditorView.updateListener.of((update) => {
       syncHiddenCompletionInfo(update.view);
-      if (update.docChanged) onChange(update.state.doc.toString());
-      if (update.focusChanged && update.view.hasFocus) publishLeanRegionActive(ctx.notePath, ctx.tag);
+      if (update.docChanged) onChange(update.view);
+      if (update.focusChanged && update.view.hasFocus) publishLeanRegionActive(ctx.notePath, ctx.tag, ctx.selector, ctx.leanPath);
       if (update.view.hasFocus && (update.selectionSet || update.docChanged)) {
-        publishLeanRegionActive(ctx.notePath, ctx.tag);
+        publishLeanRegionActive(ctx.notePath, ctx.tag, ctx.selector, ctx.leanPath);
         onCursor(update.view);
       }
     }),
@@ -2517,28 +2704,30 @@ function leanEditorExtensions(
 }
 
 class LeanPlaceholderWidget extends MeasuredWidget {
-  readonly cmd: InlineCommand;
+  readonly block: LeanPlaceholder;
 
-  constructor(cmd: InlineCommand) {
+  constructor(block: LeanPlaceholder) {
     super();
-    this.cmd = cmd;
+    this.block = block;
   }
 
-  protected measureKey(): string { return "lean:" + this.cmd.context.trim(); }
+  protected measureKey(): string { return `lean:${this.block.selector}:${this.block.tag}`; }
 
   protected measureGroupKey(): string { return "lean:placeholder"; }
 
   protected estimatedHeightFallback(): number { return 420; }
 
   eq(other: LeanPlaceholderWidget): boolean {
-    return this.cmd.context === other.cmd.context;
+    return this.block.tag === other.block.tag && this.block.selector === other.block.selector;
   }
 
   toDOM(parentView: EditorView): HTMLElement {
-    const tag = this.cmd.context.trim();
+    const tag = this.block.tag.trim();
+    const selector = canonicalLeanSelector(this.block.selector);
     const outer = document.createElement("div");
     outer.className = "cm-lean-placeholder-widget";
     outer.dataset.leanTag = tag;
+    outer.dataset.leanSelector = selector;
 
     for (const type of ["mousedown", "mouseup", "click", "dblclick", "beforeinput", "input", "compositionstart", "compositionend"]) {
       outer.addEventListener(type, stopEmbeddedEvent);
@@ -2559,7 +2748,7 @@ class LeanPlaceholderWidget extends MeasuredWidget {
     label.textContent = "Lean 4";
     const tagEl = document.createElement("span");
     tagEl.className = "lean-tag";
-    tagEl.textContent = tag;
+    tagEl.textContent = selector ? `${selector} #${tag}` : `default #${tag}`;
     const status = document.createElement("span");
     status.className = "lean-status";
     status.textContent = "Loading";
@@ -2588,6 +2777,7 @@ class LeanPlaceholderWidget extends MeasuredWidget {
     let goalTimer: ReturnType<typeof setTimeout> | null = null;
     let goalSeq = 0;
     let syncSeq = 0;
+    let bodyGeneration = 0;
     let pendingBody: string | null = null;
     let syncPromise: Promise<void> | null = null;
     // The region body the Lean server is known to already hold. Lets us skip the
@@ -2611,6 +2801,7 @@ class LeanPlaceholderWidget extends MeasuredWidget {
     const ctx: LeanContext = {
       notePath: noteInfo.notePath,
       tag,
+      selector,
       leanPath: "",
       leanText: "",
       region: null,
@@ -2623,7 +2814,7 @@ class LeanPlaceholderWidget extends MeasuredWidget {
       if (lspOpened) return true;
       if (lspOpenPromise) return lspOpenPromise;
       status.textContent = "Checking";
-      lspOpenPromise = api.lean.openRegionFile({ notePath: noteInfo.notePath, tag })
+      lspOpenPromise = api.lean.openRegionFile({ notePath: noteInfo.notePath, tag, selector })
         .then((openRaw) => {
           const openRes = openRaw as { ok?: boolean; message?: string; lspVersion?: number; leanPath?: string } | null;
           if (openRes?.ok === false) throw new Error(openRes.message || "Lean open failed");
@@ -2639,6 +2830,7 @@ class LeanPlaceholderWidget extends MeasuredWidget {
           publishLeanRegionInfoview({
             notePath: noteInfo.notePath,
             tag,
+            selector,
             leanPath: ctx.leanPath,
             uri: fileUri(ctx.leanPath),
             line: 0,
@@ -2667,10 +2859,11 @@ class LeanPlaceholderWidget extends MeasuredWidget {
         return syncPromise ?? Promise.resolve();
       }
       const seq = ++syncSeq;
+      const generation = bodyGeneration;
       pendingBody = body;
-      if (ctx.region) ctx.leanText = spliceRegionText(ctx.leanText, ctx.region, body);
+      updateLeanContextBody(ctx, body);
       status.textContent = mode === "save" ? "Saving" : "Checking";
-      syncPromise = api.lean.updateRegion({ notePath: noteInfo.notePath, tag, body })
+      syncPromise = api.lean.updateRegion({ notePath: noteInfo.notePath, tag, selector, body })
         .then((raw) => {
           const res = raw as { ok?: boolean; message?: string; text?: string; region?: LeanRegionMeta; leanPath?: string; lspVersion?: number };
           if (res?.ok === false) throw new Error(res.message || "Lean sync failed");
@@ -2678,6 +2871,10 @@ class LeanPlaceholderWidget extends MeasuredWidget {
           ctx.leanText = String(res.text ?? ctx.leanText);
           ctx.region = res.region ?? ctx.region;
           ctx.leanPath = String(res.leanPath ?? ctx.leanPath);
+          if (bodyGeneration !== generation) {
+            const latestBody = child.state.doc.toString();
+            if (latestBody !== body) updateLeanContextBody(ctx, latestBody);
+          }
           if (typeof res.lspVersion === "number") ctx.lspVersion = res.lspVersion;
           lastSyncedBody = body;
           if (pendingBody === body) pendingBody = null;
@@ -2722,8 +2919,8 @@ class LeanPlaceholderWidget extends MeasuredWidget {
       const local = fullOffsetToLocal(ctx, fullOffset);
       if (local == null) return;
       // Look up current block position dynamically — the widget may have shifted since toDOM was called.
-      const currentBlocks = parentView.state.field(leanPlaceholdersScanField, false) ?? scanLeanPlaceholders(parentView.state.doc);
-      const currentBlock = currentBlocks.find((b) => b.tag === tag);
+      const currentBlocks = parentView.state.field(leanPlaceholdersScanField, false) ?? scanLeanPlaceholderIndex(parentView.state.doc);
+      const currentBlock = findLeanPlaceholder(currentBlocks, (b) => b.tag === tag && b.selector === selector);
       const parentAnchor = currentBlock
         ? (currentBlock.to < parentView.state.doc.length
             ? currentBlock.to + 1
@@ -2782,6 +2979,11 @@ class LeanPlaceholderWidget extends MeasuredWidget {
           const newGoals = goalText || null;
           const newTerm = term || null;
           const newAccomplished = goalResult != null && goalCount === 0;
+          view.dispatch({
+            effects: SetLeanGoalStatus.of(newAccomplished
+              ? { from: view.state.selection.main.from }
+              : null),
+          });
           // Skip publish when content is identical — prevents lean-panel from calling
           // replaceChildren on every Lean elaboration push (the main flicker source).
           if (
@@ -2799,6 +3001,7 @@ class LeanPlaceholderWidget extends MeasuredWidget {
           publishLeanRegionInfoview({
             notePath: noteInfo.notePath,
             tag,
+            selector,
             leanPath: ctx.leanPath,
             uri: fileUri(ctx.leanPath),
             line: pos.line,
@@ -2824,10 +3027,10 @@ class LeanPlaceholderWidget extends MeasuredWidget {
     };
 
     const diagnosticSignature = (marks: LeanDiagnosticMark[]): string =>
-      marks.map((mark) => `${mark.from}:${mark.to}:${mark.severity}:${mark.message}`).join("\n");
+      marks.map((mark) => `${mark.from}:${mark.to}:${mark.severity}:${mark.leanTags.join(",")}:${mark.message}`).join("\n");
 
     const progressSignature = (marks: LeanProgressMark[]): string =>
-      marks.map((mark) => `${mark.from}:${mark.to}`).join("\n");
+      marks.map((mark) => `${mark.from}:${mark.to}:${mark.kind}`).join("\n");
 
     const semanticTokensSignature = (raw: unknown): string => {
       const data = Array.isArray((raw as { data?: unknown[] } | null)?.data)
@@ -2840,6 +3043,13 @@ class LeanPlaceholderWidget extends MeasuredWidget {
     const copilotChangeHandlers = new Set<() => void>();
     let copilotRegistered = false;
     let child: EditorView;
+    const requestLeanMeasure = (): void => {
+      window.requestAnimationFrame(() => {
+        if (!outer.isConnected) return;
+        parentView.requestMeasure();
+        child?.requestMeasure();
+      });
+    };
     const registerCopilotEditor = (): void => {
       if (destroyed || !loaded || copilotRegistered) return;
       const detail: CopilotEditorDetail = {
@@ -2890,15 +3100,14 @@ class LeanPlaceholderWidget extends MeasuredWidget {
     child = new EditorView({
       state: EditorState.create({
         doc: "",
-        extensions: leanEditorExtensions(ctx, tooltipContainer, (text) => {
+        extensions: leanEditorExtensions(ctx, tooltipContainer, () => {
           if (!loaded) return;
-          pendingBody = text;
+          bodyGeneration++;
           lastPushRetryKey = "";
-          if (ctx.region) ctx.leanText = spliceRegionText(ctx.leanText, ctx.region, text);
           if (saveTimer) clearTimeout(saveTimer);
           saveTimer = setTimeout(() => {
             saveTimer = null;
-            void syncRegion(text, "save");
+            void syncRegion(child.state.doc.toString(), "save");
           }, 420);
           for (const handler of copilotChangeHandlers) handler();
         }, (view) => {
@@ -2910,8 +3119,9 @@ class LeanPlaceholderWidget extends MeasuredWidget {
       root: shadow,
     });
     child.dom.dataset.leanVimMode = "insert";
+    void document.fonts?.ready.then(() => requestLeanMeasure()).catch(() => {});
     host.addEventListener("mousedown", () => {
-      publishLeanRegionActive(noteInfo.notePath, tag);
+      publishLeanRegionActive(noteInfo.notePath, tag, selector, ctx.leanPath);
       void ctx.ensureLspOpen?.().then((ok) => { if (ok) renderGoals(child); });
       window.setTimeout(() => {
         child.focus();
@@ -2919,7 +3129,7 @@ class LeanPlaceholderWidget extends MeasuredWidget {
       }, 0);
     });
     host.addEventListener("focusin", () => {
-      publishLeanRegionActive(noteInfo.notePath, tag);
+      publishLeanRegionActive(noteInfo.notePath, tag, selector, ctx.leanPath);
       void ctx.ensureLspOpen?.().then((ok) => { if (ok) renderGoals(child); });
       registerCopilotEditor();
     });
@@ -2939,7 +3149,12 @@ class LeanPlaceholderWidget extends MeasuredWidget {
       }
       const marks: LeanDiagnosticMark[] = [];
       for (const item of data.diagnostics ?? []) {
-        const diag = item as { range?: { start?: { line?: number; character?: number }; end?: { line?: number; character?: number } }; severity?: number; message?: string };
+        const diag = item as {
+          range?: { start?: { line?: number; character?: number }; end?: { line?: number; character?: number } };
+          severity?: number;
+          message?: string;
+          leanTags?: unknown[];
+        };
         const start = positionToOffset(ctx.leanText, diag.range?.start?.line ?? 0, diag.range?.start?.character ?? 0);
         const end = positionToOffset(ctx.leanText, diag.range?.end?.line ?? 0, diag.range?.end?.character ?? 0);
         const from = fullOffsetToLocal(ctx, start);
@@ -2950,6 +3165,7 @@ class LeanPlaceholderWidget extends MeasuredWidget {
           to: Math.max(0, Math.min(child.state.doc.length, to ?? from + 1)),
           severity: severityName(diag.severity),
           message: String(diag.message ?? ""),
+          leanTags: leanDiagnosticTags(diag.leanTags),
         });
       }
       const sig = diagnosticSignature(marks);
@@ -3005,6 +3221,7 @@ class LeanPlaceholderWidget extends MeasuredWidget {
       const detail = (event as LeanRegionJumpEvent).detail;
       if (!detail || detail.notePath !== noteInfo.notePath) return;
       if (detail.tag && detail.tag !== tag) return;
+      if (detail.selector && detail.selector !== selector) return;
       if (detail.leanPath && detail.leanPath !== ctx.leanPath) return;
       if (typeof detail.line !== "number") return;
       ctx.jumpToFullPosition?.(detail.line, Number(detail.character ?? 0));
@@ -3098,15 +3315,16 @@ class LeanPlaceholderWidget extends MeasuredWidget {
       if ((lspOpened || lspOpenPromise) && ctx.leanPath) void api.lean.closeNote({ leanPath: ctx.leanPath }).catch(() => {});
     };
 
-    void api.lean.readRegion({ notePath: noteInfo.notePath, tag })
+    void api.lean.readRegion({ notePath: noteInfo.notePath, tag, selector })
       .then((raw) => {
         const res = raw as LeanRegionRead;
         if (res?.ok === false) throw new Error(res.message || "Lean region load failed");
         ctx.leanPath = String(res.leanPath ?? "");
         ctx.leanText = String(res.text ?? "");
         ctx.region = res.region ?? null;
+        const body = String(res.body ?? "");
         child.dispatch({
-          changes: { from: 0, to: child.state.doc.length, insert: String(res.body ?? "") },
+          changes: { from: 0, to: child.state.doc.length, insert: body },
           annotations: Transaction.addToHistory.of(false),
         });
         loaded = true;
@@ -3115,7 +3333,7 @@ class LeanPlaceholderWidget extends MeasuredWidget {
         status.textContent = "Ready";
         card.classList.remove("is-error");
         if (child.hasFocus) registerCopilotEditor();
-        window.requestAnimationFrame(() => parentView.requestMeasure());
+        requestLeanMeasure();
       })
       .catch((err) => {
         status.textContent = err instanceof Error ? err.message : "Error";
@@ -3138,66 +3356,156 @@ class LeanPlaceholderWidget extends MeasuredWidget {
   }
 }
 
-// Cached scan — only re-scans on docChanged, never on cursor moves.
-// Incremental scan — only re-scans when the change touches @@lean4 text, newlines, or known placeholder ranges.
-const leanPlaceholdersScanField = StateField.define<LeanPlaceholder[]>({
-  create: (state) => scanLeanPlaceholders(state.doc),
+function patchLeanPlaceholderIndex(
+  index: RangeSet<LeanPlaceholderValue>,
+  doc: Text,
+  changes: ChangeSet,
+): RangeSet<LeanPlaceholderValue> {
+  let next = index.map(changes);
+  const add: Range<LeanPlaceholderValue>[] = [];
+  for (const lineNo of [...changedLineNumbers(doc, changes)].sort((a, b) => a - b)) {
+    const line = doc.line(lineNo);
+    next = next.update({ filterFrom: line.from, filterTo: line.to, filter: () => false });
+    const placeholder = leanPlaceholderRangeForLine(doc, lineNo);
+    if (placeholder) add.push(placeholder);
+  }
+  return add.length > 0 ? next.update({ add, sort: true }) : next;
+}
+
+// The initial scan indexes the opened document once. RangeSet mapping shifts
+// untouched placeholders cheaply; editing reparses only changed lines.
+const leanPlaceholdersScanField = StateField.define<RangeSet<LeanPlaceholderValue>>({
+  create: (state) => scanLeanPlaceholderIndex(state.doc),
   update(value, tr) {
     if (!tr.docChanged) return value;
-
-    let needRescan = false;
-    tr.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
-      if (needRescan) return;
-      const removed = tr.startState.doc.sliceString(fromA, toA);
-      const ins = inserted.toString();
-      if (
-        removed.includes("@@lean4") || ins.includes("@@lean4") ||
-        removed.includes("\n") || ins.includes("\n") ||
-        value.some((b) => fromA < b.to && toA > b.from)
-      ) needRescan = true;
-    });
-    if (needRescan) return scanLeanPlaceholders(tr.state.doc);
-
-    if (value.length === 0) return value;
-    return value.map((b) => ({
-      from: tr.changes.mapPos(b.from),
-      to: tr.changes.mapPos(b.to),
-      tag: b.tag,
-    }));
+    return patchLeanPlaceholderIndex(value, tr.state.doc, tr.changes);
   },
 });
 
 function buildLeanPlaceholderDecorations(state: EditorState): DecorationSet {
   const decos: Range<Decoration>[] = [];
   const sel = state.selection.main;
-  const placeholders = state.field(leanPlaceholdersScanField, false) ?? scanLeanPlaceholders(state.doc);
-  for (const block of placeholders) {
-    if (sel.from <= block.to && sel.to >= block.from) continue;
-    const raw = state.doc.sliceString(block.from, block.to);
-    const cmd = scanInlineCommands(raw, "lean4")[0];
-    if (!cmd) continue;
-    decos.push(
-      Decoration.replace({
-        widget: new LeanPlaceholderWidget({ ...cmd, fullFrom: block.from, fullTo: block.to }),
-        block: true,
-      }).range(block.from, block.to),
-    );
+  const placeholders = state.field(leanPlaceholdersScanField, false) ?? scanLeanPlaceholderIndex(state.doc);
+  const cursor = placeholders.iter();
+  while (cursor.value) {
+    const block = leanPlaceholderFromRange(cursor.from, cursor.to, cursor.value);
+    if (!(sel.from <= block.to && sel.to >= block.from)) {
+      decos.push(
+        Decoration.replace({
+          widget: new LeanPlaceholderWidget(block),
+          block: true,
+        }).range(block.from, block.to),
+      );
+    }
+    cursor.next();
   }
   return Decoration.set(decos, true);
 }
 
+function nextNewfileIdInDoc(state: EditorState): number {
+  let next = 1;
+  const placeholders = state.field(leanPlaceholdersScanField, false) ?? scanLeanPlaceholderIndex(state.doc);
+  const cursor = placeholders.iter();
+  while (cursor.value) {
+    const match = /^newfile:(\d+)$/.exec(cursor.value.selector);
+    if (match) next = Math.max(next, Number(match[1]) + 1);
+    cursor.next();
+  }
+  return next;
+}
+
+function normalizedLeanPlaceholderForLine(view: EditorView, lineNo: number, rawNewfileSelector = ""): string | null {
+  const line = view.state.doc.line(lineNo);
+  const parsed = parseLeanPlaceholderLine(line.text);
+  if (!parsed) return null;
+  const selector = canonicalLeanSelector(parsed.selector === "newfile" && rawNewfileSelector ? rawNewfileSelector : parsed.selector);
+  const leading = line.text.slice(0, parsed.commandFrom);
+  const normalized = formatLeanPlaceholder(selector, parsed.tag, leading);
+  return normalized === line.text.trimEnd() ? null : normalized;
+}
+
+const leanPlaceholderNormalizePlugin = ViewPlugin.fromClass(class {
+  private timer: ReturnType<typeof setTimeout> | null = null;
+  private pendingLineStarts = new Set<number>();
+  private readonly view: EditorView;
+
+  constructor(view: EditorView) {
+    this.view = view;
+  }
+
+  update(update: ViewUpdate): void {
+    if (!update.docChanged) return;
+    this.pendingLineStarts = new Set(
+      [...this.pendingLineStarts].map((from) => update.changes.mapPos(from, 1)),
+    );
+    for (const lineNo of changedLineNumbers(update.state.doc, update.changes)) {
+      const line = update.state.doc.line(lineNo);
+      if (line.text.includes("@@lean4")) this.pendingLineStarts.add(line.from);
+    }
+    if (this.pendingLineStarts.size === 0) return;
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      this.normalize();
+    }, 0);
+  }
+
+  destroy(): void {
+    if (this.timer) clearTimeout(this.timer);
+  }
+
+  private normalize(): void {
+    if (!this.view.dom.isConnected) return;
+    const doc = this.view.state.doc;
+    const lineNumbers = new Set(
+      [...this.pendingLineStarts].map((from) =>
+        doc.lineAt(Math.max(0, Math.min(from, doc.length))).number),
+    );
+    this.pendingLineStarts.clear();
+    const changes: ChangeSpec[] = [];
+    let nextNewfileId = nextNewfileIdInDoc(this.view.state);
+    for (const lineNo of [...lineNumbers].sort((a, b) => a - b)) {
+      const line = doc.line(lineNo);
+      const parsed = parseLeanPlaceholderLine(line.text);
+      const rawNewfileSelector = parsed?.selector === "newfile" ? `newfile:${nextNewfileId++}` : "";
+      const normalized = normalizedLeanPlaceholderForLine(this.view, lineNo, rawNewfileSelector);
+      if (normalized == null) continue;
+      changes.push({ from: line.from, to: line.to, insert: normalized });
+    }
+    if (changes.length === 0) return;
+    this.view.dispatch({ changes, annotations: Transaction.addToHistory.of(false) });
+  }
+});
+
 const leanPlaceholderField = StateField.define<DecorationSet>({
   create: buildLeanPlaceholderDecorations,
   update(value, tr) {
-    if (tr.docChanged) return buildLeanPlaceholderDecorations(tr.state);
+    if (tr.docChanged) {
+      const mapped = value.map(tr.changes);
+      const previous = tr.startState.field(leanPlaceholdersScanField, false) ?? RangeSet.empty;
+      const next = tr.state.field(leanPlaceholdersScanField, false) ?? RangeSet.empty;
+      return RangeSet.eq([previous.map(tr.changes)], [next])
+        ? mapped
+        : buildLeanPlaceholderDecorations(tr.state);
+    }
     if (tr.selection) {
       // Only rebuild when cursor crosses a placeholder boundary.
-      const placeholders = tr.state.field(leanPlaceholdersScanField, false) ?? [];
-      if (placeholders.length === 0) return value;
+      const placeholders = tr.state.field(leanPlaceholdersScanField, false) ?? RangeSet.empty;
+      if (placeholders.size === 0) return value;
       const sel = tr.state.selection.main;
       const prevSel = tr.startState.selection.main;
-      const curActive = placeholders.findIndex((b) => sel.from <= b.to && sel.to >= b.from);
-      const prevActive = placeholders.findIndex((b) => prevSel.from <= b.to && prevSel.to >= b.from);
+      const activeIndex = (from: number, to: number): string => {
+        let key = "";
+        placeholders.between(from, to, (blockFrom, blockTo, block) => {
+          if (from <= blockTo && to >= blockFrom) {
+            key = `${blockFrom}:${blockTo}:${block.selector}:${block.tag}`;
+            return false;
+          }
+        });
+        return key;
+      };
+      const curActive = activeIndex(sel.from, sel.to);
+      const prevActive = activeIndex(prevSel.from, prevSel.to);
       if (curActive !== prevActive) return buildLeanPlaceholderDecorations(tr.state);
     }
     return value;
@@ -3205,4 +3513,16 @@ const leanPlaceholderField = StateField.define<DecorationSet>({
   provide: (field) => EditorView.decorations.from(field),
 });
 
-export const leanPlaceholderExtension: Extension = [leanPlaceholdersScanField, leanPlaceholderField];
+export const leanPlaceholderEditingExtension: Extension = [
+  leanPlaceholdersScanField,
+  leanPlaceholderNormalizePlugin,
+];
+
+export const leanPlaceholderPreviewExtension: Extension = [
+  leanPlaceholderField,
+];
+
+export const leanPlaceholderExtension: Extension = [
+  leanPlaceholderEditingExtension,
+  leanPlaceholderPreviewExtension,
+];

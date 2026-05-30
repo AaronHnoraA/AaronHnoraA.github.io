@@ -12,15 +12,16 @@ import { homedir } from "node:os";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { LspClient } from "./lsp-base.mjs";
-import { writeMirror, deleteMirror, renameMirror } from "./lean-mirror.mjs";
+import { writeMirror, deleteMirror, renameMirror, resolveLeanTargetPath } from "./lean-mirror.mjs";
 import {
   deleteLeanRegion,
   ensureLeanRegion,
   getLeanRegion,
   normalizeLeanTag,
-  readLeanRegion,
+  scanLeanRegions,
   updateLeanRegion,
 } from "./lean-region.mjs";
+import { scanMarkdownLeanPlaceholders } from "../../shared/lean-placeholder.mjs";
 
 // ---------------------------------------------------------------------------
 // State
@@ -252,6 +253,7 @@ class LeanLspClient extends LspClient {
     this.semanticTokenTimers = new Map();
     this.documents = new Map(); // leanPath → { version, content }
     this.documentRefs = new Map(); // uri → active embedded editor/reference count
+    this.documentIdleTimers = new Map(); // uri → delayed didClose timer
   }
 
   setStatus(message, kind = "Normal", busy = false) {
@@ -274,6 +276,8 @@ class LeanLspClient extends LspClient {
     this.setStatus(`Lean server exited (${signal ?? code ?? "unknown"})`, "Error", false);
     this.documents.clear();
     this.documentRefs.clear();
+    for (const timer of this.documentIdleTimers.values()) clearTimeout(timer);
+    this.documentIdleTimers.clear();
     for (const timer of this.semanticTokenTimers.values()) clearTimeout(timer);
     this.semanticTokenTimers.clear();
     clearRpcSessions();
@@ -444,6 +448,11 @@ class LeanLspClient extends LspClient {
   // ---------------------------------------------------------------------------
 
   acquireDocument(uri) {
+    const idleTimer = this.documentIdleTimers.get(uri);
+    if (idleTimer) {
+      clearTimeout(idleTimer);
+      this.documentIdleTimers.delete(uri);
+    }
     this.documentRefs.set(uri, (this.documentRefs.get(uri) ?? 0) + 1);
   }
 
@@ -451,6 +460,7 @@ class LeanLspClient extends LspClient {
     if (!this.initialized) return { opened: false, version: 0, changed: false };
     const uri = pathToFileURL(leanPath).href;
     const existing = this.documents.get(uri);
+    const wasIdle = acquire && existing && !this.documentRefs.has(uri);
     if (acquire) this.acquireDocument(uri);
     if (existing) {
       if (existing.content !== leanText) {
@@ -462,9 +472,9 @@ class LeanLspClient extends LspClient {
           contentChanges: [{ text: leanText }],
         });
         this.scheduleSemanticTokens(leanPath);
-        return { opened: false, version, changed: true };
+        return { opened: Boolean(wasIdle), version, changed: true };
       }
-      return { opened: false, version: existing.version, changed: false };
+      return { opened: Boolean(wasIdle), version: existing.version, changed: false };
     }
     const version = 1;
     this.documents.set(uri, { version, content: leanText });
@@ -499,6 +509,20 @@ class LeanLspClient extends LspClient {
   closeDocument(leanPath, { force = false } = {}) {
     const uri = pathToFileURL(leanPath).href;
     if (!this.documents.has(uri)) return false;
+    const closeNow = () => {
+      const idleTimer = this.documentIdleTimers.get(uri);
+      if (idleTimer) clearTimeout(idleTimer);
+      this.documentIdleTimers.delete(uri);
+      if (!this.documents.has(uri)) return false;
+      this.documents.delete(uri);
+      clearRpcSessionsForUri(uri);
+      diagnosticsCache.delete(uri);
+      progressCache.delete(uri);
+      pushDiagnostics?.({ uri, diagnostics: [] });
+      pushProgress?.({ uri, processing: [] });
+      this.notify("textDocument/didClose", { textDocument: { uri } });
+      return true;
+    };
     if (!force) {
       const refs = this.documentRefs.get(uri) ?? 0;
       if (refs > 1) {
@@ -506,15 +530,20 @@ class LeanLspClient extends LspClient {
         return false;
       }
       this.documentRefs.delete(uri);
+      const existing = this.documentIdleTimers.get(uri);
+      if (existing) clearTimeout(existing);
+      if (Number.isFinite(DOCUMENT_IDLE_MS) && DOCUMENT_IDLE_MS > 0) {
+        const timer = setTimeout(() => {
+          this.documentIdleTimers.delete(uri);
+          if (this.documentRefs.has(uri)) return;
+          log("lean-document-idle-close", { uri });
+          closeNow();
+        }, DOCUMENT_IDLE_MS);
+        this.documentIdleTimers.set(uri, timer);
+        return true;
+      }
     }
-    this.documents.delete(uri);
-    clearRpcSessionsForUri(uri);
-    diagnosticsCache.delete(uri);
-    progressCache.delete(uri);
-    pushDiagnostics?.({ uri, diagnostics: [] });
-    pushProgress?.({ uri, processing: [] });
-    this.notify("textDocument/didClose", { textDocument: { uri } });
-    return true;
+    return closeNow();
   }
 
   scheduleSemanticTokens(leanPath, delay = 700) {
@@ -672,6 +701,7 @@ class LeanLspClient extends LspClient {
 // ---------------------------------------------------------------------------
 
 const IDLE_MS = Number(process.env.AARONNOTE_LEAN_IDLE_MS ?? 10 * 60_000);
+const DOCUMENT_IDLE_MS = Number(process.env.AARONNOTE_LEAN_DOCUMENT_IDLE_MS ?? 90_000);
 
 function rescheduleIdle() {
   if (idleTimer) clearTimeout(idleTimer);
@@ -878,20 +908,7 @@ async function migrateLeanFileIfNeeded(filePath, notesRoot) {
 // Region ordering helpers
 // ---------------------------------------------------------------------------
 
-const MARKDOWN_LEAN_TAG_RE = /^[ \t]*@@lean4[ \t]+\[([^\]\n]+)\]/gm;
-
-function scanMarkdownLeanTagOrder(mdText) {
-  const tags = [];
-  let match;
-  MARKDOWN_LEAN_TAG_RE.lastIndex = 0;
-  while ((match = MARKDOWN_LEAN_TAG_RE.exec(mdText)) !== null) {
-    const normalized = normalizeLeanTag(match[1] ?? "");
-    if (normalized) tags.push(normalized);
-  }
-  return tags;
-}
-
-async function getRegionNeighbors(notePath, tag) {
+async function getRegionNeighbors(notePath, tag, selector = "") {
   let mdText = "";
   try {
     mdText = await readFile(notePath, "utf8");
@@ -899,7 +916,21 @@ async function getRegionNeighbors(notePath, tag) {
     return {};
   }
   const cleanTag = normalizeLeanTag(tag);
-  const tags = scanMarkdownLeanTagOrder(mdText);
+  let targetLeanPath = "";
+  try {
+    targetLeanPath = resolveLeanTargetPath(notePath, notesRoot, selector).leanPath;
+  } catch {
+    return {};
+  }
+  const tags = [];
+  for (const placeholder of scanMarkdownLeanPlaceholders(mdText)) {
+    const normalized = normalizeLeanTag(placeholder.tag);
+    if (!normalized) continue;
+    try {
+      const candidate = resolveLeanTargetPath(notePath, notesRoot, placeholder.selector).leanPath;
+      if (candidate === targetLeanPath) tags.push(normalized);
+    } catch {}
+  }
   const idx = tags.indexOf(cleanTag);
   if (idx < 0) return {};
   // afterTag = the tag that should come after the new region in the lean file
@@ -914,11 +945,64 @@ async function regionNeighborsFromRequest(body) {
   const beforeTag = normalizeLeanTag(body?.beforeTag ?? "");
   const afterTag = normalizeLeanTag(body?.afterTag ?? "");
   if (beforeTag || afterTag) return { beforeTag, afterTag };
-  return getRegionNeighbors(String(body.notePath), String(body.tag));
+  return getRegionNeighbors(String(body.notePath), String(body.tag), String(body.selector ?? ""));
 }
 
-function queueRegionUpdate(notePath, tag, task) {
-  const key = `${resolve(String(notePath))}#${normalizeLeanTag(String(tag))}`;
+async function readOrEnsureLeanRegionFromRequest(body) {
+  const params = {
+    notePath: String(body.notePath),
+    notesRoot,
+    tag: String(body.tag),
+    selector: String(body.selector ?? ""),
+  };
+  const existing = await getLeanRegion(params);
+  if (existing.region) return existing;
+  const neighbors = await regionNeighborsFromRequest(body);
+  const ensured = await ensureLeanRegion({ ...params, ...neighbors });
+  return { ...ensured, body: ensured.region?.body ?? "" };
+}
+
+async function leanTargetsForNote(notePath) {
+  const defaultTarget = resolveLeanTargetPath(notePath, notesRoot, "");
+  const options = [];
+  const seen = new Set();
+  const addTarget = async (selector, leanPath, kind) => {
+    const key = `${selector}::${resolve(leanPath)}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    let text = "";
+    try {
+      text = await readTextIfExists(leanPath);
+    } catch {}
+    options.push({
+      selector,
+      label: selector || "default",
+      leanPath,
+      targetKind: kind,
+      tags: scanLeanRegions(text).map((region) => region.tag),
+    });
+  };
+  await addTarget("", defaultTarget.leanPath, "default-mirror");
+  let markdown = "";
+  try {
+    markdown = await readFile(notePath, "utf8");
+  } catch {}
+  for (const placeholder of scanMarkdownLeanPlaceholders(markdown)) {
+    if (!placeholder.selector) continue;
+    try {
+      const target = resolveLeanTargetPath(notePath, notesRoot, placeholder.selector);
+      await addTarget(target.selector, target.leanPath, target.kind);
+    } catch {}
+  }
+  return { ok: true, targets: options };
+}
+
+function queueRegionUpdate(notePath, selector, task) {
+  let leanPath = "";
+  try {
+    leanPath = resolveLeanTargetPath(String(notePath), notesRoot, selector).leanPath;
+  } catch {}
+  const key = leanPath || `${resolve(String(notePath))}#${String(selector ?? "")}`;
   const previous = regionUpdateQueues.get(key) ?? Promise.resolve();
   const next = previous.catch(() => undefined).then(task);
   regionUpdateQueues.set(key, next);
@@ -1001,6 +1085,12 @@ export async function handleLeanRequest(action, body = {}) {
     return { ...result, cache: { ...cacheStatus }, projectRoot: leanProjectDir(notesRoot) };
   }
 
+  if (action === "targets") {
+    const notePath = String(body?.notePath || "");
+    if (!notePath) return { ok: false, message: "Missing notePath" };
+    return leanTargetsForNote(notePath);
+  }
+
   if (action === "open-note") {
     const { notePath, leanText } = body;
     let { leanPath } = body;
@@ -1038,24 +1128,21 @@ export async function handleLeanRequest(action, body = {}) {
   if (action === "ensure-region") {
     const { notePath, tag } = body;
     if (!notePath || !tag) return { ok: false, message: "Missing params" };
-    const neighbors = await regionNeighborsFromRequest(body);
-    const result = await ensureLeanRegion({ notePath: String(notePath), notesRoot, tag: String(tag), ...neighbors });
+    const result = await readOrEnsureLeanRegionFromRequest(body);
     return { ok: true, ...result };
   }
 
   if (action === "read-region") {
     const { notePath, tag } = body;
     if (!notePath || !tag) return { ok: false, message: "Missing params" };
-    const neighbors = await regionNeighborsFromRequest(body);
-    const result = await readLeanRegion({ notePath: String(notePath), notesRoot, tag: String(tag), ...neighbors });
+    const result = await readOrEnsureLeanRegionFromRequest(body);
     return { ok: true, ...result };
   }
 
   if (action === "open-region-file") {
     const { notePath, tag } = body;
     if (!notePath || !tag) return { ok: false, message: "Missing params" };
-    const neighbors = await regionNeighborsFromRequest(body);
-    const result = await ensureLeanRegion({ notePath: String(notePath), notesRoot, tag: String(tag), ...neighbors });
+    const result = await readOrEnsureLeanRegionFromRequest(body);
     if (!hasLeanToolchain(notesRoot)) {
       return { ok: false, message: "No Lean toolchain found in .lean/ (add lean-toolchain + lakefile.toml)", ...result };
     }
@@ -1070,11 +1157,13 @@ export async function handleLeanRequest(action, body = {}) {
   if (action === "update-region") {
     const { notePath, tag, body: regionBody } = body;
     if (!notePath || !tag || typeof regionBody !== "string") return { ok: false, message: "Missing params" };
-    return queueRegionUpdate(notePath, tag, async () => {
+    const selector = String(body.selector ?? "");
+    return queueRegionUpdate(notePath, selector, async () => {
       const result = await updateLeanRegion({
         notePath: String(notePath),
         notesRoot,
         tag: String(tag),
+        selector,
         body: regionBody,
       });
       const client = leanClient;
@@ -1089,7 +1178,7 @@ export async function handleLeanRequest(action, body = {}) {
   if (action === "delete-region") {
     const { notePath, tag } = body;
     if (!notePath || !tag) return { ok: false, message: "Missing params" };
-    const result = await deleteLeanRegion({ notePath: String(notePath), notesRoot, tag: String(tag) });
+    const result = await deleteLeanRegion({ notePath: String(notePath), notesRoot, tag: String(tag), selector: String(body.selector ?? "") });
     const client = leanClient;
     let lspVersion = 0;
     if (client?.running) {
@@ -1101,7 +1190,7 @@ export async function handleLeanRequest(action, body = {}) {
   if (action === "get-region-meta") {
     const { notePath, tag } = body;
     if (!notePath || !tag) return { ok: false, message: "Missing params" };
-    const result = await getLeanRegion({ notePath: String(notePath), notesRoot, tag: String(tag) });
+    const result = await getLeanRegion({ notePath: String(notePath), notesRoot, tag: String(tag), selector: String(body.selector ?? "") });
     return {
       ok: true,
       leanPath: result.leanPath,
@@ -1132,7 +1221,7 @@ export async function handleLeanRequest(action, body = {}) {
   }
 
   if (action === "close-note") {
-    const { notePath, leanPath } = body;
+    const { leanPath } = body;
     if (!leanPath) return { ok: false, message: "Missing leanPath" };
     const client = leanClient;
     if (client?.running && client.closeDocument(leanPath)) {

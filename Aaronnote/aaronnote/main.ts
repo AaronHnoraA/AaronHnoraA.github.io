@@ -34,6 +34,7 @@ import { createLinkPreviewController, type LinkPreviewTarget } from "./link-prev
 import { createLocalGraphPanel } from "./local-graph.ts";
 import { clampCommandIndex, filterCommands, type AaronnoteCommand } from "./command-palette.ts";
 import { normalizePluginOverrideMap, pluginShouldRun, type PluginOverrideMap } from "./plugin-runtime.ts";
+import { canonicalLeanSelector, formatLeanPlaceholder, parseLeanPlaceholderLine, scanMarkdownLeanPlaceholders as scanMarkdownLeanPlaceholdersShared } from "../shared/lean-placeholder.mjs";
 import {
   canonicalRoamNoteId,
   escapeMarkdownLinkText,
@@ -65,7 +66,7 @@ declare global {
     AaronnoteCurrentFile?: () => string;
     AaronnoteResolveAssetUrl?: (src: string) => string;
     AaronnoteDesktop?: {
-      chooseNotePath?: (options?: { suggestedPath?: string; title?: string; mode?: "file" | "directory" }) => Promise<string>;
+      chooseNotePath?: (options?: { suggestedPath?: string; title?: string; mode?: "file" | "directory" | "openFile" }) => Promise<string>;
       trashNote?: (file: string) => Promise<{ ok?: boolean; file?: string; message?: string }>;
       exportPdf?: (options?: { file?: string; name?: string }) => Promise<{ ok?: boolean; canceled?: boolean; file?: string; message?: string }>;
       ready?: () => void;
@@ -833,24 +834,27 @@ function scratchStatus(): string {
   return "Scratch";
 }
 
+function handleEditorDocumentChange(dirty: boolean): void {
+  for (const handlers of pluginChangeHandlers.values()) {
+    for (const handler of handlers) {
+      try {
+        handler();
+      } catch (err) {
+        console.warn("Aaronnote plugin change handler failed", err);
+      }
+    }
+  }
+  snippetMouseSuppressed = false;
+  scheduleAssistUpdate({ snippets: true, mathPreview: true, toc: true });
+  scheduleNoteCssUpdate();
+  if (!findTool.hidden) scheduleFindRefresh();
+  if (dirty) markDirty();
+}
+
 const editor = createEditor(host, {
   initialContent: "",
   onChange: () => {
-    for (const handlers of pluginChangeHandlers.values()) {
-      for (const handler of handlers) {
-        try {
-          handler();
-        } catch (err) {
-          console.warn("Aaronnote plugin change handler failed", err);
-        }
-      }
-    }
-    snippetMouseSuppressed = false;
-    scheduleAssistUpdate({ snippets: true, mathPreview: true, toc: true });
-    scheduleNoteCssUpdate();
-    if (!findTool.hidden) scheduleFindRefresh();
-    if (applyingRemoteContent) return;
-    markDirty();
+    handleEditorDocumentChange(!applyingRemoteContent);
   },
 });
 snippetSession = new SnippetSession(editor);
@@ -1006,20 +1010,24 @@ const leanPanel = createLeanPanel({
 
 leanTriggerBtn.addEventListener("click", () => leanPanel.toggle());
 
-let activeLeanRegionForCommand: { notePath: string; tag: string } | null = null;
+let activeLeanRegionForCommand: { notePath: string; tag: string; selector: string; leanPath: string } | null = null;
 
 window.addEventListener("aaronnote:lean-region-infoview", (event) => {
-  const detail = (event as CustomEvent<{ notePath?: string; tag?: string }>).detail;
+  const detail = (event as CustomEvent<{ notePath?: string; tag?: string; selector?: string; leanPath?: string }>).detail;
   const notePath = String(detail?.notePath ?? "");
   const tag = String(detail?.tag ?? "").trim();
-  activeLeanRegionForCommand = notePath && tag ? { notePath, tag } : null;
+  const selector = canonicalLeanSelector(String(detail?.selector ?? ""));
+  const leanPath = String(detail?.leanPath ?? "");
+  activeLeanRegionForCommand = notePath && tag ? { notePath, tag, selector, leanPath } : null;
 });
 
 window.addEventListener("aaronnote:lean-region-active", (event) => {
-  const detail = (event as CustomEvent<{ notePath?: string; tag?: string }>).detail;
+  const detail = (event as CustomEvent<{ notePath?: string; tag?: string; selector?: string; leanPath?: string }>).detail;
   const notePath = String(detail?.notePath ?? "");
   const tag = String(detail?.tag ?? "").trim();
-  activeLeanRegionForCommand = notePath && tag ? { notePath, tag } : null;
+  const selector = canonicalLeanSelector(String(detail?.selector ?? ""));
+  const leanPath = String(detail?.leanPath ?? "");
+  activeLeanRegionForCommand = notePath && tag ? { notePath, tag, selector, leanPath } : null;
 });
 
 async function restartLeanServerForCurrentNote(): Promise<void> {
@@ -1028,7 +1036,8 @@ async function restartLeanServerForCurrentNote(): Promise<void> {
     return;
   }
   const splice = editor.view.state.field(leanSpliceField, false);
-  const regionTag = /@@lean4\s+\[([^\]]+)\]/.exec(editor.getMarkdown())?.[1]?.trim() ?? "";
+  const region = scanMarkdownLeanPlaceholders(editor.getMarkdown())[0] ?? null;
+  const regionTag = region?.tag ?? "";
   if (!currentFile || !leanNotesRoot || (!splice && !regionTag)) {
     setStatus("No Lean document active");
     return;
@@ -1037,7 +1046,7 @@ async function restartLeanServerForCurrentNote(): Promise<void> {
   try {
     await api.lean.request("stop");
     const result = regionTag
-      ? await api.lean.openRegionFile({ notePath: currentFile, tag: regionTag })
+      ? await api.lean.openRegionFile({ notePath: currentFile, tag: regionTag, selector: region?.selector ?? "" })
       : await api.lean.openNote({
         notePath: currentFile,
         notesRoot: leanNotesRoot,
@@ -1058,6 +1067,7 @@ function generatedLeanTag(): string {
 
 type LeanPlaceholderRef = {
   tag: string;
+  selector: string;
   from: number;
   to: number;
   lineFrom: number;
@@ -1065,31 +1075,23 @@ type LeanPlaceholderRef = {
 };
 
 function scanMarkdownLeanPlaceholders(markdown: string): LeanPlaceholderRef[] {
-  const out: LeanPlaceholderRef[] = [];
-  const re = /^[ \t]*@@lean4[ \t]+\[([^\]]+)\][ \t]*$/gm;
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(markdown))) {
-    const lineFrom = match.index;
-    const lineTo = re.lastIndex;
-    const leading = String(match[0]).indexOf("@@lean4");
-    const tag = String(match[1] ?? "").trim();
-    if (!tag) continue;
-    out.push({
-      tag,
-      from: lineFrom + Math.max(0, leading),
-      to: lineTo,
-      lineFrom,
-      lineTo,
-    });
-  }
-  return out;
+  return scanMarkdownLeanPlaceholdersShared(markdown).map((placeholder) => ({
+    tag: placeholder.tag,
+    selector: placeholder.selector,
+    from: placeholder.from,
+    to: placeholder.to,
+    lineFrom: placeholder.lineFrom,
+    lineTo: placeholder.lineTo,
+  }));
 }
 
-function leanPlaceholderContextAt(markdown: string, pos: number): { beforeTag: string; afterTag: string } {
+function leanPlaceholderContextAt(markdown: string, pos: number, selector = ""): { beforeTag: string; afterTag: string } {
   const cursor = Math.max(0, Math.min(markdown.length, pos));
+  const targetSelector = canonicalLeanSelector(selector);
   let beforeTag = "";
   let afterTag = "";
   for (const placeholder of scanMarkdownLeanPlaceholders(markdown)) {
+    if (placeholder.selector !== targetSelector) continue;
     if (placeholder.lineFrom < cursor && placeholder.lineTo <= cursor) {
       beforeTag = placeholder.tag;
       continue;
@@ -1100,10 +1102,11 @@ function leanPlaceholderContextAt(markdown: string, pos: number): { beforeTag: s
   return { beforeTag, afterTag };
 }
 
-function leanPlaceholderByTag(markdown: string, tag: string): LeanPlaceholderRef | null {
+function leanPlaceholderByTag(markdown: string, tag: string, selector = ""): LeanPlaceholderRef | null {
   const cleanTag = tag.trim();
+  const cleanSelector = canonicalLeanSelector(selector);
   if (!cleanTag) return null;
-  return scanMarkdownLeanPlaceholders(markdown).find((placeholder) => placeholder.tag === cleanTag) ?? null;
+  return scanMarkdownLeanPlaceholders(markdown).find((placeholder) => placeholder.tag === cleanTag && placeholder.selector === cleanSelector) ?? null;
 }
 
 function currentLeanPlaceholder(markdown: string, pos: number): LeanPlaceholderRef | null {
@@ -1113,6 +1116,21 @@ function currentLeanPlaceholder(markdown: string, pos: number): LeanPlaceholderR
     if (cursor >= placeholder.lineFrom && cursor <= placeholder.lineTo) return placeholder;
   }
   return null;
+}
+
+function editorLeanPlaceholderAt(pos: number): LeanPlaceholderRef | null {
+  const doc = editor.view.state.doc;
+  const line = doc.lineAt(Math.max(0, Math.min(doc.length, pos)));
+  const parsed = parseLeanPlaceholderLine(line.text);
+  if (!parsed) return null;
+  return {
+    tag: parsed.tag,
+    selector: canonicalLeanSelector(parsed.selector),
+    from: line.from + parsed.commandFrom,
+    to: line.from + parsed.commandTo,
+    lineFrom: line.from,
+    lineTo: line.to,
+  };
 }
 
 function removeLeanPlaceholderLine(markdown: string, placeholder: LeanPlaceholderRef): void {
@@ -1126,7 +1144,439 @@ function removeLeanPlaceholderLine(markdown: string, placeholder: LeanPlaceholde
   editor.replaceMarkdownRange(from, to, "", "start");
 }
 
-async function insertLeanBlock(): Promise<void> {
+type LeanTargetInfo = {
+  label: string;
+  selector: string;
+  tags: string[];
+  targetKind?: string;
+  leanPath?: string;
+};
+
+function leanTargetLabel(selector: string, targetKind = ""): string {
+  if (!selector) return "Default mirror";
+  if (selector === "newfile") return "New mirror";
+  if (targetKind === "link") return `Lean file ${selector}`;
+  if (targetKind === "extra-mirror" || /^newfile:\d+$/.test(selector)) return `Mirror ${selector.replace(/^newfile:/, "")}`;
+  return selector;
+}
+
+async function leanContextTargets(): Promise<LeanTargetInfo[]> {
+  const out = new Map<string, LeanTargetInfo>();
+  const mergeTarget = (selectorValue: string, targetKind = "", tags: string[] = [], leanPath = ""): void => {
+    const selector = canonicalLeanSelector(selectorValue);
+    const current = out.get(selector);
+    const mergedTags = [...new Set([
+      ...(current?.tags ?? []),
+      ...tags.map((tag) => String(tag || "").trim()).filter(Boolean),
+    ])];
+    out.set(selector, {
+      label: leanTargetLabel(selector, targetKind || current?.targetKind || ""),
+      selector,
+      tags: mergedTags,
+      targetKind: targetKind || current?.targetKind,
+      leanPath: leanPath || current?.leanPath,
+    });
+  };
+  mergeTarget("", "default-mirror");
+  mergeTarget("newfile", "extra-mirror");
+  for (const block of currentNote()?.leanBlocks ?? []) {
+    const selector = canonicalLeanSelector(String(block.selector ?? ""));
+    if (!selector) continue;
+    mergeTarget(selector, String(block.targetKind ?? ""), [], String(block.leanPath ?? ""));
+  }
+  if (api.lean.available() && currentFile && leanNotesRoot && !currentStandalone) {
+    try {
+      const response = await api.lean.request("targets", { notePath: currentFile }) as {
+        targets?: Array<{ selector?: string; label?: string; targetKind?: string; tags?: string[]; leanPath?: string }>;
+      };
+      for (const target of response.targets ?? []) {
+        const selector = canonicalLeanSelector(String(target.selector ?? ""));
+        mergeTarget(selector, String(target.targetKind ?? ""), Array.isArray(target.tags) ? target.tags : [], String(target.leanPath ?? ""));
+      }
+    } catch {}
+  }
+  return [...out.values()];
+}
+
+function leanContextMenuOptions(pos: number | null): { leanBlock?: { tag: string; selector: string } } {
+  const placeholder = pos == null ? null : editorLeanPlaceholderAt(pos);
+  return {
+    ...(placeholder ? { leanBlock: { tag: placeholder.tag, selector: placeholder.selector } } : {}),
+  };
+}
+
+function nextLeanNewfileSelector(markdown: string): string {
+  let next = 1;
+  for (const placeholder of scanMarkdownLeanPlaceholders(markdown)) {
+    const match = /^newfile:(\d+)$/.exec(placeholder.selector);
+    if (match) next = Math.max(next, Number(match[1]) + 1);
+  }
+  return `newfile:${next}`;
+}
+
+function slashPath(value: string): string {
+  return String(value || "").replace(/\\/g, "/").replace(/\/+/g, "/");
+}
+
+function pathDirname(value: string): string {
+  const path = slashPath(value);
+  const index = path.lastIndexOf("/");
+  return index >= 0 ? path.slice(0, index) : "";
+}
+
+function pathRelative(fromDir: string, toPath: string): string {
+  const from = slashPath(fromDir).split("/").filter(Boolean);
+  const to = slashPath(toPath).split("/").filter(Boolean);
+  while (from.length && to.length && from[0] === to[0]) {
+    from.shift();
+    to.shift();
+  }
+  return [...from.map(() => ".."), ...to].join("/") || ".";
+}
+
+function leanPathForCurrentFile(): string {
+  const file = slashPath(currentFile);
+  const root = slashPath(leanNotesRoot || "");
+  const leanRoot = `${root}/.lean`;
+  if (file.toLowerCase().endsWith(".lean") && (file === leanRoot || file.startsWith(`${leanRoot}/`))) return file;
+  const rel = file.startsWith(`${root}/`) ? file.slice(root.length + 1) : file.split("/").pop() || "note.md";
+  const leanRel = rel.toLowerCase().endsWith(".md") ? `${rel.slice(0, -3)}.lean` : `${rel}.lean`;
+  return `${leanRoot}/${leanRel}`;
+}
+
+function leanSelectorFromPickedFile(picked: string): string {
+  const root = slashPath(leanNotesRoot || "");
+  const leanRoot = `${root}/.lean`;
+  const raw = slashPath(picked);
+  const absolute = raw.startsWith("/") ? raw : `${root}/${raw}`;
+  if (!(absolute === leanRoot || absolute.startsWith(`${leanRoot}/`))) {
+    throw new Error("Lean file must be inside .lean");
+  }
+  return pathRelative(pathDirname(leanPathForCurrentFile()), absolute);
+}
+
+function leanTagSuggestionsForSelector(selector: string, targets: readonly LeanTargetInfo[] = []): string[] {
+  const clean = canonicalLeanSelector(selector);
+  const target = targets.find((item) => item.selector === clean);
+  if (target) return [...new Set(target.tags)];
+  if (clean && !/^newfile(?::\d+)?$/.test(clean)) return [];
+  return scanMarkdownLeanPlaceholders(editor.getMarkdown())
+    .filter((placeholder) => placeholder.selector === clean)
+    .map((placeholder) => placeholder.tag);
+}
+
+function leanMirrorNumberSuggestions(markdown: string): string[] {
+  const out = new Set<string>();
+  for (const placeholder of scanMarkdownLeanPlaceholders(markdown)) {
+    const match = /^newfile:(\d+)$/.exec(placeholder.selector);
+    if (match) out.add(match[1]);
+  }
+  out.add(nextLeanNewfileSelector(markdown).replace(/^newfile:/, ""));
+  return [...out].sort((a, b) => Number(a) - Number(b));
+}
+
+type LeanBlockModalInitial = {
+  fileMode: "default" | "mirror" | "link";
+  number: string;
+  file: string;
+  tag: string;
+  numbers: string[];
+  targets: LeanTargetInfo[];
+};
+
+function openLeanBlockModal(initial: LeanBlockModalInitial): Promise<Record<string, string> | null> {
+  return new Promise((resolve) => {
+    modal.innerHTML = "";
+    const panel = document.createElement("form");
+    panel.className = "aaronnote-modal-panel aaronnote-lean-block-modal";
+    const heading = document.createElement("h2");
+    heading.textContent = "Insert Lean Block";
+    panel.appendChild(heading);
+
+    const listId = (id: string): string => `aaronnote-lean-block-${id}`;
+    const datalist = (id: string, values: string[]): HTMLDataListElement => {
+      const list = document.createElement("datalist");
+      list.id = listId(id);
+      for (const value of [...new Set(values.filter(Boolean))]) {
+        const option = document.createElement("option");
+        option.value = value;
+        list.appendChild(option);
+      }
+      panel.appendChild(list);
+      return list;
+    };
+    datalist("number", initial.numbers);
+    const tagList = datalist("tag", leanTagSuggestionsForSelector(initial.fileMode === "mirror" ? `newfile:${initial.number}` : initial.fileMode === "link" ? initial.file : "", initial.targets));
+
+    const labelWrap = (text: string): HTMLLabelElement => {
+      const label = document.createElement("label");
+      label.textContent = text;
+      return label;
+    };
+    const select = (name: string, value: string, options: Array<{ label: string; value: string }>): HTMLSelectElement => {
+      const input = document.createElement("select");
+      input.name = name;
+      for (const item of options) {
+        const option = document.createElement("option");
+        option.value = item.value;
+        option.textContent = item.label;
+        input.appendChild(option);
+      }
+      input.value = value;
+      return input;
+    };
+    const input = (name: string, value: string, list = ""): HTMLInputElement => {
+      const control = document.createElement("input");
+      control.type = "text";
+      control.name = name;
+      control.value = value;
+      if (list) control.setAttribute("list", list);
+      return control;
+    };
+    const segmented = (
+      name: string,
+      value: string,
+      options: Array<{ label: string; value: string }>,
+    ): { wrap: HTMLDivElement; value: () => string; setValue: (next: string) => void; onChange: (handler: () => void) => void } => {
+      let current = value;
+      const handlers = new Set<() => void>();
+      const wrap = document.createElement("div");
+      wrap.className = "aaronnote-modal-segmented";
+      wrap.setAttribute("role", "group");
+      wrap.dataset.name = name;
+      const sync = (): void => {
+        for (const button of wrap.querySelectorAll<HTMLButtonElement>("button")) {
+          const active = button.value === current;
+          button.classList.toggle("is-active", active);
+          button.setAttribute("aria-pressed", active ? "true" : "false");
+        }
+      };
+      for (const optionSpec of options) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.value = optionSpec.value;
+        button.textContent = optionSpec.label;
+        button.addEventListener("click", () => {
+          if (current === optionSpec.value) return;
+          current = optionSpec.value;
+          sync();
+          for (const handler of handlers) handler();
+        });
+        wrap.appendChild(button);
+      }
+      sync();
+      return {
+        wrap,
+        value: () => current,
+        setValue: (next) => {
+          current = next;
+          sync();
+          for (const handler of handlers) handler();
+        },
+        onChange: (handler) => { handlers.add(handler); },
+      };
+    };
+
+    const targetLabel = labelWrap("Target");
+    const targetMode = segmented("fileMode", initial.fileMode, [
+      { label: "Default mirror", value: "default" },
+      { label: "Mirror number", value: "mirror" },
+      { label: "Lean file", value: "link" },
+    ]);
+    targetLabel.appendChild(targetMode.wrap);
+
+    const tagModeLabel = labelWrap("Tag source");
+    const tagMode = segmented("tagMode", "new", [
+      { label: "New tag", value: "new" },
+      { label: "Existing tag", value: "existing" },
+    ]);
+    tagModeLabel.appendChild(tagMode.wrap);
+
+    const numberLabel = labelWrap("Mirror number");
+    const number = input("number", initial.number, listId("number"));
+    const numberChoices = document.createElement("div");
+    numberChoices.className = "aaronnote-modal-choice-grid";
+    for (const value of initial.numbers.slice(0, 18)) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = value;
+      button.addEventListener("click", () => {
+        number.value = value;
+        updateTags();
+      });
+      numberChoices.appendChild(button);
+    }
+    numberLabel.append(number, numberChoices);
+
+    const fileLabel = labelWrap("Lean file");
+    const fileRow = document.createElement("div");
+    fileRow.className = "aaronnote-modal-path-row";
+    const file = input("file", initial.file);
+    const choose = document.createElement("button");
+    choose.type = "button";
+    choose.textContent = "Choose";
+    choose.addEventListener("click", async () => {
+      try {
+        const picked = await window.AaronnoteDesktop?.chooseNotePath?.({
+          suggestedPath: ".lean",
+          title: "Choose Lean file",
+          mode: "openFile",
+        });
+        if (picked) {
+          file.value = leanSelectorFromPickedFile(picked);
+          targetMode.setValue("link");
+          updateTags();
+          file.focus();
+        }
+      } catch (err) {
+        setStatus(err instanceof Error ? err.message : "Lean file choose failed");
+      }
+    });
+    fileRow.append(file, choose);
+    fileLabel.append(fileRow);
+
+    const tagLabel = labelWrap("Tag");
+    const tag = input("tag", initial.tag || generatedLeanTag(), listId("tag"));
+    const existingTag = select("existingTag", "", []);
+    const tagChoices = document.createElement("div");
+    tagChoices.className = "aaronnote-modal-choice-grid";
+    tagLabel.append(tag, existingTag, tagChoices);
+
+    const error = document.createElement("div");
+    error.className = "aaronnote-modal-field-error";
+    error.hidden = true;
+
+    const hint = document.createElement("div");
+    hint.className = "aaronnote-modal-field-hint";
+    hint.hidden = true;
+
+    const actions = document.createElement("div");
+    actions.className = "aaronnote-modal-actions";
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.textContent = "Cancel";
+    const submit = document.createElement("button");
+    submit.type = "submit";
+    submit.textContent = "Insert";
+    actions.append(cancel, submit);
+    panel.append(targetLabel, numberLabel, fileLabel, tagModeLabel, tagLabel, error, hint, actions);
+
+    const selector = (): string => targetMode.value() === "default" ? "" : targetMode.value() === "mirror" ? `newfile:${number.value.trim()}` : file.value.trim();
+    const currentTagChoices = (): string[] => leanTagSuggestionsForSelector(selector(), initial.targets);
+    const renderTagChoices = (): void => {
+      const choices = currentTagChoices();
+      tagList.replaceChildren();
+      existingTag.replaceChildren();
+      tagChoices.replaceChildren();
+      for (const value of choices) {
+        const option = document.createElement("option");
+        option.value = value;
+        tagList.appendChild(option);
+      }
+      for (const value of choices) {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = value;
+        existingTag.appendChild(option);
+      }
+      if (choices.length > 0 && !choices.includes(existingTag.value)) existingTag.value = choices[0] ?? "";
+      for (const value of choices.slice(0, 24)) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = value;
+        button.addEventListener("click", () => {
+          existingTag.value = value;
+          tagMode.setValue("existing");
+          update();
+        });
+        tagChoices.appendChild(button);
+      }
+    };
+    function update(): void {
+      const mode = targetMode.value();
+      const source = tagMode.value();
+      const choices = currentTagChoices();
+      numberLabel.style.display = mode === "mirror" ? "grid" : "none";
+      fileLabel.style.display = mode === "link" ? "grid" : "none";
+      tag.style.display = source === "new" ? "" : "none";
+      existingTag.style.display = source === "existing" ? "" : "none";
+      existingTag.disabled = source === "existing" && choices.length === 0;
+      tagChoices.style.display = source === "existing" ? "flex" : "none";
+      for (const button of numberChoices.querySelectorAll("button")) button.classList.toggle("is-active", button.textContent === number.value.trim());
+      for (const button of tagChoices.querySelectorAll("button")) button.classList.toggle("is-active", button.textContent === existingTag.value.trim());
+      let message = "";
+      if (mode === "mirror" && !/^[1-9]\d*$/.test(number.value.trim())) message = "Use a positive mirror number.";
+      if (mode === "link" && !file.value.trim()) message = "Choose a Lean file.";
+      if (source === "new" && !tag.value.trim()) message = "Tag is required.";
+      if (source === "existing" && choices.length === 0) message = "No tags in the selected Lean file.";
+      if (source === "existing" && choices.length > 0 && !choices.includes(existingTag.value.trim())) message = "Choose an existing tag from the selected Lean file.";
+      error.textContent = message;
+      error.hidden = !message;
+      submit.disabled = Boolean(message);
+      let hintMessage = "";
+      if (!message) {
+        if (mode === "mirror" && /^[1-9]\d*$/.test(number.value.trim())) {
+          const mirrorSel = `newfile:${number.value.trim()}`;
+          const known = leanTagSuggestionsForSelector(mirrorSel, initial.targets);
+          hintMessage = known.length === 0 ? "New mirror file will be created" : `Mirror exists with ${known.length} tag${known.length === 1 ? "" : "s"}`;
+        }
+        if (source === "new" && tag.value.trim() && choices.includes(tag.value.trim())) {
+          hintMessage = "Tag already exists — will write to the same region";
+        }
+      }
+      hint.textContent = hintMessage;
+      hint.hidden = !hintMessage;
+    }
+    const updateTags = (): void => {
+      renderTagChoices();
+      const choices = currentTagChoices();
+      if (tagMode.value() === "existing" && choices.length > 0 && !choices.includes(existingTag.value.trim())) existingTag.value = choices[0] ?? "";
+      update();
+    };
+    targetMode.onChange(updateTags);
+    number.addEventListener("input", updateTags);
+    file.addEventListener("input", updateTags);
+    tagMode.onChange(() => {
+      if (tagMode.value() === "new" && !tag.value.trim()) tag.value = generatedLeanTag();
+      if (tagMode.value() === "existing") {
+        const choices = currentTagChoices();
+        if (choices.length > 0 && !choices.includes(existingTag.value.trim())) existingTag.value = choices[0] ?? "";
+      }
+      update();
+      (tagMode.value() === "new" ? tag : existingTag).focus();
+    });
+    tag.addEventListener("input", update);
+    existingTag.addEventListener("change", update);
+    const close = (value: Record<string, string> | null): void => {
+      modal.hidden = true;
+      modal.innerHTML = "";
+      resolve(value);
+    };
+    cancel.addEventListener("click", () => close(null));
+    panel.addEventListener("submit", (event) => {
+      event.preventDefault();
+      update();
+      if (submit.disabled) return;
+      close({
+        fileMode: targetMode.value(),
+        number: number.value.trim(),
+        file: file.value.trim(),
+        tag: tagMode.value() === "new" ? tag.value.trim() : existingTag.value.trim(),
+        tagMode: tagMode.value(),
+      });
+    });
+    modal.addEventListener("mousedown", (event) => {
+      if (event.target === modal) close(null);
+    }, { once: true });
+    modal.appendChild(panel);
+    modal.hidden = false;
+    renderTagChoices();
+    update();
+    targetMode.wrap.querySelector<HTMLButtonElement>("button.is-active")?.focus();
+  });
+}
+
+async function insertLeanBlock(options: { selector?: string; tag?: string } = {}): Promise<void> {
   if (!api.lean.available()) {
     setStatus("Lean unavailable");
     return;
@@ -1135,15 +1585,19 @@ async function insertLeanBlock(): Promise<void> {
     setStatus("Lean blocks require a roam markdown note");
     return;
   }
-  const tag = generatedLeanTag();
+  const tag = String(options.tag ?? "").trim() || generatedLeanTag();
+  const markdown = editor.getMarkdown();
+  const selector = canonicalLeanSelector(options.selector === "newfile"
+    ? nextLeanNewfileSelector(markdown)
+    : String(options.selector ?? ""));
   setStatus("Creating Lean block");
   try {
-    const context = leanPlaceholderContextAt(editor.getMarkdown(), editor.getMarkdownSelection().from);
-    const result = await api.lean.ensureRegion({ notePath: currentFile, tag, ...context });
+    const context = leanPlaceholderContextAt(markdown, editor.getMarkdownSelection().from, selector);
+    const result = await api.lean.ensureRegion({ notePath: currentFile, tag, selector, ...context });
     const response = result as { ok?: boolean; tag?: string; message?: string } | null;
     if (response?.ok === false) throw new Error(response.message || "Lean region create failed");
     const finalTag = response?.tag || tag;
-    editor.insertText(`@@lean4 [${finalTag}]`);
+    editor.insertText(formatLeanPlaceholder(selector, finalTag));
     scheduleAssistUpdate();
     setStatus(`Lean block ${finalTag}`);
   } catch (err) {
@@ -1151,7 +1605,7 @@ async function insertLeanBlock(): Promise<void> {
   }
 }
 
-async function cleanCurrentLeanBlock(): Promise<void> {
+async function cleanCurrentLeanBlock(options: { tag?: string; selector?: string } = {}): Promise<void> {
   if (!api.lean.available()) {
     setStatus("Lean unavailable");
     return;
@@ -1161,8 +1615,11 @@ async function cleanCurrentLeanBlock(): Promise<void> {
     return;
   }
   const markdown = editor.getMarkdown();
-  const activeTag = activeLeanRegionForCommand?.notePath === currentFile ? activeLeanRegionForCommand.tag : "";
-  const placeholder = leanPlaceholderByTag(markdown, activeTag)
+  const requestedTag = String(options.tag ?? "").trim();
+  const requestedSelector = canonicalLeanSelector(String(options.selector ?? ""));
+  const activeTag = requestedTag || (activeLeanRegionForCommand?.notePath === currentFile ? activeLeanRegionForCommand.tag : "");
+  const activeSelector = requestedTag ? requestedSelector : (activeLeanRegionForCommand?.notePath === currentFile ? activeLeanRegionForCommand.selector : "");
+  const placeholder = leanPlaceholderByTag(markdown, activeTag, activeSelector)
     ?? currentLeanPlaceholder(markdown, editor.getMarkdownSelection().from);
   if (!placeholder) {
     setStatus("No Lean tag at cursor");
@@ -1170,16 +1627,48 @@ async function cleanCurrentLeanBlock(): Promise<void> {
   }
   setStatus("Cleaning Lean block");
   try {
-    const result = await api.lean.deleteRegion({ notePath: currentFile, tag: placeholder.tag });
+    const result = await api.lean.deleteRegion({ notePath: currentFile, tag: placeholder.tag, selector: placeholder.selector });
     const response = result as { ok?: boolean; message?: string } | null;
     if (response?.ok === false) throw new Error(response.message || "Lean region cleanup failed");
     removeLeanPlaceholderLine(markdown, placeholder);
-    if (activeLeanRegionForCommand?.tag === placeholder.tag) activeLeanRegionForCommand = null;
+    if (activeLeanRegionForCommand?.tag === placeholder.tag && activeLeanRegionForCommand.selector === placeholder.selector) activeLeanRegionForCommand = null;
     scheduleAssistUpdate();
     setStatus(`Lean block ${placeholder.tag} cleaned`);
   } catch (err) {
     setStatus(err instanceof Error ? err.message : "Lean block cleanup failed");
   }
+}
+
+async function openLeanBlockManager(): Promise<void> {
+  if (!currentFile || !leanNotesRoot || currentStandalone) {
+    setStatus("Lean blocks require a roam markdown note");
+    return;
+  }
+  const markdown = editor.getMarkdown();
+  const cursor = editor.getMarkdownSelection().from;
+  const activeRegion = activeLeanRegionForCommand?.notePath === currentFile ? activeLeanRegionForCommand : null;
+  const placeholder = currentLeanPlaceholder(markdown, cursor)
+    ?? (activeRegion
+      ? leanPlaceholderByTag(markdown, activeRegion.tag, activeRegion.selector)
+      : null);
+  const targets = await leanContextTargets();
+  const currentSelector = placeholder?.selector ?? activeRegion?.selector ?? "";
+  const currentNewfile = /^newfile:(\d+)$/.exec(currentSelector);
+  const values = await openLeanBlockModal({
+    fileMode: currentNewfile ? "mirror" : currentSelector ? "link" : "default",
+    number: currentNewfile?.[1] ?? nextLeanNewfileSelector(markdown).replace(/^newfile:/, ""),
+    file: currentSelector && !currentNewfile ? currentSelector : "",
+    tag: generatedLeanTag(),
+    numbers: leanMirrorNumberSuggestions(markdown),
+    targets,
+  });
+  if (!values) { editor.focus(); return; }
+  const selector = values.fileMode === "default"
+    ? ""
+    : values.fileMode === "mirror"
+      ? `newfile:${values.number}`
+      : values.file;
+  await insertLeanBlock({ selector, tag: values.tag });
 }
 
 // Fetch notesRoot from lean status once on startup
@@ -5029,6 +5518,7 @@ function showEditorPage(): void {
   relationButton.hidden = false;
   agendaButton.hidden = false;
   sourceButton.hidden = false;
+  syncSourceUi();
   editorButton.hidden = true;
   syncEditorRoamLinkStatus();
   updateJumpStackUi();
@@ -6029,6 +6519,7 @@ function commandPaletteCommands(): AaronnoteCommand[] {
     { id: "find", title: "Find and replace", group: "Editor", keywords: ["search"], run: openFindTool },
     { id: "check-prose", title: "Check spelling and prose", group: "Editor", keywords: ["vale", "cspell", "spellcheck"], run: () => void checkProse() },
     { id: "block-menu", title: "Open block menu", group: "Editor", keywords: ["slash", "insert"], run: openBlockMenu },
+    { id: "lean-block-manager", title: "Lean block manager", group: "Editor", keywords: ["lean4", "proof", "mirror", "file"], enabled: () => !!currentFile && !currentStandalone, run: () => void openLeanBlockManager() },
     { id: "insert-lean-block", title: "Insert Lean block", group: "Editor", keywords: ["lean4", "proof"], enabled: () => !!currentFile && !currentStandalone, run: () => void insertLeanBlock() },
     { id: "clean-lean-block", title: "Clean current Lean block", group: "Editor", keywords: ["lean4", "delete", "tag"], enabled: () => !!currentFile && !currentStandalone, run: () => void cleanCurrentLeanBlock() },
     { id: "toggle-lean-panel", title: "Toggle Lean panel", group: "Editor", keywords: ["lean4", "infoview", "lsp"], enabled: () => !leanTriggerBtn.hidden, run: () => leanPanel.toggle() },
@@ -6628,7 +7119,6 @@ function renderSnippetPopup(prefix: string, rect: { left: number; top: number; b
 }
 
 function snippetContextMode(ctx: ReturnType<typeof editor.cursorContext>): string {
-  if (currentFile.toLowerCase().endsWith(".lean")) return "lean4-mode";
   if (mathAtCursor(ctx)) return "tex-mode";
   return "markdown-mode";
 }
@@ -7612,6 +8102,10 @@ function scheduleRenderNotes(): void {
 }
 
 async function openStandaloneFile(file: string): Promise<void> {
+  if (/\.lean$/i.test(file)) {
+    setStatus("Lean files are edited manually");
+    return;
+  }
   setStatus("Opening");
   try {
     const msg = await api.notes.open(file);
@@ -7665,6 +8159,11 @@ function applyOpen(msg: Extract<Inbound, { type: "open" }>, options: { preserveF
   if (currentMode === "source" && !editor.isSourceMode()) editor.toggleSource();
   if (currentMode === "markdown" && editor.isSourceMode()) editor.toggleSource();
   syncSourceUi();
+  if (leanNotesRoot && currentFile && !currentStandalone) {
+    setLeanNotePath(editor.view, currentFile, leanNotesRoot);
+  } else {
+    setLeanNotePath(editor.view, "", "");
+  }
   const kindValue = msg.kind ?? currentNote()?.kind ?? noteKindFromMarkdown(msg.content ?? "");
   prepareNoteKindRender(kindValue);
   updateNoteCss(msg.content ?? "");
@@ -7716,11 +8215,10 @@ function applyOpen(msg: Extract<Inbound, { type: "open" }>, options: { preserveF
   }
   updateFloatingToc();
   syncLocalGraphAvailability();
-  const isLeanFile = currentFile.toLowerCase().endsWith(".lean");
-  if (leanNotesRoot && currentFile && (!currentStandalone || isLeanFile)) {
+  if (leanNotesRoot && currentFile && !currentStandalone) {
     setLeanNotePath(editor.view, currentFile, leanNotesRoot);
     leanPanel.setNote(currentFile, leanNotesRoot);
-    const hasLean4 = isLeanFile || /@@lean4\s+\[/.test(editor.getMarkdown());
+    const hasLean4 = scanMarkdownLeanPlaceholders(editor.getMarkdown()).length > 0;
     leanTriggerBtn.hidden = !hasLean4;
     if (!hasLean4) {
       leanPanel.hide();
@@ -7742,9 +8240,11 @@ function applyOpen(msg: Extract<Inbound, { type: "open" }>, options: { preserveF
 
 async function bootstrapStandalone(): Promise<void> {
   try {
-    const requestedFile = params.get("file") ?? undefined;
+    const rawRequestedFile = params.get("file") ?? undefined;
+    const requestedFile = rawRequestedFile && !/\.lean$/i.test(rawRequestedFile) ? rawRequestedFile : undefined;
     const msg = await api.notes.bootstrap(requestedFile);
     applyOpen(msg);
+    if (rawRequestedFile && !requestedFile) setStatus("Lean files are edited manually");
   } catch (err) {
     setStatus(err instanceof Error ? err.message : "Bootstrap failed");
   }
@@ -8128,23 +8628,23 @@ host.addEventListener("contextmenu", (event) => {
   }
   const pos = editor.view.posAtCoords({ x: event.clientX, y: event.clientY });
   const proseDiagnostics = pos == null ? [] : proseDiagnosticsAt(editor.view, pos);
-  if (proseDiagnostics.length > 0) {
-    event.preventDefault();
-    event.stopPropagation();
-    void api.shell.showEditorContextMenu({
-      diagnostics: proseDiagnostics.map((diag) => ({
-        source: diag.source,
-        from: diag.from,
-        to: diag.to,
-        message: diag.message,
-        suggestions: diag.suggestions ?? [],
-      })),
-    }).catch((err) => setStatus(err instanceof Error ? err.message : "Context menu failed"));
-    return;
-  }
   event.preventDefault();
   event.stopPropagation();
-  void api.shell.showEditorContextMenu()
+  void (async () => {
+    const leanOptions = leanContextMenuOptions(pos);
+    const diagnostics = proseDiagnostics.length > 0
+      ? {
+        diagnostics: proseDiagnostics.map((diag) => ({
+          source: diag.source,
+          from: diag.from,
+          to: diag.to,
+          message: diag.message,
+          suggestions: diag.suggestions ?? [],
+        })),
+      }
+      : {};
+    await api.shell.showEditorContextMenu({ ...leanOptions, ...diagnostics });
+  })()
     .catch((err) => setStatus(err instanceof Error ? err.message : "Context menu failed"));
 });
 
@@ -8174,7 +8674,7 @@ document.addEventListener("knowledge:apply-tag", (event) => {
 });
 
 window.addEventListener("aaronnote:command", (event) => {
-  const detail = (event as CustomEvent<{ command?: string; from?: unknown; to?: unknown; replacement?: unknown }>).detail ?? {};
+  const detail = (event as CustomEvent<{ command?: string; from?: unknown; to?: unknown; replacement?: unknown; selector?: unknown }>).detail ?? {};
   const command = detail.command;
   if (command === "new-markdown-note") void createMarkdownNote();
   if (command === "new-roam-node") void createRoamNode();
@@ -8212,8 +8712,9 @@ window.addEventListener("aaronnote:command", (event) => {
   if (command === "jump-back") jumpBack();
   if (command === "open-plugin-manager") showPluginPage();
   if (command === "open-block-menu") openBlockMenu();
-  if (command === "insert-lean-block") void insertLeanBlock();
-  if (command === "clean-lean-block") void cleanCurrentLeanBlock();
+  if (command === "open-lean-block-manager") void openLeanBlockManager();
+  if (command === "insert-lean-block") void insertLeanBlock({ selector: String(detail?.selector ?? "") });
+  if (command === "clean-lean-block") void cleanCurrentLeanBlock({ tag: String(detail?.tag ?? ""), selector: String(detail?.selector ?? "") });
   if (command === "toggle-lean-panel") leanPanel.toggle();
   if (command === "toggle-source") toggleSourceMode();
   if (command === "restart-lean-server") void restartLeanServerForCurrentNote();

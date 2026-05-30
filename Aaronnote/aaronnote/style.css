@@ -426,23 +426,6 @@ input {
   color: var(--aaron-muted);
 }
 
-/* Lean 4 files in ranger — subtle purple accent */
-.aaronnote-ranger-row.is-lean-file .aaronnote-ranger-icon {
-  color: #9d7fc4;
-  font-size: 12px;
-}
-.aaronnote-ranger-row.is-lean-file strong {
-  color: #6b5fa0;
-}
-.aaronnote-ranger-row.is-lean-file:hover {
-  background: color-mix(in srgb, var(--aaron-paper-soft), #9d7fc4 8%);
-}
-.aaronnote-ranger-row.is-lean-file.is-active {
-  background: color-mix(in srgb, #9d7fc4, var(--aaron-paper) 84%);
-  color: #5a4890;
-  box-shadow: inset 3px 0 0 #9d7fc4;
-}
-
 .aaronnote-ranger-icon,
 .aaronnote-ranger-meta {
   color: var(--aaron-muted);
@@ -1967,6 +1950,12 @@ body.lean-panel-open .aaronnote-editor {
   font: 700 11px/1.35 var(--aaron-font-sans, system-ui, sans-serif);
 }
 
+.aaronnote-modal-field-hint {
+  margin-top: -3px;
+  color: var(--aaron-ink-dim, #6b7280);
+  font: 11px/1.35 var(--aaron-font-sans, system-ui, sans-serif);
+}
+
 .aaronnote-modal-path-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -2028,6 +2017,44 @@ body.lean-panel-open .aaronnote-editor {
   border-color: var(--aaron-red);
   background: color-mix(in srgb, var(--aaron-red), var(--aaron-paper) 88%);
   color: var(--aaron-red-dark);
+  font-weight: 750;
+}
+
+.aaronnote-lean-block-modal {
+  width: min(620px, calc(100vw - 32px));
+}
+
+.aaronnote-modal-choice-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 138px;
+  overflow: auto;
+}
+
+.aaronnote-modal-choice-grid:empty {
+  display: none;
+}
+
+.aaronnote-modal-choice-grid button {
+  min-height: 25px;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 3px;
+  padding: 0 8px;
+  background: var(--aaron-paper-soft);
+  color: var(--aaron-ink);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.aaronnote-modal-choice-grid button:hover,
+.aaronnote-modal-choice-grid button.is-active {
+  border-color: var(--aaron-red);
+  color: var(--aaron-red-dark);
+}
+
+.aaronnote-modal-choice-grid button.is-active {
+  background: color-mix(in srgb, var(--aaron-red), var(--aaron-paper) 88%);
   font-weight: 750;
 }
 
