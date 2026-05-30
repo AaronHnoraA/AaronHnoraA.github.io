@@ -107,6 +107,8 @@ type NativeApi = {
     openPath?: (file: string) => Promise<unknown>;
     showAttachmentMenu?: (file: string, base?: string) => Promise<unknown>;
     showEditorContextMenu?: (options?: unknown) => Promise<unknown>;
+    showLeanEditorMenu?: (options?: unknown) => Promise<unknown>;
+    openLeanLocation?: (target: { file: string; line: number; character: number }) => Promise<{ ok?: boolean; message?: string }>;
   };
   proseCheck?: {
     run?: (body: { file?: string; content?: string; ranges?: Array<{ from: number; to: number }>; segments?: Array<{ from: number; to: number; text: string }>; totalChars?: number }) => Promise<unknown>;
@@ -494,6 +496,18 @@ export const api = {
     async showEditorContextMenu(options: unknown = {}): Promise<void> {
       const native = requireMethod(requireNative().shell?.showEditorContextMenu, "Native shell integration");
       ensureOk(await native(options), "Context menu failed");
+    },
+
+    async showLeanEditorMenu(options: unknown = {}): Promise<void> {
+      const native = requireMethod(requireNative().shell?.showLeanEditorMenu, "Native shell integration");
+      ensureOk(await native(options), "Lean menu failed");
+    },
+
+    async openLeanLocation(target: { file: string; line: number; character: number }): Promise<{ ok: boolean; message?: string }> {
+      const native = nativeApi()?.shell?.openLeanLocation;
+      if (!native) return { ok: false, message: "External Lean navigation unavailable" };
+      const res = await native(target) as { ok?: boolean; message?: string };
+      return { ok: Boolean(res?.ok), message: res?.message };
     },
   },
 

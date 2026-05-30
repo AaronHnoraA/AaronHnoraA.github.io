@@ -100,6 +100,79 @@ type LeanContext = {
   jumpToFullPosition?: (line: number, character: number) => void;
 };
 
+export type LeanLspAction = "definition" | "declaration" | "typeDefinition" | "implementation" | "references" | "hover";
+export type LeanEditAction =
+  | "toggleLineComment"
+  | "toggleBlockComment"
+  | "duplicateUp"
+  | "duplicateDown"
+  | "moveUp"
+  | "moveDown"
+  | "joinLines"
+  | "deleteTrailingWhitespace"
+  | "indent"
+  | "outdent";
+export type LeanPosition = { line: number; character: number };
+
+/** Server `get-locations` result shape (see server/lib/lean.mjs normalizeLspLocations). */
+export type LeanLocation = {
+  uri: string;
+  file: string;
+  range: { start: LeanPosition; end: LeanPosition };
+  summary: string;
+};
+
+/**
+ * Per-mounted-child handle the app shell uses to drive a Lean editor from native
+ * menus, the command palette, and the locations picker. Registered on mount and
+ * removed on teardown; the focused child is tracked as the "active" controller.
+ */
+export type LeanEditorController = {
+  id: string;
+  notePath: string;
+  leanPath: string;
+  tag: string;
+  selector: string;
+  runLspAction(action: LeanLspAction, position?: LeanPosition): Promise<void>;
+  runEditAction(action: LeanEditAction): void;
+  jumpTo(line: number, character: number): void; // full-file Lean line/character
+};
+
+const leanControllers = new Map<string, LeanEditorController>();
+let activeLeanControllerId = "";
+
+export function registerLeanController(controller: LeanEditorController): void {
+  leanControllers.set(controller.id, controller);
+}
+
+export function unregisterLeanController(id: string): void {
+  leanControllers.delete(id);
+  if (activeLeanControllerId === id) activeLeanControllerId = "";
+}
+
+export function setActiveLeanController(id: string): void {
+  if (leanControllers.has(id)) activeLeanControllerId = id;
+}
+
+export function getLeanController(id: string): LeanEditorController | null {
+  return leanControllers.get(id) ?? null;
+}
+
+export function activeLeanController(): LeanEditorController | null {
+  return activeLeanControllerId ? leanControllers.get(activeLeanControllerId) ?? null : null;
+}
+
+/**
+ * Hook set by the app shell to present a searchable picker for multi-target
+ * results (multiple definitions, references). When unset, the router falls back
+ * to navigating directly to the first location.
+ */
+export type LeanLocationsPicker = (locations: LeanLocation[], onPick: (location: LeanLocation) => void) => void;
+let leanLocationsPicker: LeanLocationsPicker | null = null;
+export function setLeanLocationsPicker(picker: LeanLocationsPicker | null): void {
+  leanLocationsPicker = picker;
+}
+
 type LeanDiagnosticMark = {
   from: number;
   to: number;
@@ -1748,6 +1821,94 @@ function leanCursorHover(ctx: LeanContext): Extension {
   ];
 }
 
+/**
+ * Navigate to a single resolved LSP location. Targets inside an embedded
+ * `-- @aaronnote` region jump through the region-jump event (current region,
+ * another region, or — once the note is open — another note). Targets outside
+ * any region (Mathlib/prelude, non-embedded `.lean`) open in an external
+ * Kitty/Nvim window.
+ */
+async function navigateToLeanLocation(ctx: LeanContext, loc: LeanLocation): Promise<void> {
+  const line = loc.range.start.line;
+  const character = loc.range.start.character;
+  const resolved = await api.lean.request("resolve-location", {
+    file: loc.file,
+    line,
+    character,
+  }) as { inRegion?: boolean; notePath?: string; external?: boolean } | null;
+  // Record where we came from so the app jump stack can return here.
+  window.dispatchEvent(new CustomEvent("aaronnote:lean-push-jump"));
+  if (resolved?.inRegion) {
+    window.dispatchEvent(new CustomEvent("aaronnote:lean-region-jump", {
+      detail: {
+        notePath: resolved.notePath || ctx.notePath,
+        leanPath: loc.file,
+        line,
+        character,
+      },
+    }));
+    return;
+  }
+  const result = await api.shell.openLeanLocation?.({ file: loc.file, line, character });
+  if (result && result.ok === false) {
+    window.dispatchEvent(new CustomEvent("aaronnote:lean-status", {
+      detail: { message: result.message || "Could not open Lean location" },
+    }));
+  }
+}
+
+/**
+ * Unified LSP navigation router for the embedded Lean editor. Reused by Cmd/Ctrl+
+ * Click, Vim keys (gd/gD/gy/gi/gr/K), the context menu, and the command palette.
+ * `fullPos` is a full-file Lean position (right-click target); when omitted the
+ * current child cursor is used.
+ */
+async function runLeanLocationAction(
+  ctx: LeanContext,
+  view: EditorView,
+  action: LeanLspAction,
+  fullPos?: LeanPosition,
+): Promise<void> {
+  if (!ctx.leanPath || !ctx.region) return;
+  await ctx.syncForLsp?.();
+  if (!await ctx.ensureLspOpen?.()) return;
+  const localPos = fullPos
+    ? fullOffsetToLocal(ctx, positionToOffset(ctx.leanText, fullPos.line, fullPos.character)) ?? view.state.selection.main.head
+    : view.state.selection.main.head;
+  const fullOffset = localOffsetToFull(ctx, localPos);
+  if (fullOffset == null) return;
+  const pos = fullPos ?? offsetToPosition(ctx.leanText, fullOffset);
+
+  if (action === "hover") {
+    const text = await leanHoverText(ctx, localPos);
+    view.dispatch({ effects: SetLeanCursorHover.of(text.trim() ? { pos: localPos, text } : null) });
+    return;
+  }
+
+  const resp = await api.lean.request("get-locations", {
+    action,
+    leanPath: ctx.leanPath,
+    line: pos.line,
+    character: pos.character,
+  }) as { locations?: LeanLocation[] } | null;
+  const locations = resp?.locations ?? [];
+  if (locations.length === 0) {
+    window.dispatchEvent(new CustomEvent("aaronnote:lean-status", {
+      detail: { message: `No ${action} results` },
+    }));
+    return;
+  }
+  if (locations.length === 1 && action !== "references") {
+    await navigateToLeanLocation(ctx, locations[0]);
+    return;
+  }
+  if (leanLocationsPicker) {
+    leanLocationsPicker(locations, (loc) => { void navigateToLeanLocation(ctx, loc); });
+  } else {
+    await navigateToLeanLocation(ctx, locations[0]);
+  }
+}
+
 function leanDefinitionClick(ctx: LeanContext): Extension {
   return EditorView.domEventHandlers({
     mousedown(event, view) {
@@ -1756,26 +1917,9 @@ function leanDefinitionClick(ctx: LeanContext): Extension {
       if (pos == null || !ctx.leanPath || !ctx.region) return false;
       event.preventDefault();
       event.stopPropagation();
-      void (async () => {
-        await ctx.syncForLsp?.();
-        if (!await ctx.ensureLspOpen?.()) return;
-        const fullOffset = localOffsetToFull(ctx, pos);
-        if (fullOffset == null) return;
-        const leanPos = offsetToPosition(ctx.leanText, fullOffset);
-        const raw = await api.lean.getDefinition({
-          leanPath: ctx.leanPath,
-          line: leanPos.line,
-          character: leanPos.character,
-        });
-        const result = (raw as { result?: unknown } | null)?.result;
-        const target = Array.isArray(result) ? result[0] : result;
-        const range = (target as { targetRange?: { start?: { line?: number; character?: number } }; range?: { start?: { line?: number; character?: number } } } | null)?.targetRange
-          ?? (target as { range?: { start?: { line?: number; character?: number } } } | null)?.range;
-        const start = range?.start;
-        if (typeof start?.line === "number" && typeof start.character === "number") {
-          ctx.jumpToFullPosition?.(start.line, start.character);
-        }
-      })();
+      const fullOffset = localOffsetToFull(ctx, pos);
+      const fullPos = fullOffset == null ? undefined : offsetToPosition(ctx.leanText, fullOffset);
+      void runLeanLocationAction(ctx, view, "definition", fullPos);
       return true;
     },
   });
@@ -1830,6 +1974,24 @@ function unindentLeanSelection(view: EditorView): boolean {
   }
   if (changes.length > 0) view.dispatch({ changes, scrollIntoView: true });
   return true;
+}
+
+/**
+ * Region-local editing tools for the embedded Lean editor. Each action mutates
+ * only the child document (the region body) in a single transaction so Undo
+ * reverses it in one step. Additional actions are implemented incrementally.
+ */
+function runLeanEditAction(view: EditorView, action: LeanEditAction): void {
+  switch (action) {
+    case "indent":
+      indentLeanSelection(view);
+      break;
+    case "outdent":
+      unindentLeanSelection(view);
+      break;
+    default:
+      break;
+  }
 }
 
 function insertLeanNewline(view: EditorView): boolean {
@@ -2082,7 +2244,7 @@ function renderLeanJumpOverlay(state: LeanJumpModeState | null): void {
   }
 }
 
-function createLeanVimController() {
+function createLeanVimController(ctx: LeanContext) {
   let mode: LeanVimMode = "insert";
   let pending = "";
   let goalColumn: number | null = null;
@@ -2154,6 +2316,11 @@ function createLeanVimController() {
     if (pending === "g") {
       pending = "";
       if (key === "g") leanDocBoundary(view, "start");
+      else if (key === "d") void runLeanLocationAction(ctx, view, "definition");
+      else if (key === "D") void runLeanLocationAction(ctx, view, "declaration");
+      else if (key === "y") void runLeanLocationAction(ctx, view, "typeDefinition");
+      else if (key === "i") void runLeanLocationAction(ctx, view, "implementation");
+      else if (key === "r") void runLeanLocationAction(ctx, view, "references");
       return true;
     }
     if (pending === "s" || pending === "S") {
@@ -2213,6 +2380,9 @@ function createLeanVimController() {
         return true;
       case "G":
         leanDocBoundary(view, "end");
+        return true;
+      case "K":
+        void runLeanLocationAction(ctx, view, "hover");
         return true;
       case "i":
         setMode(view, "insert");
@@ -2601,8 +2771,8 @@ function leanCompletionKeymap(): Extension {
   ]));
 }
 
-function leanKeyboardIsolation(): Extension {
-  const vim = createLeanVimController();
+function leanKeyboardIsolation(ctx: LeanContext): Extension {
+  const vim = createLeanVimController(ctx);
   return Prec.highest(EditorView.domEventHandlers({
     keydown(event, view) {
       if (event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey && event.key === "Enter") return false;
@@ -2680,7 +2850,7 @@ function leanEditorExtensions(
     }),
     leanCompletionKeymap(),
     keymap.of([...completionKeymap, ...defaultKeymap, ...historyKeymap]),
-    leanKeyboardIsolation(),
+    leanKeyboardIsolation(ctx),
     EditorView.lineWrapping,
     leanSemanticTokenDecorations,
     findHighlightExtension,
@@ -3122,6 +3292,7 @@ class LeanPlaceholderWidget extends MeasuredWidget {
     void document.fonts?.ready.then(() => requestLeanMeasure()).catch(() => {});
     host.addEventListener("mousedown", () => {
       publishLeanRegionActive(noteInfo.notePath, tag, selector, ctx.leanPath);
+      setActiveLeanController(copilotEditorId);
       void ctx.ensureLspOpen?.().then((ok) => { if (ok) renderGoals(child); });
       window.setTimeout(() => {
         child.focus();
@@ -3130,6 +3301,7 @@ class LeanPlaceholderWidget extends MeasuredWidget {
     });
     host.addEventListener("focusin", () => {
       publishLeanRegionActive(noteInfo.notePath, tag, selector, ctx.leanPath);
+      setActiveLeanController(copilotEditorId);
       void ctx.ensureLspOpen?.().then((ok) => { if (ok) renderGoals(child); });
       registerCopilotEditor();
     });
@@ -3139,6 +3311,17 @@ class LeanPlaceholderWidget extends MeasuredWidget {
       undo: () => undo(child),
       redo: () => redo(child),
     };
+
+    registerLeanController({
+      id: copilotEditorId,
+      notePath: noteInfo.notePath,
+      get leanPath() { return ctx.leanPath; },
+      tag,
+      selector,
+      runLspAction: (action, position) => runLeanLocationAction(ctx, child, action, position),
+      runEditAction: (action) => runLeanEditAction(child, action),
+      jumpTo: (line, character) => ctx.jumpToFullPosition?.(line, character),
+    });
 
     const unsubDiag = api.lean.onDiagnostics((raw) => {
       const data = raw as { uri?: string; version?: number; diagnostics?: unknown[] };
@@ -3300,6 +3483,7 @@ class LeanPlaceholderWidget extends MeasuredWidget {
     window.addEventListener("aaronnote:lean-region-apply-edit", onRegionApplyEdit);
     (outer as HTMLElement & { __leanChild?: EditorView; __leanUnsub?: () => void }).__leanUnsub = () => {
       destroyed = true;
+      unregisterLeanController(copilotEditorId);
       unsubDiag();
       unsubProgress();
       unsubSemanticTokens();
