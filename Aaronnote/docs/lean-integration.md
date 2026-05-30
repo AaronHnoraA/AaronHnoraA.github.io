@@ -231,6 +231,104 @@ Default quick-insert behavior:
 5. Insert `@@lean4 [<tag>]` into Markdown at the cursor.
 6. Focus the embedded Lean editor for that tag.
 
+## Lean LSP Navigation
+
+Embedded Lean editors expose read-only LSP navigation without allowing arbitrary
+workspace edits. All navigation first syncs the current region body back into
+the derived `.lean` file, opens the corresponding Lean LSP document if needed,
+and sends the request at the full-file Lean position.
+
+Supported LSP actions:
+
+- Definition: `textDocument/definition`.
+- Declaration: `textDocument/declaration`.
+- Type definition: `textDocument/typeDefinition`.
+- Implementation: `textDocument/implementation`.
+- References: `textDocument/references`, with declaration included.
+- Hover: `textDocument/hover`, rendered in the embedded editor tooltip channel.
+
+Navigation entry points are intentionally shared:
+
+- Lean Vim normal mode: `gd`, `gD`, `gy`, `gi`, `gr`, and `K`.
+- `Cmd/Ctrl` + left click: definition at the clicked Lean token.
+- Native right-click menu: **Lean Symbol** submenu.
+- Command palette: `Lean: Go to Definition`, `Lean: Find References`, and the
+  other `Lean:` symbol commands.
+
+Result routing:
+
+1. LSP `Location`, `Location[]`, and `LocationLink[]` values are normalized to
+   `{ uri, file, range, summary }` and deduped by file/line/character.
+2. A single non-reference result jumps immediately. Reference results and other
+   multi-result responses open the Lean locations picker.
+3. If the target position belongs to an Aaronnote `-- @aaronnote <tag>` region,
+   Aaronnote dispatches an in-app region jump. Cross-note jumps open the target
+   note and replay the region jump after the embedded editor mounts.
+4. If the target is outside an embedded region, for example Mathlib, prelude, or
+   another external `.lean` source, Aaronnote opens the target in Kitty/Nvim.
+5. Before navigating, Aaronnote records a normal app jump-stack entry so
+   **Jump back** can return to the Markdown/Lean origin.
+
+The locations picker reuses the command-palette UI model: type to filter by file
+or source-line summary, use ArrowUp/ArrowDown to move, Enter to pick, and Escape
+to cancel.
+
+## Lean Edit Tools
+
+Lean edit tools mutate only the embedded child document. The usual region save
+path then writes the body back to the mirror `.lean` file, so every action stays
+inside the current `@@lean4` region and remains undoable as a single editor
+transaction.
+
+Available edit actions:
+
+- Toggle line comment: inserts or removes Lean `--` comments at line indentation.
+- Toggle block comment: wraps or unwraps the selection with `/- ... -/`.
+- Duplicate up/down: copies the selected line range above or below.
+- Move up/down: swaps the selected line range with the adjacent line.
+- Join lines: joins the selected lines, collapsing indentation on following lines.
+- Delete trailing whitespace: trims the whole embedded Lean region.
+- Indent/outdent: uses the Lean indent unit and selected-line semantics.
+
+Keyboard entry points:
+
+- `Cmd/Ctrl+/`: toggle line comments when focus is inside Lean. The desktop menu
+  shows the same shortcut for source toggle, but does not register the accelerator
+  globally; the renderer routes by focus so Markdown keeps source/preview toggle.
+- `Alt+Shift+A`: toggle block comments.
+- `Alt+Up/Down`: move selected lines up/down.
+- `Alt+Shift+Up/Down`: duplicate selected lines up/down.
+- Vim normal `gcc`: toggle line comment.
+- Vim normal `J`: join current and next line.
+- Vim visual and visual-line `gc` / `gb`: toggle line/block comments.
+- Vim visual-line `y` and `d`: use a linewise register, so `p` / `P` paste whole
+  lines instead of character ranges.
+
+Mouse/menu entry points:
+
+- Right-click inside an embedded Lean editor opens a native context menu with:
+  - **Lean Symbol**: definition, declaration, type definition, implementation,
+    references, and hover.
+  - **Lean Edit**: comment toggles, duplicate, move, join, trim whitespace,
+    indent, and outdent.
+
+## External Lean Sources
+
+When LSP navigation resolves outside an Aaronnote-managed region, Aaronnote opens
+the target in a fresh Kitty window running Nvim at the LSP position. LSP positions
+are 0-based; the generated Nvim `cursor()` call is 1-based.
+
+Executable discovery order:
+
+1. `AARONNOTE_KITTY` and `AARONNOTE_NVIM`, when set.
+2. Common GUI-app Homebrew paths: `/opt/homebrew/bin` and `/usr/local/bin`.
+3. The process `PATH`.
+
+The launcher always builds an argv array and starts Kitty with detached
+`spawn(..., { stdio: "ignore" })`; it does not shell-concatenate file paths or
+commands. If Kitty, Nvim, or the target file cannot be found, the renderer shows
+the failure in the Aaronnote status bar.
+
 ## Keyboard and Navigation
 
 | Context | Key | Behavior |
@@ -248,6 +346,8 @@ Default quick-insert behavior:
 | Lean Vim normal mode | `gcc` | Toggle the current line comment. |
 | Lean Vim normal mode | `J` | Join the current line with the next line. |
 | Lean Vim visual mode | `gc` / `gb` | Toggle line / block comments for the selection. |
+| Lean Vim visual-line mode | `gc` / `gb` | Toggle line / block comments for selected lines. |
+| Lean Vim visual-line mode | `y` / `d`, then `p` / `P` | Copy/delete and paste selected whole lines. |
 | Embedded Lean editor | `Cmd/Ctrl+/` | Toggle line comments. |
 | Embedded Lean editor | `Alt+Shift+A` | Toggle a block comment. |
 | Embedded Lean editor | `Alt+Up/Down` | Move selected lines. |
@@ -285,6 +385,9 @@ Default quick-insert behavior:
 
 - Lean UI markers are derived from already-stored diagnostics, progress, and
   completion items. They must not introduce background polling or full-file scans.
+- Lean edit tools must stay region-local. Do not apply LSP workspace edits or
+  code actions directly to the full file unless every edit is first proven to be
+  inside the mounted region.
 - Server-side region neighbor lookup (`getRegionNeighbors`) scans the full
   markdown file to determine insertion ordering. This scan must only run when a
   region does not yet exist — all request handlers must go through
@@ -355,3 +458,8 @@ Default quick-insert behavior:
 The old `#+begin lean4 ... #+end lean4` model is deprecated. New Lean content
 must use `@@lean4 [tag]`. Existing org-env Lean support should not remain a
 second long-term LSP path.
+
+The current Lean LSP navigation layer is intentionally read-only. Rename,
+workspace-wide code actions, formatting, import organization, and arbitrary LSP
+workspace edits remain out of scope until Aaronnote has a region-aware edit
+application policy that can reject or split edits crossing `@@lean4` boundaries.
