@@ -76,13 +76,18 @@ describe("server note refs", () => {
     const refs = refsFromContent([
       "[tag](20260520T120000-density-operator#section-anchor)",
       "[dom](20260520T120000-density-operator@main-title)",
+      "[nested-dom](20260520T120000-density-operator@chapter@main-title)",
       "[current](./#local-anchor)",
       "[path-dom](roam/project/note.md@main-title)",
+      "[path-nested-dom](roam/project/note.md@chapter@main-title)",
       "[roam-dom](roam://20260520T120000-density-operator@main-title)",
+      "[roam-nested-dom](roam://20260520T120000-density-operator@chapter@main-title)",
     ].join("\n"));
 
     expect(refs).toContain("20260520T120000-density-operator");
     expect(refs).toContain("roam/project/note.md");
+    expect(refs).not.toContain("20260520T120000-density-operator@chapter");
+    expect(refs).not.toContain("roam/project/note.md@chapter");
     expect(refs).not.toContain("./");
   });
 

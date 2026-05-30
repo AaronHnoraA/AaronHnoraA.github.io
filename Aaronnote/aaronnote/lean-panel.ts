@@ -40,6 +40,7 @@ type LeanPanelOptions = {
   root: HTMLElement;
   getEditor: () => Editor | null;
   jumpToNoteOffset: (offset: number) => void;
+  onVisibilityChange?: () => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -132,7 +133,7 @@ function clamp(value: number, min: number, max: number): number {
 // ---------------------------------------------------------------------------
 
 export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
-  const { root, getEditor, jumpToNoteOffset } = options;
+  const { root, getEditor, jumpToNoteOffset, onVisibilityChange } = options;
 
   // -------------------------------------------------------------------------
   // DOM structure (injected into root, which is the <aside> element)
@@ -899,7 +900,9 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
     _visible = true;
     root.removeAttribute("hidden");
     root.classList.remove("lean-panel--hidden", "lean-panel--gone");
+    applyLayout();
     document.body.classList.add("lean-panel-open");
+    onVisibilityChange?.();
     void api.lean.status().then((s) => {
       if (s) renderStatus(s as { message?: string; kind?: string });
     }).catch(() => {});
@@ -912,6 +915,7 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
     root.classList.add("lean-panel--hidden");
     root.removeAttribute("hidden");  // keep in DOM so transition plays
     document.body.classList.remove("lean-panel-open");
+    onVisibilityChange?.();
   }
 
   function toggle(): void {

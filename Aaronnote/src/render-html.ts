@@ -418,7 +418,15 @@ function isRoamCoreHref(href: string): boolean {
   if (/^roam:\/\//i.test(raw)) return true;
   if (/^[A-Za-z][\w+.-]*:/i.test(raw)) return false;
   if (raw.startsWith("#") || raw.startsWith("@")) return false;
+  if (/\.ipynb/i.test(raw)) return false;
   return raw.includes("#") || raw.includes("@");
+}
+
+function isJupyterHref(href: string): boolean {
+  const raw = String(href || "").trim();
+  if (!raw) return false;
+  if (/^[A-Za-z][\w+.-]*:/i.test(raw) && !/^file:/i.test(raw)) return false;
+  return /\.ipynb(?:[?@#]|$)/i.test(raw);
 }
 
 function joinTokenStyle(token: Token, style: string): void {
@@ -507,6 +515,26 @@ function emptyHtmlLinkEmbedRule(state: StateInline, silent: boolean): boolean {
     token.content = alt;
   }
   state.pos += match[0]!.length;
+  return true;
+}
+
+function jupyterLinkRule(state: StateInline, silent: boolean): boolean {
+  const start = state.pos;
+  if (state.src.charCodeAt(start) !== 0x5b /* [ */) return false;
+  const closeLabel = state.src.indexOf("]", start + 1);
+  if (closeLabel < 0 || state.src.charCodeAt(closeLabel + 1) !== 0x28 /* ( */) return false;
+  const closeHref = state.src.indexOf(")", closeLabel + 2);
+  if (closeHref < 0) return false;
+  const label = state.src.slice(start + 1, closeLabel);
+  const href = markdownLinkSrc(state.src.slice(closeLabel + 2, closeHref));
+  if (!label || label.includes("\n") || href.includes("\n") || !isJupyterHref(href) || !safeHref(href)) return false;
+  if (silent) return true;
+  const open = state.push("link_open", "a", 1);
+  open.attrs = [["href", href]];
+  const text = state.push("text", "", 0);
+  text.content = label;
+  state.push("link_close", "a", -1);
+  state.pos = closeHref + 1;
   return true;
 }
 
@@ -733,6 +761,7 @@ function createMarkdownIt(options: RenderMarkdownHTMLOptions): MarkdownIt {
   md.block.ruler.before("paragraph", "lean_region_block", leanRegionBlockRule(options), { alt: ["paragraph"] });
   md.block.ruler.before("paragraph", "toc_block", tocRule, { alt: ["paragraph"] });
   md.inline.ruler.before("link", "empty_html_link_embed", emptyHtmlLinkEmbedRule);
+  md.inline.ruler.before("link", "jupyter_link", jupyterLinkRule);
   md.inline.ruler.after("escape", "math_inline", mathInlineRule);
 
   md.renderer.rules.math_block = renderMathBlock;
@@ -754,6 +783,9 @@ function createMarkdownIt(options: RenderMarkdownHTMLOptions): MarkdownIt {
     } else if (href && isRoamCoreHref(href)) {
       token.attrJoin("class", "aaronnote-roam-link");
       token.attrSet("data-roam-link", "true");
+    } else if (href && isJupyterHref(href)) {
+      token.attrJoin("class", "aaronnote-jupyter-link");
+      token.attrSet("data-jupyter-link", "true");
     }
     return originalLinkOpen(tokens, idx, opts, env, self);
   };

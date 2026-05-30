@@ -105,10 +105,16 @@ type NativeApi = {
   shell?: {
     showInFolder?: (file: string) => Promise<unknown>;
     openPath?: (file: string) => Promise<unknown>;
-    showAttachmentMenu?: (file: string, base?: string) => Promise<unknown>;
+    openDirectory?: (path: string, base?: string) => Promise<unknown>;
+    openDirectoryInKitty?: (path: string, base?: string) => Promise<unknown>;
+    showAttachmentMenu?: (file: string, base?: string, options?: unknown) => Promise<unknown>;
     showEditorContextMenu?: (options?: unknown) => Promise<unknown>;
     showLeanEditorMenu?: (options?: unknown) => Promise<unknown>;
     openLeanLocation?: (target: { file: string; line: number; character: number }) => Promise<{ ok?: boolean; message?: string }>;
+  };
+  jupyter?: {
+    request?: (action: string, body?: unknown) => Promise<unknown>;
+    scroll?: (body?: unknown) => Promise<unknown>;
   };
   proseCheck?: {
     run?: (body: { file?: string; content?: string; ranges?: Array<{ from: number; to: number }>; segments?: Array<{ from: number; to: number; text: string }>; totalChars?: number }) => Promise<unknown>;
@@ -475,7 +481,7 @@ export const api = {
 
   shell: {
     available(): boolean {
-      return Boolean(nativeApi()?.shell?.showInFolder || nativeApi()?.shell?.openPath);
+      return Boolean(nativeApi()?.shell?.showInFolder || nativeApi()?.shell?.openPath || nativeApi()?.shell?.openDirectory);
     },
 
     async showInFolder(file: string): Promise<void> {
@@ -488,9 +494,19 @@ export const api = {
       ensureOk(await native(file), "Open failed");
     },
 
-    async showAttachmentMenu(file: string, base = ""): Promise<void> {
+    async openDirectory(path: string, base = ""): Promise<void> {
+      const native = requireMethod(requireNative().shell?.openDirectory, "Native shell integration");
+      ensureOk(await native(path, base), "Open directory failed");
+    },
+
+    async openDirectoryInKitty(path: string, base = ""): Promise<void> {
+      const native = requireMethod(requireNative().shell?.openDirectoryInKitty, "Native shell integration");
+      ensureOk(await native(path, base), "Open Kitty failed");
+    },
+
+    async showAttachmentMenu(file: string, base = "", options: unknown = {}): Promise<void> {
       const native = requireMethod(requireNative().shell?.showAttachmentMenu, "Native shell integration");
-      ensureOk(await native(file, base), "Attachment menu failed");
+      ensureOk(await native(file, base, options), "Attachment menu failed");
     },
 
     async showEditorContextMenu(options: unknown = {}): Promise<void> {
@@ -508,6 +524,22 @@ export const api = {
       if (!native) return { ok: false, message: "External Lean navigation unavailable" };
       const res = await native(target) as { ok?: boolean; message?: string };
       return { ok: Boolean(res?.ok), message: res?.message };
+    },
+  },
+
+  jupyter: {
+    available(): boolean {
+      return Boolean(nativeApi()?.jupyter?.request);
+    },
+
+    async request(action: string, body: Record<string, unknown> = {}): Promise<Record<string, unknown> & { ok?: boolean; message?: string }> {
+      const native = requireMethod(requireNative().jupyter?.request, "Jupyter integration");
+      return ensureOk(await native(action, body) as Record<string, unknown> & { ok?: boolean; message?: string }, "Jupyter failed");
+    },
+
+    async scroll(body: Record<string, unknown> = {}): Promise<Record<string, unknown> & { ok?: boolean; message?: string }> {
+      const native = requireMethod(requireNative().jupyter?.scroll, "Jupyter frame navigation");
+      return ensureOk(await native(body) as Record<string, unknown> & { ok?: boolean; message?: string }, "Jupyter scroll failed");
     },
   },
 

@@ -208,6 +208,19 @@
   padding: 0 0.16em;
 }
 
+.cm-editor .cm-jupyter-link-text {
+  color: #5f0f20;
+  text-decoration: none;
+  border: 1px solid color-mix(in srgb, #8f1230, transparent 66%);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, #8f1230, transparent 84%), transparent 38%),
+    #fffaf1;
+  border-radius: 4px;
+  padding: 0 0.26em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
 .cm-editor .cm-aaron-find-match {
   background: color-mix(in srgb, #facc15, transparent 48%);
   box-shadow: 0 0 0 1px color-mix(in srgb, #ca8a04, transparent 62%);

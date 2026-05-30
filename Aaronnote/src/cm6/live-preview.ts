@@ -77,6 +77,7 @@ const BLOCK_MARK_NODES = new Set([
 
 const CJK_TEXT_RE = /[\u2E80-\u2EFF\u3000-\u303F\u31C0-\u31EF\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF\uFF00-\uFFEF]+/g;
 const WIKILINK_RE = /\[\[([^\]\n]+)\]\]/g;
+const JUPYTER_LINK_RE = /\[([^\]\n]+)\]\(((?:file:(?:\/\/)?|\.{1,2}\/|\/|~\/)?[^)\n]*?\.ipynb(?:[@#][^)]+)?)\)/gi;
 type CjkLineRanges = Array<{ relFrom: number; relTo: number }>;
 type CjkLineCache = Map<number, { text: string; ranges: CjkLineRanges }>;
 const cjkLineCacheLimit = 512;
@@ -102,7 +103,15 @@ function isRoamCoreHref(href: string): boolean {
   if (/^roam:\/\//i.test(raw)) return true;
   if (/^[A-Za-z][\w+.-]*:/i.test(raw)) return false;
   if (raw.startsWith("#") || raw.startsWith("@")) return false;
+  if (/\.ipynb/i.test(raw)) return false;
   return raw.includes("#") || raw.includes("@");
+}
+
+function isJupyterHref(href: string): boolean {
+  const raw = String(href || "").trim();
+  if (!raw) return false;
+  if (/^[A-Za-z][\w+.-]*:/i.test(raw) && !/^file:/i.test(raw)) return false;
+  return /\.ipynb(?:[?@#]|$)/i.test(raw);
 }
 
 // ---------------------------------------------------------------------------
@@ -179,7 +188,9 @@ function collectLivePreviewTokens(
             to: node.to,
             spanFrom,
             spanTo,
-            linkClass: isRoamCoreHref(href) ? "cm-link-text cm-roam-link-text" : "cm-link-text",
+            linkClass: isJupyterHref(href)
+              ? "cm-link-text cm-jupyter-link-text"
+              : isRoamCoreHref(href) ? "cm-link-text cm-roam-link-text" : "cm-link-text",
           });
           return false;
         }
@@ -294,6 +305,21 @@ function addWikilinkTokens(
       const openTo = from + 2;
       const closeFrom = to - 2;
       tokens.push({ kind: "wikilink", from, openTo, closeFrom, to });
+    }
+
+    JUPYTER_LINK_RE.lastIndex = 0;
+    while ((match = JUPYTER_LINK_RE.exec(text)) !== null) {
+      const href = String(match[2] || "").trim();
+      if (!isJupyterHref(href)) continue;
+      const from = visibleFrom + match.index;
+      const to = from + match[0].length;
+      if (rangeOverlapsAny(from, to, blockMathRanges)) continue;
+      const labelTo = from + 1 + (match[1] || "").length;
+      const hrefFrom = labelTo + 2;
+      const linkClass = "cm-link-text cm-jupyter-link-text";
+      tokens.push({ kind: "link-delimiter", from, to: from + 1, spanFrom: from, spanTo: to, linkClass });
+      tokens.push({ kind: "link-delimiter", from: labelTo, to: hrefFrom, spanFrom: from, spanTo: to, linkClass });
+      tokens.push({ kind: "link-delimiter", from: hrefFrom, to, spanFrom: from, spanTo: to, linkClass });
     }
   }
 }

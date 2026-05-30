@@ -3596,6 +3596,154 @@ body.book-toc-open .aaronnote-editor {
   display: none;
 }
 
+.aaronnote-panel-switcher {
+  position: fixed;
+  left: 60px;
+  bottom: 20px;
+  z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.aaronnote-panel-switcher[hidden] {
+  display: none;
+}
+
+.aaronnote-panel-switcher .aaronnote-jupyter-trigger {
+  position: static;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 50%;
+  padding: 0;
+  background: var(--aaron-paper);
+  color: var(--aaron-red-dark);
+  box-shadow: 0 2px 8px rgb(52 39 22 / 14%);
+  cursor: pointer;
+  font: 800 12px/1 var(--aaron-font-mono);
+}
+
+.aaronnote-panel-switcher .aaronnote-jupyter-trigger:hover {
+  border-color: var(--aaron-red);
+  box-shadow: 0 4px 14px rgb(52 39 22 / 22%);
+  transform: scale(1.08);
+}
+
+.aaronnote-panel-switcher .aaronnote-jupyter-trigger.is-active {
+  border-color: color-mix(in srgb, var(--aaron-red), transparent 24%);
+  background: color-mix(in srgb, var(--aaron-red), var(--aaron-paper) 86%);
+  color: var(--aaron-red-dark);
+}
+
+.aaronnote-panel-switcher .aaronnote-jupyter-trigger[hidden] {
+  display: none;
+}
+
+.aaronnote-tool-panel {
+  position: fixed;
+  left: 0;
+  top: 41px;
+  bottom: 0;
+  z-index: 89;
+  width: var(--lean-panel-width, 560px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--aaron-paper-line);
+  background: #f4efe6;
+  box-shadow: 2px 0 12px rgb(52 39 22 / 10%);
+  font-family: var(--aaron-font-sans);
+  font-size: 12px;
+  transform: none;
+  transition: transform 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.aaronnote-tool-panel[hidden],
+.aaronnote-tool-panel.tool-panel--hidden {
+  transform: translateX(-105%);
+  pointer-events: none;
+}
+
+.aaronnote-tool-panel.tool-panel--resizing,
+.aaronnote-tool-panel.tool-panel--resizing * {
+  user-select: none;
+}
+
+.aaronnote-tool-tabs {
+  flex: 0 0 34px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px 0;
+  border-bottom: 1px solid var(--aaron-paper-line);
+  background: #f9f5ed;
+}
+
+.aaronnote-tool-tabs button {
+  height: 29px;
+  min-width: 74px;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+  padding: 0 12px;
+  background: transparent;
+  color: var(--aaron-muted);
+  cursor: pointer;
+  font: 800 12px/1 var(--aaron-font-sans);
+}
+
+.aaronnote-tool-tabs button:hover {
+  color: var(--aaron-red-dark);
+  background: color-mix(in srgb, var(--aaron-paper), white 38%);
+}
+
+.aaronnote-tool-tabs button.is-active {
+  border-color: var(--aaron-paper-line);
+  background: #fffdf8;
+  color: var(--aaron-red-dark);
+}
+
+.aaronnote-tool-tabs button[hidden] {
+  display: none;
+}
+
+.aaronnote-tool-pane {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.aaronnote-tool-pane[hidden] {
+  display: none;
+}
+
+.aaronnote-tool-panel-resizer {
+  position: absolute;
+  top: 0;
+  right: -5px;
+  bottom: 0;
+  width: 10px;
+  cursor: ew-resize;
+  z-index: 3;
+}
+
+.aaronnote-tool-panel-resizer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 4px;
+  width: 2px;
+  background: transparent;
+  transition: background 120ms;
+}
+
+.aaronnote-tool-panel-resizer:hover::after,
+.aaronnote-tool-panel.tool-panel--resizing .aaronnote-tool-panel-resizer::after {
+  background: color-mix(in srgb, var(--aaron-red), transparent 40%);
+}
+
 /* Left-side Infoview drawer */
 .aaronnote-lean-panel {
   position: fixed;
@@ -3631,6 +3779,144 @@ body.book-toc-open .aaronnote-editor {
 
 /* display:none only when the trigger button is also hidden (no lean content) */
 .aaronnote-lean-panel.lean-panel--gone {
+  display: none;
+}
+
+.aaronnote-jupyter-panel {
+  position: fixed;
+  left: 0;
+  top: 41px;
+  bottom: 0;
+  z-index: 89;
+  width: 560px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--aaron-paper-line);
+  background: #f4efe6;
+  box-shadow: 2px 0 12px rgb(52 39 22 / 10%);
+  font-family: var(--aaron-font-sans);
+  font-size: 12px;
+  transform: none;
+  transition: transform 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.aaronnote-jupyter-panel[hidden],
+.aaronnote-jupyter-panel.jupyter-panel--hidden {
+  transform: translateX(-105%);
+  pointer-events: none;
+}
+
+.jupyter-panel-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 8px 0 10px;
+  border-bottom: 1px solid var(--aaron-paper-line);
+  background: #f9f5ed;
+}
+
+.jupyter-panel-title {
+  font: 750 12px/1 var(--aaron-font-sans);
+  color: var(--aaron-red-dark);
+}
+
+.jupyter-panel-target {
+  flex: 1;
+  min-width: 0;
+  color: var(--aaron-muted);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.jupyter-panel-body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  background: #fff;
+}
+
+.jupyter-panel-body iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+}
+
+.jupyter-panel-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: var(--aaron-muted);
+  text-align: center;
+  background: #fffdf8;
+}
+
+.jupyter-panel-empty[hidden],
+.jupyter-panel-body iframe[hidden] {
+  display: none;
+}
+
+.aaronnote-editor a.aaronnote-jupyter-link {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.38em;
+  max-width: 100%;
+  padding: 0.06em 0.42em 0.08em 0.2em;
+  border: 1px solid color-mix(in srgb, #8f1230, transparent 62%);
+  border-radius: 5px;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, #8f1230, transparent 84%), transparent 42%),
+    #fffaf1;
+  color: #5f0f20;
+  text-decoration: none;
+  vertical-align: baseline;
+}
+
+.aaronnote-editor a.aaronnote-jupyter-link::before {
+  content: "ipynb";
+  flex: 0 0 auto;
+  padding: 0.02em 0.32em;
+  border-radius: 3px;
+  background: #8f1230;
+  color: #fff8ee;
+  font: 750 0.72em/1.35 var(--aaron-font-mono);
+  letter-spacing: 0;
+}
+
+.aaronnote-editor a.aaronnote-jupyter-link:hover {
+  border-color: #8f1230;
+  background: #fff4dd;
+}
+
+.aaronnote-tool-panel .aaronnote-lean-panel,
+.aaronnote-tool-panel .aaronnote-jupyter-panel {
+  position: relative;
+  left: auto;
+  top: auto;
+  bottom: auto;
+  z-index: auto;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  border-right: 0;
+  box-shadow: none;
+  transform: none;
+  transition: none;
+}
+
+.aaronnote-tool-panel .aaronnote-lean-panel.lean-panel--hidden,
+.aaronnote-tool-panel .aaronnote-jupyter-panel.jupyter-panel--hidden {
+  transform: none;
+  pointer-events: auto;
+}
+
+.aaronnote-tool-panel .lean-panel-width-resizer {
   display: none;
 }
 

@@ -30,9 +30,14 @@ export function findExecutable(name, { candidates = [], preferredDirs = [], path
 export function findLeanExternalExecutables({ env = process.env, preferredDirs = defaultLeanExternalDirs } = {}) {
   const pathValue = String(env.PATH ?? "");
   return {
-    kitty: findExecutable("kitty", { candidates: [env.AARONNOTE_KITTY], preferredDirs, pathValue }),
+    kitty: findKittyExecutable({ env, preferredDirs }),
     nvim: findExecutable("nvim", { candidates: [env.AARONNOTE_NVIM], preferredDirs, pathValue }),
   };
+}
+
+export function findKittyExecutable({ env = process.env, preferredDirs = defaultLeanExternalDirs } = {}) {
+  const pathValue = String(env.PATH ?? "");
+  return findExecutable("kitty", { candidates: [env.AARONNOTE_KITTY], preferredDirs, pathValue });
 }
 
 export function leanExternalNvimCommand({ kitty, nvim, file, line = 0, character = 0 }) {
@@ -47,5 +52,12 @@ export function leanExternalNvimCommand({ kitty, nvim, file, line = 0, character
       "--",
       file,
     ],
+  };
+}
+
+export function kittyDirectoryCommand({ kitty, dir }) {
+  return {
+    command: kitty,
+    args: ["--directory", dir],
   };
 }

@@ -79,6 +79,11 @@ public/Aaronnote/release/
 # Python runtime/cache; dependencies stay outside the repo.
 __pycache__/
 *.py[cod]
+.ipynb_checkpoints/
+.jupyter/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
 # Local assistant/editor state
 .claude/

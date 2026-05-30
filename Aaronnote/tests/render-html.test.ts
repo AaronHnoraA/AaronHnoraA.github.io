@@ -29,6 +29,13 @@ $$
     expect(html).toContain('data-roam-link="true"');
   });
 
+  test("marks jupyter links with toc selectors, including spaces", () => {
+    const html = renderMarkdownHTML("[toc](./attachments/tset.ipynb@4) [heading](./attachments/tset.ipynb@test file) [hash](./attachments/tset.ipynb#4)");
+
+    expect(html.match(/data-jupyter-link="true"/g)?.length).toBe(3);
+    expect(html).toContain('href="./attachments/tset.ipynb@test file"');
+  });
+
   test("renders meta blocks with the preview cover", () => {
     const html = renderMarkdownHTML([
       "#+begin meta",

@@ -35,6 +35,7 @@ import {
 } from "./find.ts";
 import { createFloatingTocPanel, inlineTagAnchorsFromText, markdownHeadingsFromText } from "./floating-toc.ts";
 import { createLeanPanel } from "./lean-panel.ts";
+import { createJupyterPanel, type JupyterTarget } from "./jupyter-panel.ts";
 import { leanSpliceField, setLeanNotePath } from "../src/cm6/widgets/lean-block.ts";
 import { setBookContext, type BookEditorContext, type BookEditorTocItem } from "../src/cm6/widgets/block-extras.ts";
 import { createGraphPanel } from "./graph-panel.ts";
@@ -329,8 +330,23 @@ root.innerHTML = `
         </div>
       </section>
     </section>
-    <aside class="aaronnote-lean-panel" data-lean-panel hidden></aside>
+    <aside class="aaronnote-tool-panel tool-panel--hidden" data-tool-panel hidden>
+      <div class="aaronnote-tool-tabs" role="tablist" aria-label="Lean and Jupyter panel">
+        <button type="button" data-tool-tab="lean" role="tab" aria-selected="false">Lean</button>
+        <button type="button" data-tool-tab="jupyter" role="tab" aria-selected="false">Jupyter</button>
+      </div>
+      <section class="aaronnote-tool-pane" data-tool-pane="lean" role="tabpanel">
+        <div class="aaronnote-lean-panel" data-lean-panel hidden></div>
+      </section>
+      <section class="aaronnote-tool-pane" data-tool-pane="jupyter" role="tabpanel" hidden>
+        <div class="aaronnote-jupyter-panel" data-jupyter-panel hidden></div>
+      </section>
+      <div class="aaronnote-tool-panel-resizer" data-tool-panel-resizer role="separator" aria-orientation="vertical" title="Resize panel"></div>
+    </aside>
     <button type="button" class="aaronnote-lean-trigger" data-lean-trigger hidden title="Toggle Lean Infoview">⊢</button>
+    <div class="aaronnote-panel-switcher" data-panel-switcher hidden>
+      <button type="button" class="aaronnote-jupyter-trigger" data-jupyter-trigger hidden title="Toggle Jupyter preview">&lt;/&gt;</button>
+    </div>
     <aside class="aaronnote-floating-toc is-collapsed" data-floating-toc>
       <button type="button" data-toc-toggle aria-expanded="false" title="Toggle page outline">Page</button>
       <nav data-toc-list aria-label="Page outline"></nav>
@@ -426,8 +442,17 @@ const agendaDone = document.querySelector<HTMLInputElement>("[data-agenda-done]"
 const agendaRefresh = document.querySelector<HTMLButtonElement>("[data-action='agenda-refresh']")!;
 const agendaCount = document.querySelector<HTMLElement>("[data-agenda-count]")!;
 const agendaList = document.querySelector<HTMLElement>("[data-agenda-list]")!;
+const toolPanelRoot = document.querySelector<HTMLElement>("[data-tool-panel]")!;
+const leanToolPane = document.querySelector<HTMLElement>("[data-tool-pane='lean']")!;
+const jupyterToolPane = document.querySelector<HTMLElement>("[data-tool-pane='jupyter']")!;
+const leanToolTab = document.querySelector<HTMLButtonElement>("[data-tool-tab='lean']")!;
+const jupyterToolTab = document.querySelector<HTMLButtonElement>("[data-tool-tab='jupyter']")!;
+const toolPanelResizer = document.querySelector<HTMLElement>("[data-tool-panel-resizer]")!;
 const leanPanelRoot = document.querySelector<HTMLElement>("[data-lean-panel]")!;
+const jupyterPanelRoot = document.querySelector<HTMLElement>("[data-jupyter-panel]")!;
+const panelSwitcher = document.querySelector<HTMLElement>("[data-panel-switcher]")!;
 const leanTriggerBtn = document.querySelector<HTMLButtonElement>("[data-lean-trigger]")!;
+const jupyterTriggerBtn = document.querySelector<HTMLButtonElement>("[data-jupyter-trigger]")!;
 const toc = document.querySelector<HTMLElement>("[data-floating-toc]")!;
 const tocList = document.querySelector<HTMLElement>("[data-toc-list]")!;
 const tocToggle = document.querySelector<HTMLButtonElement>("[data-toc-toggle]")!;
@@ -730,6 +755,16 @@ type StoredDraft = { file: string; content: string; revision: number; updatedAt:
 type OpenNoteOptions = { newWindow?: boolean; equationTag?: string; inlineTag?: string; domTarget?: string; recordJump?: boolean; scrollTop?: boolean };
 type BookTocItem = NonNullable<NoteSummary["bookToc"]>[number];
 type BookTocNode = { item: BookTocItem | BookEditorTocItem; key: string; level: number; children: BookTocNode[] };
+type DomTargetEntry = {
+  label: string;
+  slug: string;
+  path: string[];
+  labelPath: string[];
+  level?: number;
+  pos?: number;
+  to?: number;
+  notePath?: string;
+};
 type JumpTarget = {
   pos: number;
   label: string;
@@ -940,6 +975,8 @@ const filesystemBrowser = createFilesystemBrowser({
   duplicateFile: (file) => duplicateFileFromBrowser(file),
   trashDirectory: (dir) => trashDirectoryFromBrowser(dir),
   revealPath: api.shell.available() ? (path) => revealPathFromBrowser(path) : undefined,
+  openDirectory: api.shell.available() ? (path) => openDirectoryFromBrowser(path) : undefined,
+  openDirectoryInKitty: api.shell.available() ? (path) => openDirectoryInKittyFromBrowser(path) : undefined,
 });
 
 function focusFilesystemRangerSoon(attempts = 8): void {
@@ -1031,9 +1068,125 @@ const leanPanel = createLeanPanel({
   jumpToNoteOffset: (offset) => {
     editor.view.dispatch({ selection: { anchor: offset }, scrollIntoView: true });
   },
+  onVisibilityChange: syncPanelSwitcher,
 });
 
-leanTriggerBtn.addEventListener("click", () => leanPanel.toggle());
+const jupyterPanel = createJupyterPanel({
+  root: jupyterPanelRoot,
+  setStatus,
+  onVisibilityChange: syncPanelSwitcher,
+});
+
+const TOOL_PANEL_WIDTH_KEY = "aaronnote.toolPanel.width";
+const TOOL_PANEL_MIN_WIDTH = 320;
+const TOOL_PANEL_MAX_WIDTH = 920;
+let toolPanelWidth = (() => {
+  const stored = Number(window.localStorage.getItem(TOOL_PANEL_WIDTH_KEY));
+  return Number.isFinite(stored) && stored > 0 ? stored : 560;
+})();
+
+function clampToolPanelWidth(width: number): number {
+  const maxByViewport = Math.max(TOOL_PANEL_MIN_WIDTH, Math.min(TOOL_PANEL_MAX_WIDTH, window.innerWidth - 220));
+  return Math.max(TOOL_PANEL_MIN_WIDTH, Math.min(maxByViewport, Math.round(width)));
+}
+
+function applyToolPanelWidth(width = toolPanelWidth): void {
+  toolPanelWidth = clampToolPanelWidth(width);
+  const value = `${toolPanelWidth}px`;
+  toolPanelRoot.style.setProperty("--lean-panel-width", value);
+  document.body.style.setProperty("--lean-panel-width", value);
+  window.localStorage.setItem(TOOL_PANEL_WIDTH_KEY, String(toolPanelWidth));
+}
+
+applyToolPanelWidth();
+
+function syncPanelSwitcher(): void {
+  const jupyterAvailable = api.jupyter.available();
+  const panelVisible = leanPanel.visible || jupyterPanel.visible;
+  toolPanelRoot.hidden = !panelVisible;
+  toolPanelRoot.classList.toggle("tool-panel--hidden", !panelVisible);
+  leanToolPane.hidden = !leanPanel.visible;
+  jupyterToolPane.hidden = !jupyterPanel.visible;
+  leanToolTab.hidden = leanTriggerBtn.hidden;
+  jupyterToolTab.hidden = !jupyterAvailable && !jupyterPanel.visible;
+  leanToolTab.classList.toggle("is-active", leanPanel.visible);
+  jupyterToolTab.classList.toggle("is-active", jupyterPanel.visible);
+  leanToolTab.setAttribute("aria-selected", leanPanel.visible ? "true" : "false");
+  jupyterToolTab.setAttribute("aria-selected", jupyterPanel.visible ? "true" : "false");
+  if (panelVisible) applyToolPanelWidth();
+  jupyterTriggerBtn.hidden = true;
+  panelSwitcher.hidden = true;
+  leanTriggerBtn.classList.toggle("is-active", leanPanel.visible);
+  leanTriggerBtn.setAttribute("aria-pressed", leanPanel.visible ? "true" : "false");
+  jupyterTriggerBtn.classList.toggle("is-active", jupyterPanel.visible);
+  jupyterTriggerBtn.setAttribute("aria-pressed", jupyterPanel.visible ? "true" : "false");
+}
+
+function showLeanPanelTab(): void {
+  if (leanTriggerBtn.hidden) return;
+  if (!leanPanel.visible) {
+    jupyterPanel.hide();
+    leanPanel.show();
+  }
+  syncPanelSwitcher();
+}
+
+function showJupyterPanelTab(): void {
+  if (!api.jupyter.available()) {
+    setStatus("Jupyter preview unavailable");
+    return;
+  }
+  if (!jupyterPanel.visible) {
+    leanPanel.hide();
+    jupyterPanel.show();
+  }
+  syncPanelSwitcher();
+}
+
+function toggleLeanPanel(): void {
+  if (leanPanel.visible) {
+    leanPanel.hide();
+  } else {
+    jupyterPanel.hide();
+    leanPanel.show();
+  }
+  syncPanelSwitcher();
+}
+
+function toggleJupyterPanel(): void {
+  if (!api.jupyter.available()) {
+    setStatus("Jupyter preview unavailable");
+    return;
+  }
+  if (jupyterPanel.visible) {
+    jupyterPanel.hide();
+  } else {
+    leanPanel.hide();
+    jupyterPanel.show();
+  }
+  syncPanelSwitcher();
+}
+
+leanTriggerBtn.addEventListener("click", toggleLeanPanel);
+jupyterTriggerBtn.addEventListener("click", toggleJupyterPanel);
+leanToolTab.addEventListener("click", showLeanPanelTab);
+jupyterToolTab.addEventListener("click", showJupyterPanelTab);
+toolPanelResizer.addEventListener("mousedown", (event) => {
+  event.preventDefault();
+  toolPanelRoot.classList.add("tool-panel--resizing");
+  const onMove = (moveEvent: MouseEvent) => applyToolPanelWidth(moveEvent.clientX);
+  const onUp = (): void => {
+    toolPanelRoot.classList.remove("tool-panel--resizing");
+    document.removeEventListener("mousemove", onMove);
+    document.removeEventListener("mouseup", onUp);
+  };
+  document.addEventListener("mousemove", onMove);
+  document.addEventListener("mouseup", onUp, { once: true });
+});
+window.addEventListener("resize", () => {
+  if (!toolPanelRoot.hidden) applyToolPanelWidth();
+});
+syncPanelSwitcher();
 
 let activeLeanRegionForCommand: { notePath: string; tag: string; selector: string; leanPath: string } | null = null;
 
@@ -2283,17 +2436,77 @@ function hrefProtocol(href: string): string | null {
   return cleanHref(href).match(/^([A-Za-z][\w+.-]*):/)?.[1]?.toLowerCase() ?? null;
 }
 
+function stripJupyterSelectorPath(path: string): string {
+  const match = String(path || "").match(/^(.+?\.ipynb)@/i);
+  if (match) return match[1] || "";
+  return path;
+}
+
+function jupyterAtSelectorFromHref(href: string): string {
+  const rawPath = cleanHref(href).split(/[?#]/, 1)[0] ?? "";
+  let decoded = "";
+  if (/^file:\/\//i.test(rawPath)) {
+    try {
+      decoded = decodeNoteRef(new URL(rawPath).pathname);
+    } catch {
+      decoded = decodeNoteRef(rawPath.replace(/^file:\/\//i, ""));
+    }
+  } else if (/^file:/i.test(rawPath)) {
+    decoded = decodeNoteRef(rawPath.replace(/^file:/i, ""));
+  } else {
+    decoded = decodeNoteRef(rawPath);
+  }
+  const match = decoded.match(/^(.+?\.ipynb)@(.+)$/i);
+  if (!match) return "";
+  return domTargetPathSegments(match[2] || "")[0] || "";
+}
+
+function jupyterHashSelectorFromHref(href: string): string {
+  const hash = hrefHash(href);
+  if (!hash) return "";
+  return domTargetPathSegments(decodeNoteRef(hash).trim())[0] || "";
+}
+
+function jupyterTocSelectorFromHref(href: string): string {
+  return jupyterAtSelectorFromHref(href) || jupyterHashSelectorFromHref(href);
+}
+
 function hrefPath(href: string): string {
   const raw = cleanHref(href);
   if (/^file:\/\//i.test(raw)) {
     try {
-      return decodeNoteRef(new URL(raw).pathname);
+      return stripJupyterSelectorPath(decodeNoteRef(new URL(raw).pathname));
     } catch {
-      return decodeNoteRef(raw.replace(/^file:\/\//i, ""));
+      return stripJupyterSelectorPath(decodeNoteRef(raw.replace(/^file:\/\//i, "")));
     }
   }
-  if (/^file:/i.test(raw)) return decodeNoteRef(raw.replace(/^file:/i, "").split(/[?#]/, 1)[0] ?? "");
-  return decodeNoteRef(raw.split(/[?#]/, 1)[0] ?? "");
+  if (/^file:/i.test(raw)) return stripJupyterSelectorPath(decodeNoteRef(raw.replace(/^file:/i, "").split(/[?#]/, 1)[0] ?? ""));
+  return stripJupyterSelectorPath(decodeNoteRef(raw.split(/[?#]/, 1)[0] ?? ""));
+}
+
+function jupyterHrefP(href: string): boolean {
+  const protocol = hrefProtocol(href);
+  if (protocol && protocol !== "file") return false;
+  return /\.ipynb$/i.test(hrefPath(href));
+}
+
+function canonicalJupyterPath(path: string): string {
+  const clean = normalizeNotePath(path);
+  if (!clean || clean.startsWith("/") || !currentFile) return clean;
+  return joinNotePath(dirnamePath(currentFile), clean);
+}
+
+function jupyterTargetFromHref(href: string): JupyterTarget | null {
+  if (!jupyterHrefP(href)) return null;
+  const tocTarget = jupyterTocSelectorFromHref(href);
+  const path = canonicalJupyterPath(hrefPath(href));
+  return {
+    href,
+    path,
+    base: currentFile,
+    selector: tocTarget,
+    selectorKind: tocTarget ? "toc" : "",
+  };
 }
 
 function attachmentHrefP(href: string): boolean {
@@ -2393,14 +2606,20 @@ function splitRoamLikeHref(href: string): { ref: string; hash: string; dom: stri
     body = body.slice(0, hashIndex);
   }
   let dom = "";
-  const atIndex = body.lastIndexOf("@");
-  if (atIndex >= 0) {
-    dom = decodeNoteRef(body.slice(atIndex + 1));
-    body = body.slice(0, atIndex);
+  const fileDomMatch = body.match(/^(.+?\.(?:md|markdown|typ))@(.+)$/i);
+  if (fileDomMatch) {
+    body = fileDomMatch[1] || "";
+    dom = domTargetPathSegments(fileDomMatch[2] || "").join("@");
+  } else {
+    const atIndex = body.indexOf("@");
+    if (atIndex >= 0) {
+      dom = domTargetPathSegments(body.slice(atIndex + 1)).join("@");
+      body = body.slice(0, atIndex);
+    }
   }
   const ref = decodeNoteRef(body.replace(/^\/+/, "").replace(/[.,;:]+$/, "")).trim();
   if (!ref && !hash && !dom) return null;
-  return { ref, hash: hash.trim(), dom: dom.trim() };
+  return { ref, hash: hash.trim(), dom: normalizeDomTargetPath(dom) };
 }
 
 function escapeRegExp(value: string): string {
@@ -2556,6 +2775,47 @@ function resolveBookTocItemNote(item: BookTocItem | BookEditorTocItem): NoteSumm
   return cover?.file ? cover : undefined;
 }
 
+function bookTocDomTargetEntries(cover: NoteSummary): DomTargetEntry[] {
+  const tocItems = (cover.bookToc ?? []) as Array<BookTocItem | BookEditorTocItem>;
+  const stack: Array<{ level: number; path: string[]; labelPath: string[] }> = [];
+  const out: DomTargetEntry[] = [];
+  for (const item of tocItems) {
+    const label = normalizeDomTarget(item.text || item.slug || "");
+    const slug = slugDomTarget(item.slug || label);
+    if (!label || !slug) continue;
+    const level = Math.max(1, Number(item.level || 1));
+    while (stack.length > 0 && stack[stack.length - 1]!.level >= level) stack.pop();
+    const parent = stack[stack.length - 1];
+    const path = [...(parent?.path ?? []), slug];
+    const labelPath = [...(parent?.labelPath ?? []), label];
+    stack.push({ level, path, labelPath });
+    out.push({
+      label,
+      slug,
+      path,
+      labelPath,
+      level,
+      notePath: item.path || "",
+    });
+  }
+  return out;
+}
+
+function resolveBookDomTarget(note: NoteSummary | undefined, rawTarget: string): { note?: NoteSummary; domTarget?: string } | null {
+  const cover = bookCoverForNote(note);
+  if (!cover || !rawTarget) return null;
+  const hit = findDomTargetEntry(bookTocDomTargetEntries(cover), rawTarget);
+  if (!hit) return null;
+  const item = (cover.bookToc ?? []).find((tocItem) =>
+    bookPathKey(tocItem.path) === bookPathKey(hit.notePath)
+    && (tocItem.slug === hit.slug || slugDomTarget(tocItem.text || "") === hit.slug));
+  const target = item ? resolveBookTocItemNote(item) : undefined;
+  return {
+    note: target?.file ? target : cover,
+    domTarget: hit.path.join("@") || hit.slug,
+  };
+}
+
 function activeBookHeadingSlug(): string {
   const pos = editor.getMarkdownSelection().from;
   let slug = "";
@@ -2598,7 +2858,30 @@ function resolveRoamLikeNoteTarget(href: string): { note?: NoteSummary; equation
   }
   const equationTag = /^eq-/i.test(target.hash) ? decodeNoteRef(target.hash.slice(3)).trim() : "";
   const inlineTag = equationTag ? "" : normalizeInlineTag(target.hash);
+  if (target.dom) {
+    const bookTarget = resolveBookDomTarget(note, target.dom);
+    if (bookTarget?.note) return { note: bookTarget.note, equationTag, inlineTag, domTarget: bookTarget.domTarget || target.dom };
+  }
   return { note, equationTag, inlineTag, domTarget: target.dom };
+}
+
+async function openJupyterPreviewTarget(target: JupyterTarget, options: { restart?: boolean } = {}): Promise<void> {
+  if (!api.jupyter.available()) {
+    setStatus("Jupyter preview unavailable");
+    return;
+  }
+  leanPanel.hide();
+  await jupyterPanel.open(target, { restart: options.restart });
+  syncPanelSwitcher();
+}
+
+async function openJupyterPreviewFromHref(href: string, options: { restart?: boolean } = {}): Promise<void> {
+  const target = jupyterTargetFromHref(href);
+  if (!target) {
+    setStatus("No Jupyter notebook link");
+    return;
+  }
+  await openJupyterPreviewTarget(target, options);
 }
 
 function resolveInternalNoteHref(href: string): NoteSummary | undefined {
@@ -2653,6 +2936,10 @@ function syncCurrentFileUrl(): void {
 function openExternalUrl(href: string, options: OpenNoteOptions = {}): void {
   if (!safeHref(href)) {
     setStatus("Blocked unsafe link");
+    return;
+  }
+  if (jupyterHrefP(href)) {
+    void openJupyterPreviewFromHref(href);
     return;
   }
   const roamLike = resolveRoamLikeNoteTarget(href);
@@ -4152,6 +4439,30 @@ async function revealPathFromBrowser(path: string): Promise<void> {
   }
 }
 
+async function openDirectoryFromBrowser(path: string): Promise<void> {
+  const target = String(path || "").trim();
+  if (!target) return;
+  setStatus("Opening folder");
+  try {
+    await api.shell.openDirectory(target, currentFile);
+    setStatus("Folder opened");
+  } catch (err) {
+    setStatus(err instanceof Error ? err.message : "Open folder failed");
+  }
+}
+
+async function openDirectoryInKittyFromBrowser(path: string): Promise<void> {
+  const target = String(path || "").trim();
+  if (!target) return;
+  setStatus("Opening Kitty");
+  try {
+    await api.shell.openDirectoryInKitty(target, currentFile);
+    setStatus("Kitty opened");
+  } catch (err) {
+    setStatus(err instanceof Error ? err.message : "Open Kitty failed");
+  }
+}
+
 function noteFileName(note: NoteSummary): string {
   const path = normalizeNotePath(note.path || note.file || "");
   return path.split("/").filter(Boolean).at(-1) || "note.md";
@@ -4891,8 +5202,8 @@ function noteAnchorHref(note: NoteSummary | undefined, hash: string): string {
 
 function noteDomHref(note: NoteSummary | undefined, domTarget: string): string {
   const externalNote = externalBookNote(note);
-  const clean = slugDomTarget(domTarget);
-  const encoded = encodeURIComponent(clean);
+  const clean = normalizeDomTargetPath(domTarget);
+  const encoded = encodeDomTargetPath(clean);
   if (!encoded) return noteAnchorHref(externalNote, "");
   const targetHref = !currentStandalone && externalNote?.roam ? roamHrefForNote(externalNote).replace(/#.*$/, "") : "";
   if (targetHref) return `${targetHref}@${encoded}`;
@@ -4912,7 +5223,7 @@ function inlineTagReferenceMarkdown(tag: string): string {
 
 function domReferenceMarkdown(domTarget: string): string {
   const note = currentNote();
-  const clean = slugDomTarget(domTarget);
+  const clean = normalizeDomTargetPath(domTarget);
   return `[${escapeMarkdownLinkText(`@${clean}`)}](${noteDomHref(note, clean)})`;
 }
 
@@ -5012,46 +5323,129 @@ function normalizeDomTarget(value: string): string {
     .trim();
 }
 
+function domTargetPathSegments(value: string): string[] {
+  return String(value || "")
+    .trim()
+    .replace(/^@+/, "")
+    .split("@")
+    .map((segment) => normalizeDomTarget(segment))
+    .filter(Boolean);
+}
+
 function slugDomTarget(value: string): string {
   return normalizeDomTarget(value)
     .toLowerCase()
-    .replace(/[`*_~()[\]{}#+.!<>:;,'"“”‘’]/g, " ")
+    .replace(/[`*_~()[\]{}#+.!<>:;,'"“”‘’@]/g, " ")
     .trim()
     .replace(/\s+/g, "-");
 }
 
-function currentDomTargets(): Array<{ label: string; slug?: string; pos: number; to: number }> {
+function normalizeDomTargetPath(value: string): string {
+  return domTargetPathSegments(value)
+    .map(slugDomTarget)
+    .filter(Boolean)
+    .join("@");
+}
+
+function encodeDomTargetPath(value: string): string {
+  return domTargetPathSegments(value)
+    .map(slugDomTarget)
+    .filter(Boolean)
+    .map(encodeURIComponent)
+    .join("@");
+}
+
+function domTargetPathLabel(path: readonly string[]): string {
+  return path.filter(Boolean).join(" / ");
+}
+
+function targetSegmentMatches(actual: string, wanted: string): boolean {
+  const actualNorm = normalizeDomTarget(actual).toLowerCase();
+  const wantedNorm = normalizeDomTarget(wanted).toLowerCase();
+  if (actualNorm && actualNorm === wantedNorm) return true;
+  const actualSlug = slugDomTarget(actual);
+  const wantedSlug = slugDomTarget(wanted);
+  return Boolean(actualSlug && wantedSlug && actualSlug === wantedSlug);
+}
+
+function targetPathMatches(actualPath: readonly string[], wantedPath: readonly string[], allowSuffix = true): boolean {
+  if (wantedPath.length === 0 || actualPath.length === 0) return false;
+  const pathMatchesAt = (offset: number) => wantedPath.every((segment, index) =>
+    targetSegmentMatches(actualPath[offset + index] || "", segment));
+  if (actualPath.length === wantedPath.length && pathMatchesAt(0)) return true;
+  if (!allowSuffix || actualPath.length < wantedPath.length) return false;
+  return pathMatchesAt(actualPath.length - wantedPath.length);
+}
+
+function findDomTargetEntry(entries: readonly DomTargetEntry[], rawTarget: string): DomTargetEntry | undefined {
+  const targetPath = domTargetPathSegments(rawTarget);
+  if (targetPath.length === 0) return undefined;
+  if (targetPath.length > 1) {
+    return entries.find((entry) => targetPathMatches(entry.path, targetPath, false))
+      ?? entries.find((entry) => targetPathMatches(entry.path, targetPath, true));
+  }
+  const target = targetPath[0] || "";
+  const targetSlug = slugDomTarget(target);
+  const targetNorm = normalizeDomTarget(target).toLowerCase();
+  return entries.find((entry) => {
+    const label = normalizeDomTarget(entry.label).toLowerCase();
+    return label === targetNorm || entry.slug === targetSlug || entry.slug === targetNorm;
+  });
+}
+
+function currentDomTargets(): DomTargetEntry[] {
   const doc = editor.view.state.doc;
-  const headings = markdownHeadingsFromText(doc).map((heading) => ({
-    label: heading.text,
-    slug: heading.slug,
-    pos: heading.pos,
-    to: heading.to ?? heading.pos + heading.text.length,
-  }));
+  const stack: string[] = [];
+  const labelStack: string[] = [];
+  const headings = markdownHeadingsFromText(doc).map((heading) => {
+    const level = Math.max(1, Number(heading.level || 1));
+    const label = normalizeDomTarget(heading.text);
+    const slug = heading.slug || slugDomTarget(label);
+    stack.length = Math.min(stack.length, level - 1);
+    labelStack.length = Math.min(labelStack.length, level - 1);
+    stack.push(slug);
+    labelStack.push(label);
+    return {
+      label,
+      slug,
+      path: [...stack],
+      labelPath: [...labelStack],
+      level,
+      pos: heading.pos,
+      to: heading.to ?? heading.pos + heading.text.length,
+    };
+  });
   const note = currentNote();
   const title = note?.title || "";
-  return title ? [{ label: title, pos: 0, to: Math.min(editor.getMarkdown().length, title.length) }, ...headings] : headings;
+  if (!title) return headings;
+  const titleLabel = normalizeDomTarget(title);
+  const titleSlug = slugDomTarget(titleLabel);
+  return [{
+    label: titleLabel,
+    slug: titleSlug,
+    path: [titleSlug],
+    labelPath: [titleLabel],
+    level: 1,
+    pos: 0,
+    to: Math.min(editor.getMarkdown().length, title.length),
+  }, ...headings];
 }
 
 function domTargetAtCursor(): string {
   const selection = editor.getMarkdownSelection();
   const pos = selection.from;
-  const target = currentDomTargets().find((item) => pos >= item.pos && pos <= item.to)
-    ?? currentDomTargets().find((item) => selection.from < item.to && selection.to > item.pos);
-  return target ? target.slug || slugDomTarget(target.label) : "";
+  const targets = currentDomTargets();
+  const target = targets.find((item) => pos >= (item.pos ?? 0) && pos <= (item.to ?? item.pos ?? 0))
+    ?? targets.find((item) => selection.from < (item.to ?? item.pos ?? 0) && selection.to > (item.pos ?? 0));
+  return target ? target.path.join("@") : "";
 }
 
 function jumpToDomTarget(rawTarget: string): boolean {
-  const target = normalizeDomTarget(rawTarget);
+  const target = normalizeDomTargetPath(rawTarget);
   if (!target) return false;
-  const normalized = target.toLowerCase();
-  const slug = slugDomTarget(target);
-  const hit = currentDomTargets().find((item) => {
-    const label = normalizeDomTarget(item.label).toLowerCase();
-    return label === normalized || slugDomTarget(item.label) === slug || item.slug === slug || item.slug === normalized;
-  });
+  const hit = findDomTargetEntry(currentDomTargets(), target);
   if (!hit) return false;
-  editor.setSelection(hit.pos, hit.to);
+  editor.setSelection(hit.pos ?? 0, hit.to ?? hit.pos ?? 0);
   editor.revealCursor();
   setStatus(`DOM target ${target}`);
   scheduleAssistUpdate({ toc: true });
@@ -5082,7 +5476,7 @@ async function copyInlineTagRef(tag: string): Promise<boolean> {
 }
 
 async function copyDomRef(domTarget: string): Promise<boolean> {
-  const clean = slugDomTarget(domTarget);
+  const clean = normalizeDomTargetPath(domTarget);
   if (!clean) return false;
   await copyText(domReferenceMarkdown(clean));
   setStatus(`DOM ref copied: ${clean}`);
@@ -5167,7 +5561,10 @@ function showNotesPage(tab = "filesystem"): void {
   saveCursorPositionNow({ force: true });
   cleanupTransientUi();
   closeRelationPanel();
-  if (targetTab === "filesystem" || targetTab === "recent") leanPanel.hide();
+  if (targetTab === "filesystem" || targetTab === "recent") {
+    leanPanel.hide();
+    jupyterPanel.hide();
+  }
   linkPreview.hide();
   disposeGraph();
   host.hidden = true;
@@ -5705,7 +6102,7 @@ function openNote(note: NoteSummary, options: OpenNoteOptions = {}): void {
   if (!note.file) return;
   const equationTag = normalizeEquationTag(options.equationTag || "");
   const inlineTag = normalizeInlineTag(options.inlineTag || "");
-  const domTarget = normalizeDomTarget(options.domTarget || "");
+  const domTarget = normalizeDomTargetPath(options.domTarget || "");
   saveCursorPositionNow({ force: true });
   if (options.recordJump) pushJumpPoint();
   else setJumpStack([]);
@@ -6034,18 +6431,39 @@ function tagCompletionContext(before: string): { note: NoteSummary; tagPrefix: s
   return null;
 }
 
-function domCompletionContext(before: string): { note: NoteSummary; domPrefix: string } | null {
-  const roamMatch = before.match(/(?:^|[\s([{"'=])roam:\/\/([^\s\])}"'`<>#@]*)@([^\s\])}"'`<>]*)$/i);
-  if (roamMatch) {
-    const note = noteFromCompletionRef(roamMatch[1] ?? "");
-    if (note) return { note, domPrefix: roamMatch[2] ?? "" };
+function domCompletionParts(rawHref: string): { ref: string; parentSegments: string[]; domPrefix: string } | null {
+  const clean = cleanHref(rawHref);
+  if (!clean || clean.includes("#")) return null;
+  const roamTarget = splitRoamLikeHref(clean);
+  if (roamTarget?.dom) {
+    const endsAtSeparator = /@$/.test(clean);
+    const segments = domTargetPathSegments(roamTarget.dom);
+    return {
+      ref: roamTarget.ref,
+      parentSegments: endsAtSeparator ? segments : segments.slice(0, -1),
+      domPrefix: endsAtSeparator ? "" : segments[segments.length - 1] || "",
+    };
   }
-  const pathMatch = before.match(/(?:^|[\s([{"'=])((?:\.{1,2}\/|\.|[^\s\])}"'`<>#@]+)[^\s\])}"'`<>#@]*)@([^\s\])}"'`<>]*)$/);
-  if (pathMatch) {
-    const note = noteFromCompletionRef(pathMatch[1] ?? "");
-    if (note) return { note, domPrefix: pathMatch[2] ?? "" };
-  }
-  return null;
+  const fileDomMatch = clean.match(/^(.+?\.(?:md|markdown|typ))@(.+)$/i);
+  const plainDomMatch = fileDomMatch ? null : clean.match(/^(.+?)@([^@]*)$/);
+  const match = fileDomMatch || plainDomMatch;
+  if (!match) return null;
+  const endsAtSeparator = /@$/.test(clean);
+  const segments = domTargetPathSegments(match[2] || "");
+  return {
+    ref: match[1] || "",
+    parentSegments: endsAtSeparator ? segments : segments.slice(0, -1),
+    domPrefix: endsAtSeparator ? "" : segments[segments.length - 1] || "",
+  };
+}
+
+function domCompletionContext(before: string): { note: NoteSummary; domPrefix: string; parentSegments: string[] } | null {
+  const match = before.match(/(?:^|[\s([{"'=])((?:roam:\/\/|\.{1,2}\/|\.|[^\s()[\]{}"'`<>#]+)[^\s()[\]{}"'`<>#]*)$/i);
+  const parts = match ? domCompletionParts(match[1] ?? "") : null;
+  if (!parts) return null;
+  const note = noteFromCompletionRef(parts.ref);
+  if (!note) return null;
+  return { note, domPrefix: parts.domPrefix, parentSegments: parts.parentSegments };
 }
 
 function noteInlineTagsForCompletion(note: NoteSummary): string[] {
@@ -6071,15 +6489,21 @@ function matchingTagCompletions(note: NoteSummary, prefix: string): SnippetSumma
     }));
 }
 
-function domTargetsForCompletion(note: NoteSummary): Array<{ label: string; slug: string }> {
+function domTargetsForCompletion(note: NoteSummary): DomTargetEntry[] {
   const externalNote = externalBookNote(note) || note;
-  const bookTargets = externalNote.bookDomTargets ?? [];
-  if (bookTargets.length > 0) {
+  const bookTargets = bookTocDomTargetEntries(externalNote);
+  if (bookTargets.length > 0) return bookTargets;
+  const legacyBookTargets = externalNote.bookDomTargets ?? [];
+  if (legacyBookTargets.length > 0) {
     const seen = new Set<string>();
-    return bookTargets
+    return legacyBookTargets
       .map((target) => ({
         label: normalizeDomTarget(target.label || target.slug || ""),
         slug: slugDomTarget(target.slug || target.label || ""),
+        path: [slugDomTarget(target.slug || target.label || "")],
+        labelPath: [normalizeDomTarget(target.label || target.slug || "")],
+        level: target.level || 1,
+        notePath: target.path || "",
       }))
       .filter((target) => {
         if (!target.label || !target.slug || seen.has(target.slug)) return false;
@@ -6087,9 +6511,16 @@ function domTargetsForCompletion(note: NoteSummary): Array<{ label: string; slug
         return true;
       });
   }
-  const rawTargets = externalNote.file === currentFile
-    ? currentDomTargets().map((target) => target.label)
-    : [externalNote.title || externalNote.path || externalNote.file || canonicalRoamNoteId(externalNote)].filter(Boolean);
+  if (externalNote.file === currentFile) {
+    const seen = new Set<string>();
+    return currentDomTargets().filter((target) => {
+      const key = target.path.join("@");
+      if (!target.label || !target.slug || !key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+  const rawTargets = [externalNote.title || externalNote.path || externalNote.file || canonicalRoamNoteId(externalNote)].filter(Boolean);
   const seen = new Set<string>();
   const targets: Array<{ label: string; slug: string }> = [];
   for (const label of rawTargets) {
@@ -6099,13 +6530,28 @@ function domTargetsForCompletion(note: NoteSummary): Array<{ label: string; slug
     seen.add(slug);
     targets.push({ label: clean, slug });
   }
-  return targets;
+  return targets.map((target) => ({
+    ...target,
+    path: [target.slug],
+    labelPath: [target.label],
+    level: 1,
+  }));
 }
 
-function matchingDomCompletions(note: NoteSummary, prefix: string): SnippetSummary[] {
+function immediateDomCompletionTargets(entries: readonly DomTargetEntry[], parentSegments: readonly string[]): DomTargetEntry[] {
+  const parentPath = parentSegments.map(slugDomTarget).filter(Boolean);
+  const parentLength = parentPath.length;
+  return entries.filter((entry) => {
+    if (entry.path.length !== parentLength + 1) return false;
+    if (parentLength === 0) return true;
+    return targetPathMatches(entry.path.slice(0, parentLength), parentPath, false);
+  });
+}
+
+function matchingDomCompletions(note: NoteSummary, prefix: string, parentSegments: readonly string[] = []): SnippetSummary[] {
   note = externalBookNote(note) || note;
   const query = normalizeDomTarget(prefix).toLowerCase();
-  return domTargetsForCompletion(note)
+  return immediateDomCompletionTargets(domTargetsForCompletion(note), parentSegments)
     .filter((target) => target.slug.includes(query) || target.label.toLowerCase().includes(query))
     .slice(0, 12)
     .map((target) => ({
@@ -6114,7 +6560,7 @@ function matchingDomCompletions(note: NoteSummary, prefix: string): SnippetSumma
       mode: "markdown-mode",
       group: "dom",
       body: encodeURIComponent(target.slug),
-      source: note.path || note.file || canonicalRoamNoteId(note) || target.label,
+      source: domTargetPathLabel(target.labelPath) || note.path || note.file || canonicalRoamNoteId(note) || target.label,
     }));
 }
 
@@ -6548,7 +6994,9 @@ function commandPaletteCommands(): AaronnoteCommand[] {
     { id: "lean-block-manager", title: "Lean block manager", group: "Editor", keywords: ["lean4", "proof", "mirror", "file"], enabled: () => !!currentFile && !currentStandalone, run: () => void openLeanBlockManager() },
     { id: "insert-lean-block", title: "Insert Lean block", group: "Editor", keywords: ["lean4", "proof"], enabled: () => !!currentFile && !currentStandalone, run: () => void insertLeanBlock() },
     { id: "clean-lean-block", title: "Clean current Lean block", group: "Editor", keywords: ["lean4", "delete", "tag"], enabled: () => !!currentFile && !currentStandalone, run: () => void cleanCurrentLeanBlock() },
-    { id: "toggle-lean-panel", title: "Toggle Lean panel", group: "Editor", keywords: ["lean4", "infoview", "lsp"], enabled: () => !leanTriggerBtn.hidden, run: () => leanPanel.toggle() },
+    { id: "toggle-lean-panel", title: "Toggle Lean panel", group: "Editor", keywords: ["lean4", "infoview", "lsp"], enabled: () => !leanTriggerBtn.hidden, run: toggleLeanPanel },
+    { id: "toggle-jupyter-preview", title: "Toggle Jupyter preview", group: "Editor", keywords: ["ipynb", "notebook", "jupyter"], enabled: () => api.jupyter.available(), run: toggleJupyterPanel },
+    { id: "stop-jupyter", title: "Stop Jupyter preview", group: "Editor", keywords: ["ipynb", "notebook", "jupyter"], enabled: () => api.jupyter.available(), run: () => void jupyterPanel.stop() },
 
     { id: "lean-goto-definition", title: "Lean: Go to Definition", group: "Lean", keywords: ["lsp", "lean4", "gd"], enabled: () => !!activeLeanController(), run: () => void activeLeanController()?.runLspAction("definition") },
     { id: "lean-goto-declaration", title: "Lean: Go to Declaration", group: "Lean", keywords: ["lsp", "lean4", "gD"], enabled: () => !!activeLeanController(), run: () => void activeLeanController()?.runLspAction("declaration") },
@@ -7298,7 +7746,7 @@ function updateSnippetPopup(ctx: ReturnType<typeof editor.cursorContext>): void 
   }
   const domContext = domCompletionContext(ctx.before);
   if (domContext) {
-    const matches = matchingDomCompletions(domContext.note, domContext.domPrefix);
+    const matches = matchingDomCompletions(domContext.note, domContext.domPrefix, domContext.parentSegments);
     if (matches.length === 0) {
       hideSnippetPopup();
       return;
@@ -8342,7 +8790,7 @@ function applyOpen(msg: Extract<Inbound, { type: "open" }>, options: { preserveF
   pendingEquationTag = "";
   const inlineTag = normalizeInlineTag(pendingInlineTag);
   pendingInlineTag = "";
-  const domTarget = normalizeDomTarget(pendingDomTarget);
+  const domTarget = normalizeDomTargetPath(pendingDomTarget);
   pendingDomTarget = "";
   const openAtTop = pendingOpenAtTop;
   pendingOpenAtTop = false;
@@ -8396,6 +8844,7 @@ function applyOpen(msg: Extract<Inbound, { type: "open" }>, options: { preserveF
     leanPanelRoot.classList.add("lean-panel--gone");
     leanTriggerBtn.hidden = true;
   }
+  syncPanelSwitcher();
   if (!relationPanel.hidden) renderRelationPanel(true);
   scheduleAssistUpdate();
   void loadPathSuggestions();
@@ -8511,7 +8960,7 @@ document.addEventListener("keydown", (event) => {
   if (primaryMod && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "l") {
     event.preventDefault();
     event.stopPropagation();
-    leanPanel.toggle();
+    toggleLeanPanel();
     return;
   }
   if (!ctrlEnter && fromLeanEmbeddedEditor) return;
@@ -8771,7 +9220,7 @@ document.addEventListener("aaronnote:attachment-context-menu", (event) => {
   const href = custom.detail?.href;
   if (!href) return;
   event.preventDefault();
-  void api.shell.showAttachmentMenu(hrefPath(href), currentFile)
+  void api.shell.showAttachmentMenu(hrefPath(href), currentFile, { href })
     .catch((err) => setStatus(err instanceof Error ? err.message : "Attachment menu failed"));
 });
 
@@ -8789,7 +9238,7 @@ host.addEventListener("contextmenu", (event) => {
   if (attachmentHref) {
     event.preventDefault();
     event.stopPropagation();
-    void api.shell.showAttachmentMenu(hrefPath(attachmentHref), currentFile)
+    void api.shell.showAttachmentMenu(hrefPath(attachmentHref), currentFile, { href: attachmentHref })
       .catch((err) => setStatus(err instanceof Error ? err.message : "Attachment menu failed"));
     return;
   }
@@ -8882,7 +9331,9 @@ window.addEventListener("aaronnote:command", (event) => {
   if (command === "open-lean-block-manager") void openLeanBlockManager();
   if (command === "insert-lean-block") void insertLeanBlock({ selector: String(detail?.selector ?? "") });
   if (command === "clean-lean-block") void cleanCurrentLeanBlock({ tag: String(detail?.tag ?? ""), selector: String(detail?.selector ?? "") });
-  if (command === "toggle-lean-panel") leanPanel.toggle();
+  if (command === "toggle-lean-panel") toggleLeanPanel();
+  if (command === "toggle-jupyter-preview") toggleJupyterPanel();
+  if (command === "open-jupyter-preview") void openJupyterPreviewFromHref(String((detail as Record<string, unknown>).href ?? ""));
   if (command === "toggle-source") toggleSourceMode();
   if (command === "restart-lean-server") void restartLeanServerForCurrentNote();
   if (command === "check-prose") void checkProse();

@@ -1,9 +1,12 @@
 import { app, BrowserWindow, Menu, Notification, dialog, ipcMain, shell, protocol, net, globalShortcut, powerMonitor } from "electron";
 import { execFile, spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { randomBytes } from "node:crypto";
+import { existsSync, statSync } from "node:fs";
 import { access, readFile, writeFile } from "node:fs/promises";
+import { createServer } from "node:net";
 import { basename, dirname, join, relative, resolve } from "node:path";
-import { findLeanExternalExecutables, leanExternalNvimCommand } from "./lean-external.mjs";
+import { findExecutable, findKittyExecutable, findLeanExternalExecutables, kittyDirectoryCommand, leanExternalNvimCommand } from "./lean-external.mjs";
+import { jupyterLabUrl, jupyterLaunchArgs, jupyterSelectorPath, mergeJupyterEnv, parseNulEnv } from "./jupyter.mjs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { homedir } from "node:os";
 import { promisify } from "node:util";
@@ -95,6 +98,10 @@ let allowQuit = false;
 let leanMenuStatus = { message: "Not started", kind: "Inactive", busy: false };
 let leanMenuLog = [];
 let leanMenuUpdateTimer = null;
+const jupyterIdleMs = Math.max(10 * 60_000, Number(process.env.AARONNOTE_JUPYTER_IDLE_MS) || 45 * 60_000);
+let jupyterSession = null;
+let jupyterIdleTimer = null;
+let jupyterShellEnvPromise = null;
 
 protocol.registerSchemesAsPrivileged([{
   scheme: "aaronnote-asset",
@@ -600,9 +607,23 @@ function registerApiIpc() {
     const message = await shell.openPath(target);
     return message ? { ok: false, file: target, message } : { ok: true, file: target };
   });
-  registerApiHandler("aaronnote:api:shell:show-attachment-menu", (file, base) => {
+  registerApiHandler("aaronnote:api:shell:open-directory", async (body) => {
+    const target = resolveShellDirectoryPath(body?.path ?? body, body?.base ?? "");
+    const message = await shell.openPath(target);
+    return message ? { ok: false, file: target, message } : { ok: true, file: target };
+  });
+  registerApiHandler("aaronnote:api:shell:open-directory-in-kitty", (body) => openDirectoryInKitty(body || {}));
+  registerApiHandler("aaronnote:api:shell:show-attachment-menu", (file, base, options = {}) => {
     const target = resolveMediaFile(file, base);
+    const href = String(options?.href || file || "");
     Menu.buildFromTemplate([
+      ...(/\.ipynb$/i.test(target) ? [
+        {
+          label: "Open Jupyter Preview",
+          click: () => runInWindow(dispatchCommandScript("open-jupyter-preview", { href })),
+        },
+        { type: "separator" },
+      ] : []),
       {
         label: "System Open",
         click: () => void shell.openPath(target),
@@ -670,6 +691,15 @@ function registerApiIpc() {
   registerApiHandler("aaronnote:api:copilot:request", (action, body) => handleCopilotRequest(String(action || ""), body || {}));
   registerApiHandler("aaronnote:api:roamlookup:request", (action, body) => handleRoamLookupRequest(String(action || ""), body || {}));
   registerApiHandler("aaronnote:api:lean:request", (action, body) => handleLeanRequest(String(action || ""), body || {}));
+  registerApiHandler("aaronnote:api:jupyter:request", (action, body) => handleJupyterRequest(String(action || ""), body || {}));
+  ipcMain.handle("aaronnote:api:jupyter:scroll", async (event, body = {}) => {
+    try {
+      const run = () => handleJupyterScroll(event.sender, body || {});
+      return debugPanel ? await debugPanel.trackTask("aaronnote:api:jupyter:scroll", run) : await run();
+    } catch (err) {
+      return errorPayload(err);
+    }
+  });
   registerApiHandler("aaronnote:api:graph", async () => graphPayload(await scanNotes()));
   registerApiHandler("aaronnote:api:tags", async () => tagIndexPayload(await scanNotes()));
 }
@@ -718,6 +748,20 @@ function resolveShellPath(file) {
   const raw = String(file || "").trim();
   if (!raw || raw === "Root") return noteRoot;
   return resolve(raw.startsWith("/") ? raw : join(noteRoot, raw));
+}
+
+function resolveShellDirectoryPath(file, base = "") {
+  const raw = String(file || "").trim();
+  const baseFile = String(base || "").trim() ? resolveShellPath(base) : "";
+  const baseDir = baseFile && !inside(baseFile, noteRoot) ? dirname(baseFile) : noteRoot;
+  const target = !raw || raw === "Root"
+    ? baseDir
+    : resolve(raw.startsWith("/") ? raw : join(baseDir, raw));
+  try {
+    return statSync(target).isDirectory() ? target : dirname(target);
+  } catch {
+    return target;
+  }
 }
 
 async function flushRendererState(win) {
@@ -1033,6 +1077,573 @@ function openLeanLocation(target) {
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Failed to open Kitty" };
   }
+}
+
+function openDirectoryInKitty(body) {
+  const target = resolveShellDirectoryPath(body?.path ?? body, body?.base ?? "");
+  if (!target || !existsSync(target)) return { ok: false, file: target, message: `Directory not found: ${target}` };
+  try {
+    if (!statSync(target).isDirectory()) return { ok: false, file: target, message: `Not a directory: ${target}` };
+  } catch (err) {
+    return { ok: false, file: target, message: err instanceof Error ? err.message : "Directory unavailable" };
+  }
+  const kitty = findKittyExecutable();
+  if (!kitty) return { ok: false, file: target, message: "Kitty executable not found. Set AARONNOTE_KITTY or update PATH." };
+  const { command, args } = kittyDirectoryCommand({ kitty, dir: target });
+  try {
+    const child = spawn(command, args, { detached: true, stdio: "ignore" });
+    child.once("error", (err) => console.error("Kitty directory open failed", err));
+    child.unref();
+    return { ok: true, file: target };
+  } catch (err) {
+    return { ok: false, file: target, message: err instanceof Error ? err.message : "Failed to open Kitty" };
+  }
+}
+
+function zshEnvironmentShell() {
+  const shellPath = String(process.env.SHELL || "");
+  if (basename(shellPath) === "zsh" && existsSync(shellPath)) return shellPath;
+  return existsSync("/bin/zsh") ? "/bin/zsh" : "";
+}
+
+async function readJupyterShellEnv(cwd = noteRoot) {
+  if (jupyterShellEnvPromise) return jupyterShellEnvPromise;
+  const shellPath = zshEnvironmentShell();
+  if (!shellPath) return {};
+  jupyterShellEnvPromise = execFileAsync(shellPath, ["-lic", "command env -0"], {
+    cwd,
+    env: process.env,
+    maxBuffer: 2 * 1024 * 1024,
+    timeout: 5000,
+  })
+    .then(({ stdout }) => parseNulEnv(stdout))
+    .catch((err) => {
+      console.warn("Failed to load zsh environment for Jupyter", err);
+      return {};
+    });
+  return jupyterShellEnvPromise;
+}
+
+async function jupyterProcessEnv(root) {
+  const shellEnv = await readJupyterShellEnv(root);
+  return { ...mergeJupyterEnv(process.env, shellEnv), BROWSER: "" };
+}
+
+function findJupyterExecutable(env = process.env) {
+  const pathValue = String(env.PATH ?? "");
+  const preferredDirs = ["/opt/homebrew/bin", "/usr/local/bin"];
+  return findExecutable("jupyter-lab", {
+    candidates: [env.AARONNOTE_JUPYTER, env.AARONNOTE_JUPYTER_LAB],
+    preferredDirs,
+    pathValue,
+  }) || findExecutable("jupyter", {
+    candidates: [env.AARONNOTE_JUPYTER],
+    preferredDirs,
+    pathValue,
+  });
+}
+
+function freeLocalPort() {
+  return new Promise((resolvePort, rejectPort) => {
+    const server = createServer();
+    server.once("error", rejectPort);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      const port = typeof address === "object" && address ? address.port : 0;
+      server.close(() => port ? resolvePort(port) : rejectPort(new Error("Failed to allocate Jupyter port")));
+    });
+  });
+}
+
+function resolveJupyterNotebookPath(path, base = "") {
+  const target = resolveMediaFile(path, base);
+  if (!/\.ipynb$/i.test(target)) {
+    const err = new Error(`Jupyter preview requires an .ipynb file: ${target}`);
+    err.statusCode = 400;
+    throw err;
+  }
+  if (!existsSync(target)) {
+    const err = new Error(`Notebook not found: ${target}`);
+    err.statusCode = 404;
+    throw err;
+  }
+  return target;
+}
+
+function jupyterFileFromUrl(url) {
+  const parsed = parsedUrl(url);
+  if (!parsed || !jupyterSession?.root) return "";
+  const prefix = "/lab/tree/";
+  if (!parsed.pathname.startsWith(prefix)) return "";
+  const parts = parsed.pathname
+    .slice(prefix.length)
+    .split("/")
+    .filter(Boolean)
+    .map((part) => {
+      try { return decodeURIComponent(part); }
+      catch { return part; }
+    });
+  return resolve(jupyterSession.root, ...parts);
+}
+
+function jupyterUrlWithSelector(url, selector, selectorKind) {
+  const parsed = parsedUrl(url);
+  if (!parsed) return String(url || "");
+  const cleanSelector = jupyterSelectorPath(selector);
+  void selectorKind;
+  parsed.hash = cleanSelector ? encodeURIComponent(cleanSelector) : "";
+  return parsed.toString();
+}
+
+async function resolveJupyterSelector(file, selector, selectorKind) {
+  void file;
+  void selectorKind;
+  const cleanSelector = jupyterSelectorPath(selector);
+  return { selector: cleanSelector, selectorKind: cleanSelector ? "toc" : "" };
+}
+
+function jupyterRootForFile(file) {
+  const resolved = resolve(file);
+  return inside(resolved, noteRoot) ? noteRoot : dirname(resolved);
+}
+
+function touchJupyterSession() {
+  if (!jupyterSession) return;
+  jupyterSession.lastUsedAt = Date.now();
+  if (jupyterIdleTimer) clearTimeout(jupyterIdleTimer);
+  jupyterIdleTimer = setTimeout(() => {
+    if (!jupyterSession) return;
+    if (Date.now() - jupyterSession.lastUsedAt >= jupyterIdleMs) void stopJupyterSession();
+    else touchJupyterSession();
+  }, jupyterIdleMs);
+}
+
+async function waitForJupyterReady(session) {
+  const statusUrl = `${session.baseUrl}/api/status?token=${encodeURIComponent(session.token)}`;
+  const started = Date.now();
+  let lastMessage = "";
+  while (Date.now() - started < 30_000) {
+    if (session.child.exitCode != null) {
+      throw new Error(lastMessage || `Jupyter exited with code ${session.child.exitCode}`);
+    }
+    try {
+      const res = await fetch(statusUrl);
+      if (res.ok) return;
+      lastMessage = `Jupyter status ${res.status}`;
+    } catch (err) {
+      lastMessage = err instanceof Error ? err.message : String(err);
+    }
+    await new Promise((resolveTimer) => setTimeout(resolveTimer, 300));
+  }
+  throw new Error(lastMessage ? `Jupyter did not become ready: ${lastMessage}` : "Jupyter did not become ready");
+}
+
+function withTimeout(promise, ms, label) {
+  let timer = null;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
+function ensureJupyterReady(session) {
+  if (!session) return Promise.reject(new Error("Jupyter session is unavailable"));
+  if (session.ready === true) return Promise.resolve(session);
+  if (!session.readyPromise) {
+    session.readyPromise = waitForJupyterReady(session)
+      .then(() => {
+        session.ready = true;
+        session.readyError = "";
+        return session;
+      })
+      .catch((err) => {
+        session.readyError = err instanceof Error ? err.message : String(err);
+        throw err;
+      })
+      .finally(() => {
+        session.readyPromise = null;
+      });
+  }
+  return session.readyPromise;
+}
+
+async function stopJupyterSession() {
+  const session = jupyterSession;
+  jupyterSession = null;
+  if (jupyterIdleTimer) clearTimeout(jupyterIdleTimer);
+  jupyterIdleTimer = null;
+  if (!session?.child || session.child.exitCode != null) return { ok: true };
+  session.child.kill("SIGTERM");
+  await new Promise((resolveTimer) => setTimeout(resolveTimer, 700));
+  if (session.child.exitCode == null) session.child.kill("SIGKILL");
+  return { ok: true };
+}
+
+async function ensureJupyterSession(root, restart = false) {
+  const resolvedRoot = resolve(root);
+  if (jupyterSession && !restart && jupyterSession.root === resolvedRoot && jupyterSession.child.exitCode == null) {
+    touchJupyterSession();
+    return jupyterSession;
+  }
+  if (jupyterSession) await stopJupyterSession();
+  const env = await jupyterProcessEnv(resolvedRoot);
+  const command = findJupyterExecutable(env);
+  if (!command) throw new Error("JupyterLab not found in the zsh environment. Install jupyterlab or set AARONNOTE_JUPYTER.");
+  const port = await freeLocalPort();
+  const token = randomBytes(18).toString("hex");
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = spawn(command, jupyterLaunchArgs({ command, root: resolvedRoot, port, token }), {
+    cwd: resolvedRoot,
+    stdio: ["ignore", "pipe", "pipe"],
+    env,
+  });
+  const session = {
+    child,
+    command,
+    port,
+    token,
+    root: resolvedRoot,
+    baseUrl,
+    startedAt: Date.now(),
+    lastUsedAt: Date.now(),
+    output: "",
+    ready: false,
+    readyError: "",
+    readyPromise: null,
+  };
+  const appendOutput = (chunk) => {
+    session.output = `${session.output}${String(chunk || "")}`.slice(-8000);
+  };
+  child.stdout?.on("data", appendOutput);
+  child.stderr?.on("data", appendOutput);
+  child.once("error", (err) => appendOutput(err instanceof Error ? err.message : String(err)));
+  child.once("exit", () => {
+    if (jupyterSession === session) jupyterSession = null;
+  });
+  jupyterSession = session;
+  void ensureJupyterReady(session)
+    .catch(() => {
+      console.warn("Jupyter readiness check failed", session.readyError);
+    });
+  touchJupyterSession();
+  return session;
+}
+
+function parsedUrl(value) {
+  try {
+    return new URL(String(value || ""));
+  } catch {
+    return null;
+  }
+}
+
+function jupyterFrameForContents(contents, targetUrl = "") {
+  const frames = contents?.mainFrame?.framesInSubtree || [];
+  const target = parsedUrl(targetUrl);
+  const sessionBase = parsedUrl(jupyterSession?.baseUrl || "");
+  const candidates = frames.filter((frame) => {
+    if (!frame || frame === contents.mainFrame || frame.isDestroyed?.() || !frame.parent) return false;
+    const url = parsedUrl(frame.url);
+    if (!url || !url.pathname.startsWith("/lab")) return false;
+    if (target && url.origin === target.origin) return true;
+    return Boolean(sessionBase && url.origin === sessionBase.origin);
+  });
+  if (target) {
+    const exact = candidates.find((frame) => {
+      const url = parsedUrl(frame.url);
+      return url && url.origin === target.origin && url.pathname === target.pathname;
+    });
+    if (exact) return exact;
+  }
+  return candidates[0] || null;
+}
+
+function jupyterScrollScript(body = {}) {
+  const payload = JSON.stringify({
+    url: String(body.url || ""),
+    selector: String(body.selector || ""),
+    selectorKind: String(body.selectorKind || ""),
+  });
+  return `
+(() => {
+  const payload = ${payload};
+  const selector = String(payload.selector || "").trim();
+  const selectorKind = String(payload.selectorKind || "");
+  const targetUrl = String(payload.url || "");
+  void selectorKind;
+
+  function decode(value) {
+    try { return decodeURIComponent(String(value || "")); }
+    catch { return String(value || ""); }
+  }
+
+  function attr(name, value) {
+    try {
+      return document.querySelector("[" + name + "=" + JSON.stringify(String(value || "")) + "]");
+    } catch {
+      return null;
+    }
+  }
+
+  function firstExisting(values, finder) {
+    for (const value of values) {
+      if (!value) continue;
+      const found = finder(value);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  function normalizedText(value) {
+    return decode(value)
+      .replace(/^#/, "")
+      .replace(/\\s+/g, " ")
+      .trim()
+      .toLowerCase();
+  }
+
+  function slugText(value) {
+    return normalizedText(value)
+      .replace(/['"]/g, "")
+      .replace(/[^\\w\\u00a0-\\uffff]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  function withoutNumberPrefix(value) {
+    const normalized = normalizedText(value);
+    const stripped = normalized.replace(/^\\d+(?:\\.\\d+)*\\.?\\s+/, "").trim();
+    return stripped || normalized;
+  }
+
+  function selectorTextVariants(value = selector) {
+    const raw = String(value || "").replace(/^#/, "");
+    const decoded = decode(raw).replace(/^#/, "");
+    return Array.from(new Set([raw, decoded].map((value) => String(value || "").trim()).filter(Boolean)));
+  }
+
+  function revealTocPanel() {
+    if (document.querySelector(".jp-TableOfContents-content[data-document-type=\\"notebook\\"] .jp-tocItem")) return true;
+    const tab = document.querySelector('[data-id="table-of-contents"], .lm-TabBar-tab[data-id="table-of-contents"]');
+    if (!tab) return false;
+    tab.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, view: window, button: 0, buttons: 1 }));
+    tab.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, view: window, button: 0, buttons: 0 }));
+    tab.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window, button: 0, buttons: 0 }));
+    return true;
+  }
+
+  function tocItems() {
+    const root = document.querySelector(".jp-TableOfContents-content[data-document-type=\\"notebook\\"]")
+      || document.querySelector(".jp-TableOfContents-content");
+    if (!root) return [];
+    return Array.from(root.querySelectorAll(".jp-tocItem, .jp-TreeItem"));
+  }
+
+  function tocItemContent(item) {
+    return item.querySelector(".jp-tocItem-content") || item.querySelector("[title]") || item;
+  }
+
+  function tocItemValues(item) {
+    const content = tocItemContent(item);
+    const dataset = content.dataset || {};
+    return [
+      content.getAttribute("title") || "",
+      content.textContent || "",
+      dataset.jupyterId || "",
+      dataset.id || "",
+      dataset.headingId || "",
+    ];
+  }
+
+  function valuesMatchSelector(values, selectorValue) {
+    const variants = selectorTextVariants(selectorValue);
+    const normalizedVariants = variants.map(normalizedText).filter(Boolean);
+    const slugVariants = variants.map(slugText).filter(Boolean);
+    for (const value of values) {
+      const normalized = normalizedText(value);
+      if (normalized && normalizedVariants.includes(normalized)) return true;
+      const stripped = withoutNumberPrefix(value);
+      if (stripped && normalizedVariants.includes(stripped)) return true;
+      const slug = slugText(value);
+      if (slug && slugVariants.includes(slug)) return true;
+    }
+    return false;
+  }
+
+  function tocItemMatches(item) {
+    return valuesMatchSelector(tocItemValues(item), selector);
+  }
+
+  function triggerTocScroll() {
+    if (!selector) return false;
+    revealTocPanel();
+    const item = tocItems().find(tocItemMatches);
+    if (!item) return false;
+    const target = tocItemContent(item);
+    target.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, view: window, button: 0, buttons: 1 }));
+    target.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, view: window, button: 0, buttons: 0 }));
+    target.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window, button: 0, buttons: 0 }));
+    return true;
+  }
+
+  function updateHash() {
+    const hash = selector ? encodeURIComponent(selector) : "";
+    const oldUrl = location.href;
+    try {
+      const next = targetUrl ? new URL(targetUrl) : null;
+      const nextHash = next ? next.hash : (hash ? "#" + hash : "");
+      history.replaceState(history.state, "", location.pathname + location.search + nextHash);
+    } catch {
+      history.replaceState(history.state, "", location.pathname + location.search + (hash ? "#" + hash : ""));
+    }
+    if (oldUrl !== location.href) {
+      try {
+        window.dispatchEvent(new HashChangeEvent("hashchange", { oldURL: oldUrl, newURL: location.href }));
+      } catch {
+        window.dispatchEvent(new Event("hashchange"));
+      }
+    }
+  }
+
+  function tocElement() {
+    const decoded = decode(selector).replace(/^#/, "");
+    const raw = selector.replace(/^#/, "");
+    const variants = Array.from(new Set([raw, decoded, encodeURIComponent(decoded)].filter(Boolean)));
+    const direct = firstExisting(variants, (value) =>
+      document.getElementById(value)
+      || attr("name", value)
+      || attr("data-anchor", value));
+    if (direct) return direct;
+    const normalized = decoded.trim().toLowerCase();
+    if (!normalized) return null;
+    return Array.from(document.querySelectorAll("h1,h2,h3,h4,h5,h6")).find((heading) =>
+      String(heading.textContent || "").trim().toLowerCase() === normalized) || null;
+  }
+
+  function targetElement() {
+    if (!selector) return document.querySelector(".jp-NotebookPanel-notebook, .jp-Notebook, .jp-WindowedPanel-outer");
+    const toc = tocElement();
+    if (toc) return toc;
+    return null;
+  }
+
+  function scrollableParent(element) {
+    let node = element.parentElement;
+    while (node && node !== document.body) {
+      const style = window.getComputedStyle(node);
+      if (/(auto|scroll|overlay)/.test(style.overflowY || "") && node.scrollHeight > node.clientHeight + 1) return node;
+      node = node.parentElement;
+    }
+    return document.scrollingElement || document.documentElement;
+  }
+
+  function scrollElement(target) {
+    const scrollTarget = target.closest?.(".jp-Cell, .jp-Notebook-cell") || target;
+    const scroller = scrollableParent(scrollTarget);
+    if (scroller && scroller !== document.body && scroller !== document.documentElement && scroller !== document.scrollingElement) {
+      const scrollerRect = scroller.getBoundingClientRect();
+      const targetRect = scrollTarget.getBoundingClientRect();
+      const centeredTop = scroller.scrollTop
+        + (targetRect.top - scrollerRect.top)
+        - Math.max(12, (scrollerRect.height - Math.min(targetRect.height, scrollerRect.height)) / 2);
+      scroller.scrollTo({ top: Math.max(0, centeredTop), left: 0, behavior: "auto" });
+    } else {
+      scrollTarget.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
+    }
+  }
+
+  function scrollNow() {
+    updateHash();
+    if (triggerTocScroll()) return { ok: true, scrolled: true, via: "toc" };
+    const target = targetElement();
+    if (!target) return { ok: true, scrolled: false };
+    if (!selector) {
+      if (typeof target.scrollTo === "function") target.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      else window.scrollTo(0, 0);
+      return { ok: true, scrolled: true };
+    }
+    scrollElement(target);
+    return { ok: true, scrolled: true };
+  }
+
+  const result = scrollNow();
+  if (!result.scrolled) {
+    window.setTimeout(scrollNow, 100);
+    window.setTimeout(scrollNow, 350);
+    window.setTimeout(scrollNow, 900);
+  }
+  return result;
+})()
+`;
+}
+
+async function handleJupyterScroll(contents, body = {}) {
+  const file = body.path
+    ? resolveJupyterNotebookPath(body.path || "", body.base || "")
+    : jupyterFileFromUrl(body.url || "");
+  const resolved = file
+    ? await resolveJupyterSelector(file, body.selector || "", body.selectorKind || "")
+    : { selector: String(body.selector || ""), selectorKind: String(body.selectorKind || "") };
+  const scrollBody = {
+    ...body,
+    selector: resolved.selector,
+    selectorKind: resolved.selectorKind,
+    url: jupyterUrlWithSelector(body.url || "", resolved.selector, resolved.selectorKind),
+  };
+  const frame = jupyterFrameForContents(contents, scrollBody.url || body.url || "");
+  if (!frame) return { ok: false, message: "Jupyter frame not found" };
+  const result = await frame.executeJavaScript(jupyterScrollScript(scrollBody), true);
+  touchJupyterSession();
+  return { ok: true, url: scrollBody.url, ...(result && typeof result === "object" ? result : {}) };
+}
+
+async function handleJupyterRequest(action, body = {}) {
+  if (action === "open" || action === "restart") {
+    const file = resolveJupyterNotebookPath(body.path || body.file || "", body.base || "");
+    const root = jupyterRootForFile(file);
+    const session = await withTimeout(
+      ensureJupyterSession(root, action === "restart" || body.restart === true),
+      8000,
+      "Starting Jupyter",
+    );
+    const resolved = await resolveJupyterSelector(file, body.selector || "", body.selectorKind || "");
+    touchJupyterSession();
+    return {
+      ok: true,
+      file,
+      root,
+      url: jupyterLabUrl({
+        baseUrl: session.baseUrl,
+        root,
+        file,
+        token: session.token,
+        selector: resolved.selector,
+        selectorKind: resolved.selectorKind,
+      }),
+      selector: resolved.selector,
+      selectorKind: resolved.selectorKind,
+      baseUrl: session.baseUrl,
+      startedAt: session.startedAt,
+      ready: session.ready === true,
+    };
+  }
+  if (action === "status") {
+    return jupyterSession
+      ? {
+        ok: true,
+        running: true,
+        root: jupyterSession.root,
+        baseUrl: jupyterSession.baseUrl,
+        startedAt: jupyterSession.startedAt,
+        ready: jupyterSession.ready === true,
+        message: jupyterSession.readyError || "",
+        output: jupyterSession.output.slice(-2000),
+      }
+      : { ok: true, running: false };
+  }
+  if (action === "stop") return await stopJupyterSession();
+  return { ok: false, message: "Unknown Jupyter action" };
 }
 
 function pdfNameForFile(file, fallback = "Aaronnote.pdf") {
@@ -1760,5 +2371,6 @@ app.on("before-quit", async (event) => {
 });
 
 app.on("will-quit", () => {
+  void stopJupyterSession();
   globalShortcut.unregisterAll();
 });

@@ -210,11 +210,23 @@ export function markdownHrefAt(state: EditorState, pos: number): string | null {
     while (node) {
       if (node.name === "Link" || node.name === "Autolink" || node.name === "Image") {
         const href = hrefFromLinkNode(state, node.from, node.to);
-        if (href) return href;
+        if (href) {
+          if (jupyterHref(href)) {
+            const lineHref = markdownHrefFromLineAt(state, clamped);
+            if (lineHref && jupyterHref(lineHref)) return lineHref;
+          }
+          return href;
+        }
       }
       if (node.name === "URL") {
         const href = state.doc.sliceString(node.from, node.to).trim();
-        if (href) return href;
+        if (href) {
+          if (jupyterHref(href)) {
+            const lineHref = markdownHrefFromLineAt(state, clamped);
+            if (lineHref && jupyterHref(lineHref)) return lineHref;
+          }
+          return href;
+        }
       }
       node = node.parent;
     }
@@ -311,6 +323,10 @@ function previewMarkdownLinkFromEvent(view: EditorView, event: MouseEvent): bool
     detail: { href, x: event.clientX, y: event.clientY },
   }));
   return true;
+}
+
+function jupyterHref(href: string): boolean {
+  return /\.ipynb(?:[?@#]|$)/i.test(String(href || "").trim());
 }
 
 function attachmentHref(href: string): boolean {

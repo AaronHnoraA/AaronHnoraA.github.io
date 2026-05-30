@@ -8,7 +8,7 @@ import { configure } from "../server/lib/state.mjs";
 // @ts-ignore The server is a Node ESM module outside the TS app graph.
 import { createNode, deleteNote, duplicateManagedFile, moveManagedPath, renameManagedPath, trashManagedPath } from "../server/lib/fs-ops.mjs";
 // @ts-ignore The server is a Node ESM module outside the TS app graph.
-import { getTodos, notesIndexPayload, readNote, scanTemplates } from "../server/lib/index.mjs";
+import { getTodos, notesIndexPayload, pathSuggestionsForFile, readNote, scanTemplates } from "../server/lib/index.mjs";
 // @ts-ignore The server is a Node ESM module outside the TS app graph.
 import { scanUnusedAssets } from "../server/lib/assets.mjs";
 
@@ -125,6 +125,23 @@ describe("server standalone notes", () => {
       path: "images/note-assets/pic.png",
       generated: true,
     }));
+  });
+
+  test("path suggestions include notebooks and common programming files", async () => {
+    const { notes } = await setupRoot();
+    await mkdir(join(notes, "experiments"), { recursive: true });
+    await writeFile(join(notes, "a.md"), "# A\n", "utf8");
+    await writeFile(join(notes, "experiments", "analysis.ipynb"), "{}", "utf8");
+    await writeFile(join(notes, "experiments", "analysis.ipynb.py"), "# %%\n", "utf8");
+    await writeFile(join(notes, "experiments", "script.sh"), "echo ok\n", "utf8");
+    await writeFile(join(notes, "experiments", "notes.qmd"), "---\n---\n", "utf8");
+
+    const paths = await pathSuggestionsForFile(join(notes, "a.md")) as string[];
+
+    expect(paths).toContain("./experiments/analysis.ipynb");
+    expect(paths).toContain("./experiments/analysis.ipynb.py");
+    expect(paths).toContain("./experiments/script.sh");
+    expect(paths).toContain("./experiments/notes.qmd");
   });
 
   test("creates a note from an independent template with variables", async () => {

@@ -483,6 +483,8 @@ export function createFilesystemBrowser(options: {
   duplicateFile?: (file: FileSummary) => Promise<void>;
   trashDirectory?: (dir: string) => Promise<void>;
   revealPath?: (path: string) => Promise<void>;
+  openDirectory?: (path: string) => Promise<void>;
+  openDirectoryInKitty?: (path: string) => Promise<void>;
 }): FilesystemBrowser {
   const searchRenderLimit = 240;
   const browseRenderLimit = 900;
@@ -1137,6 +1139,8 @@ export function createFilesystemBrowser(options: {
       ["m", "Move selected item"],
       ["D", "Duplicate selected file"],
       ["d", "Move selected item to Trash"],
+      ["S", "Open selected folder in system"],
+      ["K", "Open selected folder in Kitty"],
       ["Tab", "Switch Recent / Filesystem"],
       [".", "Show or hide all files"],
       ["?", "Show or hide this help"],
@@ -1559,6 +1563,24 @@ export function createFilesystemBrowser(options: {
       else if (entry?.type === "asset" && options.duplicateFile) void options.duplicateFile(entry.file);
     }
 
+    function entryTargetPath(entry: RangerEntry): string {
+      if (entry.type === "dir") return entry.path;
+      if (entry.type === "file") return entry.note.path || entry.note.file || "";
+      return entry.file.path || entry.file.file || "";
+    }
+
+    function openSelectedDirectory(): void {
+      const entry = activePane === "parent" ? selectedParentEntry() : selectedEntry();
+      if (!entry || !options.openDirectory) return;
+      void options.openDirectory(entryTargetPath(entry));
+    }
+
+    function openSelectedDirectoryInKitty(): void {
+      const entry = activePane === "parent" ? selectedParentEntry() : selectedEntry();
+      if (!entry || !options.openDirectoryInKitty) return;
+      void options.openDirectoryInKitty(entryTargetPath(entry));
+    }
+
     shell.addEventListener("keydown", (event) => {
       const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
       if ((event.ctrlKey || event.metaKey) && key === "Enter") return;
@@ -1571,6 +1593,12 @@ export function createFilesystemBrowser(options: {
         event.preventDefault();
         helpVisible = !helpVisible;
         render();
+      } else if (event.key === "S") {
+        event.preventDefault();
+        openSelectedDirectory();
+      } else if (event.key === "K") {
+        event.preventDefault();
+        openSelectedDirectoryInKitty();
       } else if (event.key === ".") {
         event.preventDefault();
         requestRangerFocus();

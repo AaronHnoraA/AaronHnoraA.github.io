@@ -98,14 +98,27 @@ contextBridge.exposeInMainWorld("aaronnoteApi", {
   shell: {
     showInFolder: (file = "") => invoke("aaronnote:api:shell:show-in-folder", String(file || "")),
     openPath: (file = "") => invoke("aaronnote:api:shell:open-path", String(file || "")),
-    showAttachmentMenu: (file = "", base = "") => invoke(
+    openDirectory: (path = "", base = "") => invoke("aaronnote:api:shell:open-directory", {
+      path: String(path || ""),
+      base: String(base || ""),
+    }),
+    openDirectoryInKitty: (path = "", base = "") => invoke("aaronnote:api:shell:open-directory-in-kitty", {
+      path: String(path || ""),
+      base: String(base || ""),
+    }),
+    showAttachmentMenu: (file = "", base = "", options = {}) => invoke(
       "aaronnote:api:shell:show-attachment-menu",
       String(file || ""),
       String(base || ""),
+      options || {},
     ),
     showEditorContextMenu: (options = {}) => invoke("aaronnote:api:shell:show-editor-context-menu", options),
     showLeanEditorMenu: (options = {}) => invoke("aaronnote:api:shell:show-lean-editor-menu", options),
     openLeanLocation: (target = {}) => invoke("aaronnote:api:shell:open-lean-location", target),
+  },
+  jupyter: {
+    request: (action = "", body = {}) => invoke("aaronnote:api:jupyter:request", String(action || ""), body || {}),
+    scroll: (body = {}) => invoke("aaronnote:api:jupyter:scroll", body || {}),
   },
   proseCheck: {
     run: (body = {}) => invoke("aaronnote:api:prose-check:run", body),

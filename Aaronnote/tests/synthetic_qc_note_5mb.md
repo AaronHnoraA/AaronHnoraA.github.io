@@ -1389,6 +1389,12 @@ the group of admissible changes of coordinates. If two encodings represent
 isomorphic structures exactly when they differ by a change of coordinates,
 then the isomorphism problem is equivalent to deciding whether two points
 of $X$ lie in the same $G$-orbit.
+
+
+
+this is hard to use 
+
+
 #+end theorem
 
 #+begin proof Proof idea
@@ -1460,8 +1466,19 @@ $$
 
 #+begin warning Promise preservation
 For promise problems, it is not enough to map yes-instances to yes-instances.
+
+One must assssssss ada sshshshshshs t on-instance. Input outside the promise.
+
+this is hard to use this is hard t ouse then other 
+
+
+
 One must also map no-instances to no-instances. Inputs outside the promise
-are irrelevant, but the reduction must preserve the promised domain.
+are irrelevant, but the reduction must preserve the promised domain. this is hard to use it howt o to use  to use as my favourite
+
+
+I like this things to use
+
 #+end warning
 
 A typical reduction chain may have the form

@@ -3,9 +3,18 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "@voidzero-dev/vite-plus-test";
 // @ts-ignore Node ESM helper is outside the TS app graph.
-import { findLeanExternalExecutables, leanExternalNvimCommand } from "../desktop/lean-external.mjs";
+import { findLeanExternalExecutables, kittyDirectoryCommand, leanExternalNvimCommand } from "../desktop/lean-external.mjs";
 
 describe("lean external (Kitty/Nvim) command", () => {
+  test("builds an argv array opening Kitty in a directory", () => {
+    const { command, args } = kittyDirectoryCommand({
+      kitty: "/opt/homebrew/bin/kitty",
+      dir: "/proj/notebooks",
+    });
+    expect(command).toBe("/opt/homebrew/bin/kitty");
+    expect(args).toEqual(["--directory", "/proj/notebooks"]);
+  });
+
   test("builds an argv array opening Nvim at the 1-based cursor", () => {
     const { command, args } = leanExternalNvimCommand({
       kitty: "/opt/homebrew/bin/kitty",

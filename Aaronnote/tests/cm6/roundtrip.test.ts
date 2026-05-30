@@ -286,11 +286,12 @@ $$
   });
 
   test("resolves markdown link hrefs at source positions", () => {
-    const md = "Go [there](target.md#eq-x), [roam](roam://node-id#eq-x), ![plot](./images/plot.png), and https://example.com";
+    const md = "Go [there](target.md#eq-x), [roam](roam://node-id#eq-x), [nb](./attachments/tset.ipynb@test file), ![plot](./images/plot.png), and https://example.com";
     const { editor, cleanup } = mountCM6(md);
 
     expect(markdownHrefAt(editor.view.state, md.indexOf("there"))).toBe("target.md#eq-x");
     expect(markdownHrefAt(editor.view.state, md.indexOf("roam]"))).toBe("roam://node-id#eq-x");
+    expect(markdownHrefAt(editor.view.state, md.indexOf("nb]"))).toBe("./attachments/tset.ipynb@test file");
     expect(markdownHrefAt(editor.view.state, md.indexOf("plot"))).toBe("./images/plot.png");
     expect(markdownHrefAt(editor.view.state, md.indexOf("https://") + 3)).toBe("https://example.com");
 
@@ -340,6 +341,41 @@ $$
 
     expect(event.defaultPrevented).toBe(true);
     expect(events[0]?.detail).toEqual({ href: "target.md#eq-x", newWindow: false });
+
+    document.removeEventListener("aaronnote:open-url", listener);
+    if (originalDescriptor) Object.defineProperty(view, "posAtCoords", originalDescriptor);
+    else delete (view as { posAtCoords?: unknown }).posAtCoords;
+    cleanup();
+  });
+
+  test("plain click on a jupyter link does not dispatch open-url", () => {
+    const md = "Go [nb](./attachments/tset.ipynb@test file)";
+    const { editor, cleanup } = mountCM6(md);
+    const events: CustomEvent[] = [];
+    const listener = (event: Event) => events.push(event as CustomEvent);
+    const view = editor.view as typeof editor.view & {
+      contentDOM: HTMLElement;
+      posAtCoords: (coords: { x: number; y: number }) => number | null;
+    };
+    const originalDescriptor = Object.getOwnPropertyDescriptor(view, "posAtCoords");
+
+    document.addEventListener("aaronnote:open-url", listener);
+    Object.defineProperty(view, "posAtCoords", {
+      configurable: true,
+      value: () => md.indexOf("nb"),
+    });
+
+    const event = new MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      clientX: 1,
+      clientY: 1,
+    });
+    view.contentDOM.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(events).toEqual([]);
 
     document.removeEventListener("aaronnote:open-url", listener);
     if (originalDescriptor) Object.defineProperty(view, "posAtCoords", originalDescriptor);

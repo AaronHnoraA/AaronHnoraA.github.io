@@ -18,7 +18,22 @@ const execFileAsync = promisify(execFile);
 
 let noteRoot = resolveUserPath(process.env.AARONNOTE_ROOT || join(appDir, "..", "roam"));
 let noteScanRoot = noteRoot;
-const excludedDirs = new Set(["_typst", "public", "var", ".git", ".direnv", ".venv", "node_modules"]);
+const excludedDirs = new Set([
+  "_typst",
+  "public",
+  "var",
+  ".git",
+  ".direnv",
+  ".venv",
+  "node_modules",
+  "__pycache__",
+  ".ipynb_checkpoints",
+  ".jupyter",
+  ".pytest_cache",
+  ".mypy_cache",
+  ".ruff_cache",
+  ".virtual_documents",
+]);
 const generatedAttachmentDirs = new Set(["asset", "assets", "attachment", "attachments", "file", "files", "img", "imgs", "image", "images", "media", "pdf", "pdfs"]);
 const noteExts = new Set([".typ", ".md", ".markdown"]);
 const hiddenRoamTag = "roam-hidden";
@@ -83,6 +98,29 @@ const contentTypes = new Map([
   [".woff2", "font/woff2"],
   [".ttf", "font/ttf"],
   [".wasm", "application/wasm"],
+]);
+const pathSuggestionCodeExts = new Set([
+  ".bash",
+  ".c",
+  ".cpp",
+  ".csv",
+  ".go",
+  ".ipynb",
+  ".jl",
+  ".js",
+  ".json",
+  ".jsx",
+  ".lua",
+  ".m",
+  ".py",
+  ".qmd",
+  ".r",
+  ".rmd",
+  ".rs",
+  ".sh",
+  ".ts",
+  ".tsx",
+  ".zsh",
 ]);
 async function atomicWriteFile(file, data, options) {
   await mkdir(dirname(file), { recursive: true });
@@ -637,7 +675,7 @@ export async function pathSuggestionsForFile(file) {
       }
       if (!entry.isFile()) continue;
       const ext = extname(entry.name).toLowerCase();
-      if (!contentTypes.has(ext) && !imageAssetP(entry.name) && !visualAssetP(entry.name)) continue;
+      if (!contentTypes.has(ext) && !pathSuggestionCodeExts.has(ext) && !imageAssetP(entry.name) && !visualAssetP(entry.name)) continue;
       out.add(markdownRelativePath(current, full));
     }
   }
@@ -1709,12 +1747,8 @@ function hrefPath(href) {
 
 function stripDomTargetFromPath(path) {
   const clean = String(path || "");
-  const slash = clean.lastIndexOf("/");
-  const at = clean.lastIndexOf("@");
-  if (at > slash) {
-    const base = clean.slice(0, at);
-    if (/\.(?:md|markdown|typ)$/i.test(base)) return base;
-  }
+  const match = clean.match(/^(.+?\.(?:md|markdown|typ))@/i);
+  if (match) return match[1];
   return clean;
 }
 
@@ -1734,8 +1768,12 @@ function refFromRoamLikeHref(href) {
   body = body.split(/[?&]/, 1)[0] || body;
   const hashIndex = body.indexOf("#");
   if (hashIndex >= 0) body = body.slice(0, hashIndex);
-  const atIndex = body.lastIndexOf("@");
-  if (atIndex >= 0) body = body.slice(0, atIndex);
+  const fileDomMatch = body.match(/^(.+?\.(?:md|markdown|typ))@/i);
+  if (fileDomMatch) body = fileDomMatch[1];
+  else {
+    const atIndex = body.indexOf("@");
+    if (atIndex >= 0) body = body.slice(0, atIndex);
+  }
   const ref = decodeRef(body.replace(/^\/+/, "").replace(/[.,;:]+$/, "")).trim();
   if (!ref || ref === "." || ref === "./") return "";
   return ref;
