@@ -58,6 +58,13 @@ describe("lean edit tools", () => {
     expect(up.state.doc.toString()).toBe("aaa\nbbb\nbbb\n");
   });
 
+  test("duplicate excludes the trailing line when a selection ends at its start", () => {
+    const doc = "aaa\nbbb\nccc\n";
+    const view = makeView(doc, { anchor: 0, head: offsetOf(doc, 2) });
+    runLeanEditAction(view, "duplicateDown");
+    expect(view.state.doc.toString()).toBe("aaa\nbbb\naaa\nbbb\nccc\n");
+  });
+
   test("move lines up and down swap with the neighbour", () => {
     const down = makeView("aaa\nbbb\nccc\n", { anchor: 0 });
     runLeanEditAction(down, "moveDown");
@@ -66,6 +73,13 @@ describe("lean edit tools", () => {
     const up = makeView("aaa\nbbb\nccc\n", { anchor: offsetOf("aaa\nbbb\nccc\n", 2) });
     runLeanEditAction(up, "moveUp");
     expect(up.state.doc.toString()).toBe("aaa\nccc\nbbb\n");
+  });
+
+  test("move excludes the trailing line when a selection ends at its start", () => {
+    const doc = "aaa\nbbb\nccc\nddd\n";
+    const view = makeView(doc, { anchor: offsetOf(doc, 1), head: offsetOf(doc, 3) });
+    runLeanEditAction(view, "moveUp");
+    expect(view.state.doc.toString()).toBe("bbb\nccc\naaa\nddd\n");
   });
 
   test("join lines merges current with next, collapsing indentation", () => {
@@ -154,5 +168,38 @@ describe("lean vim linewise register", () => {
     view.dispatch({ selection: EditorSelection.single(view.state.doc.length) }); // end of "bbb" (last line)
     sendKey(vim, view, "p");
     expect(view.state.doc.toString()).toBe("aaa\nbbb\naaa");
+  });
+
+  test("visual-line yank pastes a whole line", () => {
+    const doc = "aaa\nbbb\nccc\n";
+    const view = makeView(doc, { anchor: offsetOf(doc, 1) });
+    const vim = createLeanVimController(fakeCtx);
+    sendKey(vim, view, "Escape");
+    sendKey(vim, view, "V");
+    sendKey(vim, view, "y");
+    sendKey(vim, view, "p");
+    expect(view.state.doc.toString()).toBe("aaa\nbbb\nbbb\nccc\n");
+  });
+
+  test("visual-line delete pastes a whole line", () => {
+    const doc = "aaa\nbbb\nccc\n";
+    const view = makeView(doc, { anchor: offsetOf(doc, 1) });
+    const vim = createLeanVimController(fakeCtx);
+    sendKey(vim, view, "Escape");
+    sendKey(vim, view, "V");
+    sendKey(vim, view, "d");
+    sendKey(vim, view, "p");
+    expect(view.state.doc.toString()).toBe("aaa\nccc\nbbb\n");
+  });
+
+  test("visual-line gc toggles a whole-line comment", () => {
+    const doc = "aaa\n  bbb\nccc\n";
+    const view = makeView(doc, { anchor: offsetOf(doc, 1) });
+    const vim = createLeanVimController(fakeCtx);
+    sendKey(vim, view, "Escape");
+    sendKey(vim, view, "V");
+    sendKey(vim, view, "g");
+    sendKey(vim, view, "c");
+    expect(view.state.doc.toString()).toBe("aaa\n  -- bbb\nccc\n");
   });
 });

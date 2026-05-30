@@ -1,9 +1,9 @@
 import { app, BrowserWindow, Menu, Notification, dialog, ipcMain, shell, protocol, net, globalShortcut, powerMonitor } from "electron";
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { access, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
-import { leanExternalNvimCommand } from "./lean-external.mjs";
+import { findLeanExternalExecutables, leanExternalNvimCommand } from "./lean-external.mjs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { homedir } from "node:os";
 import { promisify } from "node:util";
@@ -1006,9 +1006,6 @@ function leanMenuActionScript(editorId, kind, action, line, character) {
   return dispatchCommandScript("lean-editor-menu-action", { editorId, kind, action, line, character });
 }
 
-const LEAN_EXTERNAL_KITTY = "/opt/homebrew/bin/kitty";
-const LEAN_EXTERNAL_NVIM = "/opt/homebrew/bin/nvim";
-
 /**
  * Open a Lean source location (e.g. Mathlib/prelude) in a fresh Kitty window
  * running Neovim at the target line/character. Paths are passed as an argv
@@ -1018,17 +1015,19 @@ const LEAN_EXTERNAL_NVIM = "/opt/homebrew/bin/nvim";
 function openLeanLocation(target) {
   const file = String(target?.file ?? "");
   if (!file || !existsSync(file)) return { ok: false, message: `Lean source not found: ${file}` };
-  if (!existsSync(LEAN_EXTERNAL_KITTY)) return { ok: false, message: `Kitty not found at ${LEAN_EXTERNAL_KITTY}` };
-  if (!existsSync(LEAN_EXTERNAL_NVIM)) return { ok: false, message: `Neovim not found at ${LEAN_EXTERNAL_NVIM}` };
+  const { kitty, nvim } = findLeanExternalExecutables();
+  if (!kitty) return { ok: false, message: "Kitty executable not found. Set AARONNOTE_KITTY or update PATH." };
+  if (!nvim) return { ok: false, message: "Neovim executable not found. Set AARONNOTE_NVIM or update PATH." };
   const { command, args } = leanExternalNvimCommand({
-    kitty: LEAN_EXTERNAL_KITTY,
-    nvim: LEAN_EXTERNAL_NVIM,
+    kitty,
+    nvim,
     file,
     line: target?.line,
     character: target?.character,
   });
   try {
-    const child = execFile(command, args, { detached: true });
+    const child = spawn(command, args, { detached: true, stdio: "ignore" });
+    child.once("error", (err) => console.error("Lean external editor failed", err));
     child.unref();
     return { ok: true };
   } catch (err) {
@@ -1614,6 +1613,9 @@ function buildMenu() {
       {
         label: "Toggle Source",
         accelerator: "CmdOrCtrl+/",
+        // Keep the menu hint, but let the renderer route this by focus:
+        // Markdown toggles source mode; an embedded Lean editor toggles comments.
+        registerAccelerator: false,
         click: () => runInWindow(dispatchCommandScript("toggle-source")),
       },
       { type: "separator" },

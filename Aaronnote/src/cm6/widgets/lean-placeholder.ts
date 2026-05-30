@@ -1976,14 +1976,19 @@ function unindentLeanSelection(view: EditorView): boolean {
   return true;
 }
 
-/** Line numbers (1-based) touched by the primary selection, or the cursor line. */
-function leanSelectedLineNumbers(state: EditorState): number[] {
+/** Line numbers (1-based) touched by the primary half-open selection, or the cursor line. */
+function leanSelectedLineRange(state: EditorState): { startLine: number; endLine: number } {
   const sel = state.selection.main;
   const startLine = state.doc.lineAt(sel.from);
   const endPos = sel.empty ? sel.from : Math.max(sel.from, sel.to - 1);
   const endLine = state.doc.lineAt(endPos);
+  return { startLine: startLine.number, endLine: endLine.number };
+}
+
+function leanSelectedLineNumbers(state: EditorState): number[] {
+  const { startLine, endLine } = leanSelectedLineRange(state);
   const out: number[] = [];
-  for (let n = startLine.number; n <= endLine.number; n++) out.push(n);
+  for (let n = startLine; n <= endLine; n++) out.push(n);
   return out;
 }
 
@@ -2045,9 +2050,9 @@ function toggleLeanBlockComment(view: EditorView): void {
 
 function duplicateLeanLines(view: EditorView, where: "up" | "down"): void {
   const { state } = view;
-  const sel = state.selection.main;
-  const from = state.doc.lineAt(sel.from).from;
-  const to = state.doc.lineAt(sel.to).to;
+  const { startLine, endLine } = leanSelectedLineRange(state);
+  const from = state.doc.line(startLine).from;
+  const to = state.doc.line(endLine).to;
   const block = state.doc.sliceString(from, to);
   if (where === "down") {
     view.dispatch({
@@ -2067,8 +2072,9 @@ function duplicateLeanLines(view: EditorView, where: "up" | "down"): void {
 function moveLeanLines(view: EditorView, dir: "up" | "down"): void {
   const { state } = view;
   const sel = state.selection.main;
-  const startLine = state.doc.lineAt(sel.from);
-  const endLine = state.doc.lineAt(sel.to);
+  const selectedLines = leanSelectedLineRange(state);
+  const startLine = state.doc.line(selectedLines.startLine);
+  const endLine = state.doc.line(selectedLines.endLine);
   const block = state.doc.sliceString(startLine.from, endLine.to);
   if (dir === "up") {
     if (startLine.number === 1) return;
@@ -2282,6 +2288,26 @@ function deleteLeanLine(view: EditorView): string {
   const anchor = Math.min(from, Math.max(0, text.length - (to - from)));
   view.dispatch({ changes: { from, to, insert: "" }, selection: { anchor }, scrollIntoView: true });
   return deleted;
+}
+
+function leanLinewiseSelectionRange(state: EditorState): { from: number; to: number } {
+  const { startLine, endLine } = leanSelectedLineRange(state);
+  const from = state.doc.line(startLine).from;
+  const end = state.doc.line(endLine);
+  return { from, to: end.to < state.doc.length ? end.to + 1 : end.to };
+}
+
+function deleteLeanSelectedLines(view: EditorView): string {
+  const { from, to } = leanLinewiseSelectionRange(view.state);
+  if (from >= to) return "";
+  const deleted = view.state.doc.sliceString(from, to);
+  view.dispatch({ changes: { from, to, insert: "" }, selection: { anchor: from }, scrollIntoView: true });
+  return deleted;
+}
+
+function selectedLeanLinesText(view: EditorView): string {
+  const { from, to } = leanLinewiseSelectionRange(view.state);
+  return from < to ? view.state.doc.sliceString(from, to) : "";
 }
 
 function replaceLeanChar(view: EditorView, ch: string): void {
@@ -2754,7 +2780,20 @@ export function createLeanVimController(ctx: LeanContext) {
   };
 
   const visualLineCommand = (view: EditorView, key: string): boolean => {
+    if (pending === "g") {
+      pending = "";
+      if (key === "c") { runLeanEditAction(view, "toggleLineComment"); setMode(view, "normal"); }
+      else if (key === "b") { runLeanEditAction(view, "toggleBlockComment"); setMode(view, "normal"); }
+      return true;
+    }
     switch (key) {
+      case "g":
+        pending = "g";
+        return true;
+      case "J":
+        runLeanEditAction(view, "joinLines");
+        setMode(view, "normal");
+        return true;
       case "j":
       case "ArrowDown": {
         const line = view.state.doc.lineAt(view.state.selection.main.to);
@@ -2776,13 +2815,16 @@ export function createLeanVimController(ctx: LeanContext) {
       case "x":
       case "d":
       case "Delete":
-        yank(deleteLeanChar(view));
+        yank(deleteLeanSelectedLines(view), true);
         setMode(view, "normal");
         return true;
-      case "y":
-        yank(selectionText(view));
+      case "y": {
+        const from = leanLinewiseSelectionRange(view.state).from;
+        yank(selectedLeanLinesText(view), true);
+        setLeanCursor(view, from);
         setMode(view, "normal");
         return true;
+      }
       case "V":
       case "v":
       case "Escape":

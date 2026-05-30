@@ -62,6 +62,13 @@ lives in real `.lean` files inside the notes root's `.lean/` Lake project.
   immediately, saving ~500 ms per block switch.
 - [x] Incremental placeholder index: `patchLeanPlaceholderIndex` rescans only
   changed lines on each keystroke, replacing a full-document scan.
+- [x] Read-only Lean LSP navigation: definition, declaration, type definition,
+  implementation, references, and hover are available from Vim keys, the
+  command palette, and the embedded editor's native context menu.
+- [x] Common Lean edit tools: line/block comment toggle, duplicate, move, join,
+  trim trailing whitespace, indent, and outdent are region-local and undoable.
+- [x] Navigation results route to embedded regions when possible. Multi-result
+  queries use a searchable picker; non-embedded source opens in Kitty/Nvim.
 
 Update this section whenever an implementation stage lands.
 
@@ -170,6 +177,17 @@ using. Project commands should run from `roam/.lean/` or through the notes-root
   Lean, Shift-Tab unindents, Enter keeps indentation, and Escape enters a
   Lean-local Vim normal mode with basic movement, delete/yank/paste, visual
   selection, undo/redo, and line opening commands.
+- `Cmd/Ctrl+/` toggles Lean line comments while the embedded editor is focused;
+  outside Lean it keeps its Markdown source/preview behavior. `Alt+Shift+A`
+  toggles block comments, `Alt+Up/Down` moves lines, and `Alt+Shift+Up/Down`
+  duplicates lines.
+- Right-clicking an embedded Lean editor opens native **Lean Symbol** and
+  **Lean Edit** submenus. Read-only symbol navigation is also exposed in the
+  command palette and Lean-local Vim normal mode.
+- Definition-style results jump directly to an embedded region when Aaronnote
+  owns the target. Multiple targets open a searchable picker. Targets outside
+  embedded regions open a fresh Kitty window running Nvim; `AARONNOTE_KITTY`
+  and `AARONNOTE_NVIM` override executable discovery when needed.
 - Lean-local Vim normal mode supports `s` as the same visible jump overlay used
   by Markdown mode. `S` remains the simple character-search command.
 - When completion is open, ArrowUp/ArrowDown/PageUp/PageDown/Enter/Tab and
@@ -225,6 +243,15 @@ Default quick-insert behavior:
 | Recent list | `Enter` | Open the selected recent item. |
 | Lean Vim normal mode | `s`, then query, then label | Jump to a visible match in the embedded Lean editor. |
 | Lean Vim normal mode | `S`, then character | Use the lightweight Lean-local character search. |
+| Lean Vim normal mode | `gd` / `gD` / `gy` / `gi` / `gr` | Go to definition / declaration / type definition / implementation / references. |
+| Lean Vim normal mode | `K` | Show hover information. |
+| Lean Vim normal mode | `gcc` | Toggle the current line comment. |
+| Lean Vim normal mode | `J` | Join the current line with the next line. |
+| Lean Vim visual mode | `gc` / `gb` | Toggle line / block comments for the selection. |
+| Embedded Lean editor | `Cmd/Ctrl+/` | Toggle line comments. |
+| Embedded Lean editor | `Alt+Shift+A` | Toggle a block comment. |
+| Embedded Lean editor | `Alt+Up/Down` | Move selected lines. |
+| Embedded Lean editor | `Alt+Shift+Up/Down` | Duplicate selected lines. |
 | Copilot in insert mode | `Cmd+]` / `Cmd+Right` | Accept visible inline suggestion, otherwise advance snippet/delimiter. |
 | Copilot in insert mode | `Cmd+}` then character | Accept the visible inline suggestion through the next occurrence of that character. |
 
