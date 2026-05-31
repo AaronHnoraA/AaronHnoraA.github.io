@@ -3,16 +3,23 @@
 - Source: [roam/QC/variance.md](../../../../roam/QC/variance.md)
 - ID: `20260130T000000-variance`
 - Date: 2026-01-30
-- Tags: qc, measurement, statistics, concept
+- Tags: concept, measurement, qc, statistics
 
 ## Summary
 
-Variance 方差 (Variance) \[ Delta (M)\]^(2) &= angle.l (M - lr(angle.l M angle.r) )^2 angle.r \\ &= lr(angle.l M^(2) angle.r) - lr(angle.l M angle.r) ^(2) 设方差 (Variance) 的定义为： "Var" = sum i p i (m i - lr(angle.l M angle.r) )^2 其中利用以下统计性质： lr(angle.l M^2 angle.r) = lr(angle.l psi M^2 psi angle.r) = lr(angle.l psi M dot.op M psi angle.r) M dot.op M = m i' = m i^2 即 M^2 的本征值为 m i^2 。 p i' = lr(angle.l m i' psi angle.r) ^2
+In quantum measurement, the variance of an observable M measures how spread out the measurement outcomes are around their expectation value. For an observable M and a state \psi\rangle , the variance is (\Delta M)^2 = \langle (M-\langle M\rangle)^2\rangle. Equivalently, (\Delta M)^2 = \langle M^2\rangle - \langle M\rangle^2. The standard deviation is \Delta M = \sqrt{\langle M^2\rangle-\langle M\rangle^2}. 1. Setup...
 
 ## Structure
 
-- Variance
-- 方差 (Variance)
+- 1. Setup 测量设定
+- 2. Definition of Variance 方差的定义
+- 3. Main Formula 主公式
+- 4. Operator Derivation 算符推导
+- 5. Degenerate Spectrum 简并谱情形
+- 6. Density Operator Form 密度算符形式
+- 7. Interpretation 物理解释
+- 8. Important Special Case: Eigenstates 本征态情形
+- 9. Conceptual Summary 概念总结
 
 ## Links
 

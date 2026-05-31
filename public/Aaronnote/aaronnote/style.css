@@ -426,23 +426,6 @@ input {
   color: var(--aaron-muted);
 }
 
-/* Lean 4 files in ranger — subtle purple accent */
-.aaronnote-ranger-row.is-lean-file .aaronnote-ranger-icon {
-  color: #9d7fc4;
-  font-size: 12px;
-}
-.aaronnote-ranger-row.is-lean-file strong {
-  color: #6b5fa0;
-}
-.aaronnote-ranger-row.is-lean-file:hover {
-  background: color-mix(in srgb, var(--aaron-paper-soft), #9d7fc4 8%);
-}
-.aaronnote-ranger-row.is-lean-file.is-active {
-  background: color-mix(in srgb, #9d7fc4, var(--aaron-paper) 84%);
-  color: #5a4890;
-  box-shadow: inset 3px 0 0 #9d7fc4;
-}
-
 .aaronnote-ranger-icon,
 .aaronnote-ranger-meta {
   color: var(--aaron-muted);
@@ -493,6 +476,36 @@ input {
   overflow-wrap: anywhere;
   color: var(--aaron-muted);
   font: 12px/1.45 var(--aaron-font-mono);
+}
+
+.aaronnote-ranger-media-preview {
+  display: grid;
+  place-items: center;
+  min-height: 160px;
+  max-height: min(46vh, 360px);
+  margin: 0 0 14px;
+  border: 1px solid var(--aaron-paper-line);
+  background: var(--aaron-paper);
+  overflow: hidden;
+}
+
+.aaronnote-ranger-media-preview img,
+.aaronnote-ranger-media-preview video {
+  display: block;
+  max-width: 100%;
+  max-height: min(46vh, 360px);
+  object-fit: contain;
+}
+
+.aaronnote-ranger-media-preview audio {
+  width: calc(100% - 24px);
+}
+
+.aaronnote-ranger-media-preview iframe {
+  width: 100%;
+  height: min(46vh, 360px);
+  border: 0;
+  background: white;
 }
 
 .aaronnote-ranger-preview dl {
@@ -1937,6 +1950,12 @@ body.lean-panel-open .aaronnote-editor {
   font: 700 11px/1.35 var(--aaron-font-sans, system-ui, sans-serif);
 }
 
+.aaronnote-modal-field-hint {
+  margin-top: -3px;
+  color: var(--aaron-ink-dim, #6b7280);
+  font: 11px/1.35 var(--aaron-font-sans, system-ui, sans-serif);
+}
+
 .aaronnote-modal-path-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -1998,6 +2017,44 @@ body.lean-panel-open .aaronnote-editor {
   border-color: var(--aaron-red);
   background: color-mix(in srgb, var(--aaron-red), var(--aaron-paper) 88%);
   color: var(--aaron-red-dark);
+  font-weight: 750;
+}
+
+.aaronnote-lean-block-modal {
+  width: min(620px, calc(100vw - 32px));
+}
+
+.aaronnote-modal-choice-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 138px;
+  overflow: auto;
+}
+
+.aaronnote-modal-choice-grid:empty {
+  display: none;
+}
+
+.aaronnote-modal-choice-grid button {
+  min-height: 25px;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 3px;
+  padding: 0 8px;
+  background: var(--aaron-paper-soft);
+  color: var(--aaron-ink);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.aaronnote-modal-choice-grid button:hover,
+.aaronnote-modal-choice-grid button.is-active {
+  border-color: var(--aaron-red);
+  color: var(--aaron-red-dark);
+}
+
+.aaronnote-modal-choice-grid button.is-active {
+  background: color-mix(in srgb, var(--aaron-red), var(--aaron-paper) 88%);
   font-weight: 750;
 }
 
@@ -2330,6 +2387,24 @@ body.lean-panel-open .aaronnote-editor {
   box-shadow: 0 10px 26px rgb(67 39 25 / 18%);
 }
 
+.aaronnote-selection-more {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 184px;
+  display: grid;
+  gap: 2px;
+  border: 1px solid color-mix(in srgb, var(--aaron-red), transparent 30%);
+  border-radius: 5px;
+  padding: 4px;
+  background: color-mix(in srgb, var(--aaron-paper), white 18%);
+  box-shadow: 0 10px 26px rgb(67 39 25 / 18%);
+}
+
+.aaronnote-selection-more[hidden] {
+  display: none;
+}
+
 .aaronnote-selection-tool[hidden] {
   display: none;
 }
@@ -2350,6 +2425,11 @@ body.lean-panel-open .aaronnote-editor {
   border-color: var(--aaron-paper-line);
   background: var(--aaron-paper-soft);
   color: var(--aaron-red-dark);
+}
+
+.aaronnote-selection-more button {
+  width: 100%;
+  text-align: left;
 }
 
 .aaronnote-selection-tool span {
@@ -3539,13 +3619,161 @@ body.book-toc-open .aaronnote-editor {
   display: none;
 }
 
+.aaronnote-panel-switcher {
+  position: fixed;
+  left: 60px;
+  bottom: 20px;
+  z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.aaronnote-panel-switcher[hidden] {
+  display: none;
+}
+
+.aaronnote-panel-switcher .aaronnote-jupyter-trigger {
+  position: static;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--aaron-paper-line);
+  border-radius: 50%;
+  padding: 0;
+  background: var(--aaron-paper);
+  color: var(--aaron-red-dark);
+  box-shadow: 0 2px 8px rgb(52 39 22 / 14%);
+  cursor: pointer;
+  font: 800 12px/1 var(--aaron-font-mono);
+}
+
+.aaronnote-panel-switcher .aaronnote-jupyter-trigger:hover {
+  border-color: var(--aaron-red);
+  box-shadow: 0 4px 14px rgb(52 39 22 / 22%);
+  transform: scale(1.08);
+}
+
+.aaronnote-panel-switcher .aaronnote-jupyter-trigger.is-active {
+  border-color: color-mix(in srgb, var(--aaron-red), transparent 24%);
+  background: color-mix(in srgb, var(--aaron-red), var(--aaron-paper) 86%);
+  color: var(--aaron-red-dark);
+}
+
+.aaronnote-panel-switcher .aaronnote-jupyter-trigger[hidden] {
+  display: none;
+}
+
+.aaronnote-tool-panel {
+  position: fixed;
+  left: 0;
+  top: 41px;
+  bottom: 0;
+  z-index: 89;
+  width: var(--lean-panel-width, 560px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--aaron-paper-line);
+  background: #f4efe6;
+  box-shadow: 2px 0 12px rgb(52 39 22 / 10%);
+  font-family: var(--aaron-font-sans);
+  font-size: 12px;
+  transform: none;
+  transition: transform 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.aaronnote-tool-panel[hidden],
+.aaronnote-tool-panel.tool-panel--hidden {
+  transform: translateX(-105%);
+  pointer-events: none;
+}
+
+.aaronnote-tool-panel.tool-panel--resizing,
+.aaronnote-tool-panel.tool-panel--resizing * {
+  user-select: none;
+}
+
+.aaronnote-tool-tabs {
+  flex: 0 0 34px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px 0;
+  border-bottom: 1px solid var(--aaron-paper-line);
+  background: #f9f5ed;
+}
+
+.aaronnote-tool-tabs button {
+  height: 29px;
+  min-width: 74px;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+  padding: 0 12px;
+  background: transparent;
+  color: var(--aaron-muted);
+  cursor: pointer;
+  font: 800 12px/1 var(--aaron-font-sans);
+}
+
+.aaronnote-tool-tabs button:hover {
+  color: var(--aaron-red-dark);
+  background: color-mix(in srgb, var(--aaron-paper), white 38%);
+}
+
+.aaronnote-tool-tabs button.is-active {
+  border-color: var(--aaron-paper-line);
+  background: #fffdf8;
+  color: var(--aaron-red-dark);
+}
+
+.aaronnote-tool-tabs button[hidden] {
+  display: none;
+}
+
+.aaronnote-tool-pane {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.aaronnote-tool-pane[hidden] {
+  display: none;
+}
+
+.aaronnote-tool-panel-resizer {
+  position: absolute;
+  top: 0;
+  right: -5px;
+  bottom: 0;
+  width: 10px;
+  cursor: ew-resize;
+  z-index: 3;
+}
+
+.aaronnote-tool-panel-resizer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 4px;
+  width: 2px;
+  background: transparent;
+  transition: background 120ms;
+}
+
+.aaronnote-tool-panel-resizer:hover::after,
+.aaronnote-tool-panel.tool-panel--resizing .aaronnote-tool-panel-resizer::after {
+  background: color-mix(in srgb, var(--aaron-red), transparent 40%);
+}
+
 /* Left-side Infoview drawer */
 .aaronnote-lean-panel {
   position: fixed;
   left: 0;
   top: 41px; /* below the toolbar */
   bottom: 0;
-  z-index: 46;
+  z-index: 88;
   width: var(--lean-panel-width, 340px);
   display: flex;
   flex-direction: column;
@@ -3556,7 +3784,7 @@ body.book-toc-open .aaronnote-editor {
   backdrop-filter: blur(8px);
   font-family: var(--aaron-font-sans);
   font-size: 12px;
-  transform: translateX(0);
+  transform: none;
   transition: transform 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
@@ -3574,6 +3802,144 @@ body.book-toc-open .aaronnote-editor {
 
 /* display:none only when the trigger button is also hidden (no lean content) */
 .aaronnote-lean-panel.lean-panel--gone {
+  display: none;
+}
+
+.aaronnote-jupyter-panel {
+  position: fixed;
+  left: 0;
+  top: 41px;
+  bottom: 0;
+  z-index: 89;
+  width: 560px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--aaron-paper-line);
+  background: #f4efe6;
+  box-shadow: 2px 0 12px rgb(52 39 22 / 10%);
+  font-family: var(--aaron-font-sans);
+  font-size: 12px;
+  transform: none;
+  transition: transform 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.aaronnote-jupyter-panel[hidden],
+.aaronnote-jupyter-panel.jupyter-panel--hidden {
+  transform: translateX(-105%);
+  pointer-events: none;
+}
+
+.jupyter-panel-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 8px 0 10px;
+  border-bottom: 1px solid var(--aaron-paper-line);
+  background: #f9f5ed;
+}
+
+.jupyter-panel-title {
+  font: 750 12px/1 var(--aaron-font-sans);
+  color: var(--aaron-red-dark);
+}
+
+.jupyter-panel-target {
+  flex: 1;
+  min-width: 0;
+  color: var(--aaron-muted);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.jupyter-panel-body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  background: #fff;
+}
+
+.jupyter-panel-body iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+}
+
+.jupyter-panel-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: var(--aaron-muted);
+  text-align: center;
+  background: #fffdf8;
+}
+
+.jupyter-panel-empty[hidden],
+.jupyter-panel-body iframe[hidden] {
+  display: none;
+}
+
+.aaronnote-editor a.aaronnote-jupyter-link {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.38em;
+  max-width: 100%;
+  padding: 0.06em 0.42em 0.08em 0.2em;
+  border: 1px solid color-mix(in srgb, #8f1230, transparent 62%);
+  border-radius: 5px;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, #8f1230, transparent 84%), transparent 42%),
+    #fffaf1;
+  color: #5f0f20;
+  text-decoration: none;
+  vertical-align: baseline;
+}
+
+.aaronnote-editor a.aaronnote-jupyter-link::before {
+  content: "ipynb";
+  flex: 0 0 auto;
+  padding: 0.02em 0.32em;
+  border-radius: 3px;
+  background: #8f1230;
+  color: #fff8ee;
+  font: 750 0.72em/1.35 var(--aaron-font-mono);
+  letter-spacing: 0;
+}
+
+.aaronnote-editor a.aaronnote-jupyter-link:hover {
+  border-color: #8f1230;
+  background: #fff4dd;
+}
+
+.aaronnote-tool-panel .aaronnote-lean-panel,
+.aaronnote-tool-panel .aaronnote-jupyter-panel {
+  position: relative;
+  left: auto;
+  top: auto;
+  bottom: auto;
+  z-index: auto;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  border-right: 0;
+  box-shadow: none;
+  transform: none;
+  transition: none;
+}
+
+.aaronnote-tool-panel .aaronnote-lean-panel.lean-panel--hidden,
+.aaronnote-tool-panel .aaronnote-jupyter-panel.jupyter-panel--hidden {
+  transform: none;
+  pointer-events: auto;
+}
+
+.aaronnote-tool-panel .lean-panel-width-resizer {
   display: none;
 }
 
@@ -4019,6 +4385,7 @@ body.book-toc-open .aaronnote-editor {
 
 .lean-panel-official {
   padding: 0;
+  overflow: visible;
 }
 
 .lean-official-infoview {
@@ -4258,6 +4625,79 @@ body.book-toc-open .aaronnote-editor {
 .lean-official-infoview--error {
   color: #991b1b;
   font: 700 12px/1.45 var(--aaron-font-sans);
+}
+
+/* Lean's official Infoview renders click tooltips with global `.tooltip*`
+   classes. We intentionally avoid importing its whole CSS bundle because it
+   contains broad utility classes, but these popup styles are required for
+   readable hover/click UI and for escaping the editor/preview stacking order. */
+.tooltip {
+  z-index: 89 !important;
+  box-sizing: border-box;
+  display: flex;
+  max-width: min(620px, calc(100vw - 24px));
+  max-height: min(70vh, 560px);
+  overflow: hidden;
+  border: 1px solid #d8caba;
+  border-radius: 7px;
+  background: #fffaf2 !important;
+  color: #181411 !important;
+  box-shadow:
+    0 22px 56px rgb(67 39 25 / 34%),
+    0 0 0 1px rgb(255 255 255 / 65%) inset;
+  opacity: 1 !important;
+  backdrop-filter: none;
+  pointer-events: auto;
+}
+
+.tooltip-content {
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 6px 10px;
+  background: #fffaf2 !important;
+  color: #181411 !important;
+}
+
+.tooltip-menu-content,
+.tooltip-code-content {
+  color: #181411 !important;
+  font: 13px/1.45 var(--aaron-font-sans);
+}
+
+.tooltip-code-content :is(.font-code, .pre-wrap, code, pre) {
+  color: #211b16 !important;
+  font-family: var(--aaron-font-mono);
+}
+
+.tooltip-code-content code {
+  border-radius: 3px;
+  background: #f4efe6 !important;
+  padding: 0 0.35em;
+}
+
+.tooltip-code-content :is(p, .code, ul, ol) {
+  margin: 8px 0;
+}
+
+.tooltip-code-content :is(p, .code, ul, ol):first-child {
+  margin-top: 0;
+}
+
+.tooltip-code-content :is(p, .code, ul, ol):last-child {
+  margin-bottom: 0;
+}
+
+.tooltip-code-content hr {
+  border: 0;
+  border-top: 1px solid #d8caba;
+  margin: 5px -10px;
+}
+
+.tooltip-code-content a,
+.tooltip-menu-content .link {
+  color: #7f1d1d !important;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .lean-messages-list {

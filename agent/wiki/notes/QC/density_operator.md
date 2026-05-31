@@ -3,23 +3,29 @@
 - Source: [roam/QC/density_operator.md](../../../../roam/QC/density_operator.md)
 - ID: `20260128T000000-density-operator`
 - Date: 2026-01-28
-- Tags: quantum, density, state, operator
+- Tags: density, operator, qc, state
 
 ## Summary
 
-Density Operator 1. 为什么要引入密度算符 并不是所有状态(Quantum State)都能用一个 ψ⟩ 描述。 例如： 我们只知道系统以概率 p i 处于 ψ i⟩ 但不知道“到底是哪一个” 这时，用“态矢”已经不够了。 2. 密度算符的定义 一个量子态可以用算符 ρ 表示，满足： ρ ≥ 0（非负） ρ = ρ†（自共轭） tr(ρ) = 1（归一化） 期望值公式统一为： ⟨A⟩ = tr(A ρ) 3. 纯态是特殊的密度算符 若系统处于纯态 ψ⟩， 定义： ρ ψ = ψ⟩⟨ψ 这是一个： 一维正交投影 秩为 1 ρ² = ρ 此时： tr(A ρ ψ) = ⟨ψ A ψ⟩ 与态矢公式完全一致。 4. 纯态与混合态的几何结构 所有密度算符构成一个 凸集 纯态 = 极端点（不可再分） 混合态 = 纯态的凸组合 可以理解为： 纯态是“信息最完整的状态”， 混合态是“经典不确定性 + 量子不确定性”的叠加。
+A density operator is the most general mathematical representation of a quantum state. It includes both: pure states, which can be represented by a single state vector \psi\rangle ; mixed states, which describe probabilistic uncertainty over possible pure states. The density-operator formalism unifies the expectation-value formula as \langle A\rangle = \operatorname{tr}(\rho A). 1. Why Density Operators Are Needed 为...
 
 ## Structure
 
-- Density Operator
-- 1. 为什么要引入密度算符
-- 2. 密度算符的定义
-- 3. 纯态是特殊的密度算符
-- 4. 纯态与混合态的几何结构
+- 1. Why Density Operators Are Needed 为什么要引入密度算符
+- 2. Definition of Density Operator 密度算符的定义
+- 3. Density Operator from an Ensemble 从系综得到密度算符
+- 4. Pure States as Density Operators 纯态是特殊的密度算符
+- 5. Expectation Value for Pure States 纯态期望值公式
+- 6. Pure States and Mixed States 纯态与混合态
+- 7. Geometric Structure 几何结构
+- 8. Pure States as Extreme Points 纯态作为极端点
+- 9. Classical and Quantum Uncertainty 经典不确定性与量子不确定性
+- 10. Spectral Decomposition 谱分解
+- Conceptual Summary 概念总结
 
 ## Links
 
-- [Quantum State](quantum_state.md)
+- None
 
 ## Backlinks
 

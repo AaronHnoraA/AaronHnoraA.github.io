@@ -21,6 +21,19 @@ STATE_DIR = AGENT_DIR / ".state"
 STATE_FILE = STATE_DIR / "maintain-state.json"
 DEFAULT_SAMPLE_RATIO = 0.15
 DEFAULT_MIN_SAMPLE = 1
+SKIP_NOTE_DIR_NAMES = {
+    ".git",
+    ".git-rewrite",
+    ".cache",
+    ".direnv",
+    ".venv",
+    "node_modules",
+    "public",
+    "release",
+    "ltximg",
+    "_typst",
+    "__pycache__",
+}
 
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.+)$")
 FRONT_MATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n?", re.S)
@@ -97,6 +110,11 @@ def unique(values: list[str]) -> list[str]:
 
 def wiki_path_for(note_path: Path) -> Path:
     return WIKI_NOTES_DIR / note_path.relative_to(ROAM_DIR).with_suffix(".md")
+
+
+def indexable_note_path(path: Path) -> bool:
+    directories = path.relative_to(ROAM_DIR).parts[:-1]
+    return not any(part.startswith(".") or part in SKIP_NOTE_DIR_NAMES for part in directories)
 
 
 def parse_metadata_block(text: str) -> tuple[dict[str, object], str]:
@@ -670,7 +688,7 @@ def main() -> None:
     WIKI_DIR.mkdir(parents=True, exist_ok=True)
     WIKI_NOTES_DIR.mkdir(parents=True, exist_ok=True)
 
-    note_paths = sorted(ROAM_DIR.rglob("*.md"))
+    note_paths = sorted(path for path in ROAM_DIR.rglob("*.md") if indexable_note_path(path))
     notes, deleted, reparsed = load_notes(note_paths)
     notes_by_id = {note.id: note for note in notes if note.id}
     backlinks = build_backlinks(notes)

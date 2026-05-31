@@ -3,36 +3,40 @@
 - Source: [roam/math/hilbert_space.md](../../../../roam/math/hilbert_space.md)
 - ID: `20260126T000000-hilbert-space`
 - Date: 2026-01-26
-- Tags: math, structure, concept, intuition, working, QC, algebra, linear_algebra
+- Tags: algebra, concept, intuition, linear-algebra, math, qc, structure
 
 ## Summary
 
-Hilbert Space Hilbert Space 希尔伯特空间 Hilbert space is a big space. ----- Carlton Caves 1. 数学理解 (Mathematical Understanding) 本质是将欧几里得空间 ( bb(R)^(n) ) 推广到 无限维 ，并保留几何直观。 核心定义 : 一个 完备 (Complete) 的 内积空间 (Inner Product Space) 。 内积 ( lr(angle.l u, v angle.r) ) : 定义了“角度”和“投影”。若内积为 0，则两向量正交。 范数 ( v ) : 由内积导出 ( v = sqrt( lr(angle.l v, v angle.r) ) )，定义了向量的“长度”。 完备性 : 空间内的柯西序列收敛于空间内（保证极限存在，微积分可行）。 常见例子 : bb(R)^n (有限维希尔伯特空间)。 L^2...
+"Hilbert space is a big space." --- Carlton Caves A Hilbert space is a complete inner product space. Conceptually, it generalises Euclidean space while preserving the geometric notions of length, angle, orthogonality, projection, and convergence. The key chain is: \text{inner product} \Longrightarrow \text{norm} \Longrightarrow \text{metric} \Longrightarrow \text{convergence} \Longrightarrow \text{completeness}. If...
 
 ## Structure
 
-- Hilbert Space
-- Hilbert Space 希尔伯特空间
-  - 1. 数学理解 (Mathematical Understanding)
-  - 2. 量子应用 (Quant. 量子应p (Quaions)
-- ss
-- 证明思路
-- 证明
-  - Step 1：选取正交基
-  - Step 2：设 {v i} 为柯西列
-  - Step 3：写成坐标形式
-  - Step 4：距离的坐标表达
-  - Step 5：拆分为实部与虚部
-  - Step 6：坐标收敛
-  - Step 7：构造极限向量
-- 结论
-- 希尔伯特空间的相互作用
+  - 1. Mathematical Understanding 数学理解
+    - Core Components 核心组成
+    - Common Examples 常见例子
+  - 2. Quantum Application 量子应用
+    - States 态
+    - Superposition 叠加原理
+    - Observables 可观测量
+    - Born Rule 玻恩规则
+  - 3. Finite-Dimensional Inner Product Spaces Are Complete
+    - Proof Idea 证明思路
+    - Step 1: Choose an orthonormal basis
+    - Step 2: Let (v i) be a Cauchy sequence
+    - Step 3: Write each vector in coordinates
+    - Step 4: Use the norm formula in an orthonormal basis
+    - Step 5: Use completeness of \mathbb{C}
+    - Step 6: Construct the candidate limit vector
+    - Step 7: Show that v i \to v
+  - 4. Interaction of Hilbert Spaces 希尔伯特空间之间的构造
+    - Direct Sum 直和
+    - Tensor Product 张量积
+  - 5. Conceptual Summary 概念总结
 
 ## Links
 
-- [Inner Product Space](inner_product_space.md)
+- None
 
 ## Backlinks
 
-- [Observable & Expectation](../QC/observable_expectation.md)
-- [Quantum State](../QC/quantum_state.md)
+- None

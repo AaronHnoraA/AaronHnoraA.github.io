@@ -182,6 +182,12 @@
  * content is visible, with the visual treatment applied to the whole span. */
 .cm-editor .cm-strong { font-weight: bold; }
 .cm-editor .cm-em { font-style: italic; }
+.cm-editor .cm-highlight {
+  background: color-mix(in srgb, #f2ce65, transparent 38%);
+  border-radius: 2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
 .cm-editor .cm-strike { text-decoration: line-through; }
 .cm-editor .cm-inline-code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -208,6 +214,19 @@
   padding: 0 0.16em;
 }
 
+.cm-editor .cm-jupyter-link-text {
+  color: #5f0f20;
+  text-decoration: none;
+  border: 1px solid color-mix(in srgb, #8f1230, transparent 66%);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, #8f1230, transparent 84%), transparent 38%),
+    #fffaf1;
+  border-radius: 4px;
+  padding: 0 0.26em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
 .cm-editor .cm-aaron-find-match {
   background: color-mix(in srgb, #facc15, transparent 48%);
   box-shadow: 0 0 0 1px color-mix(in srgb, #ca8a04, transparent 62%);
@@ -225,6 +244,24 @@
   text-decoration-style: wavy;
   text-decoration-color: #dc2626;
   text-underline-offset: 3px;
+}
+
+.cm-editor .cm-prose-diagnostic {
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+  text-underline-offset: 3px;
+}
+
+.cm-editor .cm-prose-diagnostic-vale {
+  text-decoration-color: rgba(217, 119, 6, 0.95);
+}
+
+.cm-editor .cm-prose-diagnostic-cspell {
+  text-decoration-color: rgba(220, 38, 38, 0.95);
+}
+
+.cm-editor .cm-prose-diagnostic-browser {
+  text-decoration-color: rgba(37, 99, 235, 0.95);
 }
 
 /* ─── CM6 math widgets ───────────────────────────────────────────── */
@@ -1199,11 +1236,10 @@ org-env-block[data-kind="lean4"] .code-token-punctuation { color: #bac2de; }
 
 /* ─── CM6 horizontal rule ───────────────────────────────────────── */
 .cm-editor .cm-horizontal-rule {
-  height: 1px;
+  min-height: 1px;
   padding: 1.4em 0;
   margin: 0;
-  background: var(--aaron-paper-line, #d8dee4);
-  background-clip: content-box;
+  background: linear-gradient(var(--aaron-paper-line, #b8aa90), var(--aaron-paper-line, #b8aa90)) center / 100% 1px no-repeat;
   border: 0;
   cursor: pointer;
 }
@@ -1300,6 +1336,18 @@ org-env-block[data-kind="lean4"] .code-token-punctuation { color: #bac2de; }
 }
 .cm-editor .cm-mermaid-block-preview {
   cursor: default;
+}
+.aaronnote-tikz,
+.cm-editor .cm-tikz-env-widget {
+  width: fit-content;
+  max-width: 100%;
+}
+.aaronnote-tikz-embed {
+  width: var(--aaronnote-image-width, min(100%, var(--note-image-max, 620px)));
+  height: var(--aaronnote-image-height, min(52vh, 420px));
+}
+.cm-editor .cm-tikz-env-widget {
+  cursor: pointer;
 }
 .cm-editor .cm-mermaid-widget > .cm-mermaid-block,
 .cm-editor .cm-mermaid-widget > .cm-mermaid-block-preview {

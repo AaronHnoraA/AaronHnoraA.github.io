@@ -856,6 +856,18 @@ def roam_git_head() -> str | None:
     return git_head(ROAM_ROOT)
 
 
+def roam_inputs_dirty() -> bool:
+    try:
+        output = subprocess.check_output(
+            ["git", "status", "--porcelain", "--untracked-files=all"],
+            cwd=ROAM_ROOT,
+            text=True,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return True
+    return bool(output.strip())
+
+
 def git_inputs_dirty() -> bool:
     try:
         output = subprocess.check_output(["git", "status", "--porcelain", "--", *PUBLISH_INPUT_PATHS], cwd=ROOT, text=True)
@@ -871,7 +883,7 @@ def publish_outputs_exist(notes: list[Note]) -> bool:
 
 
 def publish_state_current(notes: list[Note], head: str | None, roam_head: str | None) -> bool:
-    if publish_forced() or not head or git_inputs_dirty() or not PUBLISH_STATE.exists():
+    if publish_forced() or not head or git_inputs_dirty() or roam_inputs_dirty() or not PUBLISH_STATE.exists():
         return False
     try:
         state = json.loads(PUBLISH_STATE.read_text(encoding="utf-8"))
@@ -890,7 +902,7 @@ def write_publish_state(notes: list[Note], rendered: int, skipped: int, head: st
     state = {
         "gitHead": head,
         "roamGitHead": roam_head,
-        "dirty": git_inputs_dirty(),
+        "dirty": git_inputs_dirty() or roam_inputs_dirty(),
         "noteCount": len(notes),
         "rendered": rendered,
         "skipped": skipped,

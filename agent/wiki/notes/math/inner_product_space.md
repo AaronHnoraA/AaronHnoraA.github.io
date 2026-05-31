@@ -3,23 +3,17 @@
 - Source: [roam/math/inner_product_space.md](../../../../roam/math/inner_product_space.md)
 - ID: `20260127T000000-inner-product-space`
 - Date: 2026-01-27
-- Tags: math, QC, concept, algebra, linear_algebra
+- Tags: algebra, concept, linear-algebra, math, qc
 
 ## Summary
 
-Inner Product Space Inner Product Space 内积空间 标量域 F ： bb(R) （实数） bb(C) （复数） V 是定义在域 (F,+, times ) 上的向量空间 向量加法： plus.circle 标量乘法： dot.op 给定一个二元函数 f: V times V - F 通常记作： f(v,w) = lr(angle.l v,w angle.r) 内积的公理化定义 若 lr(angle.l dot.op , dot.op angle.r) 满足下表中的全部条件，则称其为 V 上的一个 内积 。 📌 以上线性条件是指 对第一个变量线性 。 实内积空间与复内积空间 若 F=bb(R) ，称 V 为 实内积空间 若 F=bb(C) ，称 V 为 复内积空间 正交的定义 若 lr(angle.l v,w angle.r) = 0 则记为 v perp w 称 v 与 w 正交（orth...
+An inner product space is a vector space equipped with an additional operation called an inner product. This operation allows us to define geometric notions such as length, angle, orthogonality, norm, distance, convergence, and completeness. The conceptual chain is: \text{inner product} \Longrightarrow \text{norm} \Longrightarrow \text{metric} \Longrightarrow \text{convergence} \Longrightarrow \text{completeness}. B...
 
 ## Structure
 
-- Inner Product Space
-- Inner Product Space 内积空间
-- 内积的公理化定义
-- 实内积空间与复内积空间
-- 正交的定义
-- 定义顺序的分歧（数学 vs 物理）
-  - 数学上的约定
-  - 物理学（狄拉克符号）的约定
-  - 重要说明
+- Basic Setup 基本设.
+- Axiomatic Definition of an Inner Product 内积的公理化定义
+- Consequence: Conjugate Linearity in the Second Variable 第二变量共轭线性
 
 ## Links
 
@@ -27,4 +21,4 @@ Inner Product Space Inner Product Space 内积空间 标量域 F ： bb(R) （�
 
 ## Backlinks
 
-- [Hilbert Space](hilbert_space.md)
+- None

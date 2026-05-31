@@ -3,23 +3,30 @@
 - Source: [roam/QC/observable_expectation.md](../../../../roam/QC/observable_expectation.md)
 - ID: `20260128T000000-observable-expectation`
 - Date: 2026-01-28
-- Tags: quantum, observable, expectation, operator
+- Tags: expectation, observable, operator, qc
 
 ## Summary
 
-Observable & Expectation 1. 可观测量为什么是厄米算符(Hermitian Matrix) 在量子力学中： 每一个物理可观测量 A 都对应一个厄米算符 Â, 在希尔伯特空间(Hilbert Space)内. 原因有两个： 1. 本征值必须是实数（实验结果） 2. 本征态可以正交分解（概率解释） 2. 期望值的物理意义 设系统处于态 ψ⟩， 对同一个系统做大量重复实验： 每一次测量得到一个本征值 a n 出现概率为 p n 统计平均值是： ⟨A⟩ = ∑ a n p n 谱定理告诉我们： p n = ⟨a n ψ⟩ ² 代入并整理，得到一个 极其紧凑的表达式 ： ⟨A⟩ = ⟨ψ Â ψ⟩ 这不是“定义”， 而是从统计平均 严格推导出来的结果 。 3. 谱理论的核心结论 对任意厄米算符 A： 所有可能测量结果 ∈ A 的谱 离散谱 → 本征值 连续谱 → 广义本征态 如果将 ψ⟩ 在本征基中展开： 那么：
+In quantum mechanics, an observable is represented by a Hermitian operator on a Hilbert space. The key chain is: \text{observable} \Longrightarrow \text{Hermitian operator} \Longrightarrow \text{spectral decomposition} \Longrightarrow \text{measurement outcomes} \Longrightarrow \text{Born probabilities} \Longrightarrow \text{expectation value}. For a pure state \psi\rangle and an observable \hat{A} , the expectation...
 
 ## Structure
 
-- Observable & Expectation
-- 1. 可观测量为什么是厄米算符(Hermitian Matrix)
-- 2. 期望值的物理意义
-- 3. 谱理论的核心结论
+- 1. Why Observables Are Hermitian Operators 为什么可观测量是厄米算符
+  - 1.1 Measurement outcomes must be real 测量结果必须是实数
+  - 1.2 Hermitian operators admit orthogonal spectral decompositions 厄米算符允许正交谱分解
+- 2. Physical Meaning of Expectation Value 期望值的物理意义
+- 3. Born Rule and Spectral Expansion 玻恩规则与谱展开
+- 4. Derivation of the Operator Formula 期望值算符公式的推导
+- 5. Degenerate Eigenvalues 简并本征值情形
+- 6. Core Spectral-Theoretic Statement 谱理论的核心结论
+- 7. Continuous Spectrum 连续谱情形
+- 8. Geometric Interpretation 几何解释
+- 9. Density-Operator Form 密度算符形式
+- Conceptual Summary 概念总结
 
 ## Links
 
-- [Hermitian Matrix](../math/hermitian_matrix.md)
-- [Hilbert Space](../math/hilbert_space.md)
+- None
 
 ## Backlinks
 

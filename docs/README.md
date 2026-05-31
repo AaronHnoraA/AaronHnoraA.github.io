@@ -8,6 +8,7 @@ Developer and maintainer documentation. Not about note content.
 - [software-design.md](software-design.md): Aaronnote product/runtime design, Roam link model, UX, performance, reliability
 - [api.md](api.md): Editor facade (all commands, block context, quick insert, StateEffects), renderer API, snippet system, plugin contract, Roam link conventions, layout attrs
 - [maintenance.md](maintenance.md): Setup, tests, safety checks, Roam-link maintenance, release/build notes
+- [roam-tag-standard.md](roam-tag-standard.md): File-level Roam tag naming, vocabulary, and maintenance rules
 - [status.md](status.md): Progress, test state, known bugs / limitations, next steps
 - [performance-optimization.md](performance-optimization.md): Performance ledger, numeric thresholds, StateField locality decision table, edge cases, future design
 - [aaronnote-html-controls.md](aaronnote-html-controls.md): Note-level CSS, layout attrs, HTML blocks, and common DOM shapes
@@ -25,9 +26,10 @@ Recommended reading order:
 4. `software-design.md`
 5. `api.md`
 6. `maintenance.md`
-7. `performance-optimization.md`
-8. `aaronnote-html-controls.md`
-9. `aaronnote-kinds.md`
-10. `../Aaronnote/docs/lean-integration.md`
-11. `../plugin/README.md`
-12. `status.md`
+7. `roam-tag-standard.md`
+8. `performance-optimization.md`
+9. `aaronnote-html-controls.md`
+10. `aaronnote-kinds.md`
+11. `../Aaronnote/docs/lean-integration.md`
+12. `../plugin/README.md`
+13. `status.md`
