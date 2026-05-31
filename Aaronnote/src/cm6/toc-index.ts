@@ -349,10 +349,10 @@ function patchTocIndex(index: TocIndex, startDoc: Text, nextDoc: Text, changes: 
 
   const headings = index.headings
     .filter((heading) => heading.pos < oldWindow.from || heading.pos > oldWindow.to)
-    .map((heading) => mapHeading(heading, changes));
+    .map((heading) => heading.pos < oldWindow.from ? heading : mapHeading(heading, changes));
   const anchors = index.anchors
     .filter((anchor) => anchor.lineFrom < oldWindow.from || anchor.lineFrom > oldWindow.to)
-    .map((anchor) => mapAnchor(anchor, changes));
+    .map((anchor) => anchor.lineFrom < oldWindow.from ? anchor : mapAnchor(anchor, changes));
 
   for (let lineNo = nextWindow.startLine; lineNo <= nextWindow.endLine; lineNo += 1) {
     const line = nextDoc.line(lineNo);

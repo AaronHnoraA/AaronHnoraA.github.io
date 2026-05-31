@@ -182,6 +182,12 @@
  * content is visible, with the visual treatment applied to the whole span. */
 .cm-editor .cm-strong { font-weight: bold; }
 .cm-editor .cm-em { font-style: italic; }
+.cm-editor .cm-highlight {
+  background: color-mix(in srgb, #f2ce65, transparent 38%);
+  border-radius: 2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
 .cm-editor .cm-strike { text-decoration: line-through; }
 .cm-editor .cm-inline-code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -1230,11 +1236,10 @@ org-env-block[data-kind="lean4"] .code-token-punctuation { color: #bac2de; }
 
 /* ─── CM6 horizontal rule ───────────────────────────────────────── */
 .cm-editor .cm-horizontal-rule {
-  height: 1px;
+  min-height: 1px;
   padding: 1.4em 0;
   margin: 0;
-  background: var(--aaron-paper-line, #d8dee4);
-  background-clip: content-box;
+  background: linear-gradient(var(--aaron-paper-line, #b8aa90), var(--aaron-paper-line, #b8aa90)) center / 100% 1px no-repeat;
   border: 0;
   cursor: pointer;
 }

@@ -118,6 +118,22 @@ describe("api client native bridge", () => {
     });
   });
 
+  test("passes editor context menu options through the native bridge", async () => {
+    const calls: unknown[] = [];
+    await withNativeBridge({
+      shell: {
+        showEditorContextMenu: async (options) => {
+          calls.push(options);
+          return { ok: true };
+        },
+      },
+    }, async () => {
+      const options = { linkHref: "target.md", hasSelection: true, blockType: "paragraph" };
+      await api.shell.showEditorContextMenu(options);
+      expect(calls).toEqual([options]);
+    });
+  });
+
   test("fire-and-forget persistence uses IPC instead of beacon or fetch", async () => {
     const saves: unknown[] = [];
     const positions: unknown[] = [];

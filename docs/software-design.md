@@ -119,6 +119,16 @@ Aaronnote optimizes repeated note work rather than landing-page presentation:
 - Command palette actions mirror menu actions where possible.
 - Save status is explicit: dirty, saving, saved, failed, or conflict.
 - Editor cursor state is sticky: leaving the editor for notes/ranger/plugins saves the current source selection and scroll position, returning to the same file restores it, and reopening a file restores the last persisted cursor position.
+- Transient pickers should behave consistently: arrow keys move by one item,
+  PageUp/PageDown move by a small page, Home/End jump to the edges, mouse hover
+  syncs the active item, Enter accepts, and Escape closes or clears the local
+  interaction before affecting the wider workspace.
+- Find should seed from a short single-line editor selection, keep highlights
+  scoped to the open find session, and clear pending scans/highlights when it is
+  closed.
+- Filesystem search should support direct keyboard flow: Enter opens the
+  selected filtered result, while Escape first closes suggestions, then clears
+  the filter, then returns focus to the ranger.
 
 Transient panels should be scoped to the active workspace. A plugin panel added to the Notes page must be hidden when another notes tab is selected.
 

@@ -42,10 +42,16 @@ for (const [key, value] of Object.entries({
   Object.defineProperty(globalThis, key, { value, configurable: true });
 }
 
-const input = JSON.parse(readFileSync(0, "utf8") || "{}");
 const { renderMarkdownHTML, renderPublishedNoteHTML } = await import("../src/render-html.ts");
 
-const html = input.mode === "published-note"
-  ? renderPublishedNoteHTML(String(input.markdown ?? ""), input.note ?? {})
-  : renderMarkdownHTML(String(input.markdown ?? ""), { leanRegions: input.leanRegions ?? undefined });
+function renderOne(input) {
+  return input.mode === "published-note"
+    ? renderPublishedNoteHTML(String(input.markdown ?? ""), input.note ?? {})
+    : renderMarkdownHTML(String(input.markdown ?? ""), { leanRegions: input.leanRegions ?? undefined });
+}
+
+const input = JSON.parse(readFileSync(0, "utf8") || "{}");
+const html = Array.isArray(input.batch)
+  ? input.batch.map((item) => renderOne(item ?? {}))
+  : renderOne(input);
 process.stdout.write(JSON.stringify({ html }));

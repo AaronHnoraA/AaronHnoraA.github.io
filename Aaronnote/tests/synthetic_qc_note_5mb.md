@@ -244,7 +244,9 @@ object.
 #+begin remark Coordinates versus invariance
 Coordinates are useful for computation because they give arrays of field
 elements. Invariance is useful for mathematics because it identifies the
-features of the object that do not depend on the chosen basis.
+features of the object that do not depend on the chosen basis. this is hard to use 
+
+
 
 中文直觉：坐标是“输入格式”，不变量是“结构本身留下的影子”。
 #+end remark
@@ -1282,11 +1284,33 @@ $$
 $$
 
 does not uniquely determine the ensemble $\{p_j,|\psi_j\rangle\}_j$.
-
+q
 Different classical preparation procedures may induce the same density
-operator. Operationally, the density operator is the object that determines
-all measurement statistics.
+operator. Operationally, the density operator is the object that ==determines== this is this is easy to yse  this is har ssssssssssssssssss
+all measurement statistics. sssssssssssssssssssssssssssssss this is hard kkkkkkkkkkkkkkkkkkkkkk kkkkkkkkkkkk sssssssssss this is hard to use as ssssssssssssssssssss
+
+
+
+
+this is hhhhhhhhhhhhhhhh this is hard to use as 
+
+
+
+
+$$
+asda asd a
+$$
+
+this ish  hard 
+
+
+
+
 #+end important
+
+
+# s
+
 
 The purity of $\rho$ is
 

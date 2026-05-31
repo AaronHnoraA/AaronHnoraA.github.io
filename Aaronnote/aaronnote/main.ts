@@ -5,6 +5,7 @@ import "./style.css";
 import { createEditor, type Editor, type EditorCommand, type QuickInsertItem } from "../src/lib.ts";
 import type { EditorView } from "@codemirror/view";
 import { setFindHighlightRanges } from "../src/cm6/find-highlight.ts";
+import { markdownHrefAt } from "../src/cm6/editor-cm6.ts";
 import { setKnownRoamRefs } from "../src/cm6/roam-link-status.ts";
 import { proseDiagnosticsAt, setProseDiagnostics, type ProseDiagnostic } from "../src/cm6/prose-diagnostics.ts";
 import {
@@ -531,13 +532,22 @@ selectionTool.className = "aaronnote-selection-tool";
 selectionTool.innerHTML = `
   <button type="button" data-selection-command="bold" title="Bold">B</button>
   <button type="button" data-selection-command="italic" title="Italic">I</button>
-  <button type="button" data-selection-command="code" title="Code">Code</button>
-  <button type="button" data-selection-command="link" title="Link">Link</button>
+  <button type="button" data-selection-command="highlight" title="Highlight">==</button>
+  <button type="button" data-selection-command="strike" title="Strikethrough">~~</button>
+  <button type="button" data-selection-command="code" title="Inline code">&lt;&gt;</button>
+  <button type="button" data-selection-command="link" title="Link">@</button>
   <span aria-hidden="true"></span>
   <button type="button" data-selection-command="copy" title="Copy">Copy</button>
+  <button type="button" data-selection-command="more" title="More actions">...</button>
+  <div class="aaronnote-selection-more" data-selection-more hidden>
+    <button type="button" data-selection-command="find">Find selected text</button>
+    <button type="button" data-selection-command="insert-roam-idlink">Insert roam idlink...</button>
+  </div>
 `;
 selectionTool.hidden = true;
 document.body.appendChild(selectionTool);
+const selectionMore = selectionTool.querySelector<HTMLElement>("[data-selection-more]")!;
+const selectionRoamIdlink = selectionTool.querySelector<HTMLButtonElement>("[data-selection-command='insert-roam-idlink']")!;
 
 const findTool = document.createElement("div");
 findTool.className = "aaronnote-find-tool";
@@ -666,6 +676,9 @@ const LARGE_RENDERED_OPEN_BYTES = 1_000_000;
 let currentStandalone = false;
 let noteCssUpdateTimer = 0;
 let saveTimer = 0;
+let draftSaveTimer = 0;
+let draftSaveIdleHandle = 0;
+let draftSavePending = false;
 let notes: NoteSummary[] = [];
 let directories: DirectorySummary[] = [];
 let files: FileSummary[] = [];
@@ -1965,8 +1978,19 @@ function draftStorageKey(file = currentFile): string {
   return `${draftStoragePrefix}${file || "scratch"}`;
 }
 
+function cancelScheduledDraftRemember(): void {
+  window.clearTimeout(draftSaveTimer);
+  draftSaveTimer = 0;
+  if (draftSaveIdleHandle) {
+    window.cancelIdleCallback?.(draftSaveIdleHandle);
+    draftSaveIdleHandle = 0;
+  }
+  draftSavePending = false;
+}
+
 function rememberDraft(content = editor.getMarkdown()): void {
   if (!currentFile) return;
+  cancelScheduledDraftRemember();
   try {
     window.localStorage.setItem(draftStorageKey(), JSON.stringify({
       file: currentFile,
@@ -1977,8 +2001,37 @@ function rememberDraft(content = editor.getMarkdown()): void {
   } catch {}
 }
 
+function scheduleDraftRemember(delay = 700): void {
+  if (!currentFile) return;
+  draftSavePending = true;
+  window.clearTimeout(draftSaveTimer);
+  if (draftSaveIdleHandle) {
+    window.cancelIdleCallback?.(draftSaveIdleHandle);
+    draftSaveIdleHandle = 0;
+  }
+  draftSaveTimer = window.setTimeout(() => {
+    draftSaveTimer = 0;
+    const run = () => {
+      draftSaveIdleHandle = 0;
+      if (!draftSavePending) return;
+      rememberDraft();
+    };
+    if (typeof window.requestIdleCallback === "function") {
+      draftSaveIdleHandle = window.requestIdleCallback(run, { timeout: 1200 });
+    } else {
+      draftSaveTimer = window.setTimeout(run, 0);
+    }
+  }, delay);
+}
+
+function flushDraftRemember(): void {
+  if (!draftSavePending) return;
+  rememberDraft();
+}
+
 function clearDraft(file = currentFile): void {
   if (!file) return;
+  if (file === currentFile) cancelScheduledDraftRemember();
   try {
     window.localStorage.removeItem(draftStorageKey(file));
   } catch {}
@@ -2065,7 +2118,7 @@ function markDirty(): void {
   saveConflictActive = false;
   editRevision++;
   cancelScheduledNotesRefresh();
-  rememberDraft();
+  scheduleDraftRemember();
   if (!currentFile) {
     setStatus(scratchStatus());
     return;
@@ -2297,6 +2350,7 @@ function refreshFindMatches(options: { viewportFirst?: boolean } = {}): void {
       : "Scanning...";
     applyFindDecorations(viewportMatches);
     findFullScanTimer = window.setTimeout(() => {
+      if (findTool.hidden) return;
       if (findQuery.value !== query || findRegex.checked !== regex) return;
       const fullPattern = findPattern();
       findMatches = collectScopedFindMatches(editor.getMarkdown(), fullPattern);
@@ -2344,6 +2398,16 @@ function findNext(delta = 1): void {
   selectFindMatch(findIndex + delta);
 }
 
+function findSeedFromEditorSelection(): string {
+  const selection = editor.getSelection();
+  const from = Math.min(selection.from, selection.to);
+  const to = Math.max(selection.from, selection.to);
+  if (from >= to) return "";
+  const text = editor.textBetween(from, to).trim();
+  if (!text || text.length > 120 || /[\r\n]/.test(text)) return "";
+  return text;
+}
+
 function openFindTool(): void {
   if (!notesPage.hidden) {
     showNotesTool("filesystem");
@@ -2352,16 +2416,23 @@ function openFindTool(): void {
     return;
   }
   hideEditorOverlays({ keepFind: true });
+  const seed = findSeedFromEditorSelection();
+  if (seed) findQuery.value = seed;
   findTool.hidden = false;
   findQuery.focus();
   findQuery.select();
   refreshFindMatches();
 }
 
-function closeFindTool(): void {
+function closeFindTool(refocusEditor = true): void {
   findTool.hidden = true;
+  window.clearTimeout(findRefreshTimer);
+  window.clearTimeout(findFullScanTimer);
+  findMatches = [];
+  findIndex = -1;
+  findCount.textContent = "";
   applyFindDecorations([]);
-  editor.focus();
+  if (refocusEditor) editor.focus();
 }
 
 function replaceCurrentFindMatch(): void {
@@ -2507,6 +2578,149 @@ function jupyterTargetFromHref(href: string): JupyterTarget | null {
     selector: tocTarget,
     selectorKind: tocTarget ? "toc" : "",
   };
+}
+
+type MarkdownJupyterLinkAtCursor = {
+  insertAt: number;
+  hasAtSelector: boolean;
+};
+
+function markdownLinkTargetBounds(rawTarget: string): { href: string; start: number; end: number } | null {
+  const leading = rawTarget.match(/^\s*/)?.[0].length ?? 0;
+  if (rawTarget[leading] === "<") {
+    for (let index = leading + 1; index < rawTarget.length; index++) {
+      if (rawTarget[index] === ">" && !markdownEscapedAt(rawTarget, index)) {
+        const href = rawTarget.slice(leading + 1, index).trim();
+        return href ? { href, start: leading + 1, end: index } : null;
+      }
+    }
+  }
+  const titleMatch = rawTarget.match(/\s+(?:"[^"]*"|'[^']*')\s*$/);
+  const beforeTitleEnd = titleMatch?.index ?? rawTarget.length;
+  const beforeTitle = rawTarget.slice(0, beforeTitleEnd);
+  const start = leading;
+  const end = beforeTitle.replace(/\s+$/, "").length;
+  if (start >= end) return null;
+  return { href: rawTarget.slice(start, end), start, end };
+}
+
+function ipynbEndInHref(href: string): number {
+  const re = /\.ipynb/gi;
+  let end = -1;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(href)) !== null) end = match.index + match[0].length;
+  return end;
+}
+
+function markdownEscapedAt(text: string, index: number): boolean {
+  let slashCount = 0;
+  for (let pos = index - 1; pos >= 0 && text[pos] === "\\"; pos--) slashCount++;
+  return slashCount % 2 === 1;
+}
+
+function markdownLinkLabelEnd(line: string, open: number): number {
+  let depth = 1;
+  for (let pos = open + 1; pos < line.length; pos++) {
+    const ch = line[pos];
+    if ((ch === "[" || ch === "]") && markdownEscapedAt(line, pos)) continue;
+    if (ch === "[") {
+      depth++;
+      continue;
+    }
+    if (ch === "]") {
+      depth--;
+      if (depth === 0) return pos;
+    }
+  }
+  return -1;
+}
+
+function markdownLinkTargetEnd(line: string, open: number): number {
+  let depth = 0;
+  let quote = "";
+  for (let pos = open + 1; pos < line.length; pos++) {
+    const ch = line[pos];
+    if (markdownEscapedAt(line, pos)) continue;
+    if (quote) {
+      if (ch === quote) quote = "";
+      continue;
+    }
+    if ((ch === "\"" || ch === "'") && /\s/.test(line[pos - 1] ?? "")) {
+      quote = ch;
+      continue;
+    }
+    if (ch === "(") {
+      depth++;
+      continue;
+    }
+    if (ch === ")") {
+      if (depth === 0) return pos;
+      depth--;
+    }
+  }
+  return -1;
+}
+
+function markdownInlineLinkAtLinePosition(line: string, localPos: number): { rawTarget: string; rawTargetFrom: number } | null {
+  for (let pos = 0; pos < line.length; pos++) {
+    if (line[pos] !== "[" || markdownEscapedAt(line, pos)) continue;
+    if (pos > 0 && line[pos - 1] === "!" && !markdownEscapedAt(line, pos - 1)) continue;
+    const labelEnd = markdownLinkLabelEnd(line, pos);
+    if (labelEnd < 0 || line[labelEnd + 1] !== "(") continue;
+    const targetOpen = labelEnd + 1;
+    const targetEnd = markdownLinkTargetEnd(line, targetOpen);
+    if (targetEnd < 0) continue;
+    if (localPos >= pos && localPos < targetEnd + 1) {
+      return {
+        rawTarget: line.slice(targetOpen + 1, targetEnd),
+        rawTargetFrom: targetOpen + 1,
+      };
+    }
+    pos = targetEnd;
+  }
+  return null;
+}
+
+function markdownJupyterLinkAtCursor(): MarkdownJupyterLinkAtCursor | null {
+  const selection = editor.getMarkdownSelection();
+  const pos = Math.max(0, Math.min(selection.from, editor.view.state.doc.length));
+  const line = editor.view.state.doc.lineAt(pos);
+  const localPos = pos - line.from;
+  const link = markdownInlineLinkAtLinePosition(line.text, localPos);
+  if (!link) return null;
+  const bounds = markdownLinkTargetBounds(link.rawTarget);
+  if (!bounds || !jupyterHrefP(bounds.href)) return null;
+  const ipynbEnd = ipynbEndInHref(bounds.href);
+  if (ipynbEnd < 0) return null;
+  return {
+    insertAt: line.from + link.rawTargetFrom + bounds.start + ipynbEnd,
+    hasAtSelector: Boolean(jupyterAtSelectorFromHref(bounds.href)),
+  };
+}
+
+function randomJupyterTocId(): string {
+  try {
+    const bytes = new Uint8Array(6);
+    window.crypto.getRandomValues(bytes);
+    return `jpy-${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+  } catch {
+    return `jpy-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+}
+
+function handleJupyterTocTagCommand(): "miss" | "noop" | "inserted" {
+  const link = markdownJupyterLinkAtCursor();
+  if (!link) return "miss";
+  if (link.hasAtSelector) return "noop";
+  const id = randomJupyterTocId();
+  editor.view.dispatch({
+    changes: { from: link.insertAt, insert: `@${id}` },
+  });
+  void copyText(`########## ${id}`)
+    .then(() => setStatus(`Jupyter TOC tag copied: ${id}`))
+    .catch(() => setStatus("Copy failed"));
+  scheduleCursorPositionSave();
+  return "inserted";
 }
 
 function attachmentHrefP(href: string): boolean {
@@ -3013,6 +3227,7 @@ function setNoteCssHref(href: string): void {
     existing?.remove();
     return;
   }
+  if (existing?.getAttribute("href") === href) return;
   const link = existing ?? document.createElement("link");
   link.rel = "stylesheet";
   link.href = href;
@@ -3126,6 +3341,10 @@ async function flushCurrentSaveForGit(): Promise<void> {
   await saveStandalone();
 }
 
+function draftContentForRevision(revision: number, snapshot: string): string {
+  return revision === editRevision ? snapshot : editor.getMarkdown();
+}
+
 function syncSourceUi(): void {
   currentMode = editor.isSourceMode() ? "source" : "markdown";
   host.classList.toggle("is-source-mode", currentMode === "source");
@@ -3167,7 +3386,7 @@ async function saveStandalone(): Promise<boolean> {
       saveConflictActive = true;
       currentFileMtimeMs = Number(msg.mtimeMs) || currentFileMtimeMs;
       currentFileSize = Number(msg.size) || currentFileSize;
-      rememberDraft(content);
+      rememberDraft(draftContentForRevision(revision, content));
       setStatus(msg.message || "Save conflict");
       return false;
     }
@@ -3180,7 +3399,7 @@ async function saveStandalone(): Promise<boolean> {
     } else if (saved) {
       setStatus("Dirty");
     } else {
-      rememberDraft(content);
+      rememberDraft(draftContentForRevision(revision, content));
       setStatus(msg.message || "Save failed");
     }
     if (Array.isArray(msg.notes)) {
@@ -3200,7 +3419,7 @@ async function saveStandalone(): Promise<boolean> {
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") return false;
     if (seq !== saveRequestSeq || file !== currentFile) return false;
-    rememberDraft(content);
+    rememberDraft(draftContentForRevision(revision, content));
     setStatus(err instanceof Error ? err.message : "Save failed");
   } finally {
     if (saveAbortController === controller) saveAbortController = null;
@@ -3242,7 +3461,7 @@ async function forceSaveStandalone(): Promise<void> {
       scheduleNotesRefresh();
     }
   } catch (err) {
-    rememberDraft(content);
+    rememberDraft(draftContentForRevision(revision, content));
     setStatus(err instanceof Error ? err.message : "Force save failed");
   }
 }
@@ -6685,7 +6904,7 @@ function hideEditorOverlays(options: { keepFind?: boolean; keepCommandPalette?: 
   mathPreviewKey = "";
   selectionTool.hidden = true;
   linkPreview.hide();
-  if (!options.keepFind) findTool.hidden = true;
+  if (!options.keepFind) closeFindTool(false);
   if (!options.keepCommandPalette) closeCommandPalette(false);
   closeLeanLocationsPicker();
 }
@@ -7105,6 +7324,12 @@ function renderCommandPalette(): void {
       commandPaletteIndex = index;
       chooseCommandPaletteItem();
     });
+    button.addEventListener("mouseenter", () => {
+      if (commandPaletteIndex === index) return;
+      commandPaletteIndex = index;
+      commandPaletteRenderKey = "";
+      renderCommandPalette();
+    });
     commandList.append(button);
   });
   commandList.setAttribute("aria-activedescendant", `aaronnote-command-option-${commandPaletteIndex}`);
@@ -7139,6 +7364,14 @@ function chooseCommandPaletteItem(): void {
   else setStatus(command.title);
 }
 
+function moveCommandPaletteIndex(index: number): void {
+  const commands = filteredCommandPaletteCommands();
+  commandPaletteIndex = commands.length ? ((index % commands.length) + commands.length) % commands.length : 0;
+  commandPaletteRenderKey = "";
+  renderCommandPalette();
+  commandList.querySelector(".aaronnote-command-option.is-active")?.scrollIntoView({ block: "nearest" });
+}
+
 function handleCommandPaletteKey(event: KeyboardEvent): boolean {
   if (commandPalette.hidden) return false;
   if (event.key === "Escape") {
@@ -7149,18 +7382,22 @@ function handleCommandPaletteKey(event: KeyboardEvent): boolean {
   const commands = filteredCommandPaletteCommands();
   if (event.key === "ArrowDown") {
     event.preventDefault();
-    commandPaletteIndex = commands.length ? (commandPaletteIndex + 1) % commands.length : 0;
-    commandPaletteRenderKey = "";
-    renderCommandPalette();
-    commandList.querySelector(".aaronnote-command-option.is-active")?.scrollIntoView({ block: "nearest" });
+    moveCommandPaletteIndex(commandPaletteIndex + 1);
     return true;
   }
   if (event.key === "ArrowUp") {
     event.preventDefault();
-    commandPaletteIndex = commands.length ? (commandPaletteIndex + commands.length - 1) % commands.length : 0;
-    commandPaletteRenderKey = "";
-    renderCommandPalette();
-    commandList.querySelector(".aaronnote-command-option.is-active")?.scrollIntoView({ block: "nearest" });
+    moveCommandPaletteIndex(commandPaletteIndex - 1);
+    return true;
+  }
+  if (event.key === "PageDown" || event.key === "PageUp") {
+    event.preventDefault();
+    moveCommandPaletteIndex(commandPaletteIndex + (event.key === "PageDown" ? 6 : -6));
+    return true;
+  }
+  if (event.key === "Home" || event.key === "End") {
+    event.preventDefault();
+    moveCommandPaletteIndex(event.key === "Home" ? 0 : commands.length - 1);
     return true;
   }
   if (event.key === "Enter" || (event.key === "Tab" && !event.shiftKey)) {
@@ -7211,6 +7448,11 @@ function renderLeanLocationsPicker(): void {
       leanLocationsIndex = index;
       chooseLeanLocation();
     });
+    button.addEventListener("mouseenter", () => {
+      if (leanLocationsIndex === index) return;
+      leanLocationsIndex = index;
+      renderLeanLocationsPicker();
+    });
     leanLocationsList.append(button);
   });
 }
@@ -7258,6 +7500,21 @@ function handleLeanLocationsPickerKey(event: KeyboardEvent): boolean {
   if (event.key === "ArrowUp") {
     event.preventDefault();
     leanLocationsIndex = items.length ? (leanLocationsIndex + items.length - 1) % items.length : 0;
+    renderLeanLocationsPicker();
+    leanLocationsList.querySelector(".aaronnote-command-option.is-active")?.scrollIntoView({ block: "nearest" });
+    return true;
+  }
+  if (event.key === "PageDown" || event.key === "PageUp") {
+    event.preventDefault();
+    const delta = event.key === "PageDown" ? 6 : -6;
+    leanLocationsIndex = items.length ? ((leanLocationsIndex + delta) % items.length + items.length) % items.length : 0;
+    renderLeanLocationsPicker();
+    leanLocationsList.querySelector(".aaronnote-command-option.is-active")?.scrollIntoView({ block: "nearest" });
+    return true;
+  }
+  if (event.key === "Home" || event.key === "End") {
+    event.preventDefault();
+    leanLocationsIndex = event.key === "Home" ? 0 : Math.max(0, items.length - 1);
     renderLeanLocationsPicker();
     leanLocationsList.querySelector(".aaronnote-command-option.is-active")?.scrollIntoView({ block: "nearest" });
     return true;
@@ -7344,6 +7601,12 @@ function renderQuickInsertPopup(query: string, rect: { left: number; top: number
       quickInsertIndex = index;
       chooseQuickInsertItem();
     });
+    button.addEventListener("mouseenter", () => {
+      if (quickInsertIndex === index) return;
+      quickInsertIndex = index;
+      quickInsertRenderKey = "";
+      renderQuickInsertPopup(quickInsertPopup.dataset.query ?? query, editor.cursorRect());
+    });
     quickInsertPopup.appendChild(button);
   });
   quickInsertPopup.dataset.query = query;
@@ -7418,6 +7681,19 @@ function handleQuickInsertKey(event: KeyboardEvent): boolean {
     renderQuickInsertPopup(quickInsertPopup.dataset.query ?? "", editor.cursorRect());
     return true;
   }
+  if (event.key === "PageDown" || event.key === "PageUp") {
+    event.preventDefault();
+    const delta = event.key === "PageDown" ? 6 : -6;
+    quickInsertIndex = ((quickInsertIndex + delta) % quickInsertItems.length + quickInsertItems.length) % quickInsertItems.length;
+    renderQuickInsertPopup(quickInsertPopup.dataset.query ?? "", editor.cursorRect());
+    return true;
+  }
+  if (event.key === "Home" || event.key === "End") {
+    event.preventDefault();
+    quickInsertIndex = event.key === "Home" ? 0 : quickInsertItems.length - 1;
+    renderQuickInsertPopup(quickInsertPopup.dataset.query ?? "", editor.cursorRect());
+    return true;
+  }
   if (event.key === "Enter" || (event.key === "Tab" && !event.shiftKey)) {
     event.preventDefault();
     chooseQuickInsertItem();
@@ -7444,6 +7720,7 @@ function openBlockMenu(): void {
   quickInsertItems = items;
   hideSnippetPopup();
   selectionTool.hidden = true;
+  editor.focus();
   renderQuickInsertPopup(ctx.type, ctx.rect);
 }
 
@@ -7719,6 +7996,12 @@ function renderSnippetPopup(prefix: string, rect: { left: number; top: number; b
       snippetPopupIndex = index;
       chooseSnippetPopupItem();
     });
+    button.addEventListener("mouseenter", () => {
+      if (snippetPopupIndex === index) return;
+      snippetPopupIndex = index;
+      snippetRenderKey = "";
+      renderSnippetPopup(snippetPopup.dataset.prefix ?? prefix, editor.cursorRect());
+    });
     snippetPopup.appendChild(button);
   });
   snippetPopup.dataset.prefix = prefix;
@@ -7870,6 +8153,19 @@ function handleSnippetPopupKey(event: KeyboardEvent): boolean {
     renderSnippetPopup(snippetPopup.dataset.prefix ?? "", editor.cursorRect());
     return true;
   }
+  if (event.key === "PageDown" || event.key === "PageUp") {
+    event.preventDefault();
+    const delta = event.key === "PageDown" ? 6 : -6;
+    snippetPopupIndex = ((snippetPopupIndex + delta) % snippetPopupItems.length + snippetPopupItems.length) % snippetPopupItems.length;
+    renderSnippetPopup(snippetPopup.dataset.prefix ?? "", editor.cursorRect());
+    return true;
+  }
+  if (event.key === "Home" || event.key === "End") {
+    event.preventDefault();
+    snippetPopupIndex = event.key === "Home" ? 0 : snippetPopupItems.length - 1;
+    renderSnippetPopup(snippetPopup.dataset.prefix ?? "", editor.cursorRect());
+    return true;
+  }
   if (event.key === "Enter" || (event.key === "Tab" && !event.shiftKey)) {
     event.preventDefault();
     chooseSnippetPopupItem();
@@ -7983,10 +8279,12 @@ function activeEditorSelection(): { text: string; rect: DOMRect } | null {
 function updateSelectionTool(active = activeEditorSelection()): void {
   if (!active) {
     selectionTool.hidden = true;
+    selectionMore.hidden = true;
     return;
   }
+  selectionRoamIdlink.hidden = currentStandalone;
   const margin = 8;
-  const width = Math.min(360, Math.max(280, selectionTool.offsetWidth || 316));
+  const width = Math.min(520, Math.max(360, selectionTool.offsetWidth || 440));
   const left = Math.min(
     Math.max(margin, active.rect.left + active.rect.width / 2 - width / 2),
     Math.max(margin, window.innerWidth - width - margin),
@@ -8018,14 +8316,37 @@ async function copyActiveSelection(): Promise<void> {
   selectionTool.hidden = true;
 }
 
+async function copyMarkdownSelection(): Promise<void> {
+  const selection = editor.getMarkdownSelection();
+  if (selection.from === selection.to) return;
+  await copyText(editor.textBetween(selection.from, selection.to));
+  setStatus("Markdown copied");
+  selectionTool.hidden = true;
+}
+
 function runSelectionCommand(command: string): void {
   if (command === "copy") {
     void copyActiveSelection();
     return;
   }
-  if (!["bold", "italic", "code", "link"].includes(command)) return;
+  if (command === "more") {
+    selectionMore.hidden = !selectionMore.hidden;
+    return;
+  }
+  if (command === "find") {
+    selectionMore.hidden = true;
+    openFindTool();
+    return;
+  }
+  if (command === "insert-roam-idlink") {
+    selectionMore.hidden = true;
+    void insertRoamIdLink();
+    return;
+  }
+  if (!["bold", "italic", "highlight", "strike", "code", "link"].includes(command)) return;
   runEditorCommand(command as EditorCommand);
   selectionTool.hidden = true;
+  selectionMore.hidden = true;
 }
 
 type AssistUpdateOptions = {
@@ -8555,6 +8876,7 @@ function flushState(options: { keepalive?: boolean } = {}): void {
   saveCursorPositionNow({ keepalive: options.keepalive === true, force: true });
   saveCursorPositionsLocalNow();
   saveRecentNotesLocalNow();
+  flushDraftRemember();
   window.clearTimeout(saveTimer);
   flushSaveKeepalive();
 }
@@ -8728,6 +9050,7 @@ async function openStandaloneFile(file: string): Promise<void> {
 
 function applyOpen(msg: Extract<Inbound, { type: "open" }>, options: { preserveFocus?: boolean } = {}): void {
   saveCursorPositionNow({ force: true });
+  flushDraftRemember();
   window.clearTimeout(saveTimer);
   window.clearTimeout(noteCssUpdateTimer);
   saveAbortController?.abort();
@@ -9145,6 +9468,12 @@ document.addEventListener("keydown", (event) => {
     }
   }
   if (event.metaKey && !event.shiftKey && !event.altKey && !event.ctrlKey && event.key.toLowerCase() === "t") {
+    const jupyterTocTag = handleJupyterTocTagCommand();
+    if (jupyterTocTag !== "miss") {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
     void handleTagCommand();
@@ -9243,6 +9572,10 @@ host.addEventListener("contextmenu", (event) => {
     return;
   }
   const pos = editor.view.posAtCoords({ x: event.clientX, y: event.clientY });
+  if (pos != null) {
+    const selection = editor.getMarkdownSelection();
+    if (pos < selection.from || pos > selection.to) editor.setMarkdownSelection(pos);
+  }
   const proseDiagnostics = pos == null ? [] : proseDiagnosticsAt(editor.view, pos);
   event.preventDefault();
   event.stopPropagation();
@@ -9259,7 +9592,23 @@ host.addEventListener("contextmenu", (event) => {
         })),
       }
       : {};
-    await api.shell.showEditorContextMenu({ ...leanOptions, ...diagnostics });
+    const selection = editor.getMarkdownSelection();
+    const block = editor.getBlockContext();
+    const anchor = (event.target as Element | null)?.closest<HTMLAnchorElement>("a[href]");
+    const linkHref = pos == null
+      ? ""
+      : markdownHrefAt(editor.view.state, pos) || (anchor && host.contains(anchor) ? anchor.getAttribute("href") || anchor.href : "");
+    await api.shell.showEditorContextMenu({
+      ...leanOptions,
+      ...diagnostics,
+      x: event.clientX,
+      y: event.clientY,
+      linkHref,
+      hasSelection: selection.from !== selection.to,
+      allowRoamIdlink: !currentStandalone,
+      blockType: block.type,
+      blockCommands: block.commands,
+    });
   })()
     .catch((err) => setStatus(err instanceof Error ? err.message : "Context menu failed"));
 });
@@ -9290,7 +9639,7 @@ document.addEventListener("knowledge:apply-tag", (event) => {
 });
 
 window.addEventListener("aaronnote:command", (event) => {
-  const detail = (event as CustomEvent<{ command?: string; from?: unknown; to?: unknown; replacement?: unknown; selector?: unknown }>).detail ?? {};
+  const detail = (event as CustomEvent<{ command?: string; from?: unknown; to?: unknown; replacement?: unknown; selector?: unknown; editorCommand?: unknown; href?: unknown; text?: unknown; newWindow?: unknown; x?: unknown; y?: unknown }>).detail ?? {};
   const command = detail.command;
   if (command === "new-markdown-note") void createMarkdownNote();
   if (command === "new-roam-node") void createRoamNode();
@@ -9334,6 +9683,19 @@ window.addEventListener("aaronnote:command", (event) => {
   if (command === "toggle-lean-panel") toggleLeanPanel();
   if (command === "toggle-jupyter-preview") toggleJupyterPanel();
   if (command === "open-jupyter-preview") void openJupyterPreviewFromHref(String((detail as Record<string, unknown>).href ?? ""));
+  if (command === "editor-command") runEditorCommand(String(detail.editorCommand ?? "") as EditorCommand);
+  if (command === "preview-link") linkPreview.show(String(detail.href ?? ""), Number(detail.x) || window.innerWidth / 2, Number(detail.y) || 80);
+  if (command === "open-link") openExternalUrl(String(detail.href ?? ""), { newWindow: detail.newWindow === true });
+  if (command === "copy-text") void copyText(String(detail.text ?? "")).then(() => setStatus("Copied"));
+  if (command === "copy-markdown") void copyMarkdownSelection();
+  if (command === "paste-plain-text") void navigator.clipboard.readText().then((text) => {
+    if (!text) return;
+    editor.insertText(text);
+    scheduleAssistUpdate();
+    scheduleCursorPositionSave();
+    setStatus("Pasted plain text");
+  }).catch(() => setStatus("Paste failed"));
+  if (command === "find") openFindTool();
   if (command === "toggle-source") toggleSourceMode();
   if (command === "restart-lean-server") void restartLeanServerForCurrentNote();
   if (command === "check-prose") void checkProse();

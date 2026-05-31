@@ -23,7 +23,7 @@ import {
 import { MeasuredWidget } from "./measured-widget.ts";
 import { syntaxTree } from "@codemirror/language";
 import type { Range } from "@codemirror/state";
-import { getBlockMathRanges, rangeInsideAny } from "../math-ranges.ts";
+import { blockMathRangesOverlapping, rangeInsideAny } from "../math-ranges.ts";
 import { applyImageLayout, imageLayoutFromAttrs, readImageTrailingAttrs, type ImageLayoutAttrs } from "../../image-attrs.ts";
 import {
   VISUAL_ATTACHMENT_IFRAME_ALLOW,
@@ -188,7 +188,7 @@ function markdownLinkSrc(raw: string): string {
 }
 
 function imageExcludedRanges(view: EditorView): Array<{ from: number; to: number }> {
-  const ranges: Array<{ from: number; to: number }> = getBlockMathRanges(view.state)
+  const ranges: Array<{ from: number; to: number }> = blockMathRangesOverlapping(view.state, view.visibleRanges)
     .map(({ from, to }) => ({ from, to }));
   for (const { from, to } of view.visibleRanges) {
     syntaxTree(view.state).iterate({
@@ -281,20 +281,66 @@ function buildImageDecorations(view: EditorView): DecorationSet {
   return Decoration.set(decos, true);
 }
 
+function activeImageSourceKey(view: EditorView): string {
+  const sel = view.state.selection.main;
+  const doc = view.state.doc;
+  const firstLine = doc.lineAt(sel.from).number;
+  const lastLine = doc.lineAt(Math.min(sel.to, doc.length)).number;
+  if (lastLine - firstLine > 50) return `wide:${sel.from}:${sel.to}`;
+  const keys: string[] = [];
+
+  for (let lineNum = firstLine; lineNum <= lastLine; lineNum++) {
+    const line = doc.line(lineNum);
+    syntaxTree(view.state).iterate({
+      from: line.from,
+      to: line.to,
+      enter(node) {
+        if (node.name !== "Image") return;
+        const trailing = readImageTrailingAttrs(doc.sliceString(node.to, line.to), 0);
+        const fullTo = trailing ? node.to + trailing.to : node.to;
+        if (sel.from <= fullTo && sel.to >= node.from) keys.push(`${node.from}:${fullTo}`);
+        return false;
+      },
+    });
+
+    EMPTY_HTML_LINK_EMBED_RE.lastIndex = 0;
+    let link: RegExpExecArray | null;
+    while ((link = EMPTY_HTML_LINK_EMBED_RE.exec(line.text)) !== null) {
+      if (line.text[(link.index ?? 0) - 1] === "!") continue;
+      const src = markdownLinkSrc(link[1] ?? "");
+      if (visualAttachmentKind(src) !== "html") continue;
+      const from = line.from + (link.index ?? 0);
+      const to = from + (link[0] ?? "").length;
+      const trailing = readImageTrailingAttrs(line.text.slice((link.index ?? 0) + (link[0] ?? "").length), 0);
+      const fullTo = trailing ? to + trailing.to : to;
+      if (sel.from <= fullTo && sel.to >= from) keys.push(`${from}:${fullTo}`);
+    }
+  }
+  return keys.join("|");
+}
+
 // ---------------------------------------------------------------------------
 // ViewPlugin export
 // ---------------------------------------------------------------------------
 
 class ImagePlugin {
   decorations: DecorationSet;
+  private activeSourceKey: string;
 
   constructor(view: EditorView) {
+    this.activeSourceKey = activeImageSourceKey(view);
     this.decorations = buildImageDecorations(view);
   }
 
   update(update: ViewUpdate): void {
     if (update.view.compositionStarted && update.selectionSet && !update.docChanged && !update.viewportChanged) return;
-    if (update.docChanged || update.viewportChanged || update.selectionSet) {
+    if (update.docChanged || update.viewportChanged) {
+      this.activeSourceKey = activeImageSourceKey(update.view);
+      this.decorations = buildImageDecorations(update.view);
+    } else if (update.selectionSet) {
+      const nextSourceKey = activeImageSourceKey(update.view);
+      if (nextSourceKey === this.activeSourceKey) return;
+      this.activeSourceKey = nextSourceKey;
       this.decorations = buildImageDecorations(update.view);
     }
   }

@@ -22,6 +22,8 @@ export interface EditorOptions {
 export type EditorCommand =
   | "bold"
   | "italic"
+  | "highlight"
+  | "strike"
   | "code"
   | "link"
   | "blockquote"

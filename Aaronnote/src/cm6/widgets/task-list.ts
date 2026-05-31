@@ -117,20 +117,35 @@ function buildTaskDecorations(view: EditorView): DecorationSet {
   return Decoration.set(decos, true);
 }
 
+const TASK_MARKER_LINE_RE = /^\s*(?:[-+*]|\d+[.)])\s+\[[ xX]\]/;
+
+function activeTaskMarkerLineKey(view: EditorView): string {
+  const line = view.state.doc.lineAt(view.state.selection.main.from);
+  return TASK_MARKER_LINE_RE.test(line.text) ? String(line.number) : "";
+}
+
 // ---------------------------------------------------------------------------
 // ViewPlugin export
 // ---------------------------------------------------------------------------
 
 class TaskListPlugin {
   decorations: DecorationSet;
+  private activeLineKey: string;
 
   constructor(view: EditorView) {
+    this.activeLineKey = activeTaskMarkerLineKey(view);
     this.decorations = buildTaskDecorations(view);
   }
 
   update(update: ViewUpdate): void {
     if (update.view.compositionStarted && update.selectionSet && !update.docChanged && !update.viewportChanged) return;
-    if (update.docChanged || update.viewportChanged || update.selectionSet) {
+    if (update.docChanged || update.viewportChanged) {
+      this.activeLineKey = activeTaskMarkerLineKey(update.view);
+      this.decorations = buildTaskDecorations(update.view);
+    } else if (update.selectionSet) {
+      const nextLineKey = activeTaskMarkerLineKey(update.view);
+      if (nextLineKey === this.activeLineKey) return;
+      this.activeLineKey = nextLineKey;
       this.decorations = buildTaskDecorations(update.view);
     }
   }

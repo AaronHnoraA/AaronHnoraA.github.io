@@ -1060,6 +1060,31 @@ $$
     cleanup();
   });
 
+  test("renders a first-line horizontal rule after the cursor moves below it", () => {
+    const { editor, cleanup } = mountCM6("---\n");
+    editor.setMarkdownSelection(editor.getMarkdown().length);
+    expect(document.querySelector(".cm-horizontal-rule")).toBeTruthy();
+    cleanup();
+  });
+
+  test("renders highlight spans and hides delimiters away from the selection", () => {
+    const md = "before ==important== after";
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection(md.length);
+    expect(document.querySelector(".cm-highlight")?.textContent).toBe("==important==");
+    expect(document.querySelectorAll(".cm-highlight .syntax-hidden")).toHaveLength(2);
+    cleanup();
+  });
+
+  test("does not render highlight syntax inside inline code", () => {
+    const md = "`==raw==` and ==shown== after";
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection(md.length);
+    expect(document.querySelectorAll(".cm-highlight")).toHaveLength(1);
+    expect(document.querySelector(".cm-highlight")?.textContent).toBe("==shown==");
+    cleanup();
+  });
+
   test("typing a horizontal rule marker updates block extra ranges", () => {
     const { editor, cleanup } = mountCM6("before\n\n--\n\nafter");
 
@@ -1507,6 +1532,48 @@ after
     expect(image).toBeTruthy();
     image!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
     expect(editor.getMarkdownSelection().from).toBe(md.indexOf("![alt]") + 1);
+    cleanup();
+  });
+
+  test("selection-only updates open and restore CM6 inline widget source", () => {
+    const md = [
+      "before $x+1$ after",
+      "",
+      "@@todo(doing) [write proof]",
+      "",
+      "- [ ] task",
+      "",
+      "![alt](missing.png)",
+      "",
+      "plain",
+    ].join("\n");
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection(md.length);
+
+    expect(document.querySelector(".cm-math-inline")).toBeTruthy();
+    expect(document.querySelector(".inline-todo-widget")).toBeTruthy();
+    expect(document.querySelector(".cm-task-checkbox")).toBeTruthy();
+    expect(document.querySelector(".cm-image-widget")).toBeTruthy();
+
+    editor.setMarkdownSelection(md.indexOf("x+1"));
+    expect(document.querySelector(".cm-math-inline")).toBeNull();
+    editor.setMarkdownSelection(md.length);
+    expect(document.querySelector(".cm-math-inline")).toBeTruthy();
+
+    editor.setMarkdownSelection(md.indexOf("@@todo") + 2);
+    expect(document.querySelector(".inline-todo-widget")).toBeNull();
+    editor.setMarkdownSelection(md.length);
+    expect(document.querySelector(".inline-todo-widget")).toBeTruthy();
+
+    editor.setMarkdownSelection(md.indexOf("[ ]") + 1);
+    expect(document.querySelector(".cm-task-checkbox")).toBeNull();
+    editor.setMarkdownSelection(md.length);
+    expect(document.querySelector(".cm-task-checkbox")).toBeTruthy();
+
+    editor.setMarkdownSelection(md.indexOf("![alt]") + 1);
+    expect(document.querySelector(".cm-image-widget")).toBeNull();
+    editor.setMarkdownSelection(md.length);
+    expect(document.querySelector(".cm-image-widget")).toBeTruthy();
     cleanup();
   });
 

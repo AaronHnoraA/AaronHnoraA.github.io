@@ -154,6 +154,14 @@ class Note:
         return self.group_key.split("/", 1)[0]
 
 
+@dataclass
+class PendingNoteRender:
+    note: Note
+    output_file: Path
+    deps_file: Path
+    payload: dict[str, object]
+
+
 def should_skip(path: Path) -> bool:
     return any(part in SKIP_DIRS for part in path.parts)
 
@@ -1014,6 +1022,30 @@ def render_aaronnote_payload(payload: dict[str, object]) -> str:
         raise RuntimeError(f"Aaronnote renderer returned invalid JSON: {result.stdout[:500]}") from err
 
 
+def render_aaronnote_payloads(payloads: list[dict[str, object]]) -> list[str]:
+    if not payloads:
+        return []
+    try:
+        result = subprocess.run(
+            [node_executable(), "Aaronnote/scripts/render-html.mjs"],
+            cwd=ROOT,
+            input=json.dumps({"batch": payloads}, ensure_ascii=False),
+            text=True,
+            check=True,
+            capture_output=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as err:
+        stderr = err.stderr if isinstance(err, subprocess.CalledProcessError) else str(err)
+        raise RuntimeError(f"Aaronnote renderer failed: {stderr}") from err
+    try:
+        html = json.loads(result.stdout)["html"]
+    except (json.JSONDecodeError, KeyError) as err:
+        raise RuntimeError(f"Aaronnote renderer returned invalid JSON: {result.stdout[:500]}") from err
+    if not isinstance(html, list) or len(html) != len(payloads):
+        raise RuntimeError(f"Aaronnote renderer returned {len(html) if isinstance(html, list) else 'invalid'} batch items for {len(payloads)} inputs")
+    return [str(item) for item in html]
+
+
 def render_aaronnote_markdown(text: str) -> str:
     return render_aaronnote_payload({"markdown": text})
 
@@ -1253,19 +1285,19 @@ def published_book_payload(note: Note, notes_by_rel: dict[str, Note] | None = No
     }
 
 
-def note_page_html(
+def note_render_payload(
     note: Note,
     markdown_text: str,
     *,
     include_private_content: bool = False,
     lean_regions: dict[str, str] | None = None,
     notes_by_rel: dict[str, Note] | None = None,
-) -> str:
+) -> dict[str, object]:
     root = site_root_for(note_output_link(note))
     kind = active_note_kind(note)
     export_format = "pdf" if pdf_export_p() else "html"
     title = note.title if pdf_export_p() else note.public_title
-    rendered = render_aaronnote_payload({
+    return {
         "mode": "published-note",
         "markdown": markdown_text,
         "note": {
@@ -1282,22 +1314,39 @@ def note_page_html(
             "leanRegions": lean_regions or {},
             "book": published_book_payload(note, notes_by_rel),
         },
-    })
+    }
+
+
+def note_page_html(
+    note: Note,
+    markdown_text: str,
+    *,
+    include_private_content: bool = False,
+    lean_regions: dict[str, str] | None = None,
+    notes_by_rel: dict[str, Note] | None = None,
+) -> str:
+    rendered = render_aaronnote_payload(note_render_payload(
+        note,
+        markdown_text,
+        include_private_content=include_private_content,
+        lean_regions=lean_regions,
+        notes_by_rel=notes_by_rel,
+    ))
     return HTML_MD_LINK_RE.sub(r'href="\1.html\2"', rendered)
 
 
-def render_note_html(
+def prepare_note_render(
     note: Note,
     *,
     output_root: Path = PUBLIC,
     include_private_content: bool = False,
     force: bool = False,
     notes_by_rel: dict[str, Note] | None = None,
-) -> str:
+) -> PendingNoteRender | None:
     output_file = output_root / note_output_link(note)
     deps_file = deps_file_for(output_file, output_root)
     if not force and not include_private_content and output_is_current(output_file, deps_file):
-        return "skipped"
+        return None
     output_file.parent.mkdir(parents=True, exist_ok=True)
     deps_file.parent.mkdir(parents=True, exist_ok=True)
     markdown_text = note.path.read_text(encoding="utf-8")
@@ -1308,17 +1357,46 @@ def render_note_html(
     if not include_private_content:
         markdown_text = sanitize_published_metadata_tags(markdown_text)
     lean_regions = lean_regions_for_book(note, markdown_text, notes_by_rel)
-    output_file.write_text(
-        note_page_html(
+    return PendingNoteRender(
+        note=note,
+        output_file=output_file,
+        deps_file=deps_file,
+        payload=note_render_payload(
             note,
             markdown_text,
             include_private_content=include_private_content,
             lean_regions=lean_regions,
             notes_by_rel=notes_by_rel,
         ),
+    )
+
+
+def write_rendered_note_html(render: PendingNoteRender, html: str, notes_by_rel: dict[str, Note] | None = None) -> None:
+    render.output_file.write_text(HTML_MD_LINK_RE.sub(r'href="\1.html\2"', html), encoding="utf-8")
+    render.deps_file.write_text(
+        json.dumps({"inputs": sorted(deps_for_note(render.note, notes_by_rel))}, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
-    deps_file.write_text(json.dumps({"inputs": sorted(deps_for_note(note, notes_by_rel))}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def render_note_html(
+    note: Note,
+    *,
+    output_root: Path = PUBLIC,
+    include_private_content: bool = False,
+    force: bool = False,
+    notes_by_rel: dict[str, Note] | None = None,
+) -> str:
+    pending = prepare_note_render(
+        note,
+        output_root=output_root,
+        include_private_content=include_private_content,
+        force=force,
+        notes_by_rel=notes_by_rel,
+    )
+    if pending is None:
+        return "skipped"
+    write_rendered_note_html(pending, render_aaronnote_payload(pending.payload), notes_by_rel)
     return "rendered"
 
 
@@ -1392,6 +1470,17 @@ def write_data(notes: list[Note]) -> None:
 
 def _copy_into_public(source: Path, target: Path) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists() and not target.is_symlink():
+        try:
+            source_stat = source.stat()
+            target_stat = target.stat()
+            if (
+                source_stat.st_size == target_stat.st_size
+                and source_stat.st_mtime_ns == target_stat.st_mtime_ns
+            ):
+                return
+        except OSError:
+            pass
     if target.is_symlink() or target.exists():
         target.unlink()
     shutil.copy2(source, target)
@@ -1740,13 +1829,19 @@ def main() -> None:
 
     clean_stale_outputs(notes)
     copy_static(notes)
-    rendered = 0
     skipped = 0
+    pending_renders: list[PendingNoteRender] = []
     for note in notes:
         copy_note_static_assets(note, PUBLIC, notes_by_rel)
-        status = render_note_html(note, notes_by_rel=notes_by_rel)
-        rendered += status == "rendered"
-        skipped += status == "skipped"
+        pending = prepare_note_render(note, notes_by_rel=notes_by_rel)
+        if pending is None:
+            skipped += 1
+        else:
+            pending_renders.append(pending)
+    rendered_html = render_aaronnote_payloads([item.payload for item in pending_renders])
+    for pending, html in zip(pending_renders, rendered_html, strict=True):
+        write_rendered_note_html(pending, html, notes_by_rel)
+    rendered = len(pending_renders)
     write_data(notes)
     write_publish_state(notes, rendered, skipped, head, roam_head)
     print(f"Published {len(notes)} Markdown notes to {PUBLIC} ({rendered} rendered, {skipped} skipped)")

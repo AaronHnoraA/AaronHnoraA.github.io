@@ -98,6 +98,14 @@ function canMapBlockMathRanges(
   return canMap;
 }
 
+function firstChangedPosition(changes: ChangeSet): number {
+  let first = Number.POSITIVE_INFINITY;
+  changes.iterChanges((fromA) => {
+    first = Math.min(first, fromA);
+  });
+  return first;
+}
+
 function changedLinesMightOpenMathFence(state: EditorState, changes: ChangeSet): boolean {
   let found = false;
   changes.iterChanges((_fromA, _toA, fromB, toB) => {
@@ -119,18 +127,21 @@ export const blockMathRangesField = StateField.define<readonly BlockMathRange[]>
       if (ranges.length === 0 && !changedLinesMightOpenMathFence(tr.state, tr.changes)) return ranges;
       return scanBlockMathRangesInDoc(tr.state.doc);
     }
+    const firstChanged = firstChangedPosition(tr.changes);
     return ranges.map((range) => {
+      if (range.to < firstChanged) return range;
       const from = tr.changes.mapPos(range.from, -1);
       const to = tr.changes.mapPos(range.to, 1);
       const contentFrom = tr.changes.mapPos(range.contentFrom, -1);
       const contentTo = tr.changes.mapPos(range.contentTo, 1);
+      const contentChanged = tr.changes.touchesRange(range.contentFrom, range.contentTo);
       return {
         ...range,
         from,
         to,
         contentFrom,
         contentTo,
-        tex: tr.state.doc.sliceString(contentFrom, contentTo).trim(),
+        tex: contentChanged ? tr.state.doc.sliceString(contentFrom, contentTo).trim() : range.tex,
       };
     });
   },
@@ -140,6 +151,33 @@ export const blockMathRangesExtension: Extension = blockMathRangesField;
 
 export function getBlockMathRanges(state: EditorState): readonly BlockMathRange[] {
   return state.field(blockMathRangesField, false) ?? scanBlockMathRangesInDoc(state.doc);
+}
+
+export function blockMathRangesOverlapping(
+  state: EditorState,
+  windows: readonly { from: number; to: number }[],
+): BlockMathRange[] {
+  const ranges = getBlockMathRanges(state);
+  if (ranges.length === 0 || windows.length === 0) return [];
+  const matches: BlockMathRange[] = [];
+  let low = 0;
+  let high = ranges.length;
+  const firstWindowFrom = windows[0]!.from;
+  while (low < high) {
+    const mid = (low + high) >> 1;
+    if (ranges[mid]!.to <= firstWindowFrom) low = mid + 1;
+    else high = mid;
+  }
+  let rangeIndex = low;
+  for (const window of windows) {
+    while (rangeIndex < ranges.length && ranges[rangeIndex]!.to <= window.from) rangeIndex++;
+    for (let index = rangeIndex; index < ranges.length; index++) {
+      const range = ranges[index]!;
+      if (range.from >= window.to) break;
+      if (range.to > window.from) matches.push(range);
+    }
+  }
+  return matches;
 }
 
 export function rangeOverlapsAny(

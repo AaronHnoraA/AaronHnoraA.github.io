@@ -731,6 +731,7 @@ export function createFilesystemBrowser(options: {
       button.append(label, detail);
       button.addEventListener("mousedown", (event) => event.preventDefault());
       button.addEventListener("click", () => applySearchSuggestion(searchSuggestions[index]));
+      button.addEventListener("mouseenter", () => setActiveSearchSuggestion(index));
       frag.appendChild(button);
     });
     box.replaceChildren(frag);
@@ -1677,6 +1678,19 @@ export function createFilesystemBrowser(options: {
     return document.activeElement === target;
   }
 
+  function focusRangerAfterFilterRender(): void {
+    requestRangerFocus();
+    render();
+  }
+
+  function openSelectedFilterResult(event: KeyboardEvent): boolean {
+    render();
+    const note = options.getNotes().find((item) => item.file === selectedFile);
+    if (!note) return focus();
+    options.openNote(note, { newWindow: event.altKey || event.metaKey });
+    return true;
+  }
+
   function scheduleRender(): void {
     window.cancelAnimationFrame(renderFrame);
     renderFrame = window.requestAnimationFrame(render);
@@ -1751,14 +1765,38 @@ export function createFilesystemBrowser(options: {
       setActiveSearchSuggestion(searchActiveSuggestionIndex - 1);
       return;
     }
+    if ((event.key === "Home" || event.key === "End") && searchSuggestions.length > 0) {
+      event.preventDefault();
+      setActiveSearchSuggestion(event.key === "Home" ? 0 : searchSuggestions.length - 1);
+      return;
+    }
     if (event.key === "Enter" && searchActiveSuggestionIndex >= 0) {
       event.preventDefault();
       applySearchSuggestion(searchSuggestions[searchActiveSuggestionIndex]);
       return;
     }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      closeSearchSuggestions();
+      if (options.noteFilter.value.trim()) openSelectedFilterResult(event);
+      else focusRangerAfterFilterRender();
+      return;
+    }
     if (event.key === "Escape" && searchSuggestionBox && !searchSuggestionBox.hidden) {
       event.preventDefault();
       closeSearchSuggestions();
+      return;
+    }
+    if (event.key === "Escape" && options.noteFilter.value.trim()) {
+      event.preventDefault();
+      options.noteFilter.value = "";
+      closeSearchSuggestions();
+      focusRangerAfterFilterRender();
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      focusRangerAfterFilterRender();
     }
   });
   document.addEventListener("mousedown", (event) => {

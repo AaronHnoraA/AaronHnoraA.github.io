@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, Notification, dialog, ipcMain, shell, protocol, net, globalShortcut, powerMonitor } from "electron";
+import { app, BrowserWindow, Menu, Notification, dialog, ipcMain, shell, protocol, net, globalShortcut, powerMonitor, clipboard } from "electron";
 import { execFile, spawn } from "node:child_process";
 import { existsSync, statSync } from "node:fs";
 import { access, readFile, writeFile } from "node:fs/promises";
@@ -63,6 +63,7 @@ import { handleLeanRequest, registerLeanPushHandlers, setNotesRoot as setLeanNot
 import { resolveMediaFile, fileContentType } from "../server/lib/media.mjs";
 import { runExternalProseChecks } from "../server/lib/prose-check.mjs";
 import { normalizePickedNotePath } from "./path-selection.mjs";
+import { attachmentContextMenuTemplate, editorContextMenuTemplate } from "./context-menus.mjs";
 
 const desktopDir = dirname(fileURLToPath(import.meta.url));
 const projectDir = resolve(desktopDir, "..");
@@ -615,25 +616,26 @@ function registerApiIpc() {
   registerApiHandler("aaronnote:api:shell:show-attachment-menu", (file, base, options = {}) => {
     const target = resolveMediaFile(file, base);
     const href = String(options?.href || file || "");
-    Menu.buildFromTemplate([
-      ...(/\.ipynb$/i.test(target) ? [
-        {
-          label: "Open Jupyter Preview",
-          click: () => runInWindow(dispatchCommandScript("open-jupyter-preview", { href })),
-        },
-        { type: "separator" },
-      ] : []),
-      {
-        label: "System Open",
-        click: () => void shell.openPath(target),
-      },
-    ]).popup();
+    Menu.buildFromTemplate(attachmentContextMenuTemplate({
+      file: target,
+      href,
+      jupyter: /\.ipynb$/i.test(target),
+    }, {
+      command: (command, detail) => runInWindow(dispatchCommandScript(command, detail)),
+      open: () => void shell.openPath(target),
+      reveal: () => shell.showItemInFolder(target),
+      copy: (text) => clipboard.writeText(String(text || "")),
+    })).popup();
     return { ok: true, file: target };
   });
   ipcMain.handle("aaronnote:api:shell:show-editor-context-menu", (event, options = {}) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     Menu.buildFromTemplate([
       ...proseDiagnosticMenuItems(win, options),
+      ...editorContextMenuTemplate(options, {
+        command: (command, detail) => runInSpecificWindow(win, dispatchCommandScript(command, detail)),
+      }),
+      { type: "separator" },
       {
         label: "Toggle Lean Panel",
         click: () => runInSpecificWindow(win, dispatchCommandScript("toggle-lean-panel")),

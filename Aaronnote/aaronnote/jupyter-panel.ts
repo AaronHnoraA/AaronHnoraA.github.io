@@ -46,10 +46,15 @@ function targetHash(target: JupyterTarget): string {
   return encodeURIComponent(selector);
 }
 
-function requestTimeout(ms: number, label: string): Promise<never> {
-  return new Promise((_, reject) => {
-    window.setTimeout(() => reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`)), ms);
+function withRequestTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer = 0;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = window.setTimeout(() => reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`)), ms);
   });
+  return Promise.race([
+    promise.finally(() => window.clearTimeout(timer)),
+    timeout,
+  ]);
 }
 
 export function createJupyterPanel(options: JupyterPanelOptions): JupyterPanel {
@@ -276,15 +281,16 @@ export function createJupyterPanel(options: JupyterPanelOptions): JupyterPanel {
     setBusy(panelOptions.restart ? "Restarting..." : "Starting...");
     setStatus(panelOptions.restart ? "Restarting Jupyter" : "Opening Jupyter preview");
     try {
-      const response = await Promise.race([
+      const response = await withRequestTimeout(
         api.jupyter.request(panelOptions.restart ? "restart" : "open", {
           path: target.path,
           base: target.base,
           selector: target.selector || "",
           selectorKind: target.selectorKind || "",
         }),
-        requestTimeout(10_000, panelOptions.restart ? "Restarting Jupyter" : "Starting Jupyter"),
-      ]);
+        10_000,
+        panelOptions.restart ? "Restarting Jupyter" : "Starting Jupyter",
+      );
       if (seq !== openSeq) return;
       currentUrl = String(response.url || "");
       if (!currentUrl) throw new Error("Jupyter did not return a preview URL");

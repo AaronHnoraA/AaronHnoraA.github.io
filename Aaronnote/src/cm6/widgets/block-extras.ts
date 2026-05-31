@@ -1532,7 +1532,7 @@ const orgEnvBlocksField = StateField.define<readonly OrgEnvBlock[]>({
       return patchOrgEnvBlocksForTitleChange(tr.startState.doc, tr.state.doc, blocks, tr.changes)?.blocks
         ?? scanOrgEnvBlocks(tr.state.doc.toString(), 0, 0, getBlockMathRanges(tr.state));
     }
-    return blocks.map((block) => mapOrgEnvBlock(block, tr.changes, tr.state.doc));
+    return mapOrgEnvBlocks(blocks, tr.changes, tr.state.doc);
   },
 });
 
@@ -1600,9 +1600,24 @@ function mapOrgEnvBlock(block: OrgEnvBlock, changes: ChangeSet, doc: Text): OrgE
     bodyTo,
     closeFrom: changes.mapPos(block.closeFrom),
     closeTo: changes.mapPos(block.closeTo),
-    body: doc.sliceString(bodyFrom, bodyTo),
+    body: changes.touchesRange(block.bodyFrom, block.bodyTo)
+      ? doc.sliceString(bodyFrom, bodyTo)
+      : block.body,
     titleAnchor: changes.mapPos(block.titleAnchor),
   };
+}
+
+function firstChangedPosition(changes: ChangeSet): number {
+  let first = Number.POSITIVE_INFINITY;
+  changes.iterChanges((fromA) => {
+    first = Math.min(first, fromA);
+  });
+  return first;
+}
+
+function mapOrgEnvBlocks(blocks: readonly OrgEnvBlock[], changes: ChangeSet, doc: Text): readonly OrgEnvBlock[] {
+  const firstChanged = firstChangedPosition(changes);
+  return blocks.map((block) => block.to < firstChanged ? block : mapOrgEnvBlock(block, changes, doc));
 }
 
 function patchOrgEnvBlocksForTitleChange(
@@ -1652,7 +1667,7 @@ function patchOrgEnvBlocksForTitleChange(
     return null;
   }
 
-  const mappedBlocks = blocks.map((block) => mapOrgEnvBlock(block, changes, newDoc));
+  const mappedBlocks = mapOrgEnvBlocks(blocks, changes, newDoc);
   const touchedIndex = blocks.indexOf(oldBlock);
   const mappedBlock = mappedBlocks[touchedIndex]!;
   const newLine = newDoc.lineAt(mappedBlock.openFrom);
@@ -1918,7 +1933,11 @@ function addOrgEnvBlockExtraDecos(
   addOrgEnvBoundaryDecos(decos, state, block);
 }
 
-function buildBlockExtraDecos(state: EditorState): DecorationSet {
+function buildBlockExtraDecoRanges(
+  state: EditorState,
+  windowFrom = 0,
+  windowTo = state.doc.length,
+): CMRange<Decoration>[] {
   const decos: CMRange<Decoration>[] = [];
   const occupied: Array<[number, number]> = [];
   const sel = state.selection.main;
@@ -1928,6 +1947,7 @@ function buildBlockExtraDecos(state: EditorState): DecorationSet {
 
   // ── [toc] ──────────────────────────────────────────────────────────────
   for (const range of ranges.toc) {
+    if (range.to < windowFrom || range.from > windowTo) continue;
     if (rangeOverlapsAny(range.from, range.to, blockMathRanges)) continue;
     if (!(sel.from <= range.to && sel.to >= range.from)) {
       decos.push(
@@ -1939,6 +1959,7 @@ function buildBlockExtraDecos(state: EditorState): DecorationSet {
 
   // ── @@include [path] ───────────────────────────────────────────────────
   for (const range of ranges.includes) {
+    if (range.to < windowFrom || range.from > windowTo) continue;
     if (rangeOverlapsAny(range.from, range.to, blockMathRanges)) continue;
     if (occupied.some(([from, to]) => range.from < to && range.to > from)) continue;
     if (sel.from >= range.from && sel.from <= range.to) {
@@ -1953,6 +1974,7 @@ function buildBlockExtraDecos(state: EditorState): DecorationSet {
 
   // ── @@part / @@section semantic headings ──────────────────────────────
   for (const range of ranges.semanticHeadings) {
+    if (range.to < windowFrom || range.from > windowTo) continue;
     if (rangeOverlapsAny(range.from, range.to, blockMathRanges)) continue;
     if (occupied.some(([from, to]) => range.from < to && range.to > from)) continue;
     if (sel.from >= range.from && sel.from <= range.to) {
@@ -1972,6 +1994,7 @@ function buildBlockExtraDecos(state: EditorState): DecorationSet {
   // as UI chrome.
   const orgEnvBlocks = orgEnvBlocksFromState(state);
   for (const block of orgEnvBlocks) {
+    if (block.to < windowFrom || block.from > windowTo) continue;
     addOrgEnvBlockExtraDecos(decos, occupied, state, block);
   }
 
@@ -1979,7 +2002,7 @@ function buildBlockExtraDecos(state: EditorState): DecorationSet {
   const frontMatter = ranges.frontMatter;
   if (frontMatter) {
     const { from, to, body } = frontMatter;
-    if (!rangeOverlapsAny(from, to, blockMathRanges) && !(sel.from < to && sel.to > from)) {
+    if (to >= windowFrom && from <= windowTo && !rangeOverlapsAny(from, to, blockMathRanges) && !(sel.from < to && sel.to > from)) {
       decos.push(
         Decoration.replace({ widget: new FrontMatterWidget(body, from, to), block: true }).range(from, to),
       );
@@ -1989,6 +2012,7 @@ function buildBlockExtraDecos(state: EditorState): DecorationSet {
 
   // ── Horizontal rule ────────────────────────────────────────────────────
   for (const range of ranges.hrs) {
+    if (range.to < windowFrom || range.from > windowTo) continue;
     if (rangeOverlapsAny(range.from, range.to, blockMathRanges)) continue;
     if (occupied.some(([from, to]) => range.from < to && range.to > from)) continue;
     if (sel.from >= range.from && sel.from <= range.to) {
@@ -2001,6 +2025,11 @@ function buildBlockExtraDecos(state: EditorState): DecorationSet {
   }
 
   decos.sort((a, b) => a.from - b.from || a.to - b.to);
+  return decos;
+}
+
+function buildBlockExtraDecos(state: EditorState): DecorationSet {
+  const decos = buildBlockExtraDecoRanges(state);
   return Decoration.set(decos, true);
 }
 
@@ -2049,13 +2078,60 @@ function activeBlockExtraKey(state: EditorState): string {
       continue;
     }
     if (selectionTouchesRange(state, block.openFrom, block.openTo)) {
-      parts.push(`org-open:${block.openFrom}:${block.openTo}`);
+      parts.push(`org-open:${block.openFrom}:${block.openTo}:${block.from}:${block.to}`);
     }
     if (selectionTouchesRange(state, block.closeFrom, block.closeTo)) {
-      parts.push(`org-close:${block.closeFrom}:${block.closeTo}`);
+      parts.push(`org-close:${block.closeFrom}:${block.closeTo}:${block.from}:${block.to}`);
     }
   }
   return parts.join("|");
+}
+
+function blockExtraPatchRangesFromKey(key: string): Array<{ from: number; to: number }> {
+  if (!key) return [];
+  return key.split("|")
+    .map((part) => {
+      const pieces = part.split(":");
+      const from = Number(pieces[pieces.length - 2]);
+      const to = Number(pieces[pieces.length - 1]);
+      return Number.isFinite(from) && Number.isFinite(to) && from <= to ? { from, to } : null;
+    })
+    .filter((range): range is { from: number; to: number } => Boolean(range));
+}
+
+function mergeBlockExtraPatchRanges(ranges: Array<{ from: number; to: number }>): Array<{ from: number; to: number }> {
+  const sorted = ranges.sort((a, b) => a.from - b.from || a.to - b.to);
+  const merged: Array<{ from: number; to: number }> = [];
+  for (const range of sorted) {
+    const previous = merged[merged.length - 1];
+    if (previous && range.from <= previous.to) {
+      previous.to = Math.max(previous.to, range.to);
+    } else {
+      merged.push({ ...range });
+    }
+  }
+  return merged;
+}
+
+function patchBlockExtraDecosForSelectionChange(
+  state: EditorState,
+  current: DecorationSet,
+  oldKey: string,
+  newKey: string,
+): DecorationSet {
+  const ranges = mergeBlockExtraPatchRanges([
+    ...blockExtraPatchRangesFromKey(oldKey),
+    ...blockExtraPatchRangesFromKey(newKey),
+  ]);
+  if (ranges.length === 0) return current;
+
+  let next = current;
+  const add: CMRange<Decoration>[] = [];
+  for (const range of ranges) {
+    next = next.update({ filterFrom: range.from, filterTo: range.to, filter: () => false });
+    add.push(...buildBlockExtraDecoRanges(state, range.from, range.to));
+  }
+  return next.update({ add, sort: true });
 }
 
 function canMapBlockExtraDecos(state: EditorState, changes: ChangeSet): boolean {
@@ -2133,8 +2209,10 @@ const blockExtrasDecorations = StateField.define<DecorationSet>({
         ? patchBlockExtraDecosForOrgEnvTitleChange(tr.state, value.map(tr.changes), titlePatch.newBlock)
         : buildBlockExtraDecos(tr.state);
     }
-    if (tr.selection != null && activeBlockExtraKey(tr.startState) !== activeBlockExtraKey(tr.state)) {
-      return buildBlockExtraDecos(tr.state);
+    if (tr.selection != null) {
+      const oldKey = activeBlockExtraKey(tr.startState);
+      const newKey = activeBlockExtraKey(tr.state);
+      if (oldKey !== newKey) return patchBlockExtraDecosForSelectionChange(tr.state, value, oldKey, newKey);
     }
     return value.map(tr.changes);
   },

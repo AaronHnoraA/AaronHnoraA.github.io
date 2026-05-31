@@ -370,14 +370,48 @@ function buildInlineMathDecos(view: EditorView): DecorationSet {
   return Decoration.set(decos, true);
 }
 
+function activeInlineMathKey(state: EditorState): string {
+  const sel = state.selection.main;
+  const firstLine = state.doc.lineAt(sel.from).number;
+  const lastLine = state.doc.lineAt(Math.min(sel.to, state.doc.length)).number;
+  if (lastLine - firstLine > 50) return `wide:${sel.from}:${sel.to}`;
+  const blockRanges = getBlockMathRanges(state);
+  const keys: string[] = [];
+
+  for (let lineNum = firstLine; lineNum <= lastLine; lineNum++) {
+    const line = state.doc.line(lineNum);
+    INLINE_MATH_RE.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = INLINE_MATH_RE.exec(line.text)) !== null) {
+      const from = line.from + match.index;
+      const to = from + match[0].length;
+      const tex = match[1]!;
+      if (rangeOverlapsAny(from, to, blockRanges)) continue;
+      if (!isLikelyInlineMath(tex)) continue;
+      if (sel.from < to && sel.to > from) keys.push(`${from}:${to}`);
+    }
+  }
+  return keys.join("|");
+}
+
 class MathInlinePlugin {
   decorations: DecorationSet;
+  private selectionKey: string;
 
-  constructor(view: EditorView) { this.decorations = buildInlineMathDecos(view); }
+  constructor(view: EditorView) {
+    this.selectionKey = activeInlineMathKey(view.state);
+    this.decorations = buildInlineMathDecos(view);
+  }
 
   update(update: ViewUpdate): void {
     if (update.view.compositionStarted && update.selectionSet && !update.docChanged && !update.viewportChanged) return;
-    if (update.docChanged || update.viewportChanged || update.selectionSet) {
+    if (update.docChanged || update.viewportChanged) {
+      this.selectionKey = activeInlineMathKey(update.view.state);
+      this.decorations = buildInlineMathDecos(update.view);
+    } else if (update.selectionSet) {
+      const nextSelectionKey = activeInlineMathKey(update.view.state);
+      if (nextSelectionKey === this.selectionKey) return;
+      this.selectionKey = nextSelectionKey;
       this.decorations = buildInlineMathDecos(update.view);
     }
   }

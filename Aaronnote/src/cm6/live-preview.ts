@@ -127,6 +127,60 @@ type LivePreviewToken =
   | { kind: "wikilink"; from: number; openTo: number; closeFrom: number; to: number }
   | { kind: "static"; from: number; to: number; cls: string };
 
+function escapedAt(text: string, index: number): boolean {
+  let slashes = 0;
+  for (let pos = index - 1; pos >= 0 && text[pos] === "\\"; pos--) slashes++;
+  return slashes % 2 === 1;
+}
+
+function addHighlightTokens(
+  tokens: LivePreviewToken[],
+  doc: Text,
+  ranges: readonly { from: number; to: number }[],
+  excludedRanges: readonly { from: number; to: number }[],
+  codeRanges: readonly { from: number; to: number }[],
+): void {
+  const visited = new Set<number>();
+  for (const { from: visibleFrom, to: visibleTo } of ranges) {
+    const firstLine = doc.lineAt(visibleFrom).number;
+    const lastLine = doc.lineAt(Math.min(toVisibleDocPos(doc, visibleTo))).number;
+    for (let lineNum = firstLine; lineNum <= lastLine; lineNum++) {
+      if (visited.has(lineNum)) continue;
+      visited.add(lineNum);
+      const line = doc.line(lineNum);
+      let open = 0;
+      while ((open = line.text.indexOf("==", open)) >= 0) {
+        if (
+          escapedAt(line.text, open)
+          || line.text[open + 2] === "="
+          || rangeOverlapsAny(line.from + open, line.from + open + 2, codeRanges)
+        ) {
+          open += 2;
+          continue;
+        }
+        const close = line.text.indexOf("==", open + 2);
+        if (close < 0) break;
+        if (close === open + 2 || escapedAt(line.text, close) || line.text[close + 2] === "=") {
+          open = close + 2;
+          continue;
+        }
+        const from = line.from + open;
+        const to = line.from + close + 2;
+        if (!rangeOverlapsAny(from, to, excludedRanges) && !rangeOverlapsAny(from, to, codeRanges)) {
+          tokens.push({ kind: "span", from, to, spanFrom: from, spanTo: to, cls: "cm-highlight" });
+          tokens.push({ kind: "delimiter", from, to: from + 2, spanFrom: from, spanTo: to });
+          tokens.push({ kind: "delimiter", from: to - 2, to, spanFrom: from, spanTo: to });
+        }
+        open = close + 2;
+      }
+    }
+  }
+}
+
+function toVisibleDocPos(doc: Text, pos: number): number {
+  return Math.max(0, Math.min(pos, doc.length));
+}
+
 function collectLivePreviewTokens(
   view: EditorView,
   ranges: readonly { from: number; to: number }[] = view.visibleRanges,
@@ -137,6 +191,7 @@ function collectLivePreviewTokens(
   const blockMathRanges = getBlockMathRanges(view.state);
   const lean4Ranges = getLean4OrgEnvBodyRanges(view.state);
   const excludedRanges = lean4Ranges.length > 0 ? [...blockMathRanges, ...lean4Ranges] : blockMathRanges;
+  const codeRanges: Array<{ from: number; to: number }> = [];
 
   addCjkTextTokens(tokens, doc, ranges, excludedRanges, cjkLineCache);
   addHeadingMarkTokens(tokens, view.state, ranges, excludedRanges);
@@ -148,6 +203,9 @@ function collectLivePreviewTokens(
       to,
       enter(node) {
         if (rangeInsideAny(node.from, node.to, excludedRanges)) return false;
+        if (node.name === "InlineCode" || node.name === "FencedCode" || node.name === "CodeBlock" || node.name === "IndentedCode") {
+          codeRanges.push({ from: node.from, to: node.to });
+        }
 
         // ── Span styling: bold / italic / code / strike ────────────────────
         // Applied to the whole parent span so the visible content gets
@@ -233,6 +291,7 @@ function collectLivePreviewTokens(
       },
     });
   }
+  addHighlightTokens(tokens, doc, ranges, excludedRanges, codeRanges);
 
   return tokens;
 }
@@ -286,6 +345,35 @@ function buildDecorations(view: EditorView, tokens = collectLivePreviewTokens(vi
 
   decos.sort((a, b) => a.from - b.from || a.to - b.to);
   return Decoration.set(decos, true);
+}
+
+function selectionAffectingTokenKey(state: EditorState, tokens: readonly LivePreviewToken[]): string {
+  const sel = state.selection.main;
+  const cursorLine = state.doc.lineAt(sel.from).number;
+  const keys: string[] = [];
+  for (const token of tokens) {
+    switch (token.kind) {
+      case "span":
+      case "delimiter":
+      case "link-delimiter":
+        if (sel.from <= token.spanTo && sel.to >= token.spanFrom) {
+          keys.push(`${token.kind}:${token.spanFrom}:${token.spanTo}`);
+        }
+        break;
+      case "autolink":
+      case "wikilink":
+        if (sel.from <= token.to && sel.to >= token.from) {
+          keys.push(`${token.kind}:${token.from}:${token.to}`);
+        }
+        break;
+      case "block-mark":
+        if (cursorLine === token.line) keys.push(`block-mark:${token.line}`);
+        break;
+      case "static":
+        break;
+    }
+  }
+  return keys.join("|");
 }
 
 function addWikilinkTokens(
@@ -436,12 +524,14 @@ class LivePreviewPlugin {
   private readonly cjkLineCache: CjkLineCache = new Map();
   private lastVpFrom: number;
   private lastVpTo: number;
+  private selectionKey: string;
 
   constructor(view: EditorView) {
     const vr = view.visibleRanges;
     this.tokens = collectLivePreviewTokens(view, vr, this.cjkLineCache);
     this.lastVpFrom = vr[0]?.from ?? 0;
     this.lastVpTo = vr[vr.length - 1]?.to ?? 0;
+    this.selectionKey = selectionAffectingTokenKey(view.state, this.tokens);
     this.decorations = buildDecorations(view, this.tokens);
   }
 
@@ -466,6 +556,7 @@ class LivePreviewPlugin {
       this.tokens = collectLivePreviewTokens(update.view, vr, this.cjkLineCache);
       this.lastVpFrom = newFrom;
       this.lastVpTo = newTo;
+      this.selectionKey = selectionAffectingTokenKey(update.view.state, this.tokens);
       this.decorations = buildDecorations(update.view, this.tokens);
     } else if (update.viewportChanged) {
       // Incremental: collect tokens only for ranges newly scrolled into view.
@@ -485,8 +576,12 @@ class LivePreviewPlugin {
       }
       this.lastVpFrom = newFrom;
       this.lastVpTo = newTo;
+      this.selectionKey = selectionAffectingTokenKey(update.view.state, this.tokens);
       this.decorations = buildDecorations(update.view, this.tokens);
     } else if (update.selectionSet) {
+      const nextSelectionKey = selectionAffectingTokenKey(update.view.state, this.tokens);
+      if (nextSelectionKey === this.selectionKey) return;
+      this.selectionKey = nextSelectionKey;
       this.decorations = buildDecorations(update.view, this.tokens);
     }
   }
@@ -1203,12 +1298,58 @@ function buildTableDecos(state: EditorState): DecorationSet {
 function activeTableAttrsKey(state: EditorState): string {
   const sel = state.selection.main;
   const tables = markdownTablesFromState(state);
+  const keys: string[] = [];
   for (const table of tables) {
     if (table.sourceTo < table.to && sel.from <= table.to && sel.to >= table.sourceTo) {
-      return `${table.from}:${table.to}`;
+      keys.push(`${table.from}:${table.to}`);
     }
   }
-  return "";
+  return keys.join("|");
+}
+
+function tableRangesFromKey(key: string): Array<{ from: number; to: number }> {
+  if (!key) return [];
+  return key.split("|")
+    .map((part) => {
+      const [from, to] = part.split(":").map((value) => Number(value));
+      return Number.isFinite(from) && Number.isFinite(to) && from <= to ? { from, to } : null;
+    })
+    .filter((range): range is { from: number; to: number } => Boolean(range));
+}
+
+function mergeTablePatchRanges(ranges: Array<{ from: number; to: number }>): Array<{ from: number; to: number }> {
+  const sorted = ranges.sort((a, b) => a.from - b.from || a.to - b.to);
+  const merged: Array<{ from: number; to: number }> = [];
+  for (const range of sorted) {
+    const previous = merged[merged.length - 1];
+    if (previous && range.from <= previous.to) {
+      previous.to = Math.max(previous.to, range.to);
+    } else {
+      merged.push({ ...range });
+    }
+  }
+  return merged;
+}
+
+function patchTableDecosForSelectionChange(
+  state: EditorState,
+  current: DecorationSet,
+  oldKey: string,
+  newKey: string,
+): DecorationSet {
+  const ranges = mergeTablePatchRanges([
+    ...tableRangesFromKey(oldKey),
+    ...tableRangesFromKey(newKey),
+  ]);
+  if (ranges.length === 0) return current;
+
+  let next = current;
+  const add: Range<Decoration>[] = [];
+  for (const range of ranges) {
+    next = next.update({ filterFrom: range.from, filterTo: range.to, filter: () => false });
+    add.push(...buildTableDecoRanges(state, range.from, range.to));
+  }
+  return next.update({ add, sort: true });
 }
 
 const tableDecoField = StateField.define<DecorationSet>({
@@ -1220,8 +1361,10 @@ const tableDecoField = StateField.define<DecorationSet>({
         ? value.map(tr.changes)
         : patchTableDecosNearChanges(tr.state, value.map(tr.changes), tr.changes);
     }
-    if (tr.selection != null && activeTableAttrsKey(tr.startState) !== activeTableAttrsKey(tr.state)) {
-      return buildTableDecos(tr.state);
+    if (tr.selection != null) {
+      const oldKey = activeTableAttrsKey(tr.startState);
+      const newKey = activeTableAttrsKey(tr.state);
+      if (oldKey !== newKey) return patchTableDecosForSelectionChange(tr.state, value, oldKey, newKey);
     }
     return value.map(tr.changes);
   },

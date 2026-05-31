@@ -17,7 +17,7 @@ import { MeasuredWidget } from "./measured-widget.ts";
 import { syntaxTree } from "@codemirror/language";
 import { scanInlineCommands, type InlineCommand } from "../../command-syntax.ts";
 import type { Range } from "@codemirror/state";
-import { getBlockMathRanges, rangeOverlapsAny } from "../math-ranges.ts";
+import { blockMathRangesOverlapping, rangeOverlapsAny } from "../math-ranges.ts";
 import {
   DATE_KEYS,
   DATE_KEY_LABELS,
@@ -193,7 +193,7 @@ class TodoWidget extends MeasuredWidget {
 // ---------------------------------------------------------------------------
 
 function excludedCommandRanges(view: EditorView): Array<{ from: number; to: number }> {
-  const ranges: Array<{ from: number; to: number }> = getBlockMathRanges(view.state)
+  const ranges: Array<{ from: number; to: number }> = blockMathRangesOverlapping(view.state, view.visibleRanges)
     .map(({ from, to }) => ({ from, to }));
   for (const { from, to } of view.visibleRanges) {
     syntaxTree(view.state).iterate({
@@ -261,21 +261,45 @@ function buildInlineCommandDecos(
   return Decoration.set(decos, true);
 }
 
+function activeInlineCommandKey(view: EditorView): string {
+  const sel = view.state.selection.main;
+  const firstLine = view.state.doc.lineAt(sel.from).number;
+  const lastLine = view.state.doc.lineAt(Math.min(sel.to, view.state.doc.length)).number;
+  if (lastLine - firstLine > 50) return `wide:${sel.from}:${sel.to}`;
+  const keys: string[] = [];
+
+  for (let lineNum = firstLine; lineNum <= lastLine; lineNum++) {
+    const line = view.state.doc.line(lineNum);
+    for (const cmd of scanInlineCommands(line.text)) {
+      const from = line.from + cmd.fullFrom;
+      const to = line.from + cmd.fullTo;
+      if (sel.from <= to && sel.to >= from) keys.push(`${from}:${to}`);
+    }
+  }
+  return keys.join("|");
+}
+
 class TodoPlugin {
   decorations: DecorationSet;
   excludedRanges: Array<{ from: number; to: number }>;
+  private activeCommandKey: string;
 
   constructor(view: EditorView) {
     this.excludedRanges = excludedCommandRanges(view);
+    this.activeCommandKey = activeInlineCommandKey(view);
     this.decorations = buildInlineCommandDecos(view, this.excludedRanges);
   }
 
   update(update: ViewUpdate): void {
     if (update.view.compositionStarted && update.selectionSet && !update.docChanged && !update.viewportChanged) return;
-    if (update.docChanged || update.viewportChanged || update.selectionSet) {
-      if (update.docChanged || update.viewportChanged) {
-        this.excludedRanges = excludedCommandRanges(update.view);
-      }
+    if (update.docChanged || update.viewportChanged) {
+      this.excludedRanges = excludedCommandRanges(update.view);
+      this.activeCommandKey = activeInlineCommandKey(update.view);
+      this.decorations = buildInlineCommandDecos(update.view, this.excludedRanges);
+    } else if (update.selectionSet) {
+      const nextCommandKey = activeInlineCommandKey(update.view);
+      if (nextCommandKey === this.activeCommandKey) return;
+      this.activeCommandKey = nextCommandKey;
       this.decorations = buildInlineCommandDecos(update.view, this.excludedRanges);
     }
   }

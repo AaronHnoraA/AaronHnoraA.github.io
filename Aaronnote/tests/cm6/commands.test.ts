@@ -35,6 +35,7 @@ maybeDescribe("CM6 runCommand — inline marks", () => {
     ed.setSelection(0, 5);
     ed.runCommand("bold");
     expect(ed.getMarkdown()).toBe("**hello** world");
+    expect(ed.getMarkdownSelection()).toEqual({ from: 2, to: 7 });
     ed.destroy();
   });
 
@@ -54,6 +55,33 @@ maybeDescribe("CM6 runCommand — inline marks", () => {
     ed.setSelection(0, 3);
     ed.runCommand("code");
     expect(ed.getMarkdown()).toBe("`foo`");
+    ed.destroy();
+  });
+
+  it("highlight and strike wrap selected text", async () => {
+    const { createEditorCM6 } = await import("../../src/cm6/editor-cm6.ts");
+    const host = document.createElement("div");
+    const ed = createEditorCM6(host, { initialContent: "hello world" });
+    ed.setSelection(0, 5);
+    ed.runCommand("highlight");
+    expect(ed.getMarkdown()).toBe("==hello== world");
+    expect(ed.getMarkdownSelection()).toEqual({ from: 2, to: 7 });
+    ed.setSelection(ed.getMarkdown().indexOf("world"), ed.getMarkdown().length);
+    ed.runCommand("strike");
+    expect(ed.getMarkdown()).toBe("==hello== ~~world~~");
+    ed.destroy();
+  });
+
+  it("highlight and strike place the cursor between empty delimiters", async () => {
+    const { createEditorCM6 } = await import("../../src/cm6/editor-cm6.ts");
+    const host = document.createElement("div");
+    const ed = createEditorCM6(host, { initialContent: "" });
+    ed.runCommand("highlight");
+    expect(ed.getMarkdown()).toBe("====");
+    expect(ed.getMarkdownSelection()).toEqual({ from: 2, to: 2 });
+    ed.runCommand("strike");
+    expect(ed.getMarkdown()).toBe("==~~~~==");
+    expect(ed.getMarkdownSelection()).toEqual({ from: 4, to: 4 });
     ed.destroy();
   });
 

@@ -25,7 +25,7 @@ import {
 } from "../editor-api.ts";
 
 // ---------------------------------------------------------------------------
-// Inline wrap (bold / italic / code / link / image)
+// Inline wrap (bold / italic / highlight / strike / code / link / image)
 // ---------------------------------------------------------------------------
 
 function wrapInline(view: EditorView, open: string, close: string): boolean {
@@ -41,7 +41,7 @@ function wrapInline(view: EditorView, open: string, close: string): boolean {
     const wrapped = open + selected + close;
     view.dispatch({
       changes: { from, to, insert: wrapped },
-      selection: { anchor: from + wrapped.length },
+      selection: { anchor: from + open.length, head: from + open.length + selected.length },
       scrollIntoView: true,
     });
   }
@@ -458,6 +458,8 @@ export function runCommandCM6(view: EditorView, command: EditorCommand, value = 
   // ── Inline marks ────────────────────────────────────────────────────────
   if (command === "bold") return wrapInline(view, "**", "**");
   if (command === "italic") return wrapInline(view, "*", "*");
+  if (command === "highlight") return wrapInline(view, "==", "==");
+  if (command === "strike") return wrapInline(view, "~~", "~~");
   if (command === "code") return wrapInline(view, "`", "`");
 
   if (command === "link") {

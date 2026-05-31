@@ -3,6 +3,7 @@ import { EditorState } from "@codemirror/state";
 
 import {
   blockMathRangesExtension,
+  blockMathRangesOverlapping,
   getBlockMathRanges,
   positionInsideAnyRange,
   rangeAtPosition,
@@ -46,5 +47,21 @@ describe("block math range queries", () => {
     expect(after.contentFrom).toBe(before.contentFrom);
     expect(after.contentTo).toBe(before.contentTo + 4);
     expect(after.tex).toBe("x + y");
+  });
+
+  test("reuses unaffected math ranges and crops queries to viewport windows", () => {
+    const state = EditorState.create({
+      doc: "$$\na\n$$\ntext\n$$\nb\n$$",
+      extensions: [blockMathRangesExtension],
+    });
+    const before = getBlockMathRanges(state);
+    const textPos = state.doc.toString().indexOf("text") + 2;
+    const next = state.update({ changes: { from: textPos, insert: "!" } }).state;
+    const after = getBlockMathRanges(next);
+
+    expect(after[0]).toBe(before[0]);
+    expect(after[1]).not.toBe(before[1]);
+    expect(after[1]!.tex).toBe(before[1]!.tex);
+    expect(blockMathRangesOverlapping(next, [{ from: after[1]!.from, to: after[1]!.to }])).toEqual([after[1]]);
   });
 });

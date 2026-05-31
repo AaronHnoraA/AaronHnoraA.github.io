@@ -623,6 +623,13 @@ function buildFencedCodeDecos(view: EditorView): DecorationSet {
   return Decoration.set(decos, true);
 }
 
+const FENCE_CHROME_LINE_RE = /^[ \t]{0,3}(?:`{3,}|~{3,})/;
+
+function activeFenceChromeLineKey(view: EditorView): string {
+  const line = view.state.doc.lineAt(view.state.selection.main.from);
+  return FENCE_CHROME_LINE_RE.test(line.text) ? String(line.number) : "";
+}
+
 function pushMark(
   decos: Range<Decoration>[],
   from: number,
@@ -637,9 +644,11 @@ class FencedCodePlugin {
   decorations: DecorationSet;
   private readonly view: EditorView;
   private readonly unsubscribeHighlightReady: () => void;
+  private activeLineKey: string;
 
   constructor(view: EditorView) {
     this.view = view;
+    this.activeLineKey = activeFenceChromeLineKey(view);
     this.decorations = buildFencedCodeDecos(view);
     this.unsubscribeHighlightReady = onCodeHighlightReady(() => {
       if (!this.view.dom.isConnected) return;
@@ -650,7 +659,13 @@ class FencedCodePlugin {
 
   update(update: ViewUpdate): void {
     if (update.view.compositionStarted && update.selectionSet && !update.docChanged && !update.viewportChanged) return;
-    if (update.docChanged || update.viewportChanged || update.selectionSet) {
+    if (update.docChanged || update.viewportChanged) {
+      this.activeLineKey = activeFenceChromeLineKey(update.view);
+      this.decorations = buildFencedCodeDecos(update.view);
+    } else if (update.selectionSet) {
+      const nextLineKey = activeFenceChromeLineKey(update.view);
+      if (nextLineKey === this.activeLineKey) return;
+      this.activeLineKey = nextLineKey;
       this.decorations = buildFencedCodeDecos(update.view);
     }
   }

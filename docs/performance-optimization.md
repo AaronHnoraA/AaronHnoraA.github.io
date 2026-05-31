@@ -44,6 +44,11 @@ High-cost work should not run synchronously on every keystroke:
 | Preview selection toggles | Math and Mermaid preview/source switches patch only the entered/exited block on cursor movement. | Implemented |
 | Lean editor UI | Diagnostics/progress gutter markers, completion kind icons, hover caps, and outline rows reuse existing LSP/editor state instead of adding polling or full-file scans. | Implemented |
 | Copilot auxiliary editors | Embedded Lean editors register with the existing Copilot plugin only while mounted, sharing the same local context window and request path as the main editor. | Implemented |
+| Publish render batching | Full-site publish renders changed notes through one Aaronnote renderer process instead of one Node/Happy DOM startup per note. | Implemented |
+| Draft persistence | Unsaved draft writes are debounced/idle-flushed and forced on file/page lifecycle boundaries. | Implemented |
+| Note CSS updates | Per-note CSS links no-op when the resolved href is unchanged. | Implemented |
+| CM6 selection redraws | Cursor-only moves rebuild live-preview and inline widget decorations only when the active source/preview region changes. | Implemented |
+| CM6 block selection patches | Table attrs and block-extra source/preview switches patch only the entered/exited block ranges. | Implemented |
 
 ## Priority Backlog
 
@@ -115,8 +120,9 @@ Each CM6 `StateField` in the live-preview pipeline tries strategies in order: ma
 | `mermaidField` | Changes contain no fence/lang markers for mermaid | Edit is inside an existing mermaid block source | Fence added/removed; lang tag changed |
 | `markdownTablesField` | Change is entirely outside table region | Single-line edit within table | Separator row edited; table added/removed |
 | `lineDecoField` | Change has no structural markers (`#`, `>`, `|`) | Single-line heading / blockquote / table-row change | Multiline structural change; code fence boundary |
-| `tableDecoField` | Change has no `|` character in range | Single-line edit within table | Table added/removed; separator edited |
+| `tableDecoField` | Change has no `|` character in range | Single-line edit within table; cursor enters/exits table attrs | Table added/removed; separator edited |
 | `blockExtraRangesField` | No `[`, `]`, `-`, `*`, `_` in changed range; no front matter | Single-line edit near `[toc]` or horizontal rule | Front matter involved; multiline change |
+| `blockExtrasDecorations` | Non-structural document edits map existing block widgets | Cursor enters/exits `[toc]`, `@@include`, semantic headings, org-env boundaries, comments, front matter, or horizontal rules | Book context changes; block-extra structure changes not covered by range mapping |
 | `tocIndexField` (TocIndex) | No fence boundary line in changed range | Single-line heading / inline anchor edit | Fence boundary added/removed/edited |
 | `orgEnvBlocksField` | No `#+begin` / `#+end` in changed range | Single-line title edit on existing `#+begin` line | Boundary kind, structure, or multiline edits |
 
@@ -252,6 +258,22 @@ Do not mark an item complete just because work moved elsewhere. If cost still ex
 - Change: selection-only preview/source toggles now filter and rebuild only the old/new block windows instead of rebuilding all math or Mermaid decorations in the document.
 - Test run: `npm test -- tests/cm6/roundtrip.test.ts tests/floating-toc.test.ts tests/server-refs.test.ts tests/server-save.test.ts tests/server-todos.test.ts`; `npx tsc --noEmit`.
 - Residual risk: structural fence edits still fall back to the existing full rebuild paths.
+
+## 2026-05-31 Publish And Lifecycle Audit
+
+- Entry points changed: `bin/publish-site`, `Aaronnote/scripts/render-html.mjs`, `Aaronnote/aaronnote/main.ts`, and `Aaronnote/aaronnote/jupyter-panel.ts`.
+- Critical path affected: full-site publish, large-document input, per-note CSS updates, and Jupyter panel open/retry lifecycle.
+- Change: full publish batches all changed note render payloads into one renderer process, while single-note export keeps the existing path. Static copy now skips files with matching size and mtime. Draft recovery snapshots are debounced and moved to idle, with forced flush on file switches and page lifecycle events. Per-note CSS link updates now return early when the href is unchanged. Jupyter open timeouts clear their timer when the IPC request wins the race.
+- Test run: `python3 -m py_compile bin/publish-site`; batch renderer smoke test; `npx tsc --noEmit`; `npm test`.
+- Residual risk: changed render dependencies still intentionally invalidate many pages; batching removes process startup cost but not the actual Markdown/HTML render work.
+
+## 2026-05-31 CM6 Selection Redraw Audit
+
+- Entry points changed: `livePreviewPlugin`, `MathInlinePlugin`, `ImagePlugin`, `TodoPlugin`, `TaskListPlugin`, `FencedCodePlugin`, `tableDecoField`, and `blockExtrasDecorations`.
+- Critical path affected: cursor movement, selection changes, and source/preview toggles in large notes.
+- Change: selection-only updates now compute compact active-region keys and skip decoration rebuilds when the cursor stays outside preview-sensitive syntax. Inline math, images, inline commands, task markers, fenced-code chrome, live-preview syntax marks, table attrs, and block extras rebuild only when the active source/preview region changes. Table attrs and block extras patch only the old/new ranges instead of rebuilding all block widgets.
+- Test run: `npx tsc --noEmit`; `npm test -- tests/cm6/roundtrip.test.ts tests/math-render.test.ts tests/render-html.test.ts`.
+- Residual risk: structural edits that add/remove syntax boundaries still use the existing full rebuild fallback. Very wide selections intentionally use conservative keys and may rebuild more than a collapsed cursor move.
 
 ## Future Performance Work
 
