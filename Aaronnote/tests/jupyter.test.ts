@@ -12,10 +12,25 @@ describe("jupyter desktop helpers", () => {
     });
     expect(args).toContain("--no-browser");
     expect(args).toContain("--ServerApp.port=8899");
-    expect(args).toContain("--ServerApp.token=tok");
     expect(args).toContain("--ServerApp.allow_origin=*");
     expect(args).toContain("--ServerApp.root_dir=/notes");
     expect(args.every((arg: unknown) => typeof arg === "string")).toBe(true);
+  });
+
+  test("disables all server auth so the cross-origin iframe kernel can connect", () => {
+    const args = jupyterLaunchArgs({
+      command: "/opt/homebrew/bin/jupyter-lab",
+      root: "/notes",
+      port: 8899,
+      token: "tok",
+    });
+    // No auth token is emitted regardless of the passed token; both token traits and
+    // the password are empty, leaving the local 127.0.0.1 server authentication-free.
+    expect(args).toContain("--ServerApp.token=");
+    expect(args).toContain("--IdentityProvider.token=");
+    expect(args).toContain("--ServerApp.password=");
+    expect(args).toContain("--ServerApp.disable_check_xsrf=True");
+    expect(args).not.toContain("--ServerApp.token=tok");
   });
 
   test("uses the lab subcommand for the generic jupyter executable", () => {

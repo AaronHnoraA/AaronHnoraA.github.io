@@ -119,6 +119,13 @@ contextBridge.exposeInMainWorld("aaronnoteApi", {
   jupyter: {
     request: (action = "", body = {}) => invoke("aaronnote:api:jupyter:request", String(action || ""), body || {}),
     scroll: (body = {}) => invoke("aaronnote:api:jupyter:scroll", body || {}),
+    kernelStatus: (body = {}) => invoke("aaronnote:api:jupyter:kernel-status", body || {}),
+    onStatus: (handler) => {
+      if (typeof handler !== "function") return () => {};
+      const listener = (_event, data) => handler(data);
+      ipcRenderer.on("aaronnote:jupyter:status", listener);
+      return () => ipcRenderer.removeListener("aaronnote:jupyter:status", listener);
+    },
   },
   proseCheck: {
     run: (body = {}) => invoke("aaronnote:api:prose-check:run", body),

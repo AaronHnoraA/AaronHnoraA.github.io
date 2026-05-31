@@ -1,6 +1,5 @@
 import { app, BrowserWindow, Menu, Notification, dialog, ipcMain, shell, protocol, net, globalShortcut, powerMonitor } from "electron";
 import { execFile, spawn } from "node:child_process";
-import { randomBytes } from "node:crypto";
 import { existsSync, statSync } from "node:fs";
 import { access, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
@@ -700,6 +699,13 @@ function registerApiIpc() {
       return errorPayload(err);
     }
   });
+  ipcMain.handle("aaronnote:api:jupyter:kernel-status", async (event, body = {}) => {
+    try {
+      return await handleJupyterKernelStatus(event.sender, body || {});
+    } catch (err) {
+      return errorPayload(err);
+    }
+  });
   registerApiHandler("aaronnote:api:graph", async () => graphPayload(await scanNotes()));
   registerApiHandler("aaronnote:api:tags", async () => tagIndexPayload(await scanNotes()));
 }
@@ -1207,6 +1213,12 @@ function jupyterRootForFile(file) {
   return inside(resolved, noteRoot) ? noteRoot : dirname(resolved);
 }
 
+function broadcastJupyterStatus(payload) {
+  for (const win of appWindows()) {
+    if (!win.isDestroyed()) win.webContents.send("aaronnote:jupyter:status", payload);
+  }
+}
+
 function touchJupyterSession() {
   if (!jupyterSession) return;
   jupyterSession.lastUsedAt = Date.now();
@@ -1292,7 +1304,7 @@ async function ensureJupyterSession(root, restart = false) {
   const command = findJupyterExecutable(env);
   if (!command) throw new Error("JupyterLab not found in the zsh environment. Install jupyterlab or set AARONNOTE_JUPYTER.");
   const port = await freeLocalPort();
-  const token = randomBytes(18).toString("hex");
+  const token = ""; // Auth is disabled for the local 127.0.0.1 server (see jupyterLaunchArgs).
   const baseUrl = `http://127.0.0.1:${port}`;
   const child = spawn(command, jupyterLaunchArgs({ command, root: resolvedRoot, port, token }), {
     cwd: resolvedRoot,
@@ -1318,9 +1330,26 @@ async function ensureJupyterSession(root, restart = false) {
   };
   child.stdout?.on("data", appendOutput);
   child.stderr?.on("data", appendOutput);
-  child.once("error", (err) => appendOutput(err instanceof Error ? err.message : String(err)));
-  child.once("exit", () => {
-    if (jupyterSession === session) jupyterSession = null;
+  child.once("error", (err) => {
+    appendOutput(err instanceof Error ? err.message : String(err));
+    if (jupyterSession === session) {
+      jupyterSession = null;
+      broadcastJupyterStatus({ running: false, crashed: true, output: session.output.slice(-2000) });
+    }
+  });
+  child.once("exit", (code, signal) => {
+    // stopJupyterSession() / restart nulls jupyterSession before killing, so an exit
+    // while we still hold this session means the server died unexpectedly. Only
+    // notify in that case — intentional stop/restart manage their own UI.
+    if (jupyterSession !== session) return;
+    jupyterSession = null;
+    broadcastJupyterStatus({
+      running: false,
+      crashed: true,
+      code: code ?? null,
+      signal: signal ?? null,
+      output: session.output.slice(-2000),
+    });
   });
   jupyterSession = session;
   void ensureJupyterReady(session)
@@ -1598,6 +1627,43 @@ async function handleJupyterScroll(contents, body = {}) {
   return { ok: true, url: scrollBody.url, ...(result && typeof result === "object" ? result : {}) };
 }
 
+// Reads JupyterLab's live kernel state from inside the (cross-origin) iframe. The
+// renderer cannot reach contentWindow, but the Electron WebFrame can run this script.
+const JUPYTER_KERNEL_STATUS_SCRIPT = `
+(() => {
+  try {
+    const app = window.jupyterapp || window.jupyterlab || null;
+    let connectionStatus = "";
+    let status = "";
+    const widget = app && app.shell && app.shell.currentWidget;
+    const sessionContext = widget && (widget.sessionContext || (widget.context && widget.context.sessionContext));
+    const kernel = sessionContext && sessionContext.session && sessionContext.session.kernel;
+    if (kernel) {
+      connectionStatus = String(kernel.connectionStatus || "");
+      status = String(kernel.status || "");
+    }
+    if (!connectionStatus) {
+      const exec = document.querySelector(".jp-Notebook-ExecutionIndicator");
+      if (exec) status = exec.getAttribute("data-status") || status;
+    }
+    const dead = status === "dead";
+    const live = connectionStatus === "connected" && (status === "idle" || status === "busy");
+    return { hasKernel: Boolean(kernel), connectionStatus, status, connected: live, dead };
+  } catch (err) {
+    return { hasKernel: false, connectionStatus: "", status: "", connected: false, dead: false, error: String(err) };
+  }
+})()
+`;
+
+async function handleJupyterKernelStatus(contents, body = {}) {
+  if (!jupyterSession) return { ok: true, running: false };
+  const frame = jupyterFrameForContents(contents, body.url || "");
+  if (!frame) return { ok: true, running: true, found: false };
+  const result = await frame.executeJavaScript(JUPYTER_KERNEL_STATUS_SCRIPT, true);
+  touchJupyterSession();
+  return { ok: true, running: true, found: true, ...(result && typeof result === "object" ? result : {}) };
+}
+
 async function handleJupyterRequest(action, body = {}) {
   if (action === "open" || action === "restart") {
     const file = resolveJupyterNotebookPath(body.path || body.file || "", body.base || "");
@@ -1629,6 +1695,11 @@ async function handleJupyterRequest(action, body = {}) {
     };
   }
   if (action === "status") {
+    // Re-arm the readiness check if it previously failed; ensureJupyterReady de-dupes
+    // via readyPromise, so the renderer's poll can recover instead of getting stuck.
+    if (jupyterSession && jupyterSession.ready !== true && jupyterSession.child?.exitCode == null) {
+      void ensureJupyterReady(jupyterSession).catch(() => {});
+    }
     return jupyterSession
       ? {
         ok: true,

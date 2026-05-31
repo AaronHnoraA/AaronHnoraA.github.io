@@ -57,15 +57,23 @@ function jupyterUsesSubcommand(command) {
 }
 
 export function jupyterLaunchArgs({ command = "", root = "", port = 0, token = "" } = {}) {
+  void token; // Auth is disabled below; the token is no longer used to start the server.
   const args = jupyterUsesSubcommand(command) ? ["lab"] : [];
   return [
     ...args,
     "--no-browser",
     "--ServerApp.ip=127.0.0.1",
     `--ServerApp.port=${Math.max(1, Number(port) || 0)}`,
-    `--ServerApp.token=${String(token || "")}`,
-    "--ServerApp.allow_origin=*",
+    // Disable all authentication. The notebook is embedded in a cross-origin
+    // Electron iframe (the app loads from file:// / the Vite origin, the server
+    // from http://127.0.0.1), so jupyter_server's auth cookie never flows to the
+    // kernel WebSocket and the kernel hangs forever at "Connecting". With an empty
+    // token + password jupyter_server serves an anonymous identity and the WS
+    // handshake needs no cookie. The server is bound to 127.0.0.1 only.
+    "--ServerApp.token=",
+    "--IdentityProvider.token=",
     "--ServerApp.password=",
+    "--ServerApp.allow_origin=*",
     "--ServerApp.disable_check_xsrf=True",
     `--ServerApp.root_dir=${String(root || "")}`,
     `--ServerApp.tornado_settings=${JSON.stringify({

@@ -115,6 +115,8 @@ type NativeApi = {
   jupyter?: {
     request?: (action: string, body?: unknown) => Promise<unknown>;
     scroll?: (body?: unknown) => Promise<unknown>;
+    kernelStatus?: (body?: unknown) => Promise<unknown>;
+    onStatus?: (handler: (data: unknown) => void) => () => void;
   };
   proseCheck?: {
     run?: (body: { file?: string; content?: string; ranges?: Array<{ from: number; to: number }>; segments?: Array<{ from: number; to: number; text: string }>; totalChars?: number }) => Promise<unknown>;
@@ -540,6 +542,18 @@ export const api = {
     async scroll(body: Record<string, unknown> = {}): Promise<Record<string, unknown> & { ok?: boolean; message?: string }> {
       const native = requireMethod(requireNative().jupyter?.scroll, "Jupyter frame navigation");
       return ensureOk(await native(body) as Record<string, unknown> & { ok?: boolean; message?: string }, "Jupyter scroll failed");
+    },
+
+    async kernelStatus(body: Record<string, unknown> = {}): Promise<Record<string, unknown> & { ok?: boolean; connected?: boolean; dead?: boolean; status?: string; connectionStatus?: string }> {
+      const native = nativeApi()?.jupyter?.kernelStatus;
+      if (!native) return { ok: false };
+      return await native(body) as Record<string, unknown> & { ok?: boolean };
+    },
+
+    onStatus(handler: (data: { running?: boolean; crashed?: boolean; output?: string }) => void): () => void {
+      const native = nativeApi()?.jupyter?.onStatus;
+      if (!native) return () => {};
+      return native(handler as (data: unknown) => void);
     },
   },
 

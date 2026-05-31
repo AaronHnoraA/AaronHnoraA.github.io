@@ -83,6 +83,7 @@ export function createJupyterPanel(options: JupyterPanelOptions): JupyterPanel {
   let _currentKey = "";
   let openSeq = 0;
   let readyTimer = 0;
+  let kernelTimer = 0;
 
   function show(): void {
     if (_visible) return;
@@ -98,6 +99,7 @@ export function createJupyterPanel(options: JupyterPanelOptions): JupyterPanel {
     if (!_visible) return;
     _visible = false;
     window.clearTimeout(readyTimer);
+    window.clearTimeout(kernelTimer);
     root.classList.add("jupyter-panel--hidden");
     root.removeAttribute("hidden");
     document.body.classList.remove("lean-panel-open");
@@ -106,6 +108,7 @@ export function createJupyterPanel(options: JupyterPanelOptions): JupyterPanel {
 
   function setBusy(text: string): void {
     window.clearTimeout(readyTimer);
+    window.clearTimeout(kernelTimer);
     targetEl.textContent = text;
     emptyEl.textContent = "Starting JupyterLab...";
     emptyEl.hidden = false;
@@ -144,6 +147,10 @@ export function createJupyterPanel(options: JupyterPanelOptions): JupyterPanel {
     const url = currentUrl;
     window.setTimeout(() => void scrollFrameTarget(seq, url), 100);
     window.setTimeout(() => void scrollFrameTarget(seq, url), 600);
+    if (url) {
+      setStatus("Kernel connecting…");
+      pollKernelStatus(seq, url);
+    }
   });
 
   async function scrollCurrentNotebook(target: JupyterTarget): Promise<void> {
@@ -194,6 +201,7 @@ export function createJupyterPanel(options: JupyterPanelOptions): JupyterPanel {
     if (seq !== openSeq || currentUrl !== url || !_visible) return;
     readyTimer = window.setTimeout(async () => {
       if (seq !== openSeq || currentUrl !== url || !_visible) return;
+      let detail = "";
       try {
         const status = await api.jupyter.request("status");
         if (status.ready === true) {
@@ -201,11 +209,16 @@ export function createJupyterPanel(options: JupyterPanelOptions): JupyterPanel {
           setStatus("Jupyter preview ready");
           return;
         }
+        const message = typeof status.message === "string" ? status.message : "";
+        const output = typeof status.output === "string" ? status.output.trim() : "";
+        detail = [message, output ? output.slice(-600) : ""].filter(Boolean).join("\n\n");
       } catch {
         // Keep the lightweight readiness poll local to active previews.
       }
       if (attempts <= 1) {
-        emptyEl.textContent = "Jupyter preview is still starting.";
+        emptyEl.textContent = detail
+          ? `Jupyter preview is still starting.\n\n${detail}`
+          : "Jupyter preview is still starting.";
         emptyEl.hidden = false;
         frame.hidden = true;
         setStatus("Jupyter preview still starting");
@@ -213,6 +226,37 @@ export function createJupyterPanel(options: JupyterPanelOptions): JupyterPanel {
       }
       waitForJupyterReady(seq, url, attempts - 1);
     }, 600);
+  }
+
+  // Bounded probe of JupyterLab's real kernel state inside the iframe. Stops as soon
+  // as the kernel connects (or dies) and never runs while the panel is hidden, so it
+  // adds no perpetual background polling.
+  function pollKernelStatus(seq: number, url: string, attempts = 40): void {
+    window.clearTimeout(kernelTimer);
+    if (seq !== openSeq || currentUrl !== url || !_visible || frame.hidden) return;
+    kernelTimer = window.setTimeout(async () => {
+      if (seq !== openSeq || currentUrl !== url || !_visible || frame.hidden) return;
+      try {
+        const status = await api.jupyter.kernelStatus({ url });
+        if (seq !== openSeq || currentUrl !== url) return;
+        if (status.connected === true) {
+          setStatus("Kernel ready");
+          return;
+        }
+        if (status.dead === true) {
+          setStatus("Kernel error");
+          return;
+        }
+        setStatus("Kernel connecting…");
+      } catch {
+        // Frame may not have booted JupyterLab yet; keep probing until attempts run out.
+      }
+      if (attempts <= 1) {
+        setStatus("Kernel not responding");
+        return;
+      }
+      pollKernelStatus(seq, url, attempts - 1);
+    }, 1000);
   }
 
   async function open(target: JupyterTarget, panelOptions: { restart?: boolean } = {}): Promise<void> {
@@ -291,8 +335,20 @@ export function createJupyterPanel(options: JupyterPanelOptions): JupyterPanel {
   });
   stopBtn.addEventListener("click", () => void stop());
   closeBtn.addEventListener("click", () => hide());
-  frame.addEventListener("load", () => {
-    if (currentUrl) setStatus("Jupyter preview ready");
+
+  api.jupyter.onStatus((data) => {
+    if (!data || data.running !== false) return;
+    window.clearTimeout(readyTimer);
+    window.clearTimeout(kernelTimer);
+    openSeq += 1;
+    frame.removeAttribute("src");
+    frame.hidden = true;
+    currentUrl = "";
+    _currentKey = "";
+    const tail = typeof data.output === "string" && data.output.trim() ? `\n\n${data.output.trim().slice(-600)}` : "";
+    emptyEl.textContent = `${data.crashed ? "Jupyter server stopped unexpectedly." : "Jupyter server stopped."}${tail}`;
+    emptyEl.hidden = false;
+    setStatus(data.crashed ? "Jupyter server crashed" : "Jupyter stopped");
   });
 
   return {
