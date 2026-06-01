@@ -22,6 +22,18 @@ $$
     expect(html).not.toContain("<h1");
   });
 
+  test("renders math errors instead of empty previews", () => {
+    const html = renderMarkdownHTML(String.raw`Inline $\notacommand$.
+
+$$
+\notacommand
+$$`);
+
+    expect(html.match(/aaronnote-math-error/g)).toHaveLength(2);
+    expect(html).toContain("KaTeX parse error");
+    expect(html).toContain("Undefined control sequence");
+  });
+
   test("keeps markdown and math literal inside fenced and inline code", () => {
     const fenced = renderMarkdownHTML("```\ninline $x+1$ and [[wiki]] and **bold**\n```");
     expect(fenced).toContain("<code");

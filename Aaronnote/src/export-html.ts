@@ -14,9 +14,9 @@ function renderMathElement(
     strict: false,
     trust: false,
     output: "html",
-  }, () => {
+  }, (error) => {
     el.classList.add("aaronnote-math-error");
-    el.textContent = options.displayMode ? `$$ ${tex} $$` : `$${tex}$`;
+    el.textContent = error;
   });
 }
 

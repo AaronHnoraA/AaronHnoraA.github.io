@@ -16,6 +16,7 @@ import { describe, expect, test } from "@voidzero-dev/vite-plus-test";
 import { createEditor } from "../../src/editor-api.ts";
 import { calibrateWrappedLayoutClick, markdownHrefAt } from "../../src/cm6/editor-cm6.ts";
 import { setKnownRoamRefs } from "../../src/cm6/roam-link-status.ts";
+import { MATH_RENDER_ERROR_MAX_LENGTH } from "../../src/math-render.ts";
 import { createVimLite } from "../../aaronnote/vim-lite.ts";
 
 // All tests in this file require CM6 deps installed.
@@ -121,6 +122,26 @@ maybeDescribe("cm6 kernel: getMarkdown / setMarkdown", () => {
     expect(rendered[0]!.textContent).toContain("1");
     expect(rendered[1]!.textContent).toContain("3");
     cleanup();
+  });
+
+  test("shows bounded math render errors in preview widgets", () => {
+    const md = String.raw`Bad $\notacommand$.
+
+$$
+\notacommand
+$$`;
+    const { editor, cleanup } = mountCM6(md);
+    try {
+      editor.setMarkdownSelection(0);
+      const errors = Array.from(document.querySelectorAll<HTMLElement>(".cm-math-error"));
+
+      expect(errors).toHaveLength(2);
+      expect(errors.every((el) => (el.textContent || "").includes("KaTeX parse error"))).toBe(true);
+      expect(errors.every((el) => (el.textContent || "").length <= MATH_RENDER_ERROR_MAX_LENGTH)).toBe(true);
+      expect(errors.some((el) => (el.textContent || "").includes("$$"))).toBe(false);
+    } finally {
+      cleanup();
+    }
   });
 
   test("does not render inline math inside a fenced code block", () => {

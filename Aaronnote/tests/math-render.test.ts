@@ -1,6 +1,11 @@
 import { describe, expect, test } from "@voidzero-dev/vite-plus-test";
 
-import { renderMathHTML, renderMathLazy } from "../src/math-render.ts";
+import {
+  formatMathRenderError,
+  MATH_RENDER_ERROR_MAX_LENGTH,
+  renderMathHTML,
+  renderMathLazy,
+} from "../src/math-render.ts";
 
 describe("math render source handling", () => {
   test("synchronous render path loads KaTeX CSS", () => {
@@ -48,5 +53,25 @@ describe("math render source handling", () => {
     expect(rendered.html).toContain("φ");
     expect(rendered.html).not.toContain("ongG");
     expect(rendered.html).not.toContain("ăr");
+  });
+
+  test("returns bounded render errors", () => {
+    const rendered = renderMathHTML(`\\notacommand{${"x".repeat(1000)}}`, {
+      displayMode: false,
+      output: "html",
+      strict: false,
+    });
+
+    expect(rendered.html).toBe("");
+    expect(rendered.error).toBeTruthy();
+    expect(rendered.error!.length).toBeLessThanOrEqual(MATH_RENDER_ERROR_MAX_LENGTH);
+    expect(rendered.error).toContain("KaTeX parse error");
+  });
+
+  test("formats long math render errors with a hard limit", () => {
+    const error = formatMathRenderError(new Error("x".repeat(MATH_RENDER_ERROR_MAX_LENGTH + 100)));
+
+    expect(error).toHaveLength(MATH_RENDER_ERROR_MAX_LENGTH);
+    expect(error.endsWith("...")).toBe(true);
   });
 });

@@ -273,7 +273,7 @@
 .cm-editor .cm-math-block-preview {
   display: block;
   text-align: center;
-  padding: 0.4em 0;
+  padding: 0.16em 0;
   cursor: pointer;
 }
 .cm-editor .cm-math-block-float-preview {
@@ -292,6 +292,8 @@
   color: #c0392b;
   font-family: ui-monospace, monospace;
   font-size: 0.85em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .cm-editor .cm-math-source-line {
   text-align: left !important;
@@ -1557,16 +1559,17 @@ org-env-block[data-kind="lean4"] .code-token-punctuation { color: #bac2de; }
   display: block;
   width: fit-content;
   max-width: 100%;
-  margin: 0.22em auto;
+  margin: 0.14em auto;
   overflow: visible;
   text-align: center;
   cursor: text;
 }
+.cm-editor .cm-math-block > .katex-display,
 .cm-editor .aaronnote-math-block > .katex-display {
   display: inline-block;
   width: auto;
   max-width: 100%;
-  margin: 0;
+  margin: 0.08em 0;
   overflow: visible;
 }
 .cm-editor .aaronnote-math-error {
@@ -1576,6 +1579,9 @@ org-env-block[data-kind="lean4"] .code-token-punctuation { color: #bac2de; }
   border-radius: 4px;
   padding: 0.08em 0.32em;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  box-sizing: border-box;
 }
 
 /* ─── Inline TODO anchor ─────────────────────────────────────────── */

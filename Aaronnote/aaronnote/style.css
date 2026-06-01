@@ -2117,9 +2117,17 @@ body.lean-panel-open .aaronnote-editor {
   display: block;
   width: fit-content;
   max-width: 100%;
-  margin: 0.22em auto;
+  margin: 0.14em auto;
   overflow: hidden;
   text-align: center;
+}
+
+.aaronnote-math-block > .katex-display {
+  display: inline-block;
+  width: auto;
+  max-width: 100%;
+  margin: 0.08em 0;
+  overflow: visible;
 }
 
 .aaronnote-math-block.is-math-scaled {
@@ -2133,6 +2141,9 @@ body.lean-panel-open .aaronnote-editor {
   border-radius: 3px;
   padding: 0.08em 0.32em;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  box-sizing: border-box;
 }
 
 .aaronnote-snippet-popup,
@@ -2242,6 +2253,16 @@ body.lean-panel-open .aaronnote-editor {
   overflow: auto;
   padding: 10px 12px;
   color: var(--aaron-ink);
+}
+
+.aaronnote-math-preview.is-error {
+  max-width: min(420px, calc(100vw - 16px));
+  color: #9f1239;
+  background: #fff1f2;
+  border-color: #fecdd3;
+  font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .aaronnote-math-preview.is-display {

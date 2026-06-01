@@ -19,7 +19,7 @@ import {
 import { equationTagsFromText, getEquationTagHits } from "../src/equation-tags.ts";
 import { INLINE_MATH_RE, isLikelyInlineMath } from "../src/inline-math.ts";
 import { getBlockMathRanges, rangeAtPosition, rangeOverlapsAny } from "../src/cm6/math-ranges.ts";
-import { renderMathLazy } from "../src/math-render.ts";
+import { formatMathRenderError, renderMathLazy } from "../src/math-render.ts";
 import { noteCssHrefFromMarkdown } from "../src/render-html.ts";
 import { safeHref } from "../src/url-safety.ts";
 import { visualMarkdownAttachmentP } from "../src/visual-attachments.ts";
@@ -711,11 +711,30 @@ let relationRenderKey = "";
 let relationScanSeq = 0;
 let snippetSession: SnippetSession;
 let mathPreviewKey = "";
+let mathPreviewErrorTimer = 0;
+let mathPreviewPendingErrorKey = "";
 let mathPreviewUpdateRequested = false;
 let snippetScanRequested = false;
 let tocUpdateRequested = false;
 let selectionToolUpdateRequested = false;
 let vimCursorUpdateRequested = false;
+const MATH_PREVIEW_ERROR_IDLE_MS = 650;
+const MATH_PREVIEW_ERROR_MAX_LENGTH = 180;
+
+function clearMathPreviewErrorTimer(): void {
+  if (mathPreviewErrorTimer) {
+    window.clearTimeout(mathPreviewErrorTimer);
+    mathPreviewErrorTimer = 0;
+  }
+  mathPreviewPendingErrorKey = "";
+}
+
+function hideMathPreview(resetKey = true): void {
+  clearMathPreviewErrorTimer();
+  mathPreview.hidden = true;
+  mathPreview.classList.remove("is-error");
+  if (resetKey) mathPreviewKey = "";
+}
 type MarkdownFindMatch = FindMatch & { source: "note" };
 type LeanFindMatch = FindMatch & { source: "code"; tag: string; view: EditorView; host: HTMLElement };
 type AaronFindMatch = MarkdownFindMatch | LeanFindMatch;
@@ -945,7 +964,7 @@ const vim = createVimLite(editor, host, {
     hideJumpOverlay();
     if (mode !== "insert") {
       hideSnippetPopup();
-      mathPreview.hidden = true;
+      hideMathPreview();
       setStatus(mode === "visual-line" ? "VISUAL LINE" : mode.toUpperCase());
       scheduleAssistUpdate();
     } else {
@@ -1958,8 +1977,7 @@ host.addEventListener("drop", (event) => {
 host.addEventListener("focusout", () => {
   window.setTimeout(() => {
     if (document.activeElement && host.contains(document.activeElement)) return;
-    mathPreview.hidden = true;
-    mathPreviewKey = "";
+    hideMathPreview();
   }, 0);
 });
 
@@ -5749,7 +5767,7 @@ function toggleSourceMode(): void {
 
 function cleanupTransientUi(): void {
   hideSnippetPopup();
-  mathPreview.hidden = true;
+  hideMathPreview();
   selectionTool.hidden = true;
   window.clearTimeout(assistTimer);
   window.cancelAnimationFrame(assistFrame);
@@ -6900,8 +6918,7 @@ function hideEditorOverlays(options: { keepFind?: boolean; keepCommandPalette?: 
   hideSnippetPopup();
   hideQuickInsertPopup();
   hideJumpOverlay();
-  mathPreview.hidden = true;
-  mathPreviewKey = "";
+  hideMathPreview();
   selectionTool.hidden = true;
   linkPreview.hide();
   if (!options.keepFind) closeFindTool(false);
@@ -8214,16 +8231,43 @@ function mathAtCursor(ctx: ReturnType<typeof editor.cursorContext>): { tex: stri
   return null;
 }
 
+function mathPreviewKeyFor(math: { tex: string; display: boolean }): string {
+  return `${math.display ? "display" : "inline"}\n${math.tex.trim()}`;
+}
+
+function scheduleMathPreviewError(
+  nextKey: string,
+  error: string,
+  display: boolean,
+): void {
+  clearMathPreviewErrorTimer();
+  mathPreviewPendingErrorKey = nextKey;
+  const message = `Math error: ${formatMathRenderError(error, MATH_PREVIEW_ERROR_MAX_LENGTH)}`;
+  mathPreviewErrorTimer = window.setTimeout(() => {
+    mathPreviewErrorTimer = 0;
+    if (mathPreviewPendingErrorKey !== nextKey || mathPreviewKey !== nextKey) return;
+    if (vimMode !== "insert" || !editorSurfaceVisible()) return;
+    const ctx = editor.cursorContext(display ? 640 : 320);
+    const math = mathAtCursor(ctx);
+    if (!math || mathPreviewKeyFor(math) !== nextKey) return;
+    const anchorRect = math.rect ?? ctx.rect;
+    const bottomRect = math.display ? (math.rectEnd ?? anchorRect) : undefined;
+    mathPreview.innerHTML = "";
+    mathPreview.textContent = message;
+    mathPreview.classList.add("is-error");
+    mathPreview.classList.toggle("is-display", math.display);
+    mathPreview.hidden = false;
+    placeFloatingAbove(mathPreview, anchorRect, math.display ? 640 : 320, bottomRect);
+  }, MATH_PREVIEW_ERROR_IDLE_MS);
+}
+
 function updateMathPreview(ctx: ReturnType<typeof editor.cursorContext>, allowNewPreview: boolean): void {
   const math = mathAtCursor(ctx);
   if (!math || math.tex.trim().length === 0) {
-    if (!mathPreview.hidden) {
-      mathPreview.hidden = true;
-      mathPreviewKey = "";
-    }
+    if (!mathPreview.hidden || mathPreviewKey) hideMathPreview();
     return;
   }
-  const nextKey = `${math.display ? "display" : "inline"}\n${math.tex.trim()}`;
+  const nextKey = mathPreviewKeyFor(math);
   const anchorRect = math.rect ?? ctx.rect;
   const bottomRect = math.display ? (math.rectEnd ?? anchorRect) : undefined;
   if (mathPreview.hidden && !allowNewPreview) return;
@@ -8233,23 +8277,28 @@ function updateMathPreview(ctx: ReturnType<typeof editor.cursorContext>, allowNe
   }
   if (mathPreviewKey !== nextKey && !allowNewPreview) return;
   if (mathPreviewKey !== nextKey) {
+    clearMathPreviewErrorTimer();
     mathPreviewKey = nextKey;
     mathPreview.innerHTML = "";
+    mathPreview.classList.remove("is-error");
     mathPreview.classList.toggle("is-display", math.display);
     let renderFailed = false;
     renderMathLazy(math.tex.trim(), mathPreview, {
       displayMode: math.display,
       throwOnError: false,
       strict: "ignore",
-    }, () => {
+    }, (error) => {
       renderFailed = true;
+      scheduleMathPreviewError(nextKey, error, math.display);
     });
     if (renderFailed) {
       mathPreview.hidden = true;
-      mathPreviewKey = "";
       return;
     }
   }
+  if (mathPreviewPendingErrorKey === nextKey && mathPreview.hidden) return;
+  clearMathPreviewErrorTimer();
+  mathPreview.classList.remove("is-error");
   mathPreview.hidden = false;
   placeFloatingAbove(mathPreview, anchorRect, math.display ? 640 : 320, bottomRect);
   window.requestAnimationFrame(() => {
@@ -8404,7 +8453,7 @@ function scheduleAssistUpdate(options: AssistUpdateOptions = {}): void {
       if (vimMode !== "insert") {
         hideSnippetPopup();
         hideQuickInsertPopup();
-        mathPreview.hidden = true;
+        hideMathPreview();
         selectionTool.hidden = true;
         return;
       }

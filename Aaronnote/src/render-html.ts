@@ -387,29 +387,34 @@ function mathInlineRule(state: StateInline, silent: boolean): boolean {
   return true;
 }
 
-function renderMath(tex: string, displayMode: boolean): string {
-  const { html, error } = renderMathHTML(tex, {
+function renderMath(tex: string, displayMode: boolean): { html: string; error?: string } {
+  return renderMathHTML(tex, {
     displayMode,
     throwOnError: false,
     strict: false,
     trust: false,
     output: "html",
   });
-  return error ? "" : html;
 }
 
 function renderMathBlock(tokens: Token[], idx: number, _options: unknown, _env: unknown, renderer: MarkdownIt["renderer"]): string {
   const tex = tokens[idx]!.content;
   const escaped = escapeAttr(tex);
-  const html = renderMath(tex, true) || renderer.rules.text?.(tokens, idx, {}, {}, renderer) || renderer.renderToken(tokens, idx, {});
-  return `<math-block data-aaronnote-math-block="" class="math-block-rendered" data-tex="${escaped}"><div class="aaronnote-math-block math-block-render" data-tex="${escaped}" data-math-render-key="display\n${escaped}">${html}</div></math-block>`;
+  const rendered = renderMath(tex, true);
+  const cls = rendered.error ? "aaronnote-math-block math-block-render aaronnote-math-error" : "aaronnote-math-block math-block-render";
+  const html = rendered.error
+    ? escapeHtml(rendered.error)
+    : rendered.html || renderer.rules.text?.(tokens, idx, {}, {}, renderer) || renderer.renderToken(tokens, idx, {});
+  return `<math-block data-aaronnote-math-block="" class="math-block-rendered" data-tex="${escaped}"><div class="${cls}" data-tex="${escaped}" data-math-render-key="display\n${escaped}">${html}</div></math-block>`;
 }
 
 function renderMathInline(tokens: Token[], idx: number, _options: unknown, _env: unknown, _renderer: MarkdownIt["renderer"]): string {
   const tex = tokens[idx]!.content;
   const escaped = escapeAttr(tex);
-  const html = renderMath(tex, false) || escapeHtml(`$${tex}$`);
-  return `<span class="aaronnote-math-inline" data-tex="${escaped}" data-math-render-key="inline\n${escaped}">${html}</span>`;
+  const rendered = renderMath(tex, false);
+  const cls = rendered.error ? "aaronnote-math-inline aaronnote-math-error" : "aaronnote-math-inline";
+  const html = rendered.error ? escapeHtml(rendered.error) : rendered.html || escapeHtml(`$${tex}$`);
+  return `<span class="${cls}" data-tex="${escaped}" data-math-render-key="inline\n${escaped}">${html}</span>`;
 }
 
 function isRoamCoreHref(href: string): boolean {

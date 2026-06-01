@@ -90,7 +90,7 @@ class InlineMathWidget extends MeasuredWidget {
     span.className = "cm-math-inline";
     setSourceRange(span, this.from, this.to, true);
     const { html, error } = renderMathHTML(this.tex, { displayMode: false });
-    if (error) { span.classList.add("cm-math-error"); span.textContent = `$${this.tex}$`; }
+    if (error) { span.classList.add("cm-math-error"); span.textContent = error; }
     else span.innerHTML = html;
     return span;
   }
@@ -119,7 +119,7 @@ class BlockMathWidget extends MeasuredWidget {
   }
 
   protected estimatedHeightFallback(): number {
-    return Math.max(48, 34 + this.tex.split(/\n/).length * 18);
+    return Math.max(36, 26 + this.tex.split(/\n/).length * 14);
   }
 
   eq(other: BlockMathWidget): boolean {
@@ -141,7 +141,7 @@ class BlockMathWidget extends MeasuredWidget {
       div.style.setProperty("--org-env-depth", String(this.orgEnv.depth));
     }
     const { html, error } = renderMathHTML(this.tex, { displayMode: true });
-    if (error) { div.classList.add("cm-math-error"); div.textContent = `$$\n${this.tex}\n$$`; }
+    if (error) { div.classList.add("cm-math-error"); div.textContent = error; }
     else div.innerHTML = html;
     return this.registerMeasured(div, view);
   }

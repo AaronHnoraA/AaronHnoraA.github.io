@@ -13,7 +13,15 @@ type KatexRenderOptions = {
 const mathHtmlCache = new Map<string, { html: string; error?: string }>();
 const MATH_HTML_CACHE_LIMIT = 512;
 const MATH_HTML_CACHE_BYTES = 4_000_000; // 4 MB
+export const MATH_RENDER_ERROR_MAX_LENGTH = 320;
 let mathHtmlCacheBytes = 0;
+
+export function formatMathRenderError(error: unknown, maxLength = MATH_RENDER_ERROR_MAX_LENGTH): string {
+  const raw = error instanceof Error ? error.message : String(error ?? "");
+  const message = raw.replace(/\s+/g, " ").trim() || "Math render failed";
+  if (message.length <= maxLength) return message;
+  return `${message.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
+}
 
 function mathHtmlEntryBytes(v: { html: string; error?: string }): number {
   return (v.html.length + (v.error?.length ?? 0)) * 2;
@@ -75,7 +83,7 @@ export function renderMathHTML(
   } catch (error) {
     return {
       html: "",
-      error: error instanceof Error ? error.message : String(error),
+      error: formatMathRenderError(error),
     };
   }
 }
@@ -84,7 +92,7 @@ export function renderMathLazy(
   tex: string,
   element: HTMLElement,
   options: KatexRenderOptions,
-  onError: () => void,
+  onError: (error: string) => void,
 ): void {
   const key = `${options.displayMode ? "display" : "inline"}\n${tex}`;
   element.setAttribute("data-math-render-key", key);
@@ -109,7 +117,7 @@ function applyRenderedMath(
   element: HTMLElement,
   key: string,
   rendered: { html: string; error?: string },
-  onError: () => void,
+  onError: (error: string) => void,
 ): void {
   if (!rendered.error) {
     ensureKatexCss(katexCssUrl);
@@ -118,7 +126,7 @@ function applyRenderedMath(
     return;
   }
   if (element.getAttribute("data-math-render-key") !== key) return;
-  onError();
+  onError(formatMathRenderError(rendered.error));
   rememberMathHtml(key, rendered);
   fitRenderedMath(element);
 }
