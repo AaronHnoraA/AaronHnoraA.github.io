@@ -1,5 +1,6 @@
 import { renderMarkdownHTML } from "../src/render-html.ts";
 import type { Inbound, NoteSummary } from "./types.ts";
+import { Epoch } from "../src/async-epoch.ts";
 
 export type LinkPreviewTarget = {
   href: string;
@@ -43,7 +44,7 @@ export function createLinkPreviewController(options: LinkPreviewOptions): LinkPr
   element.hidden = true;
   document.body.appendChild(element);
 
-  let seq = 0;
+  const showEpoch = new Epoch();
   let moved = false;
   let persistent = false;
   let transientSince = 0;
@@ -147,7 +148,7 @@ export function createLinkPreviewController(options: LinkPreviewOptions): LinkPr
 
   function show(href: string, x: number, y: number): void {
     const target = options.resolveTarget(href);
-    const runSeq = ++seq;
+    const run = showEpoch.begin();
     moved = false;
     setPersistent(false);
     options.beforeShow?.();
@@ -171,7 +172,7 @@ export function createLinkPreviewController(options: LinkPreviewOptions): LinkPr
     const subtitle = note.path || note.file || href;
     void options.openNoteContent(note.file)
       .then((msg) => {
-        if (runSeq !== seq) return;
+        if (!run.current) return;
         const html = renderMarkdownHTML(msg.content ?? "", {
           assetResolver: (src) => options.resolveAssetUrl(src, note.file || ""),
         });
@@ -188,7 +189,7 @@ export function createLinkPreviewController(options: LinkPreviewOptions): LinkPr
         if (!moved) place(x, y);
       })
       .catch((err) => {
-        if (runSeq !== seq) return;
+        if (!run.current) return;
         setPersistent(false);
         renderChrome(title, subtitle, err instanceof Error ? err.message : "Preview failed", () => {
           options.openNote(note, {

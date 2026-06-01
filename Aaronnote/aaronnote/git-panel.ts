@@ -1,5 +1,6 @@
 import { api } from "./api-client.ts";
 import type { GitChange, GitCommitEntry, GitRepoStatus } from "./types.ts";
+import { Epoch } from "../src/async-epoch.ts";
 
 export type GitPanel = {
   refresh: () => void;
@@ -117,8 +118,8 @@ export function createGitPanel(options: GitPanelOptions): GitPanel {
   let history: GitCommitEntry[] = [];
   let selected: DiffTarget | null = null;
   let active = false;
-  let refreshSeq = 0;
-  let diffSeq = 0;
+  const refreshEpoch = new Epoch();
+  const diffEpoch = new Epoch();
 
   function selectedChange(): GitChange | null {
     return selected?.type === "change" ? selected.change : null;
@@ -199,16 +200,16 @@ export function createGitPanel(options: GitPanelOptions): GitPanel {
     selected = { type: "change", change };
     renderChanges();
     renderHistory();
-    const seq = ++diffSeq;
+    const run = diffEpoch.begin();
     diffTitleEl.textContent = change.path || change.file || "Change";
     diffMetaEl.textContent = change.summary || statusLabel(change);
     diffEl.replaceChildren(renderEmpty("Loading diff..."));
     try {
       const msg = await api.roamTools.diff({ file: change.file || change.path });
-      if (seq !== diffSeq || !active) return;
+      if (!run.current || !active) return;
       renderDiffLines(diffEl, msg.diff || "");
     } catch (err) {
-      if (seq !== diffSeq || !active) return;
+      if (!run.current || !active) return;
       diffEl.replaceChildren(renderEmpty(err instanceof Error ? err.message : "Diff failed"));
     }
   }
@@ -218,16 +219,16 @@ export function createGitPanel(options: GitPanelOptions): GitPanel {
     selected = { type: "commit", commit };
     renderChanges();
     renderHistory();
-    const seq = ++diffSeq;
+    const run = diffEpoch.begin();
     diffTitleEl.textContent = commit.subject || "Commit";
     diffMetaEl.textContent = formatCommitDate(commit.date) + " / " + shortSha(commit.sha);
     diffEl.replaceChildren(renderEmpty("Loading commit..."));
     try {
       const msg = await api.roamTools.commitDiff(commit.sha);
-      if (seq !== diffSeq || !active) return;
+      if (!run.current || !active) return;
       renderDiffLines(diffEl, msg.diff || "");
     } catch (err) {
-      if (seq !== diffSeq || !active) return;
+      if (!run.current || !active) return;
       diffEl.replaceChildren(renderEmpty(err instanceof Error ? err.message : "Commit diff failed"));
     }
   }
@@ -249,17 +250,17 @@ export function createGitPanel(options: GitPanelOptions): GitPanel {
 
   async function refresh(refreshOptions: { beforeRefresh?: boolean } = {}): Promise<void> {
     active = true;
-    const seq = ++refreshSeq;
+    const run = refreshEpoch.begin();
     options.setStatus("Loading git state");
     try {
       if (refreshOptions.beforeRefresh !== false) await options.beforeRefresh?.();
-      if (seq !== refreshSeq || !active) return;
+      if (!run.current || !active) return;
       const [statusMsg, changesMsg, historyMsg] = await Promise.all([
         api.roamTools.repoStatus(),
         api.roamTools.changes(),
         api.roamTools.repoHistory(40),
       ]);
-      if (seq !== refreshSeq || !active) return;
+      if (!run.current || !active) return;
       status = statusMsg;
       changes = (changesMsg.changes || [])
         .filter((change) => change.isMarkdown)
@@ -272,7 +273,7 @@ export function createGitPanel(options: GitPanelOptions): GitPanel {
       chooseInitialSelection();
       options.setStatus(summarizeStatus(status, changes));
     } catch (err) {
-      if (seq !== refreshSeq || !active) return;
+      if (!run.current || !active) return;
       const message = err instanceof Error ? err.message : "Git state failed";
       summaryEl.textContent = message;
       changesEl.replaceChildren(renderEmpty(message));
@@ -350,8 +351,8 @@ export function createGitPanel(options: GitPanelOptions): GitPanel {
 
   function deactivate(): void {
     active = false;
-    refreshSeq++;
-    diffSeq++;
+    refreshEpoch.cancel();
+    diffEpoch.cancel();
     status = {};
     changes = [];
     history = [];

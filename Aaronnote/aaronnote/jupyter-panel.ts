@@ -1,4 +1,5 @@
 import { api } from "./api-client.ts";
+import { Epoch, type EpochRun } from "../src/async-epoch.ts";
 
 export type JupyterTarget = {
   href: string;
@@ -86,7 +87,8 @@ export function createJupyterPanel(options: JupyterPanelOptions): JupyterPanel {
   let currentTarget: JupyterTarget | null = null;
   let currentUrl = "";
   let _currentKey = "";
-  let openSeq = 0;
+  const openEpoch = new Epoch();
+  let activeRun: EpochRun | null = null;
   let readyTimer = 0;
   let kernelTimer = 0;
 
@@ -96,7 +98,7 @@ export function createJupyterPanel(options: JupyterPanelOptions): JupyterPanel {
     root.removeAttribute("hidden");
     root.classList.remove("jupyter-panel--hidden");
     document.body.classList.add("lean-panel-open");
-    if (currentUrl && !frame.getAttribute("src")) waitForJupyterReady(openSeq, currentUrl);
+    if (activeRun && currentUrl && !frame.getAttribute("src")) waitForJupyterReady(activeRun, currentUrl);
     onVisibilityChange?.();
   }
 
@@ -126,9 +128,9 @@ export function createJupyterPanel(options: JupyterPanelOptions): JupyterPanel {
       .join(" ");
   }
 
-  async function scrollFrameTarget(seq: number, url: string, retries = 4): Promise<boolean> {
+  async function scrollFrameTarget(run: EpochRun, url: string, retries = 4): Promise<boolean> {
     const target = currentTarget;
-    if (!target || seq !== openSeq || currentUrl !== url || frame.hidden || !frame.getAttribute("src")) return false;
+    if (!target || !run.current || currentUrl !== url || frame.hidden || !frame.getAttribute("src")) return false;
     try {
       const response = await api.jupyter.scroll({
         url,
@@ -141,20 +143,21 @@ export function createJupyterPanel(options: JupyterPanelOptions): JupyterPanel {
       setStatus(target.selector ? "Jupyter preview scrolled" : "Jupyter preview ready");
       return response.scrolled !== false;
     } catch {
-      if (retries <= 0 || seq !== openSeq || currentUrl !== url) return false;
-      window.setTimeout(() => void scrollFrameTarget(seq, url, retries - 1), 250);
+      if (retries <= 0 || !run.current || currentUrl !== url) return false;
+      window.setTimeout(() => void scrollFrameTarget(run, url, retries - 1), 250);
       return false;
     }
   }
 
   frame.addEventListener("load", () => {
-    const seq = openSeq;
+    const run = activeRun;
     const url = currentUrl;
-    window.setTimeout(() => void scrollFrameTarget(seq, url), 100);
-    window.setTimeout(() => void scrollFrameTarget(seq, url), 600);
+    if (!run) return;
+    window.setTimeout(() => void scrollFrameTarget(run, url), 100);
+    window.setTimeout(() => void scrollFrameTarget(run, url), 600);
     if (url) {
       setStatus("Kernel connecting…");
-      pollKernelStatus(seq, url);
+      pollKernelStatus(run, url);
     }
   });
 
@@ -166,18 +169,19 @@ export function createJupyterPanel(options: JupyterPanelOptions): JupyterPanel {
     currentTarget = target;
     currentUrl = nextUrl;
     _currentKey = targetKey(target);
-    const seq = ++openSeq;
+    const run = openEpoch.begin();
+    activeRun = run;
     setTargetLabel(target);
     if (frame.hidden || !frame.getAttribute("src")) {
       emptyEl.textContent = "Starting JupyterLab...";
       emptyEl.hidden = false;
-      waitForJupyterReady(seq, nextUrl);
+      waitForJupyterReady(run, nextUrl);
       setStatus("Jupyter preview loading");
       return;
     }
     emptyEl.hidden = true;
     frame.hidden = false;
-    let updated = await scrollFrameTarget(seq, nextUrl);
+    let updated = await scrollFrameTarget(run, nextUrl);
     if (!updated) {
       try {
         const frameWindow = frame.contentWindow;
@@ -192,25 +196,25 @@ export function createJupyterPanel(options: JupyterPanelOptions): JupyterPanel {
     setStatus(target.selector ? "Jupyter preview scrolled" : "Jupyter preview ready");
   }
 
-  function showFrame(seq: number, url: string): void {
-    if (seq !== openSeq || currentUrl !== url) return;
+  function showFrame(run: EpochRun, url: string): void {
+    if (!run.current || currentUrl !== url) return;
     window.clearTimeout(readyTimer);
     emptyEl.hidden = true;
     frame.hidden = false;
     if (frame.src !== url) frame.src = url;
-    else void scrollFrameTarget(seq, url);
+    else void scrollFrameTarget(run, url);
   }
 
-  function waitForJupyterReady(seq: number, url: string, attempts = 60): void {
+  function waitForJupyterReady(run: EpochRun, url: string, attempts = 60): void {
     window.clearTimeout(readyTimer);
-    if (seq !== openSeq || currentUrl !== url || !_visible) return;
+    if (!run.current || currentUrl !== url || !_visible) return;
     readyTimer = window.setTimeout(async () => {
-      if (seq !== openSeq || currentUrl !== url || !_visible) return;
+      if (!run.current || currentUrl !== url || !_visible) return;
       let detail = "";
       try {
         const status = await api.jupyter.request("status");
         if (status.ready === true) {
-          showFrame(seq, url);
+          showFrame(run, url);
           setStatus("Jupyter preview ready");
           return;
         }
@@ -229,21 +233,21 @@ export function createJupyterPanel(options: JupyterPanelOptions): JupyterPanel {
         setStatus("Jupyter preview still starting");
         return;
       }
-      waitForJupyterReady(seq, url, attempts - 1);
+      waitForJupyterReady(run, url, attempts - 1);
     }, 600);
   }
 
   // Bounded probe of JupyterLab's real kernel state inside the iframe. Stops as soon
   // as the kernel connects (or dies) and never runs while the panel is hidden, so it
   // adds no perpetual background polling.
-  function pollKernelStatus(seq: number, url: string, attempts = 40): void {
+  function pollKernelStatus(run: EpochRun, url: string, attempts = 40): void {
     window.clearTimeout(kernelTimer);
-    if (seq !== openSeq || currentUrl !== url || !_visible || frame.hidden) return;
+    if (!run.current || currentUrl !== url || !_visible || frame.hidden) return;
     kernelTimer = window.setTimeout(async () => {
-      if (seq !== openSeq || currentUrl !== url || !_visible || frame.hidden) return;
+      if (!run.current || currentUrl !== url || !_visible || frame.hidden) return;
       try {
         const status = await api.jupyter.kernelStatus({ url });
-        if (seq !== openSeq || currentUrl !== url) return;
+        if (!run.current || currentUrl !== url) return;
         if (status.connected === true) {
           setStatus("Kernel ready");
           return;
@@ -260,7 +264,7 @@ export function createJupyterPanel(options: JupyterPanelOptions): JupyterPanel {
         setStatus("Kernel not responding");
         return;
       }
-      pollKernelStatus(seq, url, attempts - 1);
+      pollKernelStatus(run, url, attempts - 1);
     }, 1000);
   }
 
@@ -277,7 +281,8 @@ export function createJupyterPanel(options: JupyterPanelOptions): JupyterPanel {
     }
     currentTarget = target;
     _currentKey = key;
-    const seq = ++openSeq;
+    const run = openEpoch.begin();
+    activeRun = run;
     setBusy(panelOptions.restart ? "Restarting..." : "Starting...");
     setStatus(panelOptions.restart ? "Restarting Jupyter" : "Opening Jupyter preview");
     try {
@@ -291,22 +296,22 @@ export function createJupyterPanel(options: JupyterPanelOptions): JupyterPanel {
         10_000,
         panelOptions.restart ? "Restarting Jupyter" : "Starting Jupyter",
       );
-      if (seq !== openSeq) return;
+      if (!run.current) return;
       currentUrl = String(response.url || "");
       if (!currentUrl) throw new Error("Jupyter did not return a preview URL");
       setTargetLabel(target);
       if (response.ready === true) {
-        showFrame(seq, currentUrl);
+        showFrame(run, currentUrl);
         setStatus("Jupyter preview ready");
       } else {
         emptyEl.textContent = "Starting JupyterLab...";
         emptyEl.hidden = false;
         frame.hidden = true;
-        waitForJupyterReady(seq, currentUrl);
+        waitForJupyterReady(run, currentUrl);
         setStatus("Jupyter preview loading");
       }
     } catch (err) {
-      if (seq !== openSeq) return;
+      if (!run.current) return;
       window.clearTimeout(readyTimer);
       currentUrl = "";
       emptyEl.textContent = err instanceof Error ? err.message : "Jupyter preview failed";
@@ -322,6 +327,8 @@ export function createJupyterPanel(options: JupyterPanelOptions): JupyterPanel {
       await api.jupyter.request("stop");
       frame.removeAttribute("src");
       window.clearTimeout(readyTimer);
+      openEpoch.cancel();
+      activeRun = null;
       currentUrl = "";
       _currentKey = "";
       currentTarget = null;
@@ -346,7 +353,8 @@ export function createJupyterPanel(options: JupyterPanelOptions): JupyterPanel {
     if (!data || data.running !== false) return;
     window.clearTimeout(readyTimer);
     window.clearTimeout(kernelTimer);
-    openSeq += 1;
+    openEpoch.cancel();
+    activeRun = null;
     frame.removeAttribute("src");
     frame.hidden = true;
     currentUrl = "";

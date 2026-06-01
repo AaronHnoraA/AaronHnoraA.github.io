@@ -19,6 +19,7 @@ import {
 } from "../src/lean-splice.ts";
 import { renderLeanMarkdown } from "../src/lean-render.ts";
 import { CoalescedTimer } from "../src/coalesced-timer.ts";
+import { Epoch } from "../src/async-epoch.ts";
 import { createLeanOfficialInfoviewHost } from "./lean-infoview-host.ts";
 
 // ---------------------------------------------------------------------------
@@ -250,7 +251,7 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
   let lastDiagnosticsFetchUri = "";
   let lastOutlineSig = "";
   let lastOutlineUri = "";
-  let outlineLoadSeq = 0;
+  const outlineEpoch = new Epoch();
   const outlineLoadTimer = new CoalescedTimer(260);
   // Content-address renders to avoid replaceChildren on every Lean server push.
   let lastGoalsSig = "";
@@ -580,7 +581,7 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
   }
 
   async function loadOutline(force = false): Promise<void> {
-    const seq = ++outlineLoadSeq;
+    const run = outlineEpoch.begin();
     const leanPath = activeRegionLeanPath || (currentNotePath.toLowerCase().endsWith(".lean") ? currentNotePath : "");
     if (!leanPath) {
       renderOutlineEmpty("Move the cursor into Lean code");
@@ -601,7 +602,7 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
         params: { textDocument: { uri } },
         timeoutMs: 12_000,
       });
-      if (seq !== outlineLoadSeq) return;
+      if (!run.current) return;
       const result = raw as { ok?: boolean; message?: string; result?: unknown } | null;
       if (result?.ok === false) {
         renderOutlineEmpty(result.message || "Lean outline unavailable");
@@ -609,7 +610,7 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
       }
       renderOutlineItems(outlineItemsFromLsp(result), leanPath);
     } catch (err) {
-      if (seq !== outlineLoadSeq) return;
+      if (!run.current) return;
       renderOutlineEmpty(err instanceof Error ? err.message : "Lean outline unavailable");
     }
   }
@@ -1195,7 +1196,7 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
       lastOutlineSig = "";
       lastOutlineUri = "";
       lastDiagnosticsFetchUri = "";
-      outlineLoadSeq++;
+      outlineEpoch.cancel();
       renderMessages([]);
       renderGoals({ goals: null, termGoal: null, blockIndex: null });
       renderCurrent();

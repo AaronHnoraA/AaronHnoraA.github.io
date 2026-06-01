@@ -4,6 +4,7 @@ import "./style.css";
 
 import { createEditor, type Editor, type EditorCommand, type QuickInsertItem } from "../src/lib.ts";
 import { CoalescedTimer } from "../src/coalesced-timer.ts";
+import { Epoch } from "../src/async-epoch.ts";
 import type { EditorView } from "@codemirror/view";
 import { setFindHighlightRanges } from "../src/cm6/find-highlight.ts";
 import { markdownHrefAt } from "../src/cm6/editor-cm6.ts";
@@ -710,7 +711,7 @@ let jumpMode: JumpModeState | null = null;
 let commandPaletteIndex = 0;
 let commandPaletteRenderKey = "";
 let relationRenderKey = "";
-let relationScanSeq = 0;
+const relationEpoch = new Epoch();
 let snippetSession: SnippetSession;
 let mathPreviewKey = "";
 let mathPreviewPendingErrorKey = "";
@@ -741,8 +742,8 @@ let findMatches: AaronFindMatch[] = [];
 let findIndex = -1;
 const findRefreshTimer = new CoalescedTimer(80);
 const findFullScanTimer = new CoalescedTimer(0);
-let saveRequestSeq = 0;
-let proseCheckSeq = 0;
+const saveEpoch = new Epoch();
+const proseEpoch = new Epoch();
 let editRevision = 0;
 let savedRevision = 0;
 let currentFileMtimeMs = 0;
@@ -759,7 +760,6 @@ const saveClientId = (() => {
     return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   }
 })();
-let saveAbortController: AbortController | null = null;
 let pathSuggestions: string[] = [];
 let pendingEquationTag = params.get("eqTag") || "";
 let pendingInlineTag = params.get("tag") || "";
@@ -767,7 +767,7 @@ let pendingDomTarget = params.get("dom") || "";
 let pendingOpenAtTop = false;
 let activeNoteKind = "";
 let noteKindCleanup: (() => void) | null = null;
-let noteKindLoadSeq = 0;
+const noteKindEpoch = new Epoch();
 const recentLocalSaveTimer = new CoalescedTimer(650);
 let jumpStack: CursorPosition[] = [];
 const jumpStackLimit = 24;
@@ -1908,15 +1908,15 @@ const graphPanel = createGraphPanel({
 type LazyGitPanel = { refresh: () => void; deactivate: () => void };
 let gitPanel: LazyGitPanel | null = null;
 let gitPanelLoading: Promise<LazyGitPanel> | null = null;
-let gitPanelActivationSeq = 0;
+const gitPanelEpoch = new Epoch();
 
 function deactivateGitPanel(): void {
-  gitPanelActivationSeq++;
+  gitPanelEpoch.cancel();
   gitPanel?.deactivate();
 }
 
 function activateGitPanel(): void {
-  const seq = ++gitPanelActivationSeq;
+  const run = gitPanelEpoch.begin();
   if (gitPanel) {
     gitPanel.refresh();
     return;
@@ -1942,7 +1942,7 @@ function activateGitPanel(): void {
   }
   void gitPanelLoading
     .then((panel) => {
-      if (seq === gitPanelActivationSeq && notesToolVisible("git")) panel.refresh();
+      if (run.current && notesToolVisible("git")) panel.refresh();
     })
     .catch((err) => setStatus(err instanceof Error ? err.message : "Git panel failed"));
 }
@@ -3366,7 +3366,7 @@ function syncSourceUi(): void {
 }
 
 async function saveStandalone(): Promise<boolean> {
-  const seq = ++saveRequestSeq;
+  const run = saveEpoch.begin();
   const revision = editRevision;
   const file = currentFile;
   if (!file) {
@@ -3374,11 +3374,8 @@ async function saveStandalone(): Promise<boolean> {
     return false;
   }
   const content = await editor.getMarkdownAsync();
-  if (seq !== saveRequestSeq || file !== currentFile) return false;
+  if (!run.current || file !== currentFile) return false;
   const mode = editor.isSourceMode() ? "source" : "markdown";
-  saveAbortController?.abort();
-  const controller = new AbortController();
-  saveAbortController = controller;
   setStatus("Saving");
   let saved = false;
   try {
@@ -3387,12 +3384,12 @@ async function saveStandalone(): Promise<boolean> {
       content,
       mode,
       clientId: saveClientId,
-      seq,
+      seq: run.id,
       baseMtimeMs: currentFileMtimeMs,
       refresh: "deferred",
-    }, { signal: controller.signal });
+    });
     saved = msg.ok === true;
-    if (seq !== saveRequestSeq || file !== currentFile) return false;
+    if (!run.current || file !== currentFile) return false;
     if (msg.conflict) {
       saveConflictActive = true;
       currentFileMtimeMs = Number(msg.mtimeMs) || currentFileMtimeMs;
@@ -3429,18 +3426,16 @@ async function saveStandalone(): Promise<boolean> {
     void applyNoteKindAssets(msg.kind ?? currentNote()?.kind ?? noteKindFromMarkdown(content));
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") return false;
-    if (seq !== saveRequestSeq || file !== currentFile) return false;
+    if (!run.current || file !== currentFile) return false;
     rememberDraft(draftContentForRevision(revision, content));
     setStatus(err instanceof Error ? err.message : "Save failed");
-  } finally {
-    if (saveAbortController === controller) saveAbortController = null;
   }
   return saved;
 }
 
 async function forceSaveStandalone(): Promise<void> {
   if (!currentFile) return;
-  const seq = ++saveRequestSeq;
+  const run = saveEpoch.begin();
   const revision = editRevision;
   const file = currentFile;
   const content = editor.getMarkdown();
@@ -3451,12 +3446,12 @@ async function forceSaveStandalone(): Promise<void> {
       content,
       mode: editor.isSourceMode() ? "source" : "markdown",
       clientId: saveClientId,
-      seq,
+      seq: run.id,
       force: true,
       refresh: "deferred",
     });
     if (msg.ok !== true) throw new Error(msg.message || "Force save failed");
-    if (file !== currentFile || seq !== saveRequestSeq) return;
+    if (file !== currentFile || !run.current) return;
     saveConflictActive = false;
     currentFileMtimeMs = Number(msg.mtimeMs) || currentFileMtimeMs;
     currentFileSize = Number(msg.size) || currentFileSize;
@@ -3676,9 +3671,9 @@ function browserSpellEntries(masked: string, ranges: ProseCheckRange[]): Array<{
   return [...byWord.values()];
 }
 
-async function browserProseDiagnostics(markdown: string, ranges: ProseCheckRange[], seq: number): Promise<ProseDiagnostic[]> {
+async function browserProseDiagnostics(markdown: string, ranges: ProseCheckRange[], run: { current: boolean }): Promise<ProseDiagnostic[]> {
   await yieldForProseCheck();
-  if (seq !== proseCheckSeq) return [];
+  if (!run.current) return [];
   const segments = proseScopeSegments(markdown, ranges);
   const diagnostics: ProseDiagnostic[] = [];
   const entries = segments.length > 0
@@ -3692,7 +3687,7 @@ async function browserProseDiagnostics(markdown: string, ranges: ProseCheckRange
     : browserSpellEntries(maskAaronnoteProse(markdown), ranges);
   if (entries.length === 0) return [];
   for (let i = 0; i < entries.length; i += PROSE_BROWSER_BATCH_SIZE) {
-    if (seq !== proseCheckSeq) return [];
+    if (!run.current) return [];
     const batch = entries.slice(i, i + PROSE_BROWSER_BATCH_SIZE);
     const results = api.proseCheck.browserSpellcheck(batch.map((entry) => entry.word));
     const byWord = new Map(results.map((result) => [String(result.word || ""), result]));
@@ -3725,7 +3720,7 @@ function proseToolWarnings(tools: Array<{ source?: string; ok?: boolean; message
 }
 
 async function checkProse(): Promise<void> {
-  const seq = ++proseCheckSeq;
+  const run = proseEpoch.begin();
   const markdown = editor.getMarkdown();
   const file = currentFile || "Scratch.md";
   const scope = proseCheckScope(markdown);
@@ -3737,7 +3732,7 @@ async function checkProse(): Promise<void> {
   let browserDone = false;
 
   const applyProseResults = (): void => {
-    if (seq !== proseCheckSeq) return;
+    if (!run.current) return;
     diagnostics.sort((a, b) => a.from - b.from || a.to - b.to || a.source.localeCompare(b.source));
     const shown = diagnostics.slice(0, PROSE_DIAGNOSTIC_LIMIT);
     setProseDiagnostics(editor.view, shown);
@@ -3749,12 +3744,12 @@ async function checkProse(): Promise<void> {
 
   const externalTask = api.proseCheck.run(proseCheckPayload(file, markdown, scope.ranges))
     .then((result) => {
-      if (seq !== proseCheckSeq) return;
+      if (!run.current) return;
       diagnostics.push(...(result.diagnostics ?? []).map(normalizeProseDiagnostic).filter((item): item is ProseDiagnostic => !!item));
       warnings = proseToolWarnings(result.tools);
     })
     .catch((err) => {
-      if (seq !== proseCheckSeq) return;
+      if (!run.current) return;
       warnings = ` (${err instanceof Error ? err.message : "external checks failed"})`;
     })
     .finally(() => {
@@ -3762,9 +3757,9 @@ async function checkProse(): Promise<void> {
       applyProseResults();
     });
 
-  const browserTask = browserProseDiagnostics(markdown, scope.ranges, seq)
+  const browserTask = browserProseDiagnostics(markdown, scope.ranges, run)
     .then((result) => {
-      if (seq !== proseCheckSeq) return;
+      if (!run.current) return;
       diagnostics.push(...result);
     })
     .catch((err) => console.warn("[prose] browser check failed", err))
@@ -5166,7 +5161,7 @@ function dispatchNoteKindReady(kind: string): void {
 
 async function applyNoteKindAssets(kindValue: unknown): Promise<void> {
   const kind = activeKindName(kindValue);
-  const seq = ++noteKindLoadSeq;
+  const run = noteKindEpoch.begin();
   setKindDataset(kind);
   if (!kind) {
     clearNoteKindAssets();
@@ -5192,7 +5187,7 @@ async function applyNoteKindAssets(kindValue: unknown): Promise<void> {
 
   try {
     const mod = await import(/* @vite-ignore */ `${kindRoot}/index.js`) as NoteKindModule;
-    if (seq !== noteKindLoadSeq || activeNoteKind !== kind) {
+    if (!run.current || activeNoteKind !== kind) {
       const staleContext = noteKindContext(kind);
       if (typeof mod.teardown === "function") mod.teardown(staleContext);
       return;
@@ -5207,7 +5202,7 @@ async function applyNoteKindAssets(kindValue: unknown): Promise<void> {
         : null;
     dispatchNoteKindReady(kind);
   } catch (err) {
-    if (seq === noteKindLoadSeq && activeNoteKind === kind) {
+    if (run.current && activeNoteKind === kind) {
       console.warn(`Aaronnote kind assets unavailable for ${kind}`, err);
     }
   }
@@ -7133,7 +7128,7 @@ function renderRelationPanel(force = false): void {
     relationBody.textContent = "No current note";
     return;
   }
-  const seq = ++relationScanSeq;
+  const run = relationEpoch.begin();
   const key = [
     relationNoteKey(note),
     editor.getMarkdown().length,
@@ -7150,7 +7145,7 @@ function renderRelationPanel(force = false): void {
   const tags = relationTags(note);
   const linkedKeys = new Set([...outgoing, ...backlinks].map(relationNoteKey));
   const unlinked = relationUnlinkedMentions(note, linkedKeys);
-  if (seq !== relationScanSeq) return;
+  if (!run.current) return;
 
   const frag = document.createDocumentFragment();
   const current = document.createElement("section");
@@ -8963,15 +8958,13 @@ function flushSaveKeepalive(): void {
     return;
   }
   if (editRevision === savedRevision) return;
-  saveAbortController?.abort();
-  saveAbortController = null;
-  const seq = ++saveRequestSeq;
+  const run = saveEpoch.begin();
   api.notes.saveKeepalive({
     file: currentFile,
     content: editor.getMarkdown(),
     mode: editor.isSourceMode() ? "source" : "markdown",
     clientId: saveClientId,
-    seq,
+    seq: run.id,
     baseMtimeMs: currentFileMtimeMs,
     refresh: "deferred",
   });
@@ -9158,8 +9151,7 @@ function applyOpen(msg: Extract<Inbound, { type: "open" }>, options: { preserveF
   flushDraftRemember();
   saveDebounce.cancel();
   noteCssDebounce.cancel();
-  saveAbortController?.abort();
-  saveAbortController = null;
+  saveEpoch.cancel();
   saveConflictActive = false;
   hideDraftRecovery();
   currentFile = msg.file || "";

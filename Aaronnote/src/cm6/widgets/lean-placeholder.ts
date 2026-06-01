@@ -18,6 +18,7 @@ import {
 } from "@codemirror/view";
 import { MeasuredWidget } from "./measured-widget.ts";
 import { CoalescedTimer } from "../../coalesced-timer.ts";
+import { Epoch } from "../../async-epoch.ts";
 import type { LeanRegionMeta, LeanSemanticTokensPush, LspFileProgressItem } from "../../types/lean-ipc.ts";
 import { defaultKeymap, history, historyKeymap, redo, undo } from "@codemirror/commands";
 import {
@@ -1775,7 +1776,7 @@ function leanHover(ctx: LeanContext): Extension {
 
 function leanCursorHover(ctx: LeanContext): Extension {
   let timer: ReturnType<typeof setTimeout> | null = null;
-  let seq = 0;
+  const hoverEpoch = new Epoch();
   let lastKey = "";
   return [
     leanCursorHoverField,
@@ -1785,7 +1786,6 @@ function leanCursorHover(ctx: LeanContext): Extension {
       const view = update.view;
       const selection = view.state.selection.main;
       const pos = selection.head;
-      const currentSeq = ++seq;
       const pointerSelection = update.transactions.some((tr) => tr.isUserEvent("select.pointer"));
       if (pointerSelection || !view.hasFocus || !selection.empty || !ctx.leanPath || !ctx.region) {
         lastKey = "";
@@ -1795,15 +1795,16 @@ function leanCursorHover(ctx: LeanContext): Extension {
       const key = `${pos}:${view.state.doc.length}:${ctx.leanText.length}`;
       if (key === lastKey && !update.focusChanged) return;
       lastKey = key;
+      const run = hoverEpoch.begin();
       timer = setTimeout(() => {
         timer = null;
         void leanHoverText(ctx, pos)
           .then((text) => {
-            if (currentSeq !== seq || !view.hasFocus || !view.state.selection.main.empty) return;
+            if (!run.current || !view.hasFocus || !view.state.selection.main.empty) return;
             view.dispatch({ effects: SetLeanCursorHover.of(text.trim() ? { pos, text } : null) });
           })
           .catch(() => {
-            if (currentSeq === seq && view.hasFocus) {
+            if (run.current && view.hasFocus) {
               view.dispatch({ effects: SetLeanCursorHover.of(null) });
             }
           });
@@ -3228,8 +3229,8 @@ class LeanPlaceholderWidget extends MeasuredWidget {
     const diagnosticsDebounce = new CoalescedTimer(420);
     const progressDebounce = new CoalescedTimer(180);
     const semanticTokensDebounce = new CoalescedTimer(420);
-    let goalSeq = 0;
-    let syncSeq = 0;
+    const goalEpoch = new Epoch();
+    const syncEpoch = new Epoch();
     let bodyGeneration = 0;
     let pendingBody: string | null = null;
     let syncPromise: Promise<void> | null = null;
@@ -3307,7 +3308,7 @@ class LeanPlaceholderWidget extends MeasuredWidget {
         status.textContent = mode === "save" ? "Saved" : "Ready";
         return syncPromise ?? Promise.resolve();
       }
-      const seq = ++syncSeq;
+      const run = syncEpoch.begin();
       const generation = bodyGeneration;
       pendingBody = body;
       updateLeanContextBody(ctx, body);
@@ -3315,7 +3316,7 @@ class LeanPlaceholderWidget extends MeasuredWidget {
       syncPromise = api.lean.updateRegion({ notePath: noteInfo.notePath, tag, selector, body })
         .then((res) => {
           if (res?.ok === false) throw new Error(res.message || "Lean sync failed");
-          if (seq !== syncSeq) return;
+          if (!run.current) return;
           ctx.leanText = String(res.text ?? ctx.leanText);
           ctx.region = res.region ?? ctx.region;
           ctx.leanPath = String(res.leanPath ?? ctx.leanPath);
@@ -3336,12 +3337,12 @@ class LeanPlaceholderWidget extends MeasuredWidget {
           card.classList.remove("is-error");
         })
         .catch((err) => {
-          if (seq !== syncSeq) return;
+          if (!run.current) return;
           status.textContent = err instanceof Error ? err.message : "Error";
           card.classList.add("is-error");
         })
         .finally(() => {
-          if (seq === syncSeq) syncPromise = null;
+          if (run.current) syncPromise = null;
         });
       return syncPromise;
     };
@@ -3392,14 +3393,14 @@ class LeanPlaceholderWidget extends MeasuredWidget {
 
     const renderGoals = (view: EditorView, flush = false): void => {
       if (!loaded || !ctx.leanPath || !ctx.region) return;
-      const seq = ++goalSeq;
+      const run = goalEpoch.begin();
       goalDebounce.schedule(() => {
         void (async () => {
           // Flush pending edits first so the queried position matches the text the
           // server holds; cheap no-op when nothing changed (see lastSyncedBody).
           if (flush) {
             try { await ctx.syncForLsp?.(); } catch (err) { console.warn("[lean] LSP sync before goal query failed", err); }
-            if (seq !== goalSeq) return;
+            if (!run.current) return;
           }
           if (!await ctx.ensureLspOpen?.()) return;
           const fullOffset = localOffsetToFull(ctx, view.state.selection.main.from);
@@ -3409,7 +3410,7 @@ class LeanPlaceholderWidget extends MeasuredWidget {
             api.lean.getGoals({ leanPath: ctx.leanPath, line: pos.line, character: pos.character }),
             api.lean.getTermGoal({ leanPath: ctx.leanPath, line: pos.line, character: pos.character }),
           ]);
-          if (seq !== goalSeq) return;
+          if (!run.current) return;
           const goalError = goalResponse?.ok === false
             ? (goalResponse.message || "Error fetching goals")
             : termResponse?.ok === false
