@@ -471,13 +471,13 @@ export const api = {
     },
 
     async hideRoam(body: Record<string, unknown>): Promise<Record<string, unknown> & { message?: string }> {
-      const native = requireMethod(requireNative().meta?.hideRoam, "Hide roam");
-      return ensureOk(await native(body) as Record<string, unknown> & { message?: string }, "Hide roam failed");
+      const native = requireMethod(requireNative().meta?.hideRoam, "Set roam off");
+      return ensureOk(await native(body) as Record<string, unknown> & { message?: string }, "Set roam off failed");
     },
 
     async activateRoam(body: Record<string, unknown>): Promise<Record<string, unknown> & { message?: string }> {
-      const native = requireMethod(requireNative().meta?.activateRoam, "Activate roam");
-      return ensureOk(await native(body) as Record<string, unknown> & { message?: string }, "Activate roam failed");
+      const native = requireMethod(requireNative().meta?.activateRoam, "Clear roam off");
+      return ensureOk(await native(body) as Record<string, unknown> & { message?: string }, "Clear roam off failed");
     },
   },
 

@@ -27,6 +27,7 @@ import {
   relativeDateClass,
   relativeDateLabel,
 } from "../../date-syntax.ts";
+import { hasViewportDecorationRefresh } from "../viewport-refresh.ts";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -284,7 +285,7 @@ class TodoPlugin {
 
   update(update: ViewUpdate): void {
     if (update.view.compositionStarted && update.selectionSet && !update.docChanged && !update.viewportChanged) return;
-    if (update.docChanged || update.viewportChanged) {
+    if (update.docChanged || update.viewportChanged || hasViewportDecorationRefresh(update)) {
       this.excludedRanges = excludedCommandRanges(update.view);
       this.activeCommandKey = activeInlineCommandKey(update.view);
       this.decorations = buildInlineCommandDecos(update.view, this.excludedRanges);

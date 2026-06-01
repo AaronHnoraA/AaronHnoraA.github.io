@@ -79,7 +79,10 @@ describe("server standalone notes", () => {
 
     expect(msg.file).toBe(child);
     expect(msg.standalone).toBe(true);
-    expect(await readFile(child, "utf8")).toBe("# Child\n");
+    const childContent = await readFile(child, "utf8");
+    expect(childContent).toContain("roam: off");
+    expect(childContent).not.toMatch(/^id:/m);
+    expect(childContent).toContain("# Child");
     expect(msg.notes?.some((note) => note.file === child)).toBe(true);
     await expect(readFile(join(notes, "child.md"), "utf8")).rejects.toThrow();
   });
@@ -171,8 +174,11 @@ describe("server standalone notes", () => {
       tags: ["work"],
       templateKey: "meeting",
     }) as { selection?: { from?: number; to?: number } };
-    expect(await readFile(join(notes, "weekly.md"), "utf8")).toContain("# Weekly Sync");
-    expect(await readFile(join(notes, "weekly.md"), "utf8")).toContain("Tags: work");
+    const content = await readFile(join(notes, "weekly.md"), "utf8");
+    expect(content).toContain("roam: off");
+    expect(content).not.toMatch(/^id:/m);
+    expect(content).toContain("# Weekly Sync");
+    expect(content).toContain("Tags: work");
     expect(created.selection?.from).toBeDefined();
     expect(created.selection?.to).toBeDefined();
   });

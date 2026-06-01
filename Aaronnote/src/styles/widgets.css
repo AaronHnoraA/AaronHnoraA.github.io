@@ -1059,6 +1059,7 @@ org-env-block[data-kind="lean4"] .code-token-punctuation { color: #bac2de; }
 }
 
 .aaronnote-meta-cover {
+  position: relative;
   display: grid;
   justify-items: center;
   gap: 12px;
@@ -1067,6 +1068,21 @@ org-env-block[data-kind="lean4"] .code-token-punctuation { color: #bac2de; }
   border-top: 3px double color-mix(in srgb, var(--aaron-red-dark, #8d1f26), var(--aaron-paper-line, #d8d0c2) 42%);
   border-bottom: 1px solid color-mix(in srgb, var(--aaron-paper-line, #d8d0c2), transparent 10%);
   text-align: center;
+}
+
+.aaronnote-meta-roam-badge {
+  position: absolute;
+  top: 7px;
+  left: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  color: color-mix(in srgb, var(--aaron-muted, #6f6a61), var(--aaron-red-dark, #8d1f26) 20%);
+  font: 700 13px/1 var(--aaron-font-sans, system-ui);
+  opacity: 0.72;
+  user-select: none;
 }
 
 .aaronnote-meta-title,

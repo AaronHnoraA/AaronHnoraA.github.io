@@ -36,7 +36,6 @@ const excludedDirs = new Set([
 ]);
 const generatedAttachmentDirs = new Set(["asset", "assets", "attachment", "attachments", "file", "files", "img", "imgs", "image", "images", "media", "pdf", "pdfs"]);
 const noteExts = new Set([".typ", ".md", ".markdown"]);
-const hiddenRoamTag = "roam-hidden";
 const defaultNoteKind = "default";
 const defaultNoteKindAliases = new Set(["", "default", "note"]);
 const noteKindPattern = /^[a-z0-9_-]+$/;
@@ -1091,17 +1090,18 @@ function normalizeTags(tags) {
   return [...byKey.values()].sort((a, b) => a.localeCompare(b));
 }
 
-function roamHiddenFromMeta(meta) {
-  return normalizeTags(meta.tags || []).some((tag) => tag.toLowerCase() === hiddenRoamTag);
-}
-
-function roamHiddenFromContent(content) {
-  return roamHiddenFromMeta(noteMetadata(content));
+function roamOffFromMeta(meta) {
+  return String(meta.roam ?? "").trim().toLowerCase() === "off";
 }
 
 function hasRoamMeta(content) {
   const meta = noteMetadata(content);
-  return Object.keys(meta).length > 0 && !roamHiddenFromMeta(meta);
+  const id = String(meta.id ?? "").trim();
+  return id.length > 0 && !roamOffFromMeta(meta);
+}
+
+function hasNoteMetadata(content) {
+  return Object.keys(noteMetadata(content)).length > 0;
 }
 
 function ensureDate(value = "") {
@@ -1120,6 +1120,9 @@ function buildMetaBlock(fields) {
     `title: ${fields.title}`,
     `date: ${ensureDate(fields.date)}`,
     `kind: ${fields.kind || defaultNoteKind}`,
+  );
+  if (roamOffFromMeta(fields)) lines.push("roam: off");
+  lines.push(
     `tags: ${tags.join(", ")}`,
     `refs: ${refs.join(", ")}`,
   );
@@ -1134,7 +1137,9 @@ function buildMetaBlock(fields) {
 function metaFieldsForFile(file, content, patch = {}) {
   const current = noteMetadata(content);
   const title = String(patch.title || current.title || titleFromContent(file, content) || basename(file, extname(file)) || "Untitled").trim();
-  const id = String(patch.id || current.id || `${timestampId()}-${slugifyTitle(title)}`).trim();
+  const hasPatchId = Object.prototype.hasOwnProperty.call(patch, "id");
+  const keepsNoRoamId = !current.id && roamOffFromMeta({ ...current, ...patch });
+  const id = String(hasPatchId ? patch.id : (current.id || (keepsNoRoamId ? "" : `${timestampId()}-${slugifyTitle(title)}`))).trim();
   return {
     ...current,
     ...patch,
@@ -1158,6 +1163,27 @@ function upsertMetaBlock(file, content, patch = {}) {
   const nextMeta = buildMetaBlock(metaFieldsForFile(file, content, patch));
   const body = removeMetaBlock(content);
   return `${nextMeta}\n${body.replace(/^\s+/, "")}`;
+}
+
+// Insert a `roam: off` line into an existing meta block (used for regular notes
+// created from a template that already supplies its own meta). Preserves the rest
+// of the block and reports the byte offset inserted so callers can shift a cursor
+// selection that sits after the meta block.
+function withMetaRoamOff(content) {
+  const range = metaBlockRange(content);
+  if (!range || roamOffFromMeta(parseMetaBlock(content))) return { content, offset: 0 };
+  const insertLine = "roam: off\n";
+  const block = range.text;
+  const kindMatch = block.match(/^[ \t]*kind:[^\n]*\r?\n/im);
+  const beginMatch = block.match(/^\s*#\+begin\s+meta\s*\r?\n/i);
+  const within = kindMatch?.index != null
+    ? kindMatch.index + kindMatch[0].length
+    : (beginMatch ? beginMatch[0].length : 0);
+  const insertAt = range.from + within;
+  return {
+    content: `${content.slice(0, insertAt)}${insertLine}${content.slice(insertAt)}`,
+    offset: insertLine.length,
+  };
 }
 
 function yamlishValue(content, key) {
@@ -1361,6 +1387,34 @@ function bookHeadingsFromContent(content, note, used) {
     headings.unshift({ level: 1, text: note.title, slug, path: note.path || "", id: note.id || "", source: "title" });
   }
   return headings;
+}
+
+function domTargetsFromContent(content, note) {
+  const stack = [];
+  const labelStack = [];
+  return bookHeadingsFromContent(content, note, new Set()).map((heading) => {
+    const label = String(heading.text || heading.slug || "").trim();
+    const slug = String(heading.slug || slugBookAnchor(label)).trim();
+    const level = Math.max(1, Number(heading.level || 1));
+    while (stack.length > 0 && stack[stack.length - 1].level >= level) {
+      stack.pop();
+      labelStack.pop();
+    }
+    const parentPath = stack[stack.length - 1]?.path || [];
+    const parentLabels = labelStack[labelStack.length - 1]?.path || [];
+    const path = [...parentPath, slug].filter(Boolean);
+    const labelPath = [...parentLabels, label].filter(Boolean);
+    stack.push({ level, path });
+    labelStack.push({ level, path: labelPath });
+    return {
+      label,
+      slug,
+      path,
+      labelPath,
+      level,
+      notePath: note.path || "",
+    };
+  }).filter((target) => target.label && target.slug && target.path.length > 0);
 }
 
 function noteBookRefValues(note) {
@@ -2368,11 +2422,13 @@ async function noteFromFileForIndex(file) {
       bookIncludedPaths: [],
       bookToc: [],
       bookDomTargets: [],
+      domTargets: [],
       bookRawRefs: [],
       bookDiagnostics: [],
       leanBlocks,
       standalone: standaloneFile(file),
     };
+    note.domTargets = domTargetsFromContent(content, note);
     const todoContent = contentMayHaveTodos(content) ? content : "";
     noteCache.set(file, {
       mtimeMs: info.mtimeMs,
@@ -4100,7 +4156,7 @@ async function noteSummaryForFile(file, content = null) {
   const id = idFromContent(safe, noteScanRoot, text);
   const bookMeta = bookMetaFromContent(text);
   const roam = hasRoamMeta(text);
-  return {
+  const note = {
     key: id,
     id,
     title: titleFromContent(safe, text),
@@ -4130,12 +4186,15 @@ async function noteSummaryForFile(file, content = null) {
     bookIncludedPaths: [],
     bookToc: [],
     bookDomTargets: [],
+    domTargets: [],
     bookRawRefs: [],
     bookDiagnostics: [],
     standalone: standaloneFile(safe),
     mtimeMs: info.mtimeMs,
     size: info.size,
   };
+  note.domTargets = domTargetsFromContent(text, note);
+  return note;
 }
 
 function roamDbFile() {
@@ -4474,14 +4533,13 @@ export async function createNode(body) {
     }));
     content = expanded.text.replace(/\s+$/, "") + "\n";
     selection = expanded.selection;
-    // Roam notes always get a meta block; standalone notes only when they carry
-    // tags, so the selected tags are persisted (without a roam id — see below).
-    if ((roam || tags.length > 0) && !hasRoamMeta(content)) {
+    if (!hasNoteMetadata(content)) {
       const meta = buildMetaBlock({
         id: roam ? id : "",
         title,
         date: new Date().toISOString().slice(0, 10),
         kind,
+        roam: roam ? "" : "off",
         tags,
         refs: [],
       });
@@ -4489,23 +4547,27 @@ export async function createNode(body) {
       const offset = prefix.length;
       content = `${prefix}${content.replace(/^\s+/, "")}`;
       if (selection) selection = { from: selection.from + offset, to: selection.to + offset };
+    } else if (!roam) {
+      // Regular note from a template that already carries its own meta block:
+      // ensure it is excluded from the roam graph.
+      const { content: next, offset } = withMetaRoamOff(content);
+      content = next;
+      if (selection && offset) selection = { from: selection.from + offset, to: selection.to + offset };
     }
   } else {
-    const wantsMeta = roam || tags.length > 0;
-    content = wantsMeta
-      ? [
-          buildMetaBlock({
-            id: roam ? id : "",
-            title,
-            date: new Date().toISOString().slice(0, 10),
-            kind,
-            tags,
-            refs: [],
-          }),
-          `# ${title}`,
-          "",
-        ].join("\n")
-      : [`# ${title}`, ""].join("\n");
+    content = [
+      buildMetaBlock({
+        id: roam ? id : "",
+        title,
+        date: new Date().toISOString().slice(0, 10),
+        kind,
+        roam: roam ? "" : "off",
+        tags,
+        refs: [],
+      }),
+      `# ${title}`,
+      "",
+    ].join("\n");
   }
   await writeFile(file, content, "utf8");
   markNotesDirty(file);
@@ -4861,11 +4923,9 @@ export async function updateCurrentNoteMeta(body, action) {
     const incoming = Array.isArray(body.tags) ? body.tags : parseListValue(body.tags || "");
     next = upsertMetaBlock(file, content, { tags: normalizeTags([...currentTags, ...incoming]) });
   } else if (action === "hide-roam") {
-    next = upsertMetaBlock(file, content, { tags: normalizeTags([...tagsFromContent(content), hiddenRoamTag]) });
+    next = upsertMetaBlock(file, content, { roam: "off" });
   } else if (action === "activate-roam") {
-    next = upsertMetaBlock(file, content, {
-      tags: normalizeTags(tagsFromContent(content).filter((tag) => tag.toLowerCase() !== hiddenRoamTag)),
-    });
+    next = upsertMetaBlock(file, content, { roam: "" });
   } else {
     next = upsertMetaBlock(file, content, {
       title: body.title,

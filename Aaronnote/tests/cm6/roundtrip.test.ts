@@ -394,6 +394,26 @@ $$
     cleanup();
   });
 
+  test("renders ordinary markdown links outside the editable span", () => {
+    const md = "- [related paper](./graph-tensor-background.md)\n\nsad";
+    const { editor, cleanup } = mountCM6(md);
+    const linkEnd = md.indexOf(")") + 1;
+
+    editor.setMarkdownSelection(md.length);
+    expect(document.querySelector(".cm-link-text")).toBeTruthy();
+    expect(Array.from(document.querySelectorAll<HTMLElement>(".syntax-hidden"))
+      .map((el) => el.textContent || "")
+      .join(""))
+      .toContain("./graph-tensor-background.md");
+
+    editor.setMarkdownSelection(linkEnd);
+    expect(document.querySelector(".cm-link-text")).toBeTruthy();
+
+    editor.setMarkdownSelection(md.indexOf("related"));
+    expect(document.querySelector(".cm-link-text")).toBeNull();
+    cleanup();
+  });
+
   test("does not resolve markdown links inside inline math", () => {
     const md = "Math $[x](y.md) $ and [real](z.md)";
     const { editor, cleanup } = mountCM6(md);
@@ -1000,6 +1020,29 @@ $$
     cleanup();
   });
 
+  test("mermaid preview source stays inside the fence when editing trailing attrs", () => {
+    const md = [
+      "$$",
+      "x",
+      "$$",
+      "```mermaid",
+      "graph LR",
+      "  subgraph L[\"L, #L = ell\"]",
+      "    L1((1))",
+      "  end",
+      "```",
+      "{align: right; wrap:on; size:240}",
+    ].join("\n");
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection(md.indexOf("align"));
+
+    const preview = document.querySelector<HTMLElement>(".cm-mermaid-block-preview");
+    expect(preview).toBeTruthy();
+    expect(preview!.dataset.diagramRenderKey).toContain("graph LR");
+    expect(preview!.dataset.diagramRenderKey).not.toContain("align:");
+    cleanup();
+  });
+
   test("aligned marmind widgets open source at the diagram body anchor", () => {
     const md = "```marmind\ngraph LR\nA --- B\n```\n{size:180%; align:right}\n\nDone";
     const { editor, cleanup } = mountCM6(md);
@@ -1406,6 +1449,7 @@ tags: one, two
 #+end meta`);
     const input = document.querySelector<HTMLInputElement>(".org-env-meta-value[data-key='title']");
     expect(input).toBeTruthy();
+    expect(document.querySelector(".aaronnote-meta-roam-badge")).toBeTruthy();
     input!.value = "Beta";
     input!.dispatchEvent(new FocusEvent("blur", { bubbles: true }));
     expect(editor.getMarkdown()).toContain("title: Beta");

@@ -157,6 +157,13 @@ function unquoteMetaScalar(value: string): string {
   return trimmed;
 }
 
+export function metaRoamIndexed(entries: Array<{ key: string; value: string }>): boolean {
+  const byKey = metaEntryMap(entries);
+  const id = unquoteMetaScalar(byKey.get("id") || "").trim();
+  const roam = unquoteMetaScalar(byKey.get("roam") || "").trim().toLowerCase();
+  return id.length > 0 && roam !== "off";
+}
+
 export function cssHrefFromMetaPath(value: string): string {
   const raw = unquoteMetaScalar(value).replace(/\\_/g, "_");
   if (!raw) return "";
@@ -176,10 +183,14 @@ export function noteCssHrefFromMarkdown(markdown: string): string {
 
 function renderMetaCover(body: string): string {
   const entries = parseMetaEntries(body);
+  const roamBadge = metaRoamIndexed(entries)
+    ? ""
+    : '<span class="aaronnote-meta-roam-badge" title="Not in roam database" aria-label="Not in roam database">🔕</span>';
   if (entries.length === 0) {
     return [
       '<div class="cm-org-env-block org-env-block" data-kind="meta" data-label="Meta">',
       '<div class="org-env-meta aaronnote-meta-cover">',
+      roamBadge,
       '<span class="org-env-meta-empty">No metadata</span>',
       "</div>",
       "</div>",
@@ -197,6 +208,7 @@ function renderMetaCover(body: string): string {
   return [
     '<div class="cm-org-env-block org-env-block" data-kind="meta" data-label="Meta">',
     '<div class="org-env-meta aaronnote-meta-cover">',
+    roamBadge,
     `<h1 class="aaronnote-meta-title">${escapeHtml(title)}</h1>`,
     date ? `<p class="aaronnote-meta-date">${escapeHtml(date)}</p>` : "",
     tags ? `<nav class="aaronnote-meta-tags" aria-label="Tags">${tags}</nav>` : "",

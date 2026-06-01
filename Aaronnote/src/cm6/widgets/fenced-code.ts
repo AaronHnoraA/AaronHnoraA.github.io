@@ -32,6 +32,7 @@ import { supportedDiagramLang } from "../../diagram-langs.ts";
 import { getBlockMathRanges, rangeInsideAny, rangeOverlapsAny } from "../math-ranges.ts";
 import { getLean4OrgEnvBodyRanges } from "./lean-block.ts";
 import { applyLayoutAttrs, layoutFromAttrs, readLayoutAttrsLine, type LayoutAttrs } from "../../layout-attrs.ts";
+import { hasViewportDecorationRefresh } from "../viewport-refresh.ts";
 
 function setSourceRange(el: HTMLElement, from: number, to: number, anchor?: number, openSource = false): void {
   el.dataset.cmSourceFrom = String(from);
@@ -659,7 +660,7 @@ class FencedCodePlugin {
 
   update(update: ViewUpdate): void {
     if (update.view.compositionStarted && update.selectionSet && !update.docChanged && !update.viewportChanged) return;
-    if (update.docChanged || update.viewportChanged) {
+    if (update.docChanged || update.viewportChanged || hasViewportDecorationRefresh(update)) {
       this.activeLineKey = activeFenceChromeLineKey(update.view);
       this.decorations = buildFencedCodeDecos(update.view);
     } else if (update.selectionSet) {

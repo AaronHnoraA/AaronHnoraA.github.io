@@ -34,6 +34,7 @@ import {
   visualAttachmentSandbox,
   visualAttachmentTitle,
 } from "../../visual-attachments.ts";
+import { hasViewportDecorationRefresh } from "../viewport-refresh.ts";
 
 declare global {
   interface Window {
@@ -189,12 +190,13 @@ function markdownLinkSrc(raw: string): string {
 }
 
 function imageExcludedRanges(view: EditorView): Array<{ from: number; to: number }> {
-  const ranges: Array<{ from: number; to: number }> = blockMathRangesOverlapping(view.state, view.visibleRanges)
+  const visibleRanges = view.visibleRanges;
+  const ranges: Array<{ from: number; to: number }> = blockMathRangesOverlapping(view.state, visibleRanges)
     .map(({ from, to }) => ({ from, to }));
-  for (const { from, to } of view.visibleRanges) {
+  for (const { from, to } of visibleRanges) {
     ranges.push(...scanInlineMathRanges(view.state.doc.sliceString(from, to), from));
   }
-  for (const { from, to } of view.visibleRanges) {
+  for (const { from, to } of visibleRanges) {
     syntaxTree(view.state).iterate({
       from,
       to,
@@ -215,9 +217,10 @@ function buildImageDecorations(view: EditorView): DecorationSet {
   const occupied: Array<{ from: number; to: number }> = [];
   const sel = view.state.selection.main;
   const doc = view.state.doc;
+  const visibleRanges = view.visibleRanges;
   const excludedRanges = imageExcludedRanges(view);
 
-  for (const { from: vFrom, to: vTo } of view.visibleRanges) {
+  for (const { from: vFrom, to: vTo } of visibleRanges) {
     syntaxTree(view.state).iterate({
       from: vFrom,
       to: vTo,
@@ -250,7 +253,7 @@ function buildImageDecorations(view: EditorView): DecorationSet {
   }
 
   const seenLines = new Set<number>();
-  for (const { from: vFrom, to: vTo } of view.visibleRanges) {
+  for (const { from: vFrom, to: vTo } of visibleRanges) {
     for (let line = doc.lineAt(vFrom); line.from <= vTo; line = doc.line(line.number + 1)) {
       if (!seenLines.has(line.number)) {
         seenLines.add(line.number);
@@ -341,7 +344,7 @@ class ImagePlugin {
 
   update(update: ViewUpdate): void {
     if (update.view.compositionStarted && update.selectionSet && !update.docChanged && !update.viewportChanged) return;
-    if (update.docChanged || update.viewportChanged) {
+    if (update.docChanged || update.viewportChanged || hasViewportDecorationRefresh(update)) {
       this.activeSourceKey = activeImageSourceKey(update.view);
       this.decorations = buildImageDecorations(update.view);
     } else if (update.selectionSet) {

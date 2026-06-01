@@ -27,6 +27,7 @@ import { renderMathHTML } from "../../math-render.ts";
 import { getBlockMathRanges, rangeOverlapsAny } from "../math-ranges.ts";
 import { scanCodeRanges } from "../code-ranges.ts";
 import { orgEnvContextForRange, type OrgEnvContext } from "./block-extras.ts";
+import { hasViewportDecorationRefresh } from "../viewport-refresh.ts";
 
 function setSourceRange(el: HTMLElement, from: number, to: number, openSource = false): void {
   el.dataset.cmSourceFrom = String(from);
@@ -398,7 +399,7 @@ class MathInlinePlugin {
 
   update(update: ViewUpdate): void {
     if (update.view.compositionStarted && update.selectionSet && !update.docChanged && !update.viewportChanged) return;
-    if (update.docChanged || update.viewportChanged) {
+    if (update.docChanged || update.viewportChanged || hasViewportDecorationRefresh(update)) {
       this.selectionKey = activeInlineMathKey(update.view.state);
       this.decorations = buildInlineMathDecos(update.view);
     } else if (update.selectionSet) {

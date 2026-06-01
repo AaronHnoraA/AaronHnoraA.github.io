@@ -2106,11 +2106,11 @@ function buildMenu() {
         click: () => runInWindow(dispatchCommandScript("remove-meta")),
       },
       {
-        label: "Hide Current Note from Roam",
+        label: "Set roam: off for Current Note",
         click: () => runInWindow(dispatchCommandScript("hide-roam")),
       },
       {
-        label: "Activate Current Note in Roam",
+        label: "Clear roam: off for Current Note",
         click: () => runInWindow(dispatchCommandScript("activate-roam")),
       },
       {

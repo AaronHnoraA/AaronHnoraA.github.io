@@ -2446,7 +2446,7 @@ $$
 does not uniquely determine the ensemble $\{p_j,|\psi_j\rangle\}_j$.
 
 Different classical preparation procedures may induce the same density
-operator. Operationally, the density operator is the object that determines
+operator. Operationally, the density operator is the object that determines sssssssssssssssssss
 
 
 
@@ -2456,7 +2456,7 @@ this is useful to use
 
 
 
-all measurement statistics.
+all measurement statistics. this iiiiiiiiiiiiiiiiiiiiiiiiiii sssssssssssssssssssssssssssss
 #+end important
 
 The purity of $\rho$ is
@@ -2493,7 +2493,7 @@ $$
 T_\mu \in V^\ast \otimes V^\ast \otimes W.
 $$
 
-After choosing bases for $V$ and $W$, the map is described by structure
+After choosing bases for $V$ and $W$, the map is described by structure ssssssssssssssss thsi si is hard
 constants $c_{ab}^k$ satisfying
 
 $$
@@ -2514,7 +2514,7 @@ object.
 
 #+begin remark Coordinates versus invariance
 Coordinates are useful for computation because they give arrays of field
-elements. Invariance is useful for mathematics because it identifies the
+elements. Invariance is useful for mathematics because it identifies the this is hard ossssssssssssssssssssssssss
 features of the object that do not depend on the chosen basis.
 
 中文直觉：坐标是“输入格式”，不变量是“结构本身留下的影子”。

@@ -89,7 +89,27 @@ $$`);
     expect(html).toContain('<p class="aaronnote-meta-date">2026-05-21</p>');
     expect(html).toContain('<button class="aaronnote-meta-tag">#preview</button>');
     expect(html).toContain('<button class="aaronnote-meta-tag">#publish</button>');
+    expect(html).toContain('class="aaronnote-meta-roam-badge"');
     expect(html).not.toContain("#internal_tag");
+  });
+
+  test("marks meta covers that are not indexed by roam db", () => {
+    const indexed = renderMarkdownHTML([
+      "#+begin meta",
+      "id: indexed-id",
+      "title: Indexed",
+      "#+end meta",
+    ].join("\n"));
+    const off = renderMarkdownHTML([
+      "#+begin meta",
+      "id: off-id",
+      "title: Off",
+      "roam: off",
+      "#+end meta",
+    ].join("\n"));
+
+    expect(indexed).not.toContain("aaronnote-meta-roam-badge");
+    expect(off).toContain('class="aaronnote-meta-roam-badge"');
   });
 
   test("renders html org env as sanitized html content", () => {

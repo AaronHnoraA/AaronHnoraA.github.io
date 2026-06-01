@@ -733,7 +733,7 @@ function clearMathPreviewErrorTimer(): void {
 function hideMathPreview(resetKey = true): void {
   clearMathPreviewErrorTimer();
   mathPreview.hidden = true;
-  mathPreview.classList.remove("is-error");
+  mathPreview.classList.remove("is-error", "is-overflowing");
   if (resetKey) mathPreviewKey = "";
 }
 type MarkdownFindMatch = FindMatch & { source: "note" };
@@ -4987,11 +4987,11 @@ async function unregisterMeta(): Promise<void> {
 }
 
 async function hideCurrentRoam(): Promise<void> {
-  await updateNoteMeta(api.meta.hideRoam, {}, "Roam hidden");
+  await updateNoteMeta(api.meta.hideRoam, {}, "roam: off set");
 }
 
 async function activateCurrentRoam(): Promise<void> {
-  await updateNoteMeta(api.meta.activateRoam, {}, "Roam activated");
+  await updateNoteMeta(api.meta.activateRoam, {}, "roam: off cleared");
 }
 
 async function addTag(): Promise<void> {
@@ -6714,8 +6714,38 @@ function matchingTagCompletions(note: NoteSummary, prefix: string): SnippetSumma
 
 function domTargetsForCompletion(note: NoteSummary): DomTargetEntry[] {
   const externalNote = externalBookNote(note) || note;
+  if (externalNote.file === currentFile) {
+    const seen = new Set<string>();
+    return currentDomTargets().filter((target) => {
+      const key = target.path.join("@");
+      if (!target.label || !target.slug || !key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
   const bookTargets = bookTocDomTargetEntries(externalNote);
   if (bookTargets.length > 0) return bookTargets;
+  const indexedTargets = (externalNote.domTargets ?? [])
+    .map((target) => {
+      const label = normalizeDomTarget(target.label || target.slug || "");
+      const slug = slugDomTarget(target.slug || label);
+      const path = (Array.isArray(target.path) && target.path.length > 0 ? target.path : [slug])
+        .map((segment) => slugDomTarget(segment))
+        .filter(Boolean);
+      const labelPath = (Array.isArray(target.labelPath) && target.labelPath.length > 0 ? target.labelPath : [label])
+        .map(normalizeDomTarget)
+        .filter(Boolean);
+      return {
+        label,
+        slug,
+        path,
+        labelPath,
+        level: Math.max(1, Number(target.level || 1)),
+        notePath: target.notePath || externalNote.path || "",
+      };
+    })
+    .filter((target) => target.label && target.slug && target.path.length > 0);
+  if (indexedTargets.length > 0) return indexedTargets;
   const legacyBookTargets = externalNote.bookDomTargets ?? [];
   if (legacyBookTargets.length > 0) {
     const seen = new Set<string>();
@@ -6733,15 +6763,6 @@ function domTargetsForCompletion(note: NoteSummary): DomTargetEntry[] {
         seen.add(target.slug);
         return true;
       });
-  }
-  if (externalNote.file === currentFile) {
-    const seen = new Set<string>();
-    return currentDomTargets().filter((target) => {
-      const key = target.path.join("@");
-      if (!target.label || !target.slug || !key || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
   }
   const rawTargets = [externalNote.title || externalNote.path || externalNote.file || canonicalRoamNoteId(externalNote)].filter(Boolean);
   const seen = new Set<string>();
@@ -6771,11 +6792,30 @@ function immediateDomCompletionTargets(entries: readonly DomTargetEntry[], paren
   });
 }
 
+// Every heading nested under `parentSegments` at any depth (not just immediate
+// children). Used for by-name matching so a leaf like `@plan` or `@sad` resolves
+// regardless of how deep it sits in the outline.
+function descendantDomCompletionTargets(entries: readonly DomTargetEntry[], parentSegments: readonly string[]): DomTargetEntry[] {
+  const parentPath = parentSegments.map(slugDomTarget).filter(Boolean);
+  const parentLength = parentPath.length;
+  return entries.filter((entry) => {
+    if (entry.path.length <= parentLength) return false;
+    if (parentLength === 0) return true;
+    return targetPathMatches(entry.path.slice(0, parentLength), parentPath, false);
+  });
+}
+
 function matchingDomCompletions(note: NoteSummary, prefix: string, parentSegments: readonly string[] = []): SnippetSummary[] {
   note = externalBookNote(note) || note;
   const query = normalizeDomTarget(prefix).toLowerCase();
-  return immediateDomCompletionTargets(domTargetsForCompletion(note), parentSegments)
-    .filter((target) => target.slug.includes(query) || target.label.toLowerCase().includes(query))
+  const entries = domTargetsForCompletion(note);
+  // Empty prefix → drill one level (show the current parent's direct children).
+  // Typed name → precise match by leaf name anywhere below the current parent.
+  const candidates = query
+    ? descendantDomCompletionTargets(entries, parentSegments)
+        .filter((target) => target.slug.includes(query) || target.label.toLowerCase().includes(query))
+    : immediateDomCompletionTargets(entries, parentSegments);
+  return candidates
     .slice(0, 12)
     .map((target) => ({
       key: target.slug,
@@ -7253,8 +7293,8 @@ function commandPaletteCommands(): AaronnoteCommand[] {
     { id: "ensure-roam-id", title: "Generate or copy Roam ID", group: "Roam", keywords: ["id", "clipboard"], enabled: () => !currentStandalone && !!currentFile, run: () => void ensureRoamId() },
     { id: "insert-roam-idlink", title: "Insert roam idlink", group: "Roam", keywords: ["link", "reference"], enabled: () => !currentStandalone, run: () => void insertRoamIdLink() },
     { id: "add-meta", title: "Add meta", group: "Roam", keywords: ["kind"], enabled: () => !!currentFile, run: () => void quickAddMeta() },
-    { id: "hide-roam", title: "Hide current note from roam", group: "Roam", keywords: ["exclude", "hidden"], enabled: () => !currentStandalone && !!currentFile, run: () => void hideCurrentRoam() },
-    { id: "activate-roam", title: "Activate current note in roam", group: "Roam", keywords: ["include", "hidden"], enabled: () => !currentStandalone && !!currentFile, run: () => void activateCurrentRoam() },
+    { id: "hide-roam", title: "Set roam: off for current note", group: "Roam", keywords: ["exclude", "disable", "off"], enabled: () => !currentStandalone && !!currentFile, run: () => void hideCurrentRoam() },
+    { id: "activate-roam", title: "Clear roam: off for current note", group: "Roam", keywords: ["include", "enable", "on"], enabled: () => !currentStandalone && !!currentFile, run: () => void activateCurrentRoam() },
     { id: "add-tag", title: "Add tag", group: "Roam", keywords: ["tags"], enabled: () => !!currentFile, run: () => void addTag() },
     { id: "manage-note-tags", title: "Manage note tags", group: "Roam", keywords: ["tags"], enabled: () => !!currentFile, run: () => void openTagManager() },
     { id: "insert-inline-tag", title: "Insert inline tag", group: "Roam", keywords: ["tags"], enabled: () => !!currentFile, run: () => void insertInlineTag() },
@@ -8221,6 +8261,37 @@ function mathPreviewKeyFor(math: { tex: string; display: boolean }): string {
   return `${math.display ? "display" : "inline"}\n${math.tex.trim()}`;
 }
 
+function mathPreviewPreferredWidth(display: boolean): number {
+  const margin = 8;
+  const maxWidth = Math.max(220, window.innerWidth - margin * 2);
+  const fallback = display ? 640 : 320;
+  const child = mathPreview.querySelector<HTMLElement>(".katex-display, .katex, math, mjx-container");
+  const natural = child
+    ? Math.max(child.scrollWidth, child.getBoundingClientRect().width)
+    : Math.max(mathPreview.scrollWidth, fallback);
+  if (!Number.isFinite(natural) || natural <= 0) return Math.min(fallback, maxWidth);
+  const padding = display ? 40 : 28;
+  const minimum = display ? 420 : 280;
+  return Math.min(maxWidth, Math.max(Math.min(fallback, maxWidth), minimum, Math.ceil(natural + padding)));
+}
+
+function updateMathPreviewOverflow(): void {
+  if (mathPreview.hidden || mathPreview.classList.contains("is-error")) return;
+  const overflowX = mathPreview.scrollWidth > mathPreview.clientWidth + 2;
+  const overflowY = mathPreview.scrollHeight > mathPreview.clientHeight + 2;
+  mathPreview.classList.toggle("is-overflowing", overflowX || overflowY);
+}
+
+function placeMathPreview(
+  anchorRect: { left: number; top: number; bottom: number } | null,
+  display: boolean,
+  bottomRect?: { bottom: number } | null,
+): void {
+  mathPreview.classList.remove("is-overflowing");
+  placeFloatingAbove(mathPreview, anchorRect, mathPreviewPreferredWidth(display), bottomRect);
+  updateMathPreviewOverflow();
+}
+
 function scheduleMathPreviewError(
   nextKey: string,
   error: string,
@@ -8258,7 +8329,7 @@ function updateMathPreview(ctx: ReturnType<typeof editor.cursorContext>, allowNe
   const bottomRect = math.display ? (math.rectEnd ?? anchorRect) : undefined;
   if (mathPreview.hidden && !allowNewPreview) return;
   if (mathPreviewKey === nextKey && !mathPreview.hidden) {
-    placeFloatingAbove(mathPreview, anchorRect, math.display ? 640 : 320, bottomRect);
+    placeMathPreview(anchorRect, math.display, bottomRect);
     return;
   }
   if (mathPreviewKey !== nextKey && !allowNewPreview) return;
@@ -8286,10 +8357,10 @@ function updateMathPreview(ctx: ReturnType<typeof editor.cursorContext>, allowNe
   clearMathPreviewErrorTimer();
   mathPreview.classList.remove("is-error");
   mathPreview.hidden = false;
-  placeFloatingAbove(mathPreview, anchorRect, math.display ? 640 : 320, bottomRect);
+  placeMathPreview(anchorRect, math.display, bottomRect);
   window.requestAnimationFrame(() => {
     if (mathPreviewKey === nextKey && !mathPreview.hidden) {
-      placeFloatingAbove(mathPreview, anchorRect, math.display ? 640 : 320, bottomRect);
+      placeMathPreview(anchorRect, math.display, bottomRect);
     }
   });
 }

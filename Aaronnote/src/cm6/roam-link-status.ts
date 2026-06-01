@@ -10,6 +10,7 @@ import {
 import { blockMathRangesOverlapping, mergeOverlappingRanges, rangeOverlapsAny } from "./math-ranges.ts";
 import { scanCodeRanges } from "./code-ranges.ts";
 import { scanInlineMathRanges } from "../inline-math.ts";
+import { hasViewportDecorationRefresh } from "./viewport-refresh.ts";
 
 const WIKILINK_RE = /\[\[([^\]\n]+)\]\]/g;
 const BARE_ROAM_RE = /\broam:\/\/[^\s<>)\]]+/gi;
@@ -61,14 +62,15 @@ function buildBrokenLinkDecorations(view: EditorView): DecorationSet {
   if (!known || known.size === 0) return Decoration.none;
   const decos: Range<Decoration>[] = [];
   const mark = Decoration.mark({ class: "cm-roam-link-broken" });
+  const visibleRanges = view.visibleRanges;
   const excludedRanges = mergeOverlappingRanges([
-    ...blockMathRangesOverlapping(view.state, view.visibleRanges).map(({ from, to }) => ({ from, to })),
-    ...view.visibleRanges.flatMap(({ from, to }) =>
+    ...blockMathRangesOverlapping(view.state, visibleRanges).map(({ from, to }) => ({ from, to })),
+    ...visibleRanges.flatMap(({ from, to }) =>
       scanInlineMathRanges(view.state.doc.sliceString(from, to), from)),
-    ...scanCodeRanges(view.state, view.visibleRanges),
+    ...scanCodeRanges(view.state, visibleRanges),
   ]);
 
-  for (const { from: visibleFrom, to: visibleTo } of view.visibleRanges) {
+  for (const { from: visibleFrom, to: visibleTo } of visibleRanges) {
     const text = view.state.doc.sliceString(visibleFrom, visibleTo);
     WIKILINK_RE.lastIndex = 0;
     let wiki: RegExpExecArray | null;
@@ -108,6 +110,7 @@ class RoamLinkStatusPlugin {
     if (
       update.docChanged
       || update.viewportChanged
+      || hasViewportDecorationRefresh(update)
       || update.startState.field(knownRoamRefsField, false) !== update.state.field(knownRoamRefsField, false)
     ) {
       this.decorations = buildBrokenLinkDecorations(update.view);

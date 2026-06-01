@@ -1,4 +1,5 @@
 import type { EditorView } from "@codemirror/view";
+import { scheduleViewportDecorationRefresh } from "../viewport-refresh.ts";
 
 // ---------------------------------------------------------------------------
 // Per-content height cache: stable key → last measured pixel height
@@ -76,7 +77,7 @@ function getSharedRO(): ResizeObserver | null {
       requestAnimationFrame(() => {
         rafScheduled = false;
         for (const view of pendingViews) {
-          if (view.dom.isConnected) view.requestMeasure();
+          if (view.dom.isConnected) scheduleViewportDecorationRefresh(view);
         }
         pendingViews.clear();
       });

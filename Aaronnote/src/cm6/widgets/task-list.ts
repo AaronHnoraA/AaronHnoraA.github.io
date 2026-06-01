@@ -24,6 +24,7 @@ import { MeasuredWidget } from "./measured-widget.ts";
 import { syntaxTree } from "@codemirror/language";
 import type { Range } from "@codemirror/state";
 import { getBlockMathRanges, rangeInsideAny } from "../math-ranges.ts";
+import { hasViewportDecorationRefresh } from "../viewport-refresh.ts";
 
 // ---------------------------------------------------------------------------
 // Widget
@@ -139,7 +140,7 @@ class TaskListPlugin {
 
   update(update: ViewUpdate): void {
     if (update.view.compositionStarted && update.selectionSet && !update.docChanged && !update.viewportChanged) return;
-    if (update.docChanged || update.viewportChanged) {
+    if (update.docChanged || update.viewportChanged || hasViewportDecorationRefresh(update)) {
       this.activeLineKey = activeTaskMarkerLineKey(update.view);
       this.decorations = buildTaskDecorations(update.view);
     } else if (update.selectionSet) {

@@ -36,6 +36,7 @@ import {
 } from "../code-ranges.ts";
 import {
   metaEntryMap,
+  metaRoamIndexed,
   metaTags,
   parseMetaEntries,
   renderMarkdownHTML,
@@ -1291,6 +1292,14 @@ function renderMetaWidget(
   const meta = document.createElement("div");
   meta.className = "org-env-meta aaronnote-meta-cover";
   const entries = parseMetaEntries(body);
+  if (!metaRoamIndexed(entries)) {
+    const badge = document.createElement("span");
+    badge.className = "aaronnote-meta-roam-badge";
+    badge.title = "Not in roam database";
+    badge.setAttribute("aria-label", "Not in roam database");
+    badge.textContent = "🔕";
+    meta.append(badge);
+  }
 
   if (entries.length === 0) {
     const empty = document.createElement("span");

@@ -54,6 +54,7 @@ import { findHighlightExtension } from "./find-highlight.ts";
 import { roamLinkStatusExtension } from "./roam-link-status.ts";
 import { tocIndexExtension } from "./toc-index.ts";
 import { proseDiagnosticsExtension } from "./prose-diagnostics.ts";
+import { scheduleViewportDecorationRefresh } from "./viewport-refresh.ts";
 
 import type { SyntaxNode } from "@lezer/common";
 import type {
@@ -393,6 +394,7 @@ export function createEditorCM6(host: HTMLElement, options: EditorOptions): Edit
     state: createState(initialDoc),
     parent: editorHost,
   });
+  scheduleViewportDecorationRefresh(view);
   void document.fonts?.ready.then(() => {
     if (view.dom.isConnected) view.requestMeasure();
   });
@@ -480,6 +482,7 @@ export function createEditorCM6(host: HTMLElement, options: EditorOptions): Edit
     setMarkdown(md: string, setOptions: SetMarkdownOptions = {}): void {
       if (setOptions.history === "reset") {
         view.setState(createState(md));
+        scheduleViewportDecorationRefresh(view);
         return;
       }
       const len = view.state.doc.length;

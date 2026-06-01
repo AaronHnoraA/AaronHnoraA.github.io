@@ -429,8 +429,8 @@ describe("server note refs", () => {
     }
   });
 
-  test("roam-hidden notes stay in the file index but leave roam graph and tag index", async () => {
-    const root = await setupRoot("aaronnote-hidden-roam-");
+  test("roam: off notes and meta blocks without ids stay out of roam graph and tag index", async () => {
+    const root = await setupRoot("aaronnote-roam-off-");
     try {
       await writeFile(join(root, "visible.md"), [
         "---",
@@ -444,19 +444,28 @@ describe("server note refs", () => {
         "",
       ].join("\n"), "utf8");
       await writeFile(join(root, "hidden.md"), [
-        "---",
+        "#+begin meta",
         "id: hidden-id",
-        "tags:",
-        "  - graph",
-        "  - roam-hidden",
-        "---",
+        "title: Hidden",
+        "roam: off",
+        "tags: graph",
+        "#+end meta",
         "# Hidden",
+        "",
+      ].join("\n"), "utf8");
+      await writeFile(join(root, "metadata-only.md"), [
+        "#+begin meta",
+        "title: Metadata Only",
+        "tags: graph",
+        "#+end meta",
+        "# Metadata Only",
         "",
       ].join("\n"), "utf8");
 
       const notes = await scanNotes();
       expect(notes).toEqual(expect.arrayContaining([
-        expect.objectContaining({ id: "hidden-id", roam: false, tags: expect.arrayContaining(["roam-hidden"]) }),
+        expect.objectContaining({ id: "hidden-id", roam: false, tags: expect.arrayContaining(["graph"]) }),
+        expect.objectContaining({ path: "metadata-only.md", roam: false, tags: expect.arrayContaining(["graph"]) }),
       ]));
       expect(graphPayload(notes).nodes).toEqual([
         expect.objectContaining({ key: "visible-id" }),
@@ -464,6 +473,35 @@ describe("server note refs", () => {
       expect(tagIndexPayload(notes).tags).toEqual([
         expect.objectContaining({ name: "graph", count: 1 }),
       ]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("indexes hierarchical DOM targets for note link completion without rescanning on demand", async () => {
+    const root = await setupRoot("aaronnote-dom-targets-");
+    try {
+      await writeFile(join(root, "paper.md"), [
+        "#+begin meta",
+        "id: paper-id",
+        "title: Paper",
+        "#+end meta",
+        "",
+        "# Background",
+        "",
+        "## Tensor Graphs",
+        "",
+        "### Plan",
+        "",
+      ].join("\n"), "utf8");
+
+      const payload = await notesIndexPayload();
+      const paper = payload.notes.find((note: { id?: string }) => note.id === "paper-id");
+      expect(paper?.domTargets).toEqual(expect.arrayContaining([
+        expect.objectContaining({ slug: "background", path: ["background"] }),
+        expect.objectContaining({ slug: "tensor-graphs", path: ["background", "tensor-graphs"] }),
+        expect.objectContaining({ slug: "plan", path: ["background", "tensor-graphs", "plan"] }),
+      ]));
     } finally {
       await rm(root, { recursive: true, force: true });
     }

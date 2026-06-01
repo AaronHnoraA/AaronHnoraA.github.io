@@ -53,6 +53,7 @@ import {
   type LayoutAttrs,
 } from "../layout-attrs.ts";
 import { tocIndexFromState } from "./toc-index.ts";
+import { hasViewportDecorationRefresh } from "./viewport-refresh.ts";
 
 // ---------------------------------------------------------------------------
 // Node name sets
@@ -133,6 +134,10 @@ type LivePreviewToken =
   | { kind: "autolink"; from: number; to: number }
   | { kind: "wikilink"; from: number; openTo: number; closeFrom: number; to: number }
   | { kind: "static"; from: number; to: number; cls: string };
+
+function selectionIntersectsSpan(sel: { from: number; to: number; empty: boolean }, from: number, to: number): boolean {
+  return sel.empty ? sel.from > from && sel.from < to : sel.from < to && sel.to > from;
+}
 
 function escapedAt(text: string, index: number): boolean {
   let slashes = 0;
@@ -319,17 +324,17 @@ function buildDecorations(view: EditorView, tokens = collectLivePreviewTokens(vi
   for (const token of tokens) {
     switch (token.kind) {
       case "span": {
-        const inSpan = sel.from <= token.spanTo && sel.to >= token.spanFrom;
+        const inSpan = selectionIntersectsSpan(sel, token.spanFrom, token.spanTo);
         if (!inSpan) pushMark(decos, token.from, token.to, token.cls);
         break;
       }
       case "delimiter": {
-        const inSpan = sel.from <= token.spanTo && sel.to >= token.spanFrom;
+        const inSpan = selectionIntersectsSpan(sel, token.spanFrom, token.spanTo);
         pushMark(decos, token.from, token.to, inSpan ? "syntax-hint" : "syntax-hidden");
         break;
       }
       case "link-delimiter": {
-        const inSpan = sel.from <= token.spanTo && sel.to >= token.spanFrom;
+        const inSpan = selectionIntersectsSpan(sel, token.spanFrom, token.spanTo);
         pushMark(decos, token.from, token.to, inSpan ? "syntax-hint" : "syntax-hidden");
         if (!inSpan) pushMark(decos, token.spanFrom, token.spanTo, token.linkClass);
         break;
@@ -338,14 +343,14 @@ function buildDecorations(view: EditorView, tokens = collectLivePreviewTokens(vi
         pushMark(decos, token.from, token.to, cursorLine === token.line ? "syntax-hint" : "syntax-hidden");
         break;
       case "autolink": {
-        const inSpan = sel.from <= token.to && sel.to >= token.from;
+        const inSpan = selectionIntersectsSpan(sel, token.from, token.to);
         const cls = inSpan ? "syntax-hint" : "syntax-hidden";
         pushMark(decos, token.from, token.from + 1, cls);
         pushMark(decos, token.to - 1, token.to, cls);
         break;
       }
       case "wikilink": {
-        const inSpan = sel.from <= token.to && sel.to >= token.from;
+        const inSpan = selectionIntersectsSpan(sel, token.from, token.to);
         pushMark(decos, token.from, token.openTo, inSpan ? "syntax-hint" : "syntax-hidden");
         pushMark(decos, token.closeFrom, token.to, inSpan ? "syntax-hint" : "syntax-hidden");
         pushMark(decos, token.openTo, token.closeFrom, "cm-link-text cm-roam-link-text");
@@ -370,13 +375,13 @@ function selectionAffectingTokenKey(state: EditorState, tokens: readonly LivePre
       case "span":
       case "delimiter":
       case "link-delimiter":
-        if (sel.from <= token.spanTo && sel.to >= token.spanFrom) {
+        if (selectionIntersectsSpan(sel, token.spanFrom, token.spanTo)) {
           keys.push(`${token.kind}:${token.spanFrom}:${token.spanTo}`);
         }
         break;
       case "autolink":
       case "wikilink":
-        if (sel.from <= token.to && sel.to >= token.from) {
+        if (selectionIntersectsSpan(sel, token.from, token.to)) {
           keys.push(`${token.kind}:${token.from}:${token.to}`);
         }
         break;
@@ -552,19 +557,22 @@ class LivePreviewPlugin {
   update(update: ViewUpdate): void {
     if (update.view.compositionStarted && update.selectionSet && !update.docChanged && !update.viewportChanged) return;
 
+    const forceRefresh = hasViewportDecorationRefresh(update);
     const vr = update.view.visibleRanges;
     const newFrom = vr[0]?.from ?? 0;
     const newTo = vr[vr.length - 1]?.to ?? 0;
 
-    if (update.docChanged) {
+    if (update.docChanged || forceRefresh) {
       // Partial CJK invalidation: only clear lines at/after the first change.
       // Lines before the change have stable line numbers and valid cache entries.
-      const minLine = firstChangedLine(update.changes, update.view.state.doc);
-      if (minLine <= 1) {
-        this.cjkLineCache.clear();
-      } else {
-        for (const lineNum of this.cjkLineCache.keys()) {
-          if (lineNum >= minLine) this.cjkLineCache.delete(lineNum);
+      if (update.docChanged) {
+        const minLine = firstChangedLine(update.changes, update.view.state.doc);
+        if (minLine <= 1) {
+          this.cjkLineCache.clear();
+        } else {
+          for (const lineNum of this.cjkLineCache.keys()) {
+            if (lineNum >= minLine) this.cjkLineCache.delete(lineNum);
+          }
         }
       }
       this.tokens = collectLivePreviewTokens(update.view, vr, this.cjkLineCache);
