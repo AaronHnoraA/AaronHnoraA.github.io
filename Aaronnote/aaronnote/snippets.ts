@@ -6,9 +6,10 @@ export type SnippetTabstop = {
   from: number;
   to: number;
   primary: boolean;
+  text?: string;
 };
 
-type ParsedSnippet = {
+export type ParsedSnippet = {
   text: string;
   tabstops: SnippetTabstop[];
 };
@@ -57,7 +58,6 @@ export function expandSnippetBody(snippet: SnippetSummary): ParsedSnippet {
   const values = new Map<number, string>();
   const tabstops: SnippetTabstop[] = [];
   let text = "";
-  let i = 0;
 
   function valueFor(index: number, fallback: string): string {
     if (!values.has(index)) values.set(index, fallback);
@@ -67,43 +67,137 @@ export function expandSnippetBody(snippet: SnippetSummary): ParsedSnippet {
   function pushTabstop(index: number, value: string): void {
     const from = text.length;
     text += value;
-    tabstops.push({ index, from, to: text.length, primary: false });
+    tabstops.push({ index, from, to: text.length, primary: false, text: value });
   }
 
-  while (i < body.length) {
-    const rest = body.slice(i);
-    const choice = rest.match(/^\$\{(\d+)\|([^}]*)\|\}/);
-    if (choice) {
-      const index = Number(choice[1]);
-      const options = choice[2].split(",").map((x) => x.trim()).filter(Boolean);
-      pushTabstop(index, valueFor(index, options[0] ?? ""));
-      i += choice[0].length;
-      continue;
-    }
-    const placeholder = rest.match(/^\$\{(\d+):([^}]*)\}/);
-    if (placeholder) {
-      const index = Number(placeholder[1]);
-      pushTabstop(index, valueFor(index, placeholder[2]));
-      i += placeholder[0].length;
-      continue;
-    }
-    const braced = rest.match(/^\$\{(\d+)\}/);
-    if (braced) {
-      const index = Number(braced[1]);
-      pushTabstop(index, valueFor(index, ""));
-      i += braced[0].length;
-      continue;
-    }
-    const plain = rest.match(/^\$(\d+)/);
-    if (plain) {
-      const index = Number(plain[1]);
-      pushTabstop(index, index === 0 ? "" : valueFor(index, ""));
-      i += plain[0].length;
-      continue;
-    }
-    text += body[i];
-    i++;
+  function parseChoiceOptions(raw: string): string[] {
+    return raw.split(",").map((x) => x.trim()).filter(Boolean);
   }
+
+  function findChoiceEnd(source: string, start: number): number {
+    for (let pos = start; pos < source.length - 1; pos++) {
+      if (source[pos] === "|" && source[pos + 1] === "}") return pos;
+    }
+    return -1;
+  }
+
+  function skipTemplate(source: string, start = 0, endChar = ""): number {
+    let i = start;
+    while (i < source.length) {
+      if (endChar && source[i] === endChar) return i + 1;
+      if (source[i] === "$" && source[i + 1] === "{") {
+        let pos = i + 2;
+        let digits = "";
+        while (/\d/.test(source[pos] ?? "")) {
+          digits += source[pos];
+          pos++;
+        }
+        if (!digits) {
+          i++;
+          continue;
+        }
+        const marker = source[pos];
+        if (marker === "}") {
+          i = pos + 1;
+          continue;
+        }
+        if (marker === "|") {
+          const end = findChoiceEnd(source, pos + 1);
+          if (end >= 0) {
+            i = end + 2;
+            continue;
+          }
+        }
+        if (marker === ":") {
+          i = skipTemplate(source, pos + 1, "}");
+          continue;
+        }
+      }
+      i++;
+    }
+    return i;
+  }
+
+  function parseTemplate(source: string, start = 0, endChar = ""): number {
+    let i = start;
+    while (i < source.length) {
+      if (endChar && source[i] === endChar) return i + 1;
+
+      if (source[i] !== "$") {
+        text += source[i];
+        i++;
+        continue;
+      }
+
+      if (source[i + 1] === "{") {
+        let pos = i + 2;
+        let digits = "";
+        while (/\d/.test(source[pos] ?? "")) {
+          digits += source[pos];
+          pos++;
+        }
+        if (!digits) {
+          text += source[i];
+          i++;
+          continue;
+        }
+
+        const index = Number(digits);
+        const marker = source[pos];
+        if (marker === "}") {
+          pushTabstop(index, index === 0 ? "" : valueFor(index, ""));
+          i = pos + 1;
+          continue;
+        }
+        if (marker === "|") {
+          const end = findChoiceEnd(source, pos + 1);
+          if (end >= 0) {
+            const options = parseChoiceOptions(source.slice(pos + 1, end));
+            pushTabstop(index, valueFor(index, options[0] ?? ""));
+            i = end + 2;
+            continue;
+          }
+        }
+        if (marker === ":") {
+          if (values.has(index)) {
+            const end = skipTemplate(source, pos + 1, "}");
+            pushTabstop(index, values.get(index) ?? "");
+            i = end;
+            continue;
+          }
+          const from = text.length;
+          const end = parseTemplate(source, pos + 1, "}");
+          const value = text.slice(from);
+          values.set(index, value);
+          tabstops.push({ index, from, to: text.length, primary: false, text: value });
+          i = end;
+          continue;
+        }
+        text += source[i];
+        i++;
+        continue;
+      }
+
+      let pos = i + 1;
+      let digits = "";
+      while (/\d/.test(source[pos] ?? "")) {
+        digits += source[pos];
+        pos++;
+      }
+      if (digits) {
+        const index = Number(digits);
+        pushTabstop(index, index === 0 ? "" : valueFor(index, ""));
+        i = pos;
+        continue;
+      }
+
+      text += source[i];
+      i++;
+    }
+    return i;
+  }
+
+  parseTemplate(body);
 
   const seen = new Set<number>();
   for (const stop of tabstops) {
@@ -253,11 +347,7 @@ export class SnippetSession {
       const index = frame.order[frame.cursor]!;
       const target = frame.stops.find((stop) => stop.index === index && stop.primary)
         ?? frame.stops.find((stop) => stop.index === index);
-      if (!target) {
-        this.frames.pop();
-        childCompleted = true;
-        continue;
-      }
+      if (!target) continue;
       frame.activeIndex = index;
       this.selectStop(target);
       return true;
@@ -306,9 +396,12 @@ export class SnippetSession {
         : Math.max(primary.to, selectionEnd);
     const value = this.editor.textBetween(primary.from, replacementEnd);
     const oldTo = primary.to;
+    const oldText = primary.text;
     const oldSize = oldTo - primary.from;
     const newSize = value.length;
     const delta = newSize - oldSize;
+    if (oldText != null && value !== oldText) this.dropStopsInside(frame, primary, oldTo);
+    primary.text = value;
     primary.to = primary.from + newSize;
 
     if (delta !== 0) this.shiftStopsAfter(primary.from, delta, primary);
@@ -324,12 +417,20 @@ export class SnippetSession {
       const mirrorDelta = value.length - mirrorOldSize;
       mirror.from = inserted.from;
       mirror.to = inserted.to;
+      mirror.text = value;
       if (mirrorDelta !== 0) {
         restoreSelection = mapSelectionThroughReplacement(restoreSelection, oldMirrorFrom, oldMirrorTo, value.length);
         this.mapReplacement(oldMirrorFrom, oldMirrorTo, value.length, mirror);
       }
     }
     this.editor.setSelection(restoreSelection.from, restoreSelection.to);
+  }
+
+  private dropStopsInside(frame: SnippetFrame, primary: SnippetTabstop, oldTo: number): void {
+    frame.stops = frame.stops.filter((stop) => {
+      if (stop === primary) return true;
+      return !(stop.from >= primary.from && stop.to <= oldTo);
+    });
   }
 
   private shiftStopsAfter(anchor: number, delta: number, except: SnippetTabstop): void {
@@ -403,4 +504,29 @@ export function snippetScore(snippet: SnippetSummary, query: string): number {
   if (name.includes(query)) return 4;
   if (mode.includes(query) || group.includes(query) || kind.includes(query)) return 5;
   return Number.POSITIVE_INFINITY;
+}
+
+export function matchingSnippetsForPrefix(
+  snippets: readonly SnippetSummary[],
+  prefix: string,
+  options: { mode?: string; kind?: string; limit?: number } = {},
+): SnippetSummary[] {
+  const query = prefix.toLowerCase();
+  const mode = options.mode || "";
+  const activeKind = (options.kind || "").toLowerCase();
+  const limit = Math.max(1, options.limit ?? 10);
+  return snippets
+    .filter((snippet) => !mode || snippet.mode === mode)
+    .filter((snippet) => {
+      const snippetKind = (snippet.kind || "").toLowerCase();
+      return !snippetKind || snippetKind === activeKind;
+    })
+    .map((snippet) => ({ snippet, score: snippetScore(snippet, query) }))
+    .filter((item) => Number.isFinite(item.score))
+    .sort((a, b) => {
+      if (a.score !== b.score) return a.score - b.score;
+      return snippetLabel(a.snippet).localeCompare(snippetLabel(b.snippet));
+    })
+    .slice(0, limit)
+    .map((item) => item.snippet);
 }

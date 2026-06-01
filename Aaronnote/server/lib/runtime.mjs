@@ -2863,15 +2863,28 @@ async function scanTodos() {
   });
 }
 
+function existingUniqueDirs(dirs) {
+  const out = [];
+  const seen = new Set();
+  for (const dir of dirs) {
+    const resolved = resolve(dir);
+    if (seen.has(resolved) || !existsSync(resolved)) continue;
+    seen.add(resolved);
+    out.push(resolved);
+  }
+  return out;
+}
+
 function snippetDirs() {
   const raw = process.env.AARONNOTE_SNIPPETS;
-  const dirs = raw
-    ? raw.split(":").filter(Boolean)
-    : [
-        join(appDir, "snippets"),
-      ];
+  if (raw) return existingUniqueDirs(raw.split(delimiter).filter(Boolean));
 
-  return [...new Set(dirs.map((dir) => resolve(dir)).filter((dir) => existsSync(dir)))];
+  const liveDirs = existingUniqueDirs([
+    join(workspaceRoot, "Aaronnote", "snippets"),
+    join(workspaceRoot, "snippets"),
+    join(appDir, "snippets"),
+  ]);
+  return liveDirs;
 }
 
 async function snippetRoots() {
@@ -2904,6 +2917,7 @@ function parseSnippetBody(content) {
     const marker = lines[i].match(/^# --\s*$/);
     if (marker) {
       bodyStart = i + 1;
+      while (bodyStart < lines.length && /^# --\s*$/.test(lines[bodyStart])) bodyStart++;
       break;
     }
     const header = lines[i].match(/^#\s*([^:\n]+):\s*(.*)$/);
@@ -2923,18 +2937,20 @@ export async function scanSnippets(options = {}) {
     return snippetCache.snippets;
   }
   const snippets = [];
+  const seenSnippets = new Set();
   for (const root of roots) {
-    const files = await walkFiles(root.dir, (_file, name) => !name.startsWith(".") && !name.endsWith(".el"));
-    for (const file of files) {
+    const files = (await walkFiles(root.dir, (_file, name) => !name.startsWith(".") && !name.endsWith(".el")))
+      .sort((a, b) => relative(root.dir, a).localeCompare(relative(root.dir, b)));
+    const parsed = await mapLimit(files, scanConcurrency, async (file) => {
       try {
         const content = await readFile(file, "utf8");
         const { headers, body } = parseSnippetBody(content);
-        if (!body.trim()) continue;
+        if (!body.trim()) return null;
         const rel = relative(root.dir, file);
         const parts = rel.split(sep);
         const mode = parts[0] || "";
         const key = headers.get("key") || parts.at(-1) || "snippet";
-        snippets.push({
+        return {
           key,
           name: headers.get("name") || key,
           mode,
@@ -2942,8 +2958,17 @@ export async function scanSnippets(options = {}) {
           kind: root.kind,
           body,
           source: file,
-        });
-      } catch {}
+        };
+      } catch {
+        return null;
+      }
+    });
+    for (const snippet of parsed) {
+      if (!snippet) continue;
+      const id = `${snippet.kind}\0${snippet.mode}\0${snippet.key}`;
+      if (seenSnippets.has(id)) continue;
+      seenSnippets.add(id);
+      snippets.push(snippet);
     }
   }
   snippetCache = {

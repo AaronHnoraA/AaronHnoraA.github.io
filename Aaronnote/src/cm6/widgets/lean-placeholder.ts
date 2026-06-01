@@ -521,6 +521,10 @@ function completionKindName(kind: number | undefined): string {
 
 let leanSnippetPromise: Promise<SnippetSummary[]> | null = null;
 
+export function clearLeanSnippetCache(): void {
+  leanSnippetPromise = null;
+}
+
 function loadLeanSnippets(): Promise<SnippetSummary[]> {
   leanSnippetPromise ??= api.notes.snippets()
     .then((msg) => Array.isArray(msg.snippets)

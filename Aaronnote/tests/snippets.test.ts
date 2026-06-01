@@ -2,7 +2,7 @@ import { describe, expect, test } from "@voidzero-dev/vite-plus-test";
 
 import type { Editor } from "../src/lib.ts";
 import { createEditor } from "../src/lib.ts";
-import { insertExpandedSnippetIntoContentEditable, SnippetSession } from "../aaronnote/snippets.ts";
+import { expandSnippetBody, insertExpandedSnippetIntoContentEditable, matchingSnippetsForPrefix, SnippetSession } from "../aaronnote/snippets.ts";
 
 class TextEditor {
   text = "";
@@ -49,6 +49,57 @@ class TextEditor {
 }
 
 describe("aaronnote snippets", () => {
+  test("ranks snippets after applying mode and kind filters", () => {
+    const tex = Array.from({ length: 12 }, (_, index) => ({
+      key: `a${index}`,
+      name: `Tex ${index}`,
+      mode: "tex-mode",
+      body: String(index),
+    }));
+    const matches = matchingSnippetsForPrefix([
+      ...tex,
+      { key: "alpha", name: "Markdown alpha", mode: "markdown-mode", body: "alpha" },
+      { key: "alpha-kind", name: "Slides alpha", mode: "markdown-mode", kind: "slides", body: "slides" },
+    ], "a", { mode: "markdown-mode", kind: "", limit: 10 });
+
+    expect(matches.map((snippet) => snippet.key)).toEqual(["alpha"]);
+  });
+
+  test("expands nested tabstops inside placeholder defaults", () => {
+    const expanded = expandSnippetBody({
+      key: "draw",
+      name: "TikZ draw",
+      mode: "tex-mode",
+      body: "\\draw${1:[${2:thick}]} (${3:A}) -- (${4:B});$0",
+    });
+
+    expect(expanded.text).toBe("\\draw[thick] (A) -- (B);");
+    const field1 = expanded.tabstops.find((stop) => stop.index === 1);
+    const field2 = expanded.tabstops.find((stop) => stop.index === 2);
+    expect(field1 && expanded.text.slice(field1.from, field1.to)).toBe("[thick]");
+    expect(field2 && expanded.text.slice(field2.from, field2.to)).toBe("thick");
+  });
+
+  test("nested placeholders remain available when the outer field is unchanged", () => {
+    const editor = new TextEditor();
+    const session = new SnippetSession(editor.asEditor());
+    session.insert({ key: "draw", name: "Draw", mode: "tex-mode", body: "\\draw${1:[${2:thick}]} (${3:A});$0" });
+
+    expect(editor.textBetween(editor.selection.from, editor.selection.to)).toBe("[thick]");
+    expect(session.next()).toBe(true);
+    expect(editor.textBetween(editor.selection.from, editor.selection.to)).toBe("thick");
+  });
+
+  test("replacing an outer nested placeholder skips stale inner fields", () => {
+    const editor = new TextEditor();
+    const session = new SnippetSession(editor.asEditor());
+    session.insert({ key: "draw", name: "Draw", mode: "tex-mode", body: "\\draw${1:[${2:thick}]} (${3:A});$0" });
+
+    editor.replaceRange(editor.selection.from, editor.selection.to, "[dashed]", "end");
+    expect(session.next()).toBe(true);
+    expect(editor.textBetween(editor.selection.from, editor.selection.to)).toBe("A");
+  });
+
   test("syncs mirrors without moving the active insertion point", () => {
     const editor = new TextEditor();
     const session = new SnippetSession(editor.asEditor());

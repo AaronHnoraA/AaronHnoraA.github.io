@@ -5,6 +5,6 @@
 # source: /Users/hc/.config/emacs/snippets/tex-mode/begin_begin_end_
 # --
 # --
-\\begin{${1:env}}
+\begin{$1}
 $2
-\\end{${1:env}}
+\end{$1}

@@ -10,6 +10,7 @@ import { setKnownRoamRefs } from "../src/cm6/roam-link-status.ts";
 import { proseDiagnosticsAt, setProseDiagnostics, type ProseDiagnostic } from "../src/cm6/prose-diagnostics.ts";
 import {
   activeLeanController,
+  clearLeanSnippetCache,
   getLeanController,
   setLeanLocationsPicker,
   type LeanEditAction,
@@ -55,7 +56,7 @@ import {
   roamNoteSearchValue,
 } from "./roam-idlink.ts";
 import { resolveNoteReference as resolveSharedNoteReference } from "../shared/note-refs.mjs";
-import { SnippetSession, snippetDetail, snippetLabel, snippetScore } from "./snippets.ts";
+import { matchingSnippetsForPrefix, SnippetSession, snippetDetail, snippetLabel } from "./snippets.ts";
 import type { CursorPosition, DirectorySummary, FileSummary, Inbound, NoteSummary, PluginSetting, PluginSettings, PluginSummary, RecentNote, SnippetSummary, TemplateSummary, UploadedAsset } from "./types.ts";
 import { api } from "./api-client.ts";
 import { createVimLite, type VimLiteMode } from "./vim-lite.ts";
@@ -6566,23 +6567,8 @@ function currentSnippetKind(): string {
   return activeKindName(root.dataset.noteKind || document.body.dataset.noteKind || currentNote()?.kind || "");
 }
 
-function snippetAppliesToCurrentKind(snippet: SnippetSummary): boolean {
-  const kind = activeKindName(snippet.kind || "");
-  return !kind || kind === currentSnippetKind();
-}
-
-function matchingSnippets(prefix: string): SnippetSummary[] {
-  const query = prefix.toLowerCase();
-  return snippets
-    .filter(snippetAppliesToCurrentKind)
-    .map((snippet) => ({ snippet, score: snippetScore(snippet, query) }))
-    .filter((item) => Number.isFinite(item.score))
-    .sort((a, b) => {
-      if (a.score !== b.score) return a.score - b.score;
-      return snippetLabel(a.snippet).localeCompare(snippetLabel(b.snippet));
-    })
-    .slice(0, 10)
-    .map((item) => item.snippet);
+function matchingSnippets(prefix: string, mode: string): SnippetSummary[] {
+  return matchingSnippetsForPrefix(snippets, prefix, { kind: currentSnippetKind(), mode, limit: 10 });
 }
 
 function pathCompletionPrefix(before: string): string {
@@ -8116,7 +8102,7 @@ function updateSnippetPopup(ctx: ReturnType<typeof editor.cursorContext>): void 
     return;
   }
   const mode = snippetContextMode(ctx);
-  const matches = matchingSnippets(prefix).filter((snippet) => snippet.mode === mode);
+  const matches = matchingSnippets(prefix, mode);
   if (matches.length === 0) {
     hideSnippetPopup();
     return;
@@ -8485,6 +8471,7 @@ async function reloadSnippets(): Promise<void> {
   try {
     const msg = await api.notes.snippets();
     if (!Array.isArray(msg.snippets)) throw new Error(msg.message || "Snippet reload failed");
+    clearLeanSnippetCache();
     snippets = msg.snippets.length > 0 ? msg.snippets : demoSnippets;
     hideSnippetPopup();
     renderSnippets();
