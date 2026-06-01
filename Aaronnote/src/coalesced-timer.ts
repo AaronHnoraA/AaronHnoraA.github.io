@@ -18,16 +18,17 @@ export class CoalescedTimer {
   /**
    * Schedule `fn` to run after the configured delay, replacing any pending run.
    * If `sig` is provided and equals the signature of the most recent run, the call
-   * is a no-op (the result would be identical).
+   * is a no-op (the result would be identical). Pass `delayMs` to override the
+   * constructor default for this one call (e.g. fire immediately with `0`).
    */
-  schedule(fn: () => void, sig?: string): void {
+  schedule(fn: () => void, sig?: string, delayMs?: number): void {
     if (sig !== undefined && sig === this.lastSig) return;
     if (this.timer !== null) clearTimeout(this.timer);
     this.timer = setTimeout(() => {
       this.timer = null;
       if (sig !== undefined) this.lastSig = sig;
       fn();
-    }, this.delayMs);
+    }, delayMs ?? this.delayMs);
   }
 
   /** Cancel a pending run, if any. The recorded signature is preserved. */

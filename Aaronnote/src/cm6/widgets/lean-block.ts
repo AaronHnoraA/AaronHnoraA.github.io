@@ -35,6 +35,7 @@ import {
   type LeanSplice,
 } from "../../lean-splice.ts";
 import { renderLeanMarkdown } from "../../lean-render.ts";
+import { CoalescedTimer } from "../../coalesced-timer.ts";
 import { api } from "../../../aaronnote/api-client.ts";
 import type { LspDiagnostic, LspFileProgressItem } from "../../types/lean-ipc.ts";
 import type { OrgEnvBlock } from "./block-extras.ts";
@@ -499,8 +500,8 @@ const LSP_VISUAL_IDLE_MS = 420;
 class LeanBlockPlugin {
   decorations: DecorationSet;
   private readonly view: EditorView;
-  private changeTimer: ReturnType<typeof setTimeout> | null = null;
-  private goalTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly changeTimer = new CoalescedTimer(DEBOUNCE_MS);
+  private readonly goalTimer = new CoalescedTimer(GOAL_DEBOUNCE_MS);
   private lastSplice: LeanSplice | null = null;
   private unsubDiag: (() => void) | null = null;
   private unsubProgress: (() => void) | null = null;
@@ -512,7 +513,7 @@ class LeanBlockPlugin {
   private lspVersion = 0;
   private syncedNotePath = "";
   private openLeanPath = "";
-  private visualTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly visualTimer = new CoalescedTimer(LSP_VISUAL_IDLE_MS);
   private pendingDiagnostics: { uri: string; raw: LspDiagnostic[] } | null = null;
   private pendingProgress: { uri: string; raw: LspFileProgressItem[] } | null = null;
   private pendingSemanticTokens: { uri: string; legend: unknown; data: number[] } | null = null;
@@ -598,11 +599,7 @@ class LeanBlockPlugin {
   }
 
   scheduleVisualFlush(): void {
-    if (this.visualTimer) clearTimeout(this.visualTimer);
-    this.visualTimer = setTimeout(() => {
-      this.visualTimer = null;
-      this.flushVisualState();
-    }, LSP_VISUAL_IDLE_MS);
+    this.visualTimer.schedule(() => this.flushVisualState());
   }
 
   flushVisualState(): void {
@@ -692,24 +689,18 @@ class LeanBlockPlugin {
     }
 
     if (update.docChanged || notePathChanged) {
-      if (this.changeTimer) clearTimeout(this.changeTimer);
-      this.changeTimer = setTimeout(() => {
-        this.changeTimer = null;
-        this.syncToLean();
-      }, update.docChanged ? DEBOUNCE_MS : 0);
+      // Note-path-only changes flush immediately; doc edits debounce.
+      this.changeTimer.schedule(() => this.syncToLean(), undefined, update.docChanged ? DEBOUNCE_MS : 0);
     }
 
     if (update.selectionSet || update.docChanged) {
-      if (this.goalTimer) clearTimeout(this.goalTimer);
+      this.goalTimer.cancel();
       // Skip goal queries entirely when lean is not active (no splice = no lean content).
       const splice = update.view.state.field(leanSpliceField, false);
       if (splice) {
         const isLeanFile = getNoteInfo(update.view)?.notePath.toLowerCase().endsWith(".lean") ?? false;
         if (isLeanFile || isCursorInLean4Block(update.view.state)) {
-          this.goalTimer = setTimeout(() => {
-            this.goalTimer = null;
-            void this.queryGoals();
-          }, GOAL_DEBOUNCE_MS);
+          this.goalTimer.schedule(() => void this.queryGoals());
         } else {
           // Clear goals immediately when cursor leaves a lean4 block
           this.goalSeq++;
@@ -807,9 +798,9 @@ class LeanBlockPlugin {
   }
 
   destroy(): void {
-    if (this.changeTimer) clearTimeout(this.changeTimer);
-    if (this.goalTimer) clearTimeout(this.goalTimer);
-    if (this.visualTimer) clearTimeout(this.visualTimer);
+    this.changeTimer.cancel();
+    this.goalTimer.cancel();
+    this.visualTimer.cancel();
     this.unsubDiag?.();
     this.unsubProgress?.();
     this.unsubSemanticTokens?.();

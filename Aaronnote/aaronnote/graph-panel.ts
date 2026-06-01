@@ -1,4 +1,5 @@
 import type { NoteSummary } from "./types.ts";
+import { CoalescedTimer } from "../src/coalesced-timer.ts";
 
 type GraphApi = {
   destroy?: () => void;
@@ -54,7 +55,7 @@ export function createGraphPanel(options: {
 }): GraphPanel {
   let api: GraphApi | null = null;
   let scriptsReady: Promise<void> | null = null;
-  let renderTimer = 0;
+  const renderTimer = new CoalescedTimer(120);
   let dataKey = "";
 
   async function ensureScripts(): Promise<void> {
@@ -113,7 +114,7 @@ export function createGraphPanel(options: {
   }
 
   function render(): void {
-    window.clearTimeout(renderTimer);
+    renderTimer.cancel();
     if (options.page.hidden) return;
     const nextDataKey = currentDataKey();
     updatePublishData();
@@ -156,12 +157,11 @@ export function createGraphPanel(options: {
 
   function scheduleRender(delay = 120): void {
     if (options.page.hidden) return;
-    window.clearTimeout(renderTimer);
-    renderTimer = window.setTimeout(render, delay);
+    renderTimer.schedule(render, undefined, delay);
   }
 
   function dispose(): void {
-    window.clearTimeout(renderTimer);
+    renderTimer.cancel();
     api?.destroy?.();
     api = null;
     dataKey = "";

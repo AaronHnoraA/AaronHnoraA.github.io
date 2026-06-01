@@ -18,6 +18,7 @@ import {
   type LeanSplice,
 } from "../src/lean-splice.ts";
 import { renderLeanMarkdown } from "../src/lean-render.ts";
+import { CoalescedTimer } from "../src/coalesced-timer.ts";
 import { createLeanOfficialInfoviewHost } from "./lean-infoview-host.ts";
 
 // ---------------------------------------------------------------------------
@@ -250,12 +251,12 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
   let lastOutlineSig = "";
   let lastOutlineUri = "";
   let outlineLoadSeq = 0;
-  let outlineLoadTimer: ReturnType<typeof setTimeout> | null = null;
+  const outlineLoadTimer = new CoalescedTimer(260);
   // Content-address renders to avoid replaceChildren on every Lean server push.
   let lastGoalsSig = "";
   let lastMessagesSig = "";
   let lastCurrentSig = "";
-  let renderMessagesTimer: ReturnType<typeof setTimeout> | null = null;
+  const renderMessagesTimer = new CoalescedTimer(LSP_UI_IDLE_MS);
 
   // -------------------------------------------------------------------------
   // Push subscriptions
@@ -575,11 +576,7 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
 
   function scheduleOutlineLoad(delay = 260, force = false): void {
     if (!_visible) return;
-    if (outlineLoadTimer) clearTimeout(outlineLoadTimer);
-    outlineLoadTimer = setTimeout(() => {
-      outlineLoadTimer = null;
-      void loadOutline(force);
-    }, delay);
+    outlineLoadTimer.schedule(() => void loadOutline(force), undefined, delay);
   }
 
   async function loadOutline(force = false): Promise<void> {
@@ -628,7 +625,8 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
     copy.title = "Copy message";
     copy.addEventListener("click", (event) => {
       event.stopPropagation();
-      void navigator.clipboard?.writeText(String(diag.message ?? "")).catch(() => {});
+      void navigator.clipboard?.writeText(String(diag.message ?? ""))
+        .catch((err) => console.warn("[lean] clipboard copy failed", err));
     });
     header.append(loc, copy);
     const text = el("pre", "lean-msg-text");
@@ -884,11 +882,7 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
   }
 
   function renderMessagesForActive(): void {
-    if (renderMessagesTimer) clearTimeout(renderMessagesTimer);
-    renderMessagesTimer = setTimeout(() => {
-      renderMessagesTimer = null;
-      renderMessages(activeDiagnostics());
-    }, LSP_UI_IDLE_MS);
+    renderMessagesTimer.schedule(() => renderMessages(activeDiagnostics()));
   }
 
   // -------------------------------------------------------------------------
@@ -905,7 +899,7 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
     onVisibilityChange?.();
     void api.lean.status().then((s) => {
       if (s) renderStatus(s as { message?: string; kind?: string });
-    }).catch(() => {});
+    }).catch((err) => console.warn("[lean] status query failed", err));
     scheduleOutlineLoad(0);
   }
 
@@ -1073,7 +1067,8 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
       currentGoalState.termGoal ? `Expected type:\n${currentGoalState.termGoal}` : "",
       messagesList.textContent ?? "",
     ].filter(Boolean).join("\n\n");
-    void navigator.clipboard?.writeText(text).catch(() => {});
+    void navigator.clipboard?.writeText(text)
+      .catch((err) => console.warn("[lean] clipboard copy failed", err));
   });
 
   widthResizer.addEventListener("pointerdown", (event) => {
@@ -1171,7 +1166,7 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
       if (currentNotePath) saveLayout();
       const changedNote = currentNotePath && currentNotePath !== notePath;
       if (changedNote && activeRegionLeanPath) {
-        void api.lean.request("stop").catch(() => {});
+        void api.lean.request("stop").catch((err) => console.warn("[lean] stop request failed", err));
       }
       currentNotePath = notePath;
       currentNotesRoot = notesRoot;
@@ -1208,8 +1203,8 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
       syncOfficialInfoviewVisibility();
     },
     destroy() {
-      if (renderMessagesTimer) clearTimeout(renderMessagesTimer);
-      if (outlineLoadTimer) clearTimeout(outlineLoadTimer);
+      renderMessagesTimer.cancel();
+      outlineLoadTimer.cancel();
       unsubDiag();
       unsubStatus();
       window.removeEventListener("aaronnote:lean-region-infoview", onRegionInfoview);

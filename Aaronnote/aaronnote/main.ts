@@ -678,8 +678,8 @@ const LARGE_RENDERED_OPEN_BYTES = 1_000_000;
 let currentStandalone = false;
 const noteCssDebounce = new CoalescedTimer(120);
 const saveDebounce = new CoalescedTimer(900);
-let draftSaveTimer = 0;
-let draftSaveIdleHandle = 0;
+const draftSaveDebounce = new CoalescedTimer(700);
+let cancelDraftIdle: (() => void) | null = null;
 let draftSavePending = false;
 let notes: NoteSummary[] = [];
 let directories: DirectorySummary[] = [];
@@ -690,7 +690,7 @@ let plugins: PluginSummary[] = [];
 let showAllFilesystemEntries = false;
 let pendingTodoFocus: { file: string; source: string; index?: number } | null = null;
 let assistFrame = 0;
-let assistTimer = 0;
+const assistTimer = new CoalescedTimer(35);
 let vimMode: VimLiteMode = "insert";
 let snippetPopupItems: SnippetSummary[] = [];
 let snippetPopupIndex = 0;
@@ -713,7 +713,6 @@ let relationRenderKey = "";
 let relationScanSeq = 0;
 let snippetSession: SnippetSession;
 let mathPreviewKey = "";
-let mathPreviewErrorTimer = 0;
 let mathPreviewPendingErrorKey = "";
 let mathPreviewUpdateRequested = false;
 let snippetScanRequested = false;
@@ -722,12 +721,10 @@ let selectionToolUpdateRequested = false;
 let vimCursorUpdateRequested = false;
 const MATH_PREVIEW_ERROR_IDLE_MS = 650;
 const MATH_PREVIEW_ERROR_MAX_LENGTH = 180;
+const mathPreviewErrorTimer = new CoalescedTimer(MATH_PREVIEW_ERROR_IDLE_MS);
 
 function clearMathPreviewErrorTimer(): void {
-  if (mathPreviewErrorTimer) {
-    window.clearTimeout(mathPreviewErrorTimer);
-    mathPreviewErrorTimer = 0;
-  }
+  mathPreviewErrorTimer.cancel();
   mathPreviewPendingErrorKey = "";
 }
 
@@ -742,8 +739,8 @@ type LeanFindMatch = FindMatch & { source: "code"; tag: string; view: EditorView
 type AaronFindMatch = MarkdownFindMatch | LeanFindMatch;
 let findMatches: AaronFindMatch[] = [];
 let findIndex = -1;
-let findRefreshTimer = 0;
-let findFullScanTimer = 0;
+const findRefreshTimer = new CoalescedTimer(80);
+const findFullScanTimer = new CoalescedTimer(0);
 let saveRequestSeq = 0;
 let proseCheckSeq = 0;
 let editRevision = 0;
@@ -751,8 +748,8 @@ let savedRevision = 0;
 let currentFileMtimeMs = 0;
 let currentFileSize = 0;
 let saveConflictActive = false;
-let notesRefreshTimer = 0;
-let notesRefreshIdleHandle = 0;
+const notesRefreshDebounce = new CoalescedTimer(1400);
+let cancelNotesIdle: (() => void) | null = null;
 let notesRefreshPending = false;
 let applyingRemoteContent = false;
 const saveClientId = (() => {
@@ -771,7 +768,7 @@ let pendingOpenAtTop = false;
 let activeNoteKind = "";
 let noteKindCleanup: (() => void) | null = null;
 let noteKindLoadSeq = 0;
-let recentLocalSaveTimer = 0;
+const recentLocalSaveTimer = new CoalescedTimer(650);
 let jumpStack: CursorPosition[] = [];
 const jumpStackLimit = 24;
 
@@ -851,8 +848,8 @@ const cursorStorageKey = "aaronnote.cursorPositions";
 const cursorStorageIndexKey = "aaronnote.cursorPositions.index";
 const cursorStorageEntryPrefix = "aaronnote.cursor.";
 let cursorPositions = loadCursorPositions();
-let cursorSaveTimer = 0;
-let cursorLocalSaveTimer = 0;
+const cursorSaveTimer = new CoalescedTimer(500);
+const cursorLocalSaveTimer = new CoalescedTimer(700);
 let lastCursorSaveKey = "";
 let editorCursorBeforePanel: CursorPosition | null = null;
 
@@ -1998,13 +1995,21 @@ function draftStorageKey(file = currentFile): string {
   return `${draftStoragePrefix}${file || "scratch"}`;
 }
 
-function cancelScheduledDraftRemember(): void {
-  window.clearTimeout(draftSaveTimer);
-  draftSaveTimer = 0;
-  if (draftSaveIdleHandle) {
-    window.cancelIdleCallback?.(draftSaveIdleHandle);
-    draftSaveIdleHandle = 0;
+// Run heavy work during browser idle time, falling back to a 0ms timeout where
+// requestIdleCallback is unavailable. Returns a cancel handle for either path.
+function runWhenIdle(fn: () => void, timeout: number): () => void {
+  if (typeof window.requestIdleCallback === "function") {
+    const id = window.requestIdleCallback(fn, { timeout });
+    return () => window.cancelIdleCallback?.(id);
   }
+  const id = window.setTimeout(fn, 0);
+  return () => window.clearTimeout(id);
+}
+
+function cancelScheduledDraftRemember(): void {
+  draftSaveDebounce.cancel();
+  cancelDraftIdle?.();
+  cancelDraftIdle = null;
   draftSavePending = false;
 }
 
@@ -2024,24 +2029,15 @@ function rememberDraft(content = editor.getMarkdown()): void {
 function scheduleDraftRemember(delay = 700): void {
   if (!currentFile) return;
   draftSavePending = true;
-  window.clearTimeout(draftSaveTimer);
-  if (draftSaveIdleHandle) {
-    window.cancelIdleCallback?.(draftSaveIdleHandle);
-    draftSaveIdleHandle = 0;
-  }
-  draftSaveTimer = window.setTimeout(() => {
-    draftSaveTimer = 0;
-    const run = () => {
-      draftSaveIdleHandle = 0;
+  cancelDraftIdle?.();
+  cancelDraftIdle = null;
+  draftSaveDebounce.schedule(() => {
+    cancelDraftIdle = runWhenIdle(() => {
+      cancelDraftIdle = null;
       if (!draftSavePending) return;
       rememberDraft();
-    };
-    if (typeof window.requestIdleCallback === "function") {
-      draftSaveIdleHandle = window.requestIdleCallback(run, { timeout: 1200 });
-    } else {
-      draftSaveTimer = window.setTimeout(run, 0);
-    }
-  }, delay);
+    }, 1200);
+  }, undefined, delay);
 }
 
 function flushDraftRemember(): void {
@@ -2223,29 +2219,20 @@ function syncEditorRoamLinkStatus(): void {
 }
 
 function cancelScheduledNotesRefresh(): void {
-  window.clearTimeout(notesRefreshTimer);
-  notesRefreshTimer = 0;
-  if (notesRefreshIdleHandle) {
-    window.cancelIdleCallback?.(notesRefreshIdleHandle);
-    notesRefreshIdleHandle = 0;
-  }
+  notesRefreshDebounce.cancel();
+  cancelNotesIdle?.();
+  cancelNotesIdle = null;
 }
 
 function scheduleNotesRefresh(delay = 1400): void {
   notesRefreshPending = true;
   cancelScheduledNotesRefresh();
-  notesRefreshTimer = window.setTimeout(() => {
-    notesRefreshTimer = 0;
-    const run = () => {
-      notesRefreshIdleHandle = 0;
+  notesRefreshDebounce.schedule(() => {
+    cancelNotesIdle = runWhenIdle(() => {
+      cancelNotesIdle = null;
       void refreshNotesIndex();
-    };
-    if (typeof window.requestIdleCallback === "function") {
-      notesRefreshIdleHandle = window.requestIdleCallback(run, { timeout: 3000 });
-    } else {
-      notesRefreshTimer = window.setTimeout(run, 800);
-    }
-  }, delay);
+    }, 3000);
+  }, undefined, delay);
 }
 
 async function refreshNotesIndex(force = false): Promise<void> {
@@ -2348,8 +2335,8 @@ function applyFindDecorations(matches: readonly AaronFindMatch[], currentIndex =
 }
 
 function refreshFindMatches(options: { viewportFirst?: boolean } = {}): void {
-  window.clearTimeout(findRefreshTimer);
-  window.clearTimeout(findFullScanTimer);
+  findRefreshTimer.cancel();
+  findFullScanTimer.cancel();
   findMatches = [];
   findIndex = -1;
   const pattern = findPattern();
@@ -2368,7 +2355,7 @@ function refreshFindMatches(options: { viewportFirst?: boolean } = {}): void {
       ? `Viewport ${viewportMatches.length}...`
       : "Scanning...";
     applyFindDecorations(viewportMatches);
-    findFullScanTimer = window.setTimeout(() => {
+    findFullScanTimer.schedule(() => {
       if (findTool.hidden) return;
       if (findQuery.value !== query || findRegex.checked !== regex) return;
       const fullPattern = findPattern();
@@ -2376,7 +2363,7 @@ function refreshFindMatches(options: { viewportFirst?: boolean } = {}): void {
       findCount.textContent = findMatches.length ? `0 / ${findMatches.length}` : "No matches";
       applyFindDecorations(findMatches);
       if (findMatches.length) selectFindMatch(0);
-    }, 0);
+    });
     return;
   }
   findMatches = collectScopedFindMatches(markdown, pattern);
@@ -2385,10 +2372,9 @@ function refreshFindMatches(options: { viewportFirst?: boolean } = {}): void {
 }
 
 function scheduleFindRefresh(): void {
-  window.clearTimeout(findRefreshTimer);
-  findRefreshTimer = window.setTimeout(() => {
+  findRefreshTimer.schedule(() => {
     refreshFindMatches({ viewportFirst: true });
-  }, 80);
+  });
 }
 
 function selectFindMatch(index: number): void {
@@ -2445,8 +2431,8 @@ function openFindTool(): void {
 
 function closeFindTool(refocusEditor = true): void {
   findTool.hidden = true;
-  window.clearTimeout(findRefreshTimer);
-  window.clearTimeout(findFullScanTimer);
+  findRefreshTimer.cancel();
+  findFullScanTimer.cancel();
   findMatches = [];
   findIndex = -1;
   findCount.textContent = "";
@@ -5768,7 +5754,7 @@ function cleanupTransientUi(): void {
   hideSnippetPopup();
   hideMathPreview();
   selectionTool.hidden = true;
-  window.clearTimeout(assistTimer);
+  assistTimer.cancel();
   window.cancelAnimationFrame(assistFrame);
 }
 
@@ -8298,8 +8284,7 @@ function scheduleMathPreviewError(
   clearMathPreviewErrorTimer();
   mathPreviewPendingErrorKey = nextKey;
   const message = `Math error: ${formatMathRenderError(error, MATH_PREVIEW_ERROR_MAX_LENGTH)}`;
-  mathPreviewErrorTimer = window.setTimeout(() => {
-    mathPreviewErrorTimer = 0;
+  mathPreviewErrorTimer.schedule(() => {
     if (mathPreviewPendingErrorKey !== nextKey || mathPreviewKey !== nextKey) return;
     if (vimMode !== "insert" || !editorSurfaceVisible()) return;
     const ctx = editor.cursorContext(display ? 640 : 320);
@@ -8313,7 +8298,7 @@ function scheduleMathPreviewError(
     mathPreview.classList.toggle("is-display", math.display);
     mathPreview.hidden = false;
     placeFloatingAbove(mathPreview, anchorRect, math.display ? 640 : 320, bottomRect);
-  }, MATH_PREVIEW_ERROR_IDLE_MS);
+  });
 }
 
 function updateMathPreview(ctx: ReturnType<typeof editor.cursorContext>, allowNewPreview: boolean): void {
@@ -8468,7 +8453,7 @@ function scheduleAssistUpdate(options: AssistUpdateOptions = {}): void {
     tocUpdateRequested = false;
     selectionToolUpdateRequested = false;
     vimCursorUpdateRequested = false;
-    window.clearTimeout(assistTimer);
+    assistTimer.cancel();
     window.cancelAnimationFrame(assistFrame);
     return;
   }
@@ -8478,8 +8463,7 @@ function scheduleAssistUpdate(options: AssistUpdateOptions = {}): void {
   tocUpdateRequested = tocUpdateRequested || options.toc === true;
   selectionToolUpdateRequested = selectionToolUpdateRequested || (explicit ? options.selectionTool === true : true);
   vimCursorUpdateRequested = vimCursorUpdateRequested || options.cursor !== false;
-  window.clearTimeout(assistTimer);
-  assistTimer = window.setTimeout(() => {
+  assistTimer.schedule(() => {
     window.cancelAnimationFrame(assistFrame);
     assistFrame = window.requestAnimationFrame(() => {
       const shouldScanSnippets = snippetScanRequested;
@@ -8524,7 +8508,7 @@ function scheduleAssistUpdate(options: AssistUpdateOptions = {}): void {
       const activeSelection = shouldUpdateSelectionTool ? activeEditorSelection() : null;
       if (shouldUpdateSelectionTool) updateSelectionTool(activeSelection);
     });
-  }, 35);
+  });
 }
 
 function updateVimCursorNow(): void {
@@ -8577,10 +8561,7 @@ function loadRecentNotes(): RecentNote[] {
 }
 
 function saveRecentNotesLocalNow(): void {
-  if (recentLocalSaveTimer) {
-    window.clearTimeout(recentLocalSaveTimer);
-    recentLocalSaveTimer = 0;
-  }
+  recentLocalSaveTimer.cancel();
   try {
     window.localStorage.setItem(recentStorageKey, JSON.stringify(recentNotes.slice(0, 24)));
   } catch {
@@ -8589,8 +8570,7 @@ function saveRecentNotesLocalNow(): void {
 }
 
 function scheduleRecentNotesLocalSave(delay = 650): void {
-  if (recentLocalSaveTimer) window.clearTimeout(recentLocalSaveTimer);
-  recentLocalSaveTimer = window.setTimeout(saveRecentNotesLocalNow, delay);
+  recentLocalSaveTimer.schedule(saveRecentNotesLocalNow, undefined, delay);
 }
 
 function loadWritingMode(): { focusMode: boolean; typewriterMode: boolean } {
@@ -8749,8 +8729,7 @@ function loadCursorPositions(): Map<string, CursorPosition> {
 }
 
 function saveCursorPositionsLocalNow(): void {
-  window.clearTimeout(cursorLocalSaveTimer);
-  cursorLocalSaveTimer = 0;
+  cursorLocalSaveTimer.cancel();
   try {
     const positions = [...cursorPositions.values()].slice(0, 240);
     const files = positions.map((position) => position.file);
@@ -8775,8 +8754,7 @@ function saveCursorPositionsLocalNow(): void {
 }
 
 function scheduleCursorPositionsLocalSave(delay = 700): void {
-  window.clearTimeout(cursorLocalSaveTimer);
-  cursorLocalSaveTimer = window.setTimeout(saveCursorPositionsLocalNow, delay);
+  cursorLocalSaveTimer.schedule(saveCursorPositionsLocalNow, undefined, delay);
 }
 
 function mergeCursorPositions(entries: unknown): void {
@@ -8920,7 +8898,7 @@ function persistCursorPosition(position: CursorPosition, keepalive = false): voi
 }
 
 function saveCursorPositionNow(options: { keepalive?: boolean; force?: boolean } = {}): void {
-  window.clearTimeout(cursorSaveTimer);
+  cursorSaveTimer.cancel();
   const position = currentCursorPosition();
   if (!position) return;
   const key = `${position.file}:${position.mode}:${position.from}:${position.to}:${Math.round(position.scrollY)}`;
@@ -8935,8 +8913,7 @@ function saveCursorPositionNow(options: { keepalive?: boolean; force?: boolean }
 
 function scheduleCursorPositionSave(delay = 500): void {
   if (!currentFile || !editorSurfaceVisible()) return;
-  window.clearTimeout(cursorSaveTimer);
-  cursorSaveTimer = window.setTimeout(() => saveCursorPositionNow(), delay);
+  cursorSaveTimer.schedule(() => saveCursorPositionNow(), undefined, delay);
 }
 
 function restoreCursorPosition(file: string): boolean {

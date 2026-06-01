@@ -61,6 +61,21 @@ describe("CoalescedTimer", () => {
     expect(fn).toHaveBeenCalledOnce();
   });
 
+  test("per-call delayMs overrides the constructor default", () => {
+    const fn = vi.fn();
+    const t = new CoalescedTimer(100);
+    t.schedule(fn, undefined, 0);
+    vi.advanceTimersByTime(0);
+    expect(fn).toHaveBeenCalledOnce();
+
+    const slow = vi.fn();
+    t.schedule(slow, undefined, 500);
+    vi.advanceTimersByTime(100);   // default would have fired here
+    expect(slow).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(400);
+    expect(slow).toHaveBeenCalledOnce();
+  });
+
   test("cancel preserves lastSig so dedup still works after cancel", () => {
     const fn = vi.fn();
     const t = new CoalescedTimer(100);

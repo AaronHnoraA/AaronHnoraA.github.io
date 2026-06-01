@@ -1,4 +1,5 @@
 import type { NoteSummary } from "./types.ts";
+import { CoalescedTimer } from "../src/coalesced-timer.ts";
 
 type OpenNoteOptions = { newWindow?: boolean };
 
@@ -180,7 +181,7 @@ function buildLookup(notes: NoteSummary[]): Map<string, NoteSummary> {
 export function createLocalGraphPanel(options: LocalGraphPanelOptions): LocalGraphPanel {
   let renderKey = "";
   let animationFrame = 0;
-  let resizeTimer = 0;
+  const resizeTimer = new CoalescedTimer(40);
   let expandedOnce = false;
 
   function isCollapsed(): boolean {
@@ -199,9 +200,8 @@ export function createLocalGraphPanel(options: LocalGraphPanelOptions): LocalGra
 
   function clearGraph(): void {
     window.cancelAnimationFrame(animationFrame);
-    window.clearTimeout(resizeTimer);
+    resizeTimer.cancel();
     animationFrame = 0;
-    resizeTimer = 0;
     options.canvas.replaceChildren();
   }
 
@@ -600,8 +600,7 @@ export function createLocalGraphPanel(options: LocalGraphPanelOptions): LocalGra
 
   function scheduleUpdate(delay = 40): void {
     if (isCollapsed()) return;
-    window.clearTimeout(resizeTimer);
-    resizeTimer = window.setTimeout(() => update(true), delay);
+    resizeTimer.schedule(() => update(true), undefined, delay);
   }
 
   function collapse(): void {
