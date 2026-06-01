@@ -34,6 +34,20 @@ $$
     expect(inline).toContain("<code>$x+1$</code>");
   });
 
+  test("keeps org-env syntax literal inside fenced markdown code", () => {
+    const html = renderMarkdownHTML([
+      "```md",
+      "#+begin meta",
+      "tags: algebra, linear-algebra, math, reading",
+      "#+end meta",
+      "```",
+    ].join("\n"));
+
+    expect(html).toContain("<code");
+    expect(html).toContain("#+begin meta");
+    expect(html).not.toContain("aaronnote-meta-cover");
+  });
+
   test("marks roam core links for special rendering", () => {
     const html = renderMarkdownHTML("[section](roam://node-id@main-heading) and [tag](node-id#anchor)");
 

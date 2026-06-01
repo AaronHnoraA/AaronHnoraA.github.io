@@ -22,7 +22,7 @@ import { MeasuredWidget } from "./measured-widget.ts";
 import { shortHash } from "./measured-observer.ts";
 import { StateField, type ChangeSet, type EditorState } from "@codemirror/state";
 import type { Range } from "@codemirror/state";
-import { INLINE_MATH_RE, isLikelyInlineMath } from "../../inline-math.ts";
+import { scanInlineMathRanges } from "../../inline-math.ts";
 import { renderMathHTML } from "../../math-render.ts";
 import { getBlockMathRanges, rangeOverlapsAny } from "../math-ranges.ts";
 import { scanCodeRanges } from "../code-ranges.ts";
@@ -352,16 +352,9 @@ function buildInlineMathDecos(view: EditorView): DecorationSet {
   for (const { from: vFrom, to: vTo } of view.visibleRanges) {
     const text = doc.sliceString(vFrom, vTo);
 
-    INLINE_MATH_RE.lastIndex = 0;
-    let m: RegExpExecArray | null;
-    while ((m = INLINE_MATH_RE.exec(text)) !== null) {
-      const from = vFrom + m.index;
-      const to = vFrom + m.index + m[0].length;
-      const tex = m[1]!;
-
+    for (const { from, to, tex } of scanInlineMathRanges(text, vFrom)) {
       if (rangeOverlapsAny(from, to, blockRanges)) continue;
       if (rangeOverlapsAny(from, to, codeRanges)) continue;
-      if (!isLikelyInlineMath(tex)) continue;
 
       const cursorInside = sel.from < to && sel.to > from;
       if (!cursorInside) {
@@ -385,15 +378,9 @@ function activeInlineMathKey(state: EditorState): string {
 
   for (let lineNum = firstLine; lineNum <= lastLine; lineNum++) {
     const line = state.doc.line(lineNum);
-    INLINE_MATH_RE.lastIndex = 0;
-    let match: RegExpExecArray | null;
-    while ((match = INLINE_MATH_RE.exec(line.text)) !== null) {
-      const from = line.from + match.index;
-      const to = from + match[0].length;
-      const tex = match[1]!;
+    for (const { from, to } of scanInlineMathRanges(line.text, line.from)) {
       if (rangeOverlapsAny(from, to, blockRanges)) continue;
       if (rangeOverlapsAny(from, to, codeRanges)) continue;
-      if (!isLikelyInlineMath(tex)) continue;
       if (sel.from < to && sel.to > from) keys.push(`${from}:${to}`);
     }
   }

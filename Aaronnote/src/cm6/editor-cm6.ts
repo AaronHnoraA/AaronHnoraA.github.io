@@ -48,7 +48,8 @@ import {
 } from "./commands.ts";
 import { markdownFromClipboard } from "../clipboard.ts";
 import { renderMarkdownHTML } from "../render-html.ts";
-import { blockMathRangesExtension } from "./math-ranges.ts";
+import { blockMathRangesExtension, getBlockMathRanges, positionInsideAnyRange } from "./math-ranges.ts";
+import { scanInlineMathRanges } from "../inline-math.ts";
 import { findHighlightExtension } from "./find-highlight.ts";
 import { roamLinkStatusExtension } from "./roam-link-status.ts";
 import { tocIndexExtension } from "./toc-index.ts";
@@ -199,10 +200,14 @@ function markdownHrefFromLineAt(state: EditorState, pos: number): string | null 
 }
 
 export function markdownHrefAt(state: EditorState, pos: number): string | null {
-  const wikilink = wikilinkHrefAt(state, pos);
-  if (wikilink) return wikilink;
   const docLen = state.doc.length;
   const clamped = Math.max(0, Math.min(pos, docLen));
+  if (positionInsideAnyRange(clamped, getBlockMathRanges(state))) return null;
+  const line = state.doc.lineAt(clamped);
+  if (positionInsideAnyRange(clamped, scanInlineMathRanges(line.text, line.from))) return null;
+
+  const wikilink = wikilinkHrefAt(state, pos);
+  if (wikilink) return wikilink;
   const positions = clamped > 0 ? [clamped, clamped - 1] : [clamped];
 
   for (const targetPos of positions) {

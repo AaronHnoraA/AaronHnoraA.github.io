@@ -1655,18 +1655,24 @@ $$
 ## 3.8. Table of recurring structures
 
 | Object | Mathematical form | Computational question | Typical invariant |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Pure state | vector in Hilbert space | state equivalence | inner product |
 | Mixed state | density operator | distinguishability | spectrum |
 | Bilinear map | structure tensor | tensor isomorphism | slice rank |
-| Graph | adjacency relation | graph isomorphism | degree sequence |
+| Graph | adjacency relation | graph isomorphism $adasd$ | degree sequence |
 | Algebra | multiplication tensor | algebra isomorphism | radical series |
 | Module | representation action | module isomorphism | composition factors |
 
 ## 3.9. Algorithmic skeleton
 
 The following pseudocode is not intended to solve tensor isomorphism. It
-only gives a schematic form of an invariant-refinement strategy.
+only gives a schematic form of an invariant-refinement strategy. this i shar hard to use sssssssssssssssssssssssssssssssssss kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk jjjjjjjjjjjjj kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkll this is hard to $sadasd x + y$
+
+ kkkkkkkkkkkkkkkkkkkkkkk
+
+jjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+jjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+this is hard to us
 
 ```python
 from dataclasses import dataclass
@@ -1697,6 +1703,11 @@ def search_certificate(x: Instance, y: Instance) -> bool:
 This section intentionally mixes Markdown headings, Org-style environments,
 displayed equations, inline mathematical notation, tables, and code blocks.
 A good editor should remain responsive even when this pattern is repeated
+
+
+this is har d $this + = 3$ 
+
+
 many times.
 #+end attention
 
@@ -2215,16 +2226,14 @@ p(1)=\operatorname{tr}(M_1\rho).
 $$
 #+end example
 
-## 4.8. Table of recurring structures
-
-| Object | Mathematical form | Computational question | Typical invariant |
-|---|---|---|---|
+## 4.8. Table of re| Object | Mathematical form | Computational question | Typical invariant |
+| --- | --- | --- | --- |
 | Pure state | vector in Hilbert space | state equivalence | inner product |
 | Mixed state | density operator | distinguishability | spectrum |
 | Bilinear map | structure tensor | tensor isomorphism | slice rank |
-| Graph | adjacency relation | graph isomorphism | degree sequence |
+| Graph | adjacency relation | graph isomorphism ; | degree sequence |
 | Algebra | multiplication tensor | algebra isomorphism | radical series |
-| Module | representation action | module isomorphism | composition factors |
+| Module | representation action | module isomorphism | composition factors |omposition factors |
 
 ## 4.9. Algorithmic skeleton
 

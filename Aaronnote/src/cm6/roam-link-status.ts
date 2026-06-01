@@ -7,6 +7,9 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from "@codemirror/view";
+import { blockMathRangesOverlapping, mergeOverlappingRanges, rangeOverlapsAny } from "./math-ranges.ts";
+import { scanCodeRanges } from "./code-ranges.ts";
+import { scanInlineMathRanges } from "../inline-math.ts";
 
 const WIKILINK_RE = /\[\[([^\]\n]+)\]\]/g;
 const BARE_ROAM_RE = /\broam:\/\/[^\s<>)\]]+/gi;
@@ -58,6 +61,12 @@ function buildBrokenLinkDecorations(view: EditorView): DecorationSet {
   if (!known || known.size === 0) return Decoration.none;
   const decos: Range<Decoration>[] = [];
   const mark = Decoration.mark({ class: "cm-roam-link-broken" });
+  const excludedRanges = mergeOverlappingRanges([
+    ...blockMathRangesOverlapping(view.state, view.visibleRanges).map(({ from, to }) => ({ from, to })),
+    ...view.visibleRanges.flatMap(({ from, to }) =>
+      scanInlineMathRanges(view.state.doc.sliceString(from, to), from)),
+    ...scanCodeRanges(view.state, view.visibleRanges),
+  ]);
 
   for (const { from: visibleFrom, to: visibleTo } of view.visibleRanges) {
     const text = view.state.doc.sliceString(visibleFrom, visibleTo);
@@ -68,6 +77,7 @@ function buildBrokenLinkDecorations(view: EditorView): DecorationSet {
       if (knownRefMatches(known, ref)) continue;
       const from = visibleFrom + wiki.index + 2;
       const to = visibleFrom + wiki.index + wiki[0].length - 2;
+      if (rangeOverlapsAny(from, to, excludedRanges)) continue;
       if (from < to) decos.push(mark.range(from, to));
     }
 
@@ -79,6 +89,7 @@ function buildBrokenLinkDecorations(view: EditorView): DecorationSet {
       if (knownRefMatches(known, ref)) continue;
       const from = visibleFrom + roam.index;
       const to = from + href.length;
+      if (rangeOverlapsAny(from, to, excludedRanges)) continue;
       decos.push(mark.range(from, to));
     }
   }

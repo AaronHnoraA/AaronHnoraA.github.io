@@ -204,6 +204,25 @@ export function rangeOverlapsAny(
   return range.from < to && range.to > from;
 }
 
+export function mergeOverlappingRanges(
+  ranges: ReadonlyArray<Pick<BlockMathRange, "from" | "to">>,
+): Array<{ from: number; to: number }> {
+  const sorted = ranges
+    .filter((range) => range.from < range.to)
+    .map((range) => ({ from: range.from, to: range.to }))
+    .sort((a, b) => a.from - b.from || a.to - b.to);
+  const merged: Array<{ from: number; to: number }> = [];
+  for (const range of sorted) {
+    const previous = merged[merged.length - 1];
+    if (previous && range.from <= previous.to) {
+      previous.to = Math.max(previous.to, range.to);
+    } else {
+      merged.push(range);
+    }
+  }
+  return merged;
+}
+
 export function rangeInsideAny(
   from: number,
   to: number,

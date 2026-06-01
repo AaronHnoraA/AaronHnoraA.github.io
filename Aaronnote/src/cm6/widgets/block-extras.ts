@@ -25,9 +25,15 @@ import { StateEffect, StateField, type ChangeSet, type EditorState, type Extensi
 import type { Range as CMRange } from "@codemirror/state";
 import {
   getBlockMathRanges,
+  mergeOverlappingRanges,
   positionInsideAnyRange,
   rangeOverlapsAny,
 } from "../math-ranges.ts";
+import {
+  changesMightAffectFencedCodeRanges,
+  fencedCodeRangesExtension,
+  getFencedCodeRanges,
+} from "../code-ranges.ts";
 import {
   metaEntryMap,
   metaTags,
@@ -100,12 +106,22 @@ function orgEnvBoundaryRe(kind: string, boundary: "begin" | "end"): RegExp {
   return new RegExp(`^[ \\t]*#\\+\\s*end\\s+${escapedKind}[ \\t]*$`, "i");
 }
 
+function combineExcludedRanges(
+  ...lists: Array<ReadonlyArray<{ from: number; to: number }>>
+): Array<{ from: number; to: number }> {
+  return mergeOverlappingRanges(lists.flatMap((list) => Array.from(list)));
+}
+
+function blockExtraExcludedRanges(state: EditorState): Array<{ from: number; to: number }> {
+  return combineExcludedRanges(getBlockMathRanges(state), getFencedCodeRanges(state));
+}
+
 // Depth-aware scanner: handles nested #+begin <kind> … #+end <kind>.
 function scanOrgEnvBlocks(
   text: string,
   depthLevel = 0,
   baseOffset = 0,
-  blockMathRanges: ReadonlyArray<{ from: number; to: number }> = [],
+  excludedRanges: ReadonlyArray<{ from: number; to: number }> = [],
 ): OrgEnvBlock[] {
   const results: OrgEnvBlock[] = [];
   let i = 0;
@@ -113,7 +129,7 @@ function scanOrgEnvBlocks(
     // Advance to the start of the next line
     const lineEnd = text.indexOf("\n", i);
     const lineEndPos = lineEnd === -1 ? text.length : lineEnd;
-    if (positionInsideAnyRange(baseOffset + i, blockMathRanges)) { i = lineEndPos + 1; continue; }
+    if (positionInsideAnyRange(baseOffset + i, excludedRanges)) { i = lineEndPos + 1; continue; }
     const line = text.slice(i, lineEndPos);
     const openMatch = ORG_ENV_SCAN_OPEN_RE.exec(line);
     if (!openMatch) { i = lineEndPos + 1; continue; }
@@ -131,7 +147,7 @@ function scanOrgEnvBlocks(
     while (pos < text.length) {
       const nl = text.indexOf("\n", pos);
       const nextEnd = nl === -1 ? text.length : nl;
-      if (positionInsideAnyRange(baseOffset + pos, blockMathRanges)) { pos = nextEnd + 1; continue; }
+      if (positionInsideAnyRange(baseOffset + pos, excludedRanges)) { pos = nextEnd + 1; continue; }
       const cur = text.slice(pos, nextEnd);
       if (closeRe.test(cur)) { depth--; if (depth === 0) { closeFrom = pos; closeTo = nextEnd; break; } }
       else if (openRe.test(cur)) depth++;
@@ -158,7 +174,7 @@ function scanOrgEnvBlocks(
       depth: depthLevel,
     });
     if (kind !== "meta") {
-      for (const nested of scanOrgEnvBlocks(body, depthLevel + 1, baseOffset + bodyStart, blockMathRanges)) {
+      for (const nested of scanOrgEnvBlocks(body, depthLevel + 1, baseOffset + bodyStart, excludedRanges)) {
         results.push({
           ...nested,
           from: bodyStart + nested.from,
@@ -750,6 +766,7 @@ function scanBlockExtraLineRanges(
   doc: Text,
   startLine = 1,
   endLine = doc.lines,
+  excludedRanges: ReadonlyArray<{ from: number; to: number }> = [],
 ): Pick<BlockExtraRanges, "toc" | "includes" | "semanticHeadings" | "hrs"> {
   const toc: Array<{ from: number; to: number }> = [];
   const includes: Array<{ from: number; to: number; ref: string }> = [];
@@ -757,6 +774,7 @@ function scanBlockExtraLineRanges(
   const hrs: Array<{ from: number; to: number }> = [];
   for (let lineNum = Math.max(1, startLine); lineNum <= Math.min(doc.lines, endLine); lineNum++) {
     const line = doc.line(lineNum);
+    if (rangeOverlapsAny(line.from, line.to, excludedRanges)) continue;
     if (TOC_LINE_RE.test(line.text)) toc.push({ from: line.from, to: line.to });
     const includeMatch = INCLUDE_LINE_RE.exec(line.text);
     if (includeMatch?.[1]?.trim()) includes.push({ from: line.from, to: line.to, ref: includeMatch[1].trim() });
@@ -773,26 +791,30 @@ function scanBlockExtraLineRanges(
   return { toc, includes, semanticHeadings, hrs };
 }
 
-function scanBlockExtraRanges(doc: Text): BlockExtraRanges {
-  const { toc, includes, semanticHeadings, hrs } = scanBlockExtraLineRanges(doc);
+function scanBlockExtraRanges(
+  doc: Text,
+  excludedRanges: ReadonlyArray<{ from: number; to: number }> = [],
+): BlockExtraRanges {
+  const { toc, includes, semanticHeadings, hrs } = scanBlockExtraLineRanges(doc, 1, doc.lines, excludedRanges);
   return { toc, includes, semanticHeadings, hrs, frontMatter: scanFrontMatter(doc) };
 }
 
 const blockExtraRangesField = StateField.define<BlockExtraRanges>({
-  create: (state) => scanBlockExtraRanges(state.doc),
+  create: (state) => scanBlockExtraRanges(state.doc, blockExtraExcludedRanges(state)),
   update(ranges, tr) {
     if (tr.docChanged) {
       return canMapBlockExtraRanges(tr.startState.doc, tr.changes, ranges)
         ? mapBlockExtraRanges(ranges, tr.changes)
         : canPatchBlockExtraRangesNearChanges(tr.startState.doc, tr.changes, ranges)
-          ? patchBlockExtraRangesNearChanges(tr.state.doc, ranges, tr.changes)
-          : scanBlockExtraRanges(tr.state.doc);
+          ? patchBlockExtraRangesNearChanges(tr.state.doc, ranges, tr.changes, blockExtraExcludedRanges(tr.state))
+          : scanBlockExtraRanges(tr.state.doc, blockExtraExcludedRanges(tr.state));
     }
     return ranges;
   },
 });
 
 function canMapBlockExtraRanges(doc: Text, changes: ChangeSet, ranges: BlockExtraRanges): boolean {
+  if (changesMightAffectFencedCodeRanges(doc, changes)) return false;
   let canMap = true;
   changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
     if (!canMap) return;
@@ -812,6 +834,7 @@ function canMapBlockExtraRanges(doc: Text, changes: ChangeSet, ranges: BlockExtr
 }
 
 function canPatchBlockExtraRangesNearChanges(doc: Text, changes: ChangeSet, ranges: BlockExtraRanges): boolean {
+  if (changesMightAffectFencedCodeRanges(doc, changes)) return false;
   let canPatch = true;
   changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
     if (!canPatch) return;
@@ -853,6 +876,7 @@ function patchBlockExtraRangesNearChanges(
   doc: Text,
   ranges: BlockExtraRanges,
   changes: ChangeSet,
+  excludedRanges: ReadonlyArray<{ from: number; to: number }>,
 ): BlockExtraRanges {
   let fromB = Number.POSITIVE_INFINITY;
   let toB = 0;
@@ -866,7 +890,7 @@ function patchBlockExtraRangesNearChanges(
   const affectedFrom = doc.line(startLine).from;
   const affectedTo = doc.line(endLine).to;
   const mapped = mapBlockExtraRanges(ranges, changes);
-  const scanned = scanBlockExtraLineRanges(doc, startLine, endLine);
+  const scanned = scanBlockExtraLineRanges(doc, startLine, endLine, excludedRanges);
   return {
     toc: [
       ...mapped.toc.filter((range) => range.to < affectedFrom || range.from > affectedTo),
@@ -1525,12 +1549,12 @@ interface OrgEnvRailMeasure {
 }
 
 const orgEnvBlocksField = StateField.define<readonly OrgEnvBlock[]>({
-  create: (state) => scanOrgEnvBlocks(state.doc.toString(), 0, 0, getBlockMathRanges(state)),
+  create: (state) => scanOrgEnvBlocks(state.doc.toString(), 0, 0, blockExtraExcludedRanges(state)),
   update(blocks, tr) {
     if (!tr.docChanged) return blocks;
     if (!canMapOrgEnvBlocks(tr.startState.doc, blocks, tr.changes)) {
       return patchOrgEnvBlocksForTitleChange(tr.startState.doc, tr.state.doc, blocks, tr.changes)?.blocks
-        ?? scanOrgEnvBlocks(tr.state.doc.toString(), 0, 0, getBlockMathRanges(tr.state));
+        ?? scanOrgEnvBlocks(tr.state.doc.toString(), 0, 0, blockExtraExcludedRanges(tr.state));
     }
     return mapOrgEnvBlocks(blocks, tr.changes, tr.state.doc);
   },
@@ -1560,10 +1584,11 @@ const dirtyTikzBlocksField = StateField.define<ReadonlySet<string>>({
 });
 
 function orgEnvBlocksFromState(state: EditorState): readonly OrgEnvBlock[] {
-  return state.field(orgEnvBlocksField, false) ?? scanOrgEnvBlocks(state.doc.toString(), 0, 0, getBlockMathRanges(state));
+  return state.field(orgEnvBlocksField, false) ?? scanOrgEnvBlocks(state.doc.toString(), 0, 0, blockExtraExcludedRanges(state));
 }
 
 function canMapOrgEnvBlocks(doc: Text, blocks: readonly OrgEnvBlock[], changes: ChangeSet): boolean {
+  if (changesMightAffectFencedCodeRanges(doc, changes)) return false;
   let canMap = true;
   changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
     if (!canMap) return;
@@ -1941,14 +1966,14 @@ function buildBlockExtraDecoRanges(
   const decos: CMRange<Decoration>[] = [];
   const occupied: Array<[number, number]> = [];
   const sel = state.selection.main;
-  const blockMathRanges = getBlockMathRanges(state);
+  const excludedRanges = blockExtraExcludedRanges(state);
   const headings = tocIndexFromState(state).headings;
-  const ranges = state.field(blockExtraRangesField, false) ?? scanBlockExtraRanges(state.doc);
+  const ranges = state.field(blockExtraRangesField, false) ?? scanBlockExtraRanges(state.doc, excludedRanges);
 
   // ── [toc] ──────────────────────────────────────────────────────────────
   for (const range of ranges.toc) {
     if (range.to < windowFrom || range.from > windowTo) continue;
-    if (rangeOverlapsAny(range.from, range.to, blockMathRanges)) continue;
+    if (rangeOverlapsAny(range.from, range.to, excludedRanges)) continue;
     if (!(sel.from <= range.to && sel.to >= range.from)) {
       decos.push(
         Decoration.replace({ widget: new TocWidget([...headings]), block: true }).range(range.from, range.to),
@@ -1960,7 +1985,7 @@ function buildBlockExtraDecoRanges(
   // ── @@include [path] ───────────────────────────────────────────────────
   for (const range of ranges.includes) {
     if (range.to < windowFrom || range.from > windowTo) continue;
-    if (rangeOverlapsAny(range.from, range.to, blockMathRanges)) continue;
+    if (rangeOverlapsAny(range.from, range.to, excludedRanges)) continue;
     if (occupied.some(([from, to]) => range.from < to && range.to > from)) continue;
     if (sel.from >= range.from && sel.from <= range.to) {
       decos.push(Decoration.mark({ class: "syntax-hint" }).range(range.from, range.to));
@@ -1975,7 +2000,7 @@ function buildBlockExtraDecoRanges(
   // ── @@part / @@section semantic headings ──────────────────────────────
   for (const range of ranges.semanticHeadings) {
     if (range.to < windowFrom || range.from > windowTo) continue;
-    if (rangeOverlapsAny(range.from, range.to, blockMathRanges)) continue;
+    if (rangeOverlapsAny(range.from, range.to, excludedRanges)) continue;
     if (occupied.some(([from, to]) => range.from < to && range.to > from)) continue;
     if (sel.from >= range.from && sel.from <= range.to) {
       decos.push(Decoration.mark({ class: "syntax-hint" }).range(range.from, range.to));
@@ -2002,7 +2027,7 @@ function buildBlockExtraDecoRanges(
   const frontMatter = ranges.frontMatter;
   if (frontMatter) {
     const { from, to, body } = frontMatter;
-    if (to >= windowFrom && from <= windowTo && !rangeOverlapsAny(from, to, blockMathRanges) && !(sel.from < to && sel.to > from)) {
+    if (to >= windowFrom && from <= windowTo && !rangeOverlapsAny(from, to, excludedRanges) && !(sel.from < to && sel.to > from)) {
       decos.push(
         Decoration.replace({ widget: new FrontMatterWidget(body, from, to), block: true }).range(from, to),
       );
@@ -2013,7 +2038,7 @@ function buildBlockExtraDecoRanges(
   // ── Horizontal rule ────────────────────────────────────────────────────
   for (const range of ranges.hrs) {
     if (range.to < windowFrom || range.from > windowTo) continue;
-    if (rangeOverlapsAny(range.from, range.to, blockMathRanges)) continue;
+    if (rangeOverlapsAny(range.from, range.to, excludedRanges)) continue;
     if (occupied.some(([from, to]) => range.from < to && range.to > from)) continue;
     if (sel.from >= range.from && sel.from <= range.to) {
       decos.push(Decoration.mark({ class: "syntax-hint" }).range(range.from, range.to));
@@ -2054,7 +2079,7 @@ function changesTouchRange(changes: ChangeSet, from: number, to: number): boolea
 function activeBlockExtraKey(state: EditorState): string {
   const sel = state.selection.main;
   const parts: string[] = [];
-  const ranges = state.field(blockExtraRangesField, false) ?? scanBlockExtraRanges(state.doc);
+  const ranges = state.field(blockExtraRangesField, false) ?? scanBlockExtraRanges(state.doc, blockExtraExcludedRanges(state));
   const blocks = orgEnvBlocksFromState(state);
 
   for (const range of ranges.toc) {
@@ -2135,7 +2160,7 @@ function patchBlockExtraDecosForSelectionChange(
 }
 
 function canMapBlockExtraDecos(state: EditorState, changes: ChangeSet): boolean {
-  const ranges = state.field(blockExtraRangesField, false) ?? scanBlockExtraRanges(state.doc);
+  const ranges = state.field(blockExtraRangesField, false) ?? scanBlockExtraRanges(state.doc, blockExtraExcludedRanges(state));
   const blocks = state.field(orgEnvBlocksField, false) ?? orgEnvBlocksFromState(state);
 
   if (ranges.toc.length > 0) return false;
@@ -2223,6 +2248,7 @@ const orgEnvRailExtension = ViewPlugin.fromClass(OrgEnvRailPlugin);
 
 export const blockExtrasExtension: Extension = [
   bookContextField,
+  fencedCodeRangesExtension,
   blockExtraRangesField,
   orgEnvBlocksField,
   dirtyTikzBlocksField,

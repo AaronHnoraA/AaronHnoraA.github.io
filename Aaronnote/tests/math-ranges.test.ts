@@ -5,6 +5,7 @@ import {
   blockMathRangesExtension,
   blockMathRangesOverlapping,
   getBlockMathRanges,
+  mergeOverlappingRanges,
   positionInsideAnyRange,
   rangeAtPosition,
   rangeInsideAny,
@@ -63,5 +64,17 @@ describe("block math range queries", () => {
     expect(after[1]).not.toBe(before[1]);
     expect(after[1]!.tex).toBe(before[1]!.tex);
     expect(blockMathRangesOverlapping(next, [{ from: after[1]!.from, to: after[1]!.to }])).toEqual([after[1]]);
+  });
+
+  test("merges nested protection ranges before binary-search range queries", () => {
+    const ranges = mergeOverlappingRanges([
+      { from: 0, to: 100 },
+      { from: 10, to: 20 },
+      { from: 30, to: 40 },
+    ]);
+
+    expect(ranges).toEqual([{ from: 0, to: 100 }]);
+    expect(rangeInsideAny(50, 60, ranges)).toBe(true);
+    expect(rangeOverlapsAny(50, 60, ranges)).toBe(true);
   });
 });

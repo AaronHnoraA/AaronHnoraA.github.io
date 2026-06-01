@@ -42,7 +42,8 @@ import { MeasuredWidget } from "./widgets/measured-widget.ts";
 import { shortHash } from "./widgets/measured-observer.ts";
 import { StateField, type ChangeSet, type EditorState, type Text } from "@codemirror/state";
 import type { Range } from "@codemirror/state";
-import { getBlockMathRanges, rangeInsideAny, rangeOverlapsAny } from "./math-ranges.ts";
+import { getBlockMathRanges, mergeOverlappingRanges, rangeInsideAny, rangeOverlapsAny } from "./math-ranges.ts";
+import { scanInlineMathRanges } from "../inline-math.ts";
 import { getLean4OrgEnvBodyRanges } from "./widgets/lean-block.ts";
 import { renderMarkdownHTML } from "../render-html.ts";
 import {
@@ -81,6 +82,12 @@ const JUPYTER_LINK_RE = /\[([^\]\n]+)\]\(((?:file:(?:\/\/)?|\.{1,2}\/|\/|~\/)?[^
 type CjkLineRanges = Array<{ relFrom: number; relTo: number }>;
 type CjkLineCache = Map<number, { text: string; ranges: CjkLineRanges }>;
 const cjkLineCacheLimit = 512;
+
+function combineRanges(
+  ...lists: Array<readonly { from: number; to: number }[]>
+): Array<{ from: number; to: number }> {
+  return mergeOverlappingRanges(lists.flatMap((list) => Array.from(list)));
+}
 
 function linkHrefFromSpan(state: EditorState, from: number, to: number): string {
   let href = "";
@@ -190,7 +197,9 @@ function collectLivePreviewTokens(
   const doc = view.state.doc;
   const blockMathRanges = getBlockMathRanges(view.state);
   const lean4Ranges = getLean4OrgEnvBodyRanges(view.state);
-  const excludedRanges = lean4Ranges.length > 0 ? [...blockMathRanges, ...lean4Ranges] : blockMathRanges;
+  const inlineMathRanges = ranges.flatMap(({ from, to }) =>
+    scanInlineMathRanges(doc.sliceString(from, to), from));
+  const excludedRanges = combineRanges(blockMathRanges, lean4Ranges, inlineMathRanges);
   const codeRanges: Array<{ from: number; to: number }> = [];
 
   // Headings come from the syntax tree (never inside code), so they can run
@@ -293,9 +302,7 @@ function collectLivePreviewTokens(
       },
     });
   }
-  const allExcluded = codeRanges.length > 0
-    ? [...excludedRanges, ...codeRanges].sort((a, b) => a.from - b.from || a.to - b.to)
-    : excludedRanges;
+  const allExcluded = combineRanges(excludedRanges, codeRanges);
   addCjkTextTokens(tokens, doc, ranges, allExcluded, cjkLineCache);
   addWikilinkTokens(tokens, doc, ranges, allExcluded);
   addHighlightTokens(tokens, doc, ranges, allExcluded, codeRanges);

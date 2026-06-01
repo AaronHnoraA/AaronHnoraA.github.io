@@ -16,8 +16,9 @@ import {
 import { MeasuredWidget } from "./measured-widget.ts";
 import { scanInlineCommands, type InlineCommand } from "../../command-syntax.ts";
 import type { Range } from "@codemirror/state";
-import { blockMathRangesOverlapping, rangeOverlapsAny } from "../math-ranges.ts";
+import { blockMathRangesOverlapping, mergeOverlappingRanges, rangeOverlapsAny } from "../math-ranges.ts";
 import { scanCodeRanges } from "../code-ranges.ts";
+import { scanInlineMathRanges } from "../../inline-math.ts";
 import {
   DATE_KEYS,
   DATE_KEY_LABELS,
@@ -194,8 +195,10 @@ class TodoWidget extends MeasuredWidget {
 
 function excludedCommandRanges(view: EditorView): Array<{ from: number; to: number }> {
   const math = blockMathRangesOverlapping(view.state, view.visibleRanges).map(({ from, to }) => ({ from, to }));
+  const inlineMath = view.visibleRanges.flatMap(({ from, to }) =>
+    scanInlineMathRanges(view.state.doc.sliceString(from, to), from));
   const code = scanCodeRanges(view.state, view.visibleRanges);
-  return [...math, ...code].sort((a, b) => a.from - b.from || a.to - b.to);
+  return mergeOverlappingRanges([...math, ...inlineMath, ...code]);
 }
 
 function buildInlineCommandDecos(
@@ -257,9 +260,11 @@ function activeInlineCommandKey(view: EditorView): string {
 
   for (let lineNum = firstLine; lineNum <= lastLine; lineNum++) {
     const line = view.state.doc.line(lineNum);
+    const inlineMathRanges = scanInlineMathRanges(line.text, line.from);
     for (const cmd of scanInlineCommands(line.text)) {
       const from = line.from + cmd.fullFrom;
       const to = line.from + cmd.fullTo;
+      if (rangeOverlapsAny(from, to, inlineMathRanges)) continue;
       if (sel.from <= to && sel.to >= from) keys.push(`${from}:${to}`);
     }
   }

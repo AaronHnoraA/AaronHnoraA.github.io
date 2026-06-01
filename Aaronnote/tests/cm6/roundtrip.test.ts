@@ -102,6 +102,16 @@ maybeDescribe("cm6 kernel: getMarkdown / setMarkdown", () => {
     cleanup();
   });
 
+  test("renders inline math with limited padding before the closing dollar", () => {
+    const md = "Given a graph $[asdas] s asd asd $ and $asdas s asd asd$ and $x     $ but $y      $.";
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection(md.length);
+    const rendered = Array.from(document.querySelectorAll<HTMLElement>(".cm-math-inline"))
+      .map((el) => md.slice(Number(el.dataset.cmSourceFrom), Number(el.dataset.cmSourceTo)));
+    expect(rendered).toEqual(["$[asdas] s asd asd $", "$asdas s asd asd$", "$x     $"]);
+    cleanup();
+  });
+
   test("renders inline TeX that starts with a digit", () => {
     const md = "Numbers $1$ and $3\\times 4\\times 5$ render.";
     const { editor, cleanup } = mountCM6(md);
@@ -134,6 +144,47 @@ maybeDescribe("cm6 kernel: getMarkdown / setMarkdown", () => {
     const { editor, cleanup } = mountCM6(md);
     editor.setMarkdownSelection(md.length);
     expect(document.querySelector(".cm-roam-link-text")).toBeNull();
+    cleanup();
+  });
+
+  test("does not apply markdown link preview inside active inline math", () => {
+    const md = "Given a graph $[asdas] s asd asd $";
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection(md.indexOf("asdas"));
+
+    expect(document.querySelector(".cm-math-inline")).toBeNull();
+    expect(document.querySelector(".cm-link-text")).toBeNull();
+    expect((editor.view as unknown as { contentDOM: HTMLElement }).contentDOM.textContent)
+      .toContain("$[asdas] s asd asd $");
+    cleanup();
+  });
+
+  test("does not render inline command or image widgets inside inline math", () => {
+    const md = "Math $@@tag[qc] $ and $![x](y) $";
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection(md.length);
+
+    expect(document.querySelector(".cm-line-has-aaronnote-tags")).toBeNull();
+    expect(document.querySelector(".cm-image-widget")).toBeNull();
+    expect(document.querySelectorAll(".cm-math-inline")).toHaveLength(2);
+    cleanup();
+  });
+
+  test("does not render org-env blocks inside fenced markdown code", () => {
+    const md = [
+      "```md",
+      "#+begin meta",
+      "tags: algebra, linear-algebra, math, reading",
+      "#+end meta",
+      "```",
+    ].join("\n");
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection(md.length);
+
+    expect(document.querySelector(".cm-org-env-block[data-kind='meta']")).toBeNull();
+    expect(document.querySelector(".cm-code-copy-button")).toBeTruthy();
+    expect((editor.view as unknown as { contentDOM: HTMLElement }).contentDOM.textContent)
+      .toContain("#+begin meta");
     cleanup();
   });
 
@@ -322,8 +373,17 @@ $$
     cleanup();
   });
 
+  test("does not resolve markdown links inside inline math", () => {
+    const md = "Math $[x](y.md) $ and [real](z.md)";
+    const { editor, cleanup } = mountCM6(md);
+
+    expect(markdownHrefAt(editor.view.state, md.indexOf("x"))).toBeNull();
+    expect(markdownHrefAt(editor.view.state, md.indexOf("real"))).toBe("z.md");
+    cleanup();
+  });
+
   test("marks unresolved wikilinks and bare roam links", () => {
-    const md = "Known [[Density Operator]], missing [[Ghost Note]], and roam://bad-id.";
+    const md = "Known [[Density Operator]], missing [[Ghost Note]], math $[[X]] $, and roam://bad-id.";
     const { editor, cleanup } = mountCM6(md);
 
     editor.view.dispatch({ effects: setKnownRoamRefs.of(["Density Operator"]) });
@@ -332,6 +392,7 @@ $$
       .map((el) => el.textContent);
     expect(broken).toContain("Ghost Note");
     expect(broken).toContain("roam://bad-id");
+    expect(broken).not.toContain("X");
     expect(broken).not.toContain("Density Operator");
     cleanup();
   });

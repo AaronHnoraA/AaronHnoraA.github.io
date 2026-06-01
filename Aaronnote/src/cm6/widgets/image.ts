@@ -23,7 +23,8 @@ import {
 import { MeasuredWidget } from "./measured-widget.ts";
 import { syntaxTree } from "@codemirror/language";
 import type { Range } from "@codemirror/state";
-import { blockMathRangesOverlapping, rangeInsideAny } from "../math-ranges.ts";
+import { blockMathRangesOverlapping, mergeOverlappingRanges, rangeInsideAny } from "../math-ranges.ts";
+import { scanInlineMathRanges } from "../../inline-math.ts";
 import { applyImageLayout, imageLayoutFromAttrs, readImageTrailingAttrs, type ImageLayoutAttrs } from "../../image-attrs.ts";
 import {
   VISUAL_ATTACHMENT_IFRAME_ALLOW,
@@ -191,6 +192,9 @@ function imageExcludedRanges(view: EditorView): Array<{ from: number; to: number
   const ranges: Array<{ from: number; to: number }> = blockMathRangesOverlapping(view.state, view.visibleRanges)
     .map(({ from, to }) => ({ from, to }));
   for (const { from, to } of view.visibleRanges) {
+    ranges.push(...scanInlineMathRanges(view.state.doc.sliceString(from, to), from));
+  }
+  for (const { from, to } of view.visibleRanges) {
     syntaxTree(view.state).iterate({
       from,
       to,
@@ -203,7 +207,7 @@ function imageExcludedRanges(view: EditorView): Array<{ from: number; to: number
       },
     });
   }
-  return ranges.sort((a, b) => a.from - b.from || a.to - b.to);
+  return mergeOverlappingRanges(ranges);
 }
 
 function buildImageDecorations(view: EditorView): DecorationSet {
@@ -291,10 +295,12 @@ function activeImageSourceKey(view: EditorView): string {
 
   for (let lineNum = firstLine; lineNum <= lastLine; lineNum++) {
     const line = doc.line(lineNum);
+    const inlineMathRanges = scanInlineMathRanges(line.text, line.from);
     syntaxTree(view.state).iterate({
       from: line.from,
       to: line.to,
       enter(node) {
+        if (rangeInsideAny(node.from, node.to, inlineMathRanges)) return false;
         if (node.name !== "Image") return;
         const trailing = readImageTrailingAttrs(doc.sliceString(node.to, line.to), 0);
         const fullTo = trailing ? node.to + trailing.to : node.to;
@@ -311,6 +317,7 @@ function activeImageSourceKey(view: EditorView): string {
       if (visualAttachmentKind(src) !== "html") continue;
       const from = line.from + (link.index ?? 0);
       const to = from + (link[0] ?? "").length;
+      if (rangeInsideAny(from, to, inlineMathRanges)) continue;
       const trailing = readImageTrailingAttrs(line.text.slice((link.index ?? 0) + (link[0] ?? "").length), 0);
       const fullTo = trailing ? to + trailing.to : to;
       if (sel.from <= fullTo && sel.to >= from) keys.push(`${from}:${fullTo}`);
