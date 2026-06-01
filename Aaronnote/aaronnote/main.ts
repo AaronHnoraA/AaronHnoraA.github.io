@@ -9364,22 +9364,19 @@ document.addEventListener("keydown", (event) => {
     void insertLeanBlock();
     return;
   }
-  if (
-    event.key === "Escape"
+  const plainEscape = event.key === "Escape"
     && !event.metaKey
     && !event.ctrlKey
     && !event.altKey
-    && !event.shiftKey
-    && (
-      !snippetPopup.hidden
-      || !quickInsertPopup.hidden
-      || !mathPreview.hidden
-      || !selectionTool.hidden
-      || !findTool.hidden
-      || linkPreview.isOpen()
-      || !relationPanel.hidden
-    )
-  ) {
+    && !event.shiftKey;
+  const blockingOverlayOpen = !snippetPopup.hidden
+    || !quickInsertPopup.hidden
+    || !selectionTool.hidden
+    || !findTool.hidden
+    || linkPreview.isOpen()
+    || !relationPanel.hidden;
+  const shouldDismissMathPreview = !mathPreview.hidden && !editorOwnsEventTarget(event);
+  if (plainEscape && (blockingOverlayOpen || shouldDismissMathPreview)) {
     event.preventDefault();
     event.stopPropagation();
     hideEditorOverlays();
