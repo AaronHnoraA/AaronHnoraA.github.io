@@ -4462,7 +4462,7 @@ async function promptNewNode(baseDir = ""): Promise<NewNodeDraft | null> {
     nodeType,
     title,
     path: first.path || noteDraftPath(title, baseDir),
-    tags: nodeType === "roam" ? parseTagPrompt(first.tags) : [],
+    tags: parseTagPrompt(first.tags),
     kind: first.kind || (nodeType === "roam" ? "note" : "default"),
     templateKey: first.templateKey || "",
   };

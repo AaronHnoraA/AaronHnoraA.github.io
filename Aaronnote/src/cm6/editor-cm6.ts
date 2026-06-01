@@ -513,6 +513,11 @@ export function createEditorCM6(host: HTMLElement, options: EditorOptions): Edit
       return { from, to };
     },
 
+    getMarkdownSelectionRange(): { anchor: number; head: number } {
+      const { anchor, head } = view.state.selection.main;
+      return { anchor, head };
+    },
+
     getSelection(): { from: number; to: number } {
       return editor.getMarkdownSelection();
     },

@@ -14,10 +14,10 @@ import {
   type ViewUpdate,
 } from "@codemirror/view";
 import { MeasuredWidget } from "./measured-widget.ts";
-import { syntaxTree } from "@codemirror/language";
 import { scanInlineCommands, type InlineCommand } from "../../command-syntax.ts";
 import type { Range } from "@codemirror/state";
 import { blockMathRangesOverlapping, rangeOverlapsAny } from "../math-ranges.ts";
+import { scanCodeRanges } from "../code-ranges.ts";
 import {
   DATE_KEYS,
   DATE_KEY_LABELS,
@@ -193,22 +193,9 @@ class TodoWidget extends MeasuredWidget {
 // ---------------------------------------------------------------------------
 
 function excludedCommandRanges(view: EditorView): Array<{ from: number; to: number }> {
-  const ranges: Array<{ from: number; to: number }> = blockMathRangesOverlapping(view.state, view.visibleRanges)
-    .map(({ from, to }) => ({ from, to }));
-  for (const { from, to } of view.visibleRanges) {
-    syntaxTree(view.state).iterate({
-      from,
-      to,
-      enter(node) {
-        if (["FencedCode", "CodeBlock", "IndentedCode", "InlineCode"].includes(node.name)) {
-          ranges.push({ from: node.from, to: node.to });
-          return false;
-        }
-        return true;
-      },
-    });
-  }
-  return ranges.sort((a, b) => a.from - b.from || a.to - b.to);
+  const math = blockMathRangesOverlapping(view.state, view.visibleRanges).map(({ from, to }) => ({ from, to }));
+  const code = scanCodeRanges(view.state, view.visibleRanges);
+  return [...math, ...code].sort((a, b) => a.from - b.from || a.to - b.to);
 }
 
 function buildInlineCommandDecos(

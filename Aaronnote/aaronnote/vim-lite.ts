@@ -109,7 +109,9 @@ function wordChar(ch: string): boolean {
 }
 
 function currentHead(editor: Editor): number {
-  return editor.getMarkdownSelection().to;
+  // The moving end of the selection (CM6 head), not the larger offset — visual
+  // mode relies on this to extend a selection backward past its anchor.
+  return editor.getMarkdownSelectionRange().head;
 }
 
 function setPos(editor: Editor, pos: number): void {
@@ -117,11 +119,11 @@ function setPos(editor: Editor, pos: number): void {
 }
 
 function setSelection(editor: Editor, anchor: number, head: number): void {
+  // Preserve direction: anchor stays fixed, head is the moving end. The
+  // highlighted span is [min,max] either way, but keeping head distinct lets
+  // subsequent motions pivot on the correct end.
   const length = doc(editor).length;
-  editor.setMarkdownSelection(
-    clamp(Math.min(anchor, head), 0, length),
-    clamp(Math.max(anchor, head), 0, length),
-  );
+  editor.setMarkdownSelection(clamp(anchor, 0, length), clamp(head, 0, length));
 }
 
 function moveChar(editor: Editor, dir: -1 | 1): void {
@@ -265,6 +267,13 @@ export function createVimLite(
     options.onModeChange?.(mode);
   }
 
+  // The tracked moving end of the visual selection. Prefer the local
+  // visualHead (authoritative once visual mode is driving the selection) and
+  // fall back to the editor's live head when first entering visual mode.
+  function headPos(): number {
+    return visualHead ?? currentHead(editor);
+  }
+
   function setVisualHead(head: number): void {
     if (visualAnchor == null) visualAnchor = currentHead(editor);
     visualHead = head;
@@ -288,12 +297,12 @@ export function createVimLite(
 
   function visualMoveChar(dir: -1 | 1): void {
     resetMotionMemory();
-    setVisualHead(clamp(currentHead(editor) + dir, 0, doc(editor).length));
+    setVisualHead(clamp(headPos() + dir, 0, doc(editor).length));
   }
 
   function visualMoveLine(dir: -1 | 1): void {
     const text = doc(editor);
-    const pos = currentHead(editor);
+    const pos = headPos();
     const line = docLineInfo(text, pos);
     const desired = goalColumn ?? line.column;
     goalColumn = desired;
@@ -308,7 +317,7 @@ export function createVimLite(
 
   function visualLineMove(dir: -1 | 1): void {
     const text = doc(editor);
-    const current = docLineRange(text, currentHead(editor));
+    const current = docLineRange(text, headPos());
     let nextPos = dir > 0 ? current.to : Math.max(0, current.from - 1);
     if (dir > 0 && current.to >= text.length) nextPos = current.cursor;
     const next = docLineRange(text, nextPos);
@@ -319,14 +328,14 @@ export function createVimLite(
 
   function visualLineBoundary(which: "start" | "end"): void {
     resetMotionMemory();
-    const line = docLineInfo(doc(editor), currentHead(editor));
+    const line = docLineInfo(doc(editor), headPos());
     setVisualHead(which === "start" ? line.start : line.end);
   }
 
   function visualMoveWord(dir: -1 | 1): void {
     resetMotionMemory();
     const text = doc(editor);
-    let pos = currentHead(editor);
+    let pos = headPos();
     if (dir > 0) {
       while (pos < text.length && wordChar(docChar(text, pos))) pos++;
       while (pos < text.length && !wordChar(docChar(text, pos))) pos++;

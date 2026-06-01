@@ -113,6 +113,30 @@ maybeDescribe("cm6 kernel: getMarkdown / setMarkdown", () => {
     cleanup();
   });
 
+  test("does not render inline math inside a fenced code block", () => {
+    const md = "```\ninline $x+1$ here\n```\n";
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection(md.length);
+    expect(document.querySelector(".cm-math-inline")).toBeNull();
+    cleanup();
+  });
+
+  test("does not render inline math inside an inline code span", () => {
+    const md = "text `$x+1$` more";
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection(md.length);
+    expect(document.querySelector(".cm-math-inline")).toBeNull();
+    cleanup();
+  });
+
+  test("does not render wikilinks inside a fenced code block", () => {
+    const md = "```\nsee [[Note]] ref\n```\n";
+    const { editor, cleanup } = mountCM6(md);
+    editor.setMarkdownSelection(md.length);
+    expect(document.querySelector(".cm-roam-link-text")).toBeNull();
+    cleanup();
+  });
+
   test("preserves display math", () => {
     const md = "$$\na^2 + b^2 = c^2\n$$";
     const { editor, cleanup } = mountCM6(md);
@@ -1988,6 +2012,35 @@ maybeDescribe("cm6 kernel: selection", () => {
     vim.setMode("normal");
     press("p");
     expect(editor.getMarkdown()).toBe("abcdab");
+    cleanup();
+  });
+
+  test("vim-lite visual mode extends backward past the anchor", () => {
+    const { editor, cleanup } = mountCM6("abcdef");
+    const target = (editor.view as unknown as { contentDOM: HTMLElement }).contentDOM;
+    const vim = createVimLite(editor, document.body);
+    function press(key: string): void {
+      const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
+      Object.defineProperty(event, "target", { value: target });
+      vim.handleKeyDown(event);
+    }
+
+    editor.setMarkdownSelection(3);
+    vim.setMode("normal");
+    press("v");
+    press("h");
+    press("h"); // head must keep moving left past the anchor, not stick
+
+    const range = editor.getMarkdownSelectionRange();
+    expect(range.anchor).toBe(3);
+    expect(range.head).toBe(1);
+    expect(editor.getMarkdownSelection()).toEqual({ from: 1, to: 3 });
+
+    press("y");
+    editor.setMarkdownSelection(editor.getMarkdown().length);
+    vim.setMode("normal");
+    press("p");
+    expect(editor.getMarkdown()).toBe("abcdefbc");
     cleanup();
   });
 });

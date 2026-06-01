@@ -1112,15 +1112,17 @@ function buildMetaBlock(fields) {
   const tags = normalizeTags(fields.tags || []);
   const refs = normalizeTags(fields.refs || []);
   const aliases = normalizeTags(fields.aliases || []);
-  const lines = [
-    "#+begin meta",
-    `id: ${fields.id}`,
+  const lines = ["#+begin meta"];
+  // Omit the roam id for standalone (non-roam) notes so they keep a meta block
+  // (tags etc.) without being synced into the roam graph database.
+  if (fields.id) lines.push(`id: ${fields.id}`);
+  lines.push(
     `title: ${fields.title}`,
     `date: ${ensureDate(fields.date)}`,
     `kind: ${fields.kind || defaultNoteKind}`,
     `tags: ${tags.join(", ")}`,
     `refs: ${refs.join(", ")}`,
-  ];
+  );
   if (aliases.length > 0) lines.push(`aliases: ${aliases.join(", ")}`);
   if (fields.source) lines.push(`source: ${fields.source}`);
   if (fields.summary) lines.push(`summary: ${String(fields.summary).replace(/\r?\n/g, " ")}`);
@@ -4447,9 +4449,11 @@ export async function createNode(body) {
     }));
     content = expanded.text.replace(/\s+$/, "") + "\n";
     selection = expanded.selection;
-    if (roam && !hasRoamMeta(content)) {
+    // Roam notes always get a meta block; standalone notes only when they carry
+    // tags, so the selected tags are persisted (without a roam id — see below).
+    if ((roam || tags.length > 0) && !hasRoamMeta(content)) {
       const meta = buildMetaBlock({
-        id,
+        id: roam ? id : "",
         title,
         date: new Date().toISOString().slice(0, 10),
         kind,
@@ -4462,10 +4466,11 @@ export async function createNode(body) {
       if (selection) selection = { from: selection.from + offset, to: selection.to + offset };
     }
   } else {
-    content = roam
+    const wantsMeta = roam || tags.length > 0;
+    content = wantsMeta
       ? [
           buildMetaBlock({
-            id,
+            id: roam ? id : "",
             title,
             date: new Date().toISOString().slice(0, 10),
             kind,

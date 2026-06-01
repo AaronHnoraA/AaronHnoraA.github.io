@@ -310,6 +310,8 @@ export interface Editor {
   setMarkdownSelection(from: number, to?: number): void;
   /** Current selection as markdown-source offsets. */
   getMarkdownSelection(): { from: number; to: number };
+  /** Current selection as markdown-source offsets preserving direction (anchor/head). */
+  getMarkdownSelectionRange(): { anchor: number; head: number };
   /** Replace a markdown-source range. */
   replaceMarkdownRange(from: number, to: number, text: string, select?: SelectionMode): { from: number; to: number };
   /** Current active-surface selection. */

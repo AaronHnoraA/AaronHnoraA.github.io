@@ -193,9 +193,11 @@ function collectLivePreviewTokens(
   const excludedRanges = lean4Ranges.length > 0 ? [...blockMathRanges, ...lean4Ranges] : blockMathRanges;
   const codeRanges: Array<{ from: number; to: number }> = [];
 
-  addCjkTextTokens(tokens, doc, ranges, excludedRanges, cjkLineCache);
+  // Headings come from the syntax tree (never inside code), so they can run
+  // before the main walk. CJK/wikilink scanners are regex-based and must skip
+  // code spans, so they run AFTER the walk below has populated `codeRanges` —
+  // this reuses the same walk rather than adding a second pass (perf-neutral).
   addHeadingMarkTokens(tokens, view.state, ranges, excludedRanges);
-  addWikilinkTokens(tokens, doc, ranges, excludedRanges);
 
   for (const { from, to } of ranges) {
     syntaxTree(view.state).iterate({
@@ -291,7 +293,12 @@ function collectLivePreviewTokens(
       },
     });
   }
-  addHighlightTokens(tokens, doc, ranges, excludedRanges, codeRanges);
+  const allExcluded = codeRanges.length > 0
+    ? [...excludedRanges, ...codeRanges].sort((a, b) => a.from - b.from || a.to - b.to)
+    : excludedRanges;
+  addCjkTextTokens(tokens, doc, ranges, allExcluded, cjkLineCache);
+  addWikilinkTokens(tokens, doc, ranges, allExcluded);
+  addHighlightTokens(tokens, doc, ranges, allExcluded, codeRanges);
 
   return tokens;
 }

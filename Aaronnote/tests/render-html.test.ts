@@ -22,6 +22,18 @@ $$
     expect(html).not.toContain("<h1");
   });
 
+  test("keeps markdown and math literal inside fenced and inline code", () => {
+    const fenced = renderMarkdownHTML("```\ninline $x+1$ and [[wiki]] and **bold**\n```");
+    expect(fenced).toContain("<code");
+    expect(fenced).not.toContain("aaronnote-math-inline");
+    expect(fenced).not.toContain("<strong");
+    expect(fenced).toContain("$x+1$");
+
+    const inline = renderMarkdownHTML("a `$x+1$` b");
+    expect(inline).not.toContain("aaronnote-math-inline");
+    expect(inline).toContain("<code>$x+1$</code>");
+  });
+
   test("marks roam core links for special rendering", () => {
     const html = renderMarkdownHTML("[section](roam://node-id@main-heading) and [tag](node-id#anchor)");
 

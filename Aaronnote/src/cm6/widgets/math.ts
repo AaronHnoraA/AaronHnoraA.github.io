@@ -25,6 +25,7 @@ import type { Range } from "@codemirror/state";
 import { INLINE_MATH_RE, isLikelyInlineMath } from "../../inline-math.ts";
 import { renderMathHTML } from "../../math-render.ts";
 import { getBlockMathRanges, rangeOverlapsAny } from "../math-ranges.ts";
+import { scanCodeRanges } from "../code-ranges.ts";
 import { orgEnvContextForRange, type OrgEnvContext } from "./block-extras.ts";
 
 function setSourceRange(el: HTMLElement, from: number, to: number, openSource = false): void {
@@ -345,6 +346,8 @@ function buildInlineMathDecos(view: EditorView): DecorationSet {
   const sel = view.state.selection.main;
   const doc = view.state.doc;
   const blockRanges = getBlockMathRanges(view.state);
+  // Don't render inline math inside fenced/inline code — Markdown stays literal there.
+  const codeRanges = scanCodeRanges(view.state, view.visibleRanges);
 
   for (const { from: vFrom, to: vTo } of view.visibleRanges) {
     const text = doc.sliceString(vFrom, vTo);
@@ -357,6 +360,7 @@ function buildInlineMathDecos(view: EditorView): DecorationSet {
       const tex = m[1]!;
 
       if (rangeOverlapsAny(from, to, blockRanges)) continue;
+      if (rangeOverlapsAny(from, to, codeRanges)) continue;
       if (!isLikelyInlineMath(tex)) continue;
 
       const cursorInside = sel.from < to && sel.to > from;
@@ -376,6 +380,7 @@ function activeInlineMathKey(state: EditorState): string {
   const lastLine = state.doc.lineAt(Math.min(sel.to, state.doc.length)).number;
   if (lastLine - firstLine > 50) return `wide:${sel.from}:${sel.to}`;
   const blockRanges = getBlockMathRanges(state);
+  const codeRanges = scanCodeRanges(state, [{ from: state.doc.line(firstLine).from, to: state.doc.line(lastLine).to }]);
   const keys: string[] = [];
 
   for (let lineNum = firstLine; lineNum <= lastLine; lineNum++) {
@@ -387,6 +392,7 @@ function activeInlineMathKey(state: EditorState): string {
       const to = from + match[0].length;
       const tex = match[1]!;
       if (rangeOverlapsAny(from, to, blockRanges)) continue;
+      if (rangeOverlapsAny(from, to, codeRanges)) continue;
       if (!isLikelyInlineMath(tex)) continue;
       if (sel.from < to && sel.to > from) keys.push(`${from}:${to}`);
     }
