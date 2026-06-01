@@ -151,7 +151,7 @@ export function createLeanOfficialInfoviewHost(root: HTMLElement, options: LeanO
       showGoalNames: true,
       emphasizeFirstGoal: true,
       showTooltipOnHover: false,
-    }).catch(() => {});
+    }).catch((err) => console.warn("[lean-infoview] configure failed", err));
   };
 
   const markContentSoon = (): void => {
@@ -189,7 +189,7 @@ export function createLeanOfficialInfoviewHost(root: HTMLElement, options: LeanO
     pendingInitializeResult = null;
     pendingStoppedReason = null;
     void infoview.serverRestarted(normalizeInitializeResult(initializeResult)).then(() => {
-      if (current) void publishLocation(current).catch(() => {});
+      if (current) void publishLocation(current).catch((err) => console.warn("[lean-infoview] publish location failed", err));
       markContentSoon();
     }).catch((err) => {
       root.classList.add("lean-official-infoview--error");
@@ -205,7 +205,8 @@ export function createLeanOfficialInfoviewHost(root: HTMLElement, options: LeanO
     }
     pendingStoppedReason = null;
     initialized = false;
-    void infoview.serverStopped(reason).then(markContentSoon).catch(() => {});
+    void infoview.serverStopped(reason).then(markContentSoon)
+      .catch((err) => console.warn("[lean-infoview] serverStopped failed", err));
   };
 
   try {
@@ -217,7 +218,7 @@ export function createLeanOfficialInfoviewHost(root: HTMLElement, options: LeanO
       configureInfoview();
       if (pendingStoppedReason) stopInfoview(pendingStoppedReason);
       else if (pendingInitializeResult) restartInfoview(pendingInitializeResult);
-      else if (current) void publishLocation(current).catch(() => {});
+      else if (current) void publishLocation(current).catch((err) => console.warn("[lean-infoview] publish location failed", err));
       options.onReady?.();
       markContentSoon();
     });
@@ -243,7 +244,7 @@ export function createLeanOfficialInfoviewHost(root: HTMLElement, options: LeanO
   void api.lean.status().then((raw) => {
     const data = raw as { running?: boolean; initializeResult?: unknown };
     if (data?.running && data.initializeResult) restartInfoview(data.initializeResult);
-  }).catch(() => {});
+  }).catch((err) => console.warn("[lean-infoview] status query failed", err));
 
   const unsubStatus = api.lean.onStatus((raw) => {
     const data = raw as { message?: string; kind?: string; initializeResult?: unknown };
@@ -261,8 +262,8 @@ export function createLeanOfficialInfoviewHost(root: HTMLElement, options: LeanO
     setLocation(location) {
       if (sameLocation(current, location)) return;
       current = location;
-      if (location) void publishLocation(location).catch(() => {});
-      else void infoview?.changedCursorLocation(undefined).catch(() => {});
+      if (location) void publishLocation(location).catch((err) => console.warn("[lean-infoview] publish location failed", err));
+      else void infoview?.changedCursorLocation(undefined).catch((err) => console.warn("[lean-infoview] clear cursor location failed", err));
     },
     hasContent() {
       return Boolean(root.textContent?.trim());

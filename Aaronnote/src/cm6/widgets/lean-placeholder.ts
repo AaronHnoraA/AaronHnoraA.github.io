@@ -1658,7 +1658,7 @@ function leanTreeSitterHighlight(): Extension {
             if (generation !== this.generation) return;
             this.view.dispatch({ effects: SetLeanTreeSitterSpans.of({ text, spans }) });
           })
-          .catch(() => {});
+          .catch((err) => console.warn("[lean] tree-sitter highlight failed", err));
       }, delay);
     }
   });
@@ -2456,7 +2456,8 @@ export function createLeanVimController(ctx: LeanContext) {
   const yank = (text: string, linewise = false): void => {
     if (!text) return;
     register = { text, linewise };
-    void navigator.clipboard?.writeText(text).catch(() => {});
+    void navigator.clipboard?.writeText(text)
+      .catch((err) => console.warn("[lean] clipboard copy failed", err));
   };
 
   const paste = (view: EditorView, where: "before" | "after"): void => {
@@ -3268,7 +3269,8 @@ class LeanPlaceholderWidget extends MeasuredWidget {
           if (typeof openRes?.lspVersion === "number") ctx.lspVersion = openRes.lspVersion;
           if (openRes?.leanPath) ctx.leanPath = String(openRes.leanPath);
           if (destroyed) {
-            void api.lean.closeNote({ leanPath: ctx.leanPath }).catch(() => {});
+            void api.lean.closeNote({ leanPath: ctx.leanPath })
+              .catch((err) => console.warn("[lean] closeNote failed", err));
             return false;
           }
           lspOpened = true;
@@ -3396,7 +3398,7 @@ class LeanPlaceholderWidget extends MeasuredWidget {
           // Flush pending edits first so the queried position matches the text the
           // server holds; cheap no-op when nothing changed (see lastSyncedBody).
           if (flush) {
-            try { await ctx.syncForLsp?.(); } catch {}
+            try { await ctx.syncForLsp?.(); } catch (err) { console.warn("[lean] LSP sync before goal query failed", err); }
             if (seq !== goalSeq) return;
           }
           if (!await ctx.ensureLspOpen?.()) return;
