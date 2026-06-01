@@ -3455,7 +3455,7 @@ class LeanPlaceholderWidget extends MeasuredWidget {
             goalsAccomplished: newAccomplished,
             goalError: goalError || null,
           });
-        })().catch(() => {});
+        })().catch((err) => console.warn("[lean] goal query failed", err));
       });
     };
 
@@ -3546,6 +3546,7 @@ class LeanPlaceholderWidget extends MeasuredWidget {
       root: shadow,
     });
     child.dom.dataset.leanVimMode = "insert";
+    // Re-measure once webfonts settle; a rejected fonts.ready is harmless here.
     void document.fonts?.ready.then(() => requestLeanMeasure()).catch(() => {});
     host.addEventListener("mousedown", () => {
       publishLeanRegionActive(noteInfo.notePath, tag, selector, ctx.leanPath);
@@ -3763,7 +3764,7 @@ class LeanPlaceholderWidget extends MeasuredWidget {
       window.removeEventListener("aaronnote:lean-region-apply-edit", onRegionApplyEdit);
       hideLeanJumpOverlay();
       window.dispatchEvent(new CustomEvent(copilotDisposeEvent, { detail: { id: copilotEditorId } }));
-      if ((lspOpened || lspOpenPromise) && ctx.leanPath) void api.lean.closeNote({ leanPath: ctx.leanPath }).catch(() => {});
+      if ((lspOpened || lspOpenPromise) && ctx.leanPath) void api.lean.closeNote({ leanPath: ctx.leanPath }).catch((err) => console.warn("[lean] closeNote failed", err));
     };
 
     void api.lean.readRegion({ notePath: noteInfo.notePath, tag, selector })

@@ -1402,7 +1402,9 @@ async function leanContextTargets(): Promise<LeanTargetInfo[]> {
         const selector = canonicalLeanSelector(String(target.selector ?? ""));
         mergeTarget(selector, String(target.targetKind ?? ""), Array.isArray(target.tags) ? target.tags : [], String(target.leanPath ?? ""));
       }
-    } catch {}
+    } catch (err) {
+      console.warn("[lean] targets query failed", err);
+    }
   }
   return [...out.values()];
 }
@@ -1890,7 +1892,7 @@ if (api.lean.available()) {
   void api.lean.status().then((s) => {
     const status = s as { notesRoot?: string } | null;
     if (status?.notesRoot) leanNotesRoot = status.notesRoot;
-  }).catch(() => {});
+  }).catch((err) => console.warn("[lean] status query failed", err));
 }
 
 const graphPanel = createGraphPanel({
@@ -2023,7 +2025,9 @@ function rememberDraft(content = editor.getMarkdown()): void {
       revision: editRevision,
       updatedAt: Date.now(),
     }));
-  } catch {}
+  } catch {
+    // Draft autosave is a local convenience; ignore storage quota/availability failures.
+  }
 }
 
 function scheduleDraftRemember(delay = 700): void {
@@ -2050,7 +2054,9 @@ function clearDraft(file = currentFile): void {
   if (file === currentFile) cancelScheduledDraftRemember();
   try {
     window.localStorage.removeItem(draftStorageKey(file));
-  } catch {}
+  } catch {
+    // Best-effort cleanup; a failed removal only leaves a stale local draft.
+  }
 }
 
 function readDraft(file = currentFile): StoredDraft | null {
@@ -2248,7 +2254,9 @@ async function refreshNotesIndex(force = false): Promise<void> {
     updateFloatingToc();
     syncLocalGraphAvailability();
     if (!relationPanel.hidden) renderRelationPanel(true);
-  } catch {}
+  } catch (err) {
+    console.warn("[notes] post-refresh UI update failed", err);
+  }
 }
 
 function applyIndexPayload(msg: { notes?: NoteSummary[]; directories?: DirectorySummary[]; files?: FileSummary[]; templates?: TemplateSummary[] }): void {
@@ -3759,7 +3767,7 @@ async function checkProse(): Promise<void> {
       if (seq !== proseCheckSeq) return;
       diagnostics.push(...result);
     })
-    .catch(() => {})
+    .catch((err) => console.warn("[prose] browser check failed", err))
     .finally(() => {
       browserDone = true;
       applyProseResults();
@@ -4399,7 +4407,9 @@ async function reloadTemplates(force = false): Promise<void> {
   try {
     const msg = await api.notes.templates(force);
     if (Array.isArray(msg.templates)) templates = msg.templates;
-  } catch {}
+  } catch (err) {
+    console.warn("[notes] template reload failed", err);
+  }
 }
 
 function templateOptions(kind = ""): Array<{ label: string; value: string }> {
@@ -5844,7 +5854,9 @@ function pluginOverrideMap(): PluginOverrideMap {
     for (const [key, value] of Object.entries(raw)) {
       if (value === "on" || value === "off") out[key] = value;
     }
-  } catch {}
+  } catch {
+    // Corrupt/absent local settings fall back to defaults.
+  }
   for (const id of pluginEnabledSet()) if (!out[id]) out[id] = "on";
   for (const id of pluginDisabledSet()) out[id] = "off";
   return out;
@@ -5893,7 +5905,9 @@ function pluginSettings(plugin: PluginSummary): PluginSettings {
   try {
     const raw = JSON.parse(window.localStorage.getItem(pluginSettingsKey(plugin.id)) || "{}");
     if (raw && typeof raw === "object" && !Array.isArray(raw)) stored = raw as Record<string, unknown>;
-  } catch {}
+  } catch {
+    // Corrupt/absent stored plugin settings fall back to defaults.
+  }
   const settings: PluginSettings = {};
   for (const setting of plugin.settings ?? []) {
     const value = stored[setting.id] ?? settingDefault(setting);
@@ -8249,10 +8263,19 @@ function mathPreviewPreferredWidth(display: boolean): number {
   const margin = 8;
   const maxWidth = Math.max(220, window.innerWidth - margin * 2);
   const fallback = display ? 640 : 320;
+  // Measure the formula's intrinsic width by letting the popup shrink-wrap first.
+  // In display mode `.katex-display` and its inner `.katex` are centered blocks that
+  // stretch to the container width, so measuring them directly feeds the previous
+  // (already-padded) popup width back in and the box creeps wider on every cursor
+  // move. `max-content` collapses the container to its content so the measurement is
+  // stable; the read happens synchronously before restore, so there is no repaint.
+  const prevWidth = mathPreview.style.width;
+  mathPreview.style.width = "max-content";
   const child = mathPreview.querySelector<HTMLElement>(".katex-display, .katex, math, mjx-container");
   const natural = child
     ? Math.max(child.scrollWidth, child.getBoundingClientRect().width)
     : Math.max(mathPreview.scrollWidth, fallback);
+  mathPreview.style.width = prevWidth;
   if (!Number.isFinite(natural) || natural <= 0) return Math.min(fallback, maxWidth);
   const padding = display ? 40 : 28;
   const minimum = display ? 420 : 280;
@@ -9809,7 +9832,7 @@ window.addEventListener("aaronnote:lean-region-jump", (event) => {
         }, delay);
       }
     })
-    .catch(() => {});
+    .catch((err) => console.warn("[lean] region jump navigation failed", err));
 });
 
 notesButton.addEventListener("click", () => showNotesPage());

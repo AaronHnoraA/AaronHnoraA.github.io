@@ -20,7 +20,9 @@ export async function normalizePickedNotePath(noteRoot, picked) {
     const physicalPicked = await realpath(picked);
     const canonical = relativePathInsideRoot(physicalRoot, physicalPicked);
     if (canonical) return canonical;
-  } catch {}
+  } catch {
+    // realpath throws for non-existent paths; fall back to the resolved path below.
+  }
 
   return resolve(picked);
 }

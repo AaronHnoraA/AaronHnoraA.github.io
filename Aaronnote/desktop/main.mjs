@@ -167,6 +167,7 @@ function scheduleApplyZoom(win) {
 function enablePinchZoom(win) {
   if (!win || win.isDestroyed()) return;
   if (win.webContents.isDestroyed()) return;
+  // Best-effort: the window may tear down between the guard above and this call.
   void win.webContents.setVisualZoomLevelLimits(1, 3).catch(() => {});
 }
 
@@ -286,7 +287,9 @@ function showTaskNotification(title, body) {
   try {
     if (!Notification.isSupported()) return;
     new Notification({ title, body }).show();
-  } catch {}
+  } catch {
+    // Desktop notifications are optional; ignore platform/permission failures.
+  }
 }
 
 async function notesListPayload(force = false) {
@@ -774,6 +777,7 @@ function resolveShellDirectoryPath(file, base = "") {
 
 async function flushRendererState(win) {
   if (!win || win.isDestroyed()) return;
+  // Best-effort flush during window close; the renderer may already be gone.
   await win.webContents.executeJavaScript(
     "window.dispatchEvent(new CustomEvent('aaronnote:command', { detail: { command: 'flush-state' } })); true",
     true,
@@ -1034,7 +1038,7 @@ function createNewWindow() {
 }
 
 async function openRoamDb() {
-  await roamSyncPayload().catch(() => {});
+  await roamSyncPayload().catch((err) => console.warn("[roam] sync payload failed", err));
   await shell.openPath(join(noteRoot, "roam.db"));
 }
 
@@ -1707,7 +1711,7 @@ async function handleJupyterRequest(action, body = {}) {
     // Re-arm the readiness check if it previously failed; ensureJupyterReady de-dupes
     // via readyPromise, so the renderer's poll can recover instead of getting stuck.
     if (jupyterSession && jupyterSession.ready !== true && jupyterSession.child?.exitCode == null) {
-      void ensureJupyterReady(jupyterSession).catch(() => {});
+      void ensureJupyterReady(jupyterSession).catch((err) => console.warn("[jupyter] readiness re-arm failed", err));
     }
     return jupyterSession
       ? {
@@ -1765,6 +1769,7 @@ async function publishNoteHtmlForPdf(file) {
 }
 
 async function waitForPrintableAssets(win) {
+  // Best-effort wait for fonts/images before printing; the inner 2500ms race caps it.
   await win.webContents.executeJavaScript(`
     Promise.race([
       (async () => {

@@ -250,7 +250,8 @@ export function createVimLite(
   function yank(text: string): void {
     if (!text) return;
     register = text;
-    void navigator.clipboard?.writeText(text).catch(() => {});
+    void navigator.clipboard?.writeText(text)
+      .catch((err) => console.warn("[vim] clipboard copy failed", err));
   }
 
   function resetMotionMemory(): void {

@@ -151,7 +151,7 @@ export function renderLeanMarkdown(parent: HTMLElement, raw: string): void {
   })).then(() => {
     if (generation !== renderGenerations.get(parent)) return;
     renderLeanMarkdownSegments(parent, segments);
-  }).catch(() => {});
+  }).catch((err) => console.warn("[lean] markdown render failed", err));
 }
 
 function renderLeanMarkdownSegments(parent: HTMLElement, segments: MarkdownSegment[]): void {

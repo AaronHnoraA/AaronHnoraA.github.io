@@ -236,6 +236,8 @@ export const api = {
 
     saveKeepalive(body: SaveBody): void {
       const native = requireMethod(requireNative().notes?.save, "Save");
+      // Best-effort save fired during page unload; the renderer is tearing down,
+      // so there is nowhere useful to surface a rejection.
       void native(body).catch(() => {});
     },
 
@@ -416,7 +418,7 @@ export const api = {
 
     savePosition(position: CursorPosition, _keepalive = false): void {
       const native = requireMethod(requireNative().session?.savePosition, "Cursor position save");
-      void native(position).catch(() => {});
+      void native(position).catch((err) => console.warn("[session] cursor position save failed", err));
     },
   },
 
