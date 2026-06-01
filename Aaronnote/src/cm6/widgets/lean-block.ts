@@ -36,6 +36,7 @@ import {
 } from "../../lean-splice.ts";
 import { renderLeanMarkdown } from "../../lean-render.ts";
 import { api } from "../../../aaronnote/api-client.ts";
+import type { LspDiagnostic, LspFileProgressItem } from "../../types/lean-ipc.ts";
 import type { OrgEnvBlock } from "./block-extras.ts";
 
 // ---------------------------------------------------------------------------
@@ -246,9 +247,9 @@ export interface LeanGoalState {
   blockIndex: number | null;
 }
 
-const SetDiagnosticsEffect = StateEffect.define<{ splice: LeanSplice; rawDiags: unknown[] }>();
-const SetProgressEffect = StateEffect.define<{ splice: LeanSplice; rawProgress: unknown[] }>();
-const SetSemanticTokensEffect = StateEffect.define<{ splice: LeanSplice; legend: unknown; data: unknown[] }>();
+const SetDiagnosticsEffect = StateEffect.define<{ splice: LeanSplice; rawDiags: LspDiagnostic[] }>();
+const SetProgressEffect = StateEffect.define<{ splice: LeanSplice; rawProgress: LspFileProgressItem[] }>();
+const SetSemanticTokensEffect = StateEffect.define<{ splice: LeanSplice; legend: unknown; data: number[] }>();
 const SetGoalEffect = StateEffect.define<LeanGoalState>();
 const SetSpliceEffect = StateEffect.define<LeanSplice | null>();
 
@@ -346,10 +347,9 @@ function rawDiagSeverity(sev: number | undefined): "error" | "warning" | "info" 
   return "info";
 }
 
-function mapDiagnostics(splice: LeanSplice, rawDiags: unknown[]): LeanDiagnostic[] {
+function mapDiagnostics(splice: LeanSplice, rawDiags: LspDiagnostic[]): LeanDiagnostic[] {
   const out: LeanDiagnostic[] = [];
-  for (const d of rawDiags) {
-    const diag = d as { range?: { start?: { line?: number; character?: number }; end?: { line?: number; character?: number } }; severity?: number; message?: string };
+  for (const diag of rawDiags) {
     const startLine = diag.range?.start?.line ?? 0;
     const startChar = diag.range?.start?.character ?? 0;
     const endLine = diag.range?.end?.line ?? startLine;
@@ -372,13 +372,12 @@ function mapDiagnostics(splice: LeanSplice, rawDiags: unknown[]): LeanDiagnostic
   return out;
 }
 
-function groupDiagsByBlock(splice: LeanSplice, rawDiags: unknown[]): LeanCellOutput[] {
+function groupDiagsByBlock(splice: LeanSplice, rawDiags: LspDiagnostic[]): LeanCellOutput[] {
   const byBlock = new Map<number, Array<{ severity: string; message: string }>>();
   for (const block of splice.blocks) {
     byBlock.set(block.index, []);
   }
-  for (const d of rawDiags) {
-    const diag = d as { range?: { start?: { line?: number; character?: number } }; severity?: number; message?: string };
+  for (const diag of rawDiags) {
     const leanOff = leanPositionToOffset(splice.leanText, diag.range?.start?.line ?? 0, diag.range?.start?.character ?? 0);
     const block = splice.blocks.find((b) => leanOff >= b.leanFrom && leanOff <= b.leanTo);
     if (!block) continue;
@@ -387,10 +386,9 @@ function groupDiagsByBlock(splice: LeanSplice, rawDiags: unknown[]): LeanCellOut
   return Array.from(byBlock.entries()).map(([index, messages]) => ({ blockIndex: index, messages }));
 }
 
-function mapProgress(splice: LeanSplice, rawProgress: unknown[]): LeanProgressRange[] {
+function mapProgress(splice: LeanSplice, rawProgress: LspFileProgressItem[]): LeanProgressRange[] {
   const out: LeanProgressRange[] = [];
-  for (const p of rawProgress) {
-    const prog = p as { range?: { start?: { line?: number; character?: number }; end?: { line?: number; character?: number } }; kind?: number };
+  for (const prog of rawProgress) {
     if (prog.kind !== 1) continue; // only "processing" ranges
     const leanFrom = leanPositionToOffset(splice.leanText, prog.range?.start?.line ?? 0, prog.range?.start?.character ?? 0);
     const leanTo = leanPositionToOffset(splice.leanText, prog.range?.end?.line ?? 0, prog.range?.end?.character ?? 0);
@@ -515,9 +513,9 @@ class LeanBlockPlugin {
   private syncedNotePath = "";
   private openLeanPath = "";
   private visualTimer: ReturnType<typeof setTimeout> | null = null;
-  private pendingDiagnostics: { uri: string; raw: unknown[] } | null = null;
-  private pendingProgress: { uri: string; raw: unknown[] } | null = null;
-  private pendingSemanticTokens: { uri: string; legend: unknown; data: unknown[] } | null = null;
+  private pendingDiagnostics: { uri: string; raw: LspDiagnostic[] } | null = null;
+  private pendingProgress: { uri: string; raw: LspFileProgressItem[] } | null = null;
+  private pendingSemanticTokens: { uri: string; legend: unknown; data: number[] } | null = null;
   private lastDiagnosticsSig = "";
   private lastProgressSig = "";
   private lastSemanticTokensSig = "";
@@ -530,8 +528,7 @@ class LeanBlockPlugin {
   }
 
   setupPushListeners(): void {
-    this.unsubDiag = api.lean.onDiagnostics((raw) => {
-      const data = raw as { uri?: string; version?: number; diagnostics?: unknown[] };
+    this.unsubDiag = api.lean.onDiagnostics((data) => {
       const splice = this.view.state.field(leanSpliceField, false);
       if (!splice) return;
       const expectedUris = new Set([fileUri(splice.leanPath), this.openLeanPath ? fileUri(this.openLeanPath) : ""]);
@@ -547,8 +544,7 @@ class LeanBlockPlugin {
       this.scheduleVisualFlush();
     });
 
-    this.unsubProgress = api.lean.onProgress((raw) => {
-      const data = raw as { uri?: string; version?: number; processing?: unknown[] };
+    this.unsubProgress = api.lean.onProgress((data) => {
       const splice = this.view.state.field(leanSpliceField, false);
       if (!splice) return;
       const expectedUris = new Set([fileUri(splice.leanPath), this.openLeanPath ? fileUri(this.openLeanPath) : ""]);
@@ -564,8 +560,7 @@ class LeanBlockPlugin {
       this.scheduleVisualFlush();
     });
 
-    this.unsubSemanticTokens = api.lean.onSemanticTokens((raw) => {
-      const data = raw as { uri?: string; legend?: unknown; data?: unknown[] };
+    this.unsubSemanticTokens = api.lean.onSemanticTokens((data) => {
       const splice = this.view.state.field(leanSpliceField, false);
       if (!splice) return;
       const expectedUris = new Set([fileUri(splice.leanPath), this.openLeanPath ? fileUri(this.openLeanPath) : ""]);
@@ -582,32 +577,23 @@ class LeanBlockPlugin {
     });
   }
 
-  diagnosticsSignature(rawDiags: unknown[]): string {
-    return rawDiags.map((item) => {
-      const diag = item as {
-        range?: { start?: { line?: number; character?: number }; end?: { line?: number; character?: number } };
-        severity?: number;
-        message?: string;
-      };
+  diagnosticsSignature(rawDiags: LspDiagnostic[]): string {
+    return rawDiags.map((diag) => {
       const start = diag.range?.start ?? {};
       const end = diag.range?.end ?? {};
       return `${start.line ?? 0}:${start.character ?? 0}:${end.line ?? 0}:${end.character ?? 0}:${diag.severity ?? 0}:${diag.message ?? ""}`;
     }).join("\n");
   }
 
-  progressSignature(rawProgress: unknown[]): string {
-    return rawProgress.map((item) => {
-      const progress = item as {
-        range?: { start?: { line?: number; character?: number }; end?: { line?: number; character?: number } };
-        kind?: number;
-      };
+  progressSignature(rawProgress: LspFileProgressItem[]): string {
+    return rawProgress.map((progress) => {
       const start = progress.range?.start ?? {};
       const end = progress.range?.end ?? {};
       return `${start.line ?? 0}:${start.character ?? 0}:${end.line ?? 0}:${end.character ?? 0}:${progress.kind ?? 0}`;
     }).join("\n");
   }
 
-  semanticTokensSignature(data: unknown[]): string {
+  semanticTokensSignature(data: number[]): string {
     return `${data.length}:${String(data[0] ?? "")}:${String(data.at(-1) ?? "")}`;
   }
 

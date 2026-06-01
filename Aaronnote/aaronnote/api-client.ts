@@ -8,6 +8,11 @@ import type {
   UploadedAsset, PluginSummary,
   GitChange, GitCommitEntry, GitRepoStatus,
 } from "./types.ts";
+import type {
+  LeanGoalsResponse, LeanTermGoalResponse, LeanHoverResponse, LeanCompletionResponse,
+  LeanOpenRegionResponse, LeanUpdateRegionResponse, LeanRegionRead,
+  LeanDiagnosticsPush, LeanProgressPush, LeanSemanticTokensPush,
+} from "../src/types/lean-ipc.ts";
 
 type IndexPayload = { notes?: NoteSummary[]; directories?: DirectorySummary[]; files?: FileSummary[] };
 type OpenMsg = Extract<Inbound, { type: "open" }>;
@@ -627,48 +632,48 @@ export const api = {
       return api.lean.request("ensure-region", body);
     },
 
-    async readRegion(body: Record<string, unknown>): Promise<unknown> {
-      return api.lean.request("read-region", body);
+    async readRegion(body: Record<string, unknown>): Promise<LeanRegionRead> {
+      return api.lean.request("read-region", body) as Promise<LeanRegionRead>;
     },
 
-    async updateRegion(body: Record<string, unknown>): Promise<unknown> {
-      return api.lean.request("update-region", body);
+    async updateRegion(body: Record<string, unknown>): Promise<LeanUpdateRegionResponse> {
+      return api.lean.request("update-region", body) as Promise<LeanUpdateRegionResponse>;
     },
 
     async deleteRegion(body: Record<string, unknown>): Promise<unknown> {
       return api.lean.request("delete-region", body);
     },
 
-    async openRegionFile(body: Record<string, unknown>): Promise<unknown> {
-      return api.lean.request("open-region-file", body);
+    async openRegionFile(body: Record<string, unknown>): Promise<LeanOpenRegionResponse> {
+      return api.lean.request("open-region-file", body) as Promise<LeanOpenRegionResponse>;
     },
 
     async getRegionMeta(body: Record<string, unknown>): Promise<unknown> {
       return api.lean.request("get-region-meta", body);
     },
 
-    async getGoals(body: Record<string, unknown>): Promise<unknown> {
+    async getGoals(body: Record<string, unknown>): Promise<LeanGoalsResponse> {
       const lean = nativeApi()?.lean;
       if (!lean?.getGoals) return { ok: false };
-      return lean.getGoals(body);
+      return lean.getGoals(body) as Promise<LeanGoalsResponse>;
     },
 
-    async getTermGoal(body: Record<string, unknown>): Promise<unknown> {
+    async getTermGoal(body: Record<string, unknown>): Promise<LeanTermGoalResponse> {
       const lean = nativeApi()?.lean;
       if (!lean?.getTermGoal) return { ok: false };
-      return lean.getTermGoal(body);
+      return lean.getTermGoal(body) as Promise<LeanTermGoalResponse>;
     },
 
-    async getHover(body: Record<string, unknown>): Promise<unknown> {
+    async getHover(body: Record<string, unknown>): Promise<LeanHoverResponse> {
       const lean = nativeApi()?.lean;
       if (!lean?.getHover) return { ok: false };
-      return lean.getHover(body);
+      return lean.getHover(body) as Promise<LeanHoverResponse>;
     },
 
-    async getCompletions(body: Record<string, unknown>): Promise<unknown> {
+    async getCompletions(body: Record<string, unknown>): Promise<LeanCompletionResponse> {
       const lean = nativeApi()?.lean;
       if (!lean?.getCompletions) return { ok: false };
-      return lean.getCompletions(body);
+      return lean.getCompletions(body) as Promise<LeanCompletionResponse>;
     },
 
     async rpcCall(body: Record<string, unknown>): Promise<unknown> {
@@ -727,16 +732,16 @@ export const api = {
       return (r?.entries ?? []) as Array<{ type: string; ts: number; message?: string }>;
     },
 
-    onDiagnostics(handler: (data: unknown) => void): () => void {
-      return nativeApi()?.lean?.onDiagnostics?.(handler) ?? (() => {});
+    onDiagnostics(handler: (data: LeanDiagnosticsPush) => void): () => void {
+      return nativeApi()?.lean?.onDiagnostics?.(handler as (data: unknown) => void) ?? (() => {});
     },
 
-    onProgress(handler: (data: unknown) => void): () => void {
-      return nativeApi()?.lean?.onProgress?.(handler) ?? (() => {});
+    onProgress(handler: (data: LeanProgressPush) => void): () => void {
+      return nativeApi()?.lean?.onProgress?.(handler as (data: unknown) => void) ?? (() => {});
     },
 
-    onSemanticTokens(handler: (data: unknown) => void): () => void {
-      return nativeApi()?.lean?.onSemanticTokens?.(handler) ?? (() => {});
+    onSemanticTokens(handler: (data: LeanSemanticTokensPush) => void): () => void {
+      return nativeApi()?.lean?.onSemanticTokens?.(handler as (data: unknown) => void) ?? (() => {});
     },
 
     onStatus(handler: (data: unknown) => void): () => void {

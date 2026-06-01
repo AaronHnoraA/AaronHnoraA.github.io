@@ -17,6 +17,8 @@ import {
   type ViewUpdate,
 } from "@codemirror/view";
 import { MeasuredWidget } from "./measured-widget.ts";
+import { CoalescedTimer } from "../../coalesced-timer.ts";
+import type { LeanRegionMeta, LeanSemanticTokensPush, LspFileProgressItem } from "../../types/lean-ipc.ts";
 import { defaultKeymap, history, historyKeymap, redo, undo } from "@codemirror/commands";
 import {
   acceptCompletion,
@@ -72,20 +74,6 @@ class LeanPlaceholderValue extends RangeValue {
       && other.selector === this.selector;
   }
 }
-
-type LeanRegionRead = {
-  ok?: boolean;
-  body?: string;
-  text?: string;
-  leanPath?: string;
-  region?: LeanRegionMeta;
-  message?: string;
-};
-
-type LeanRegionMeta = {
-  bodyFrom: number;
-  bodyTo: number;
-};
 
 export type LeanContext = {
   notePath: string;
@@ -1741,12 +1729,11 @@ async function leanHoverText(ctx: LeanContext, localPos: number): Promise<string
   const fullOffset = localOffsetToFull(ctx, localPos);
   if (fullOffset == null) return "";
   const pos = offsetToPosition(ctx.leanText, fullOffset);
-  const raw = await api.lean.getHover({
+  const hover = await api.lean.getHover({
     leanPath: ctx.leanPath,
     line: pos.line,
     character: pos.character,
   });
-  const hover = raw as { result?: { contents?: string | { value?: string } } } | null;
   const contents = hover?.result?.contents;
   return typeof contents === "string" ? contents : contents?.value ?? "";
 }
@@ -3090,13 +3077,9 @@ function leanKeyboardIsolation(ctx: LeanContext): Extension {
   }));
 }
 
-function progressMarksFromLeanNotification(ctx: LeanContext, rawProgress: unknown[], docLength: number): LeanProgressMark[] {
+function progressMarksFromLeanNotification(ctx: LeanContext, rawProgress: LspFileProgressItem[], docLength: number): LeanProgressMark[] {
   const marks: LeanProgressMark[] = [];
-  for (const item of rawProgress) {
-    const progress = item as {
-      range?: { start?: { line?: number; character?: number }; end?: { line?: number; character?: number } };
-      kind?: number;
-    };
+  for (const progress of rawProgress) {
     const kind: LeanProgressKind | null = progress.kind === 2 ? "fatalError" : progress.kind === 1 || progress.kind == null ? "processing" : null;
     if (!kind) continue;
     const start = progress.range?.start;
@@ -3239,8 +3222,11 @@ class LeanPlaceholderWidget extends MeasuredWidget {
     shadow.append(tooltipContainer);
 
     let loaded = false;
-    let saveTimer: ReturnType<typeof setTimeout> | null = null;
-    let goalTimer: ReturnType<typeof setTimeout> | null = null;
+    const saveDebounce = new CoalescedTimer(420);
+    const goalDebounce = new CoalescedTimer(180);
+    const diagnosticsDebounce = new CoalescedTimer(420);
+    const progressDebounce = new CoalescedTimer(180);
+    const semanticTokensDebounce = new CoalescedTimer(420);
     let goalSeq = 0;
     let syncSeq = 0;
     let bodyGeneration = 0;
@@ -3256,14 +3242,10 @@ class LeanPlaceholderWidget extends MeasuredWidget {
     let lastPublishedTerm: string | null = null;
     let lastPublishedAccomplished = false;
     let lastPublishedGoalError: string | null = null;
-    let lastPushRetryKey = "";
-    let goalRetryTimer: ReturnType<typeof setTimeout> | null = null;
-    let diagnosticsTimer: ReturnType<typeof setTimeout> | null = null;
-    let progressTimer: ReturnType<typeof setTimeout> | null = null;
-    let semanticTokensTimer: ReturnType<typeof setTimeout> | null = null;
-    let lastDiagnosticsSig = "";
-    let lastProgressSig = "";
-    let lastSemanticTokensSig = "";
+    // Tracks whether the cursor's region was last seen mid-elaboration, so a progress
+    // push that clears it (the server's "done up to here" signal) can refresh goals
+    // exactly once — replacing the old fixed 550ms re-query poll.
+    let cursorWasProcessing = false;
     const ctx: LeanContext = {
       notePath: noteInfo.notePath,
       tag,
@@ -3281,8 +3263,7 @@ class LeanPlaceholderWidget extends MeasuredWidget {
       if (lspOpenPromise) return lspOpenPromise;
       status.textContent = "Checking";
       lspOpenPromise = api.lean.openRegionFile({ notePath: noteInfo.notePath, tag, selector })
-        .then((openRaw) => {
-          const openRes = openRaw as { ok?: boolean; message?: string; lspVersion?: number; leanPath?: string } | null;
+        .then((openRes) => {
           if (openRes?.ok === false) throw new Error(openRes.message || "Lean open failed");
           if (typeof openRes?.lspVersion === "number") ctx.lspVersion = openRes.lspVersion;
           if (openRes?.leanPath) ctx.leanPath = String(openRes.leanPath);
@@ -3330,8 +3311,7 @@ class LeanPlaceholderWidget extends MeasuredWidget {
       updateLeanContextBody(ctx, body);
       status.textContent = mode === "save" ? "Saving" : "Checking";
       syncPromise = api.lean.updateRegion({ notePath: noteInfo.notePath, tag, selector, body })
-        .then((raw) => {
-          const res = raw as { ok?: boolean; message?: string; text?: string; region?: LeanRegionMeta; leanPath?: string; lspVersion?: number };
+        .then((res) => {
           if (res?.ok === false) throw new Error(res.message || "Lean sync failed");
           if (seq !== syncSeq) return;
           ctx.leanText = String(res.text ?? ctx.leanText);
@@ -3349,7 +3329,7 @@ class LeanPlaceholderWidget extends MeasuredWidget {
           lastPublishedTerm = null;
           lastPublishedAccomplished = false;
           lastPublishedGoalError = null;
-          lastPushRetryKey = "";
+          cursorWasProcessing = false;
           status.textContent = mode === "save" ? "Saved" : "Ready";
           card.classList.remove("is-error");
         })
@@ -3410,10 +3390,8 @@ class LeanPlaceholderWidget extends MeasuredWidget {
 
     const renderGoals = (view: EditorView, flush = false): void => {
       if (!loaded || !ctx.leanPath || !ctx.region) return;
-      if (goalTimer) clearTimeout(goalTimer);
       const seq = ++goalSeq;
-      goalTimer = setTimeout(() => {
-        goalTimer = null;
+      goalDebounce.schedule(() => {
         void (async () => {
           // Flush pending edits first so the queried position matches the text the
           // server holds; cheap no-op when nothing changed (see lastSyncedBody).
@@ -3425,13 +3403,11 @@ class LeanPlaceholderWidget extends MeasuredWidget {
           const fullOffset = localOffsetToFull(ctx, view.state.selection.main.from);
           if (fullOffset == null) return;
           const pos = offsetToPosition(ctx.leanText, fullOffset);
-          const [goalRaw, termRaw] = await Promise.all([
+          const [goalResponse, termResponse] = await Promise.all([
             api.lean.getGoals({ leanPath: ctx.leanPath, line: pos.line, character: pos.character }),
             api.lean.getTermGoal({ leanPath: ctx.leanPath, line: pos.line, character: pos.character }),
           ]);
           if (seq !== goalSeq) return;
-          const goalResponse = goalRaw as { ok?: boolean; message?: string; result?: { rendered?: string; goals?: unknown[] } } | null;
-          const termResponse = termRaw as { ok?: boolean; message?: string; result?: { rendered?: string } } | null;
           const goalError = goalResponse?.ok === false
             ? (goalResponse.message || "Error fetching goals")
             : termResponse?.ok === false
@@ -3478,18 +3454,7 @@ class LeanPlaceholderWidget extends MeasuredWidget {
             goalError: goalError || null,
           });
         })().catch(() => {});
-      }, 180);
-    };
-
-    const scheduleGoalRetryFromPush = (): void => {
-      if (!lastPublishedKey || lastPublishedGoals !== null || lastPublishedAccomplished) return;
-      if (lastPushRetryKey === lastPublishedKey) return;
-      lastPushRetryKey = lastPublishedKey;
-      if (goalRetryTimer) clearTimeout(goalRetryTimer);
-      goalRetryTimer = setTimeout(() => {
-        goalRetryTimer = null;
-        renderGoals(child);
-      }, 550);
+      });
     };
 
     const diagnosticSignature = (marks: LeanDiagnosticMark[]): string =>
@@ -3498,10 +3463,8 @@ class LeanPlaceholderWidget extends MeasuredWidget {
     const progressSignature = (marks: LeanProgressMark[]): string =>
       marks.map((mark) => `${mark.from}:${mark.to}:${mark.kind}`).join("\n");
 
-    const semanticTokensSignature = (raw: unknown): string => {
-      const data = Array.isArray((raw as { data?: unknown[] } | null)?.data)
-        ? (raw as { data: unknown[] }).data
-        : [];
+    const semanticTokensSignature = (push: LeanSemanticTokensPush): string => {
+      const data = Array.isArray(push.data) ? push.data : [];
       return `${data.length}:${String(data[0] ?? "")}:${String(data.at(-1) ?? "")}`;
     };
 
@@ -3569,15 +3532,11 @@ class LeanPlaceholderWidget extends MeasuredWidget {
         extensions: leanEditorExtensions(ctx, tooltipContainer, () => {
           if (!loaded) return;
           bodyGeneration++;
-          lastPushRetryKey = "";
-          if (saveTimer) clearTimeout(saveTimer);
-          saveTimer = setTimeout(() => {
-            saveTimer = null;
-            void syncRegion(child.state.doc.toString(), "save");
-          }, 420);
+          cursorWasProcessing = false;
+          saveDebounce.schedule(() => { void syncRegion(child.state.doc.toString(), "save"); });
           for (const handler of copilotChangeHandlers) handler();
         }, (view) => {
-          lastPushRetryKey = "";
+          cursorWasProcessing = false;
           renderGoals(view, true);
         }),
       }),
@@ -3642,21 +3601,14 @@ class LeanPlaceholderWidget extends MeasuredWidget {
       jumpTo: (line, character) => ctx.jumpToFullPosition?.(line, character),
     });
 
-    const unsubDiag = api.lean.onDiagnostics((raw) => {
-      const data = raw as { uri?: string; version?: number; diagnostics?: unknown[] };
+    const unsubDiag = api.lean.onDiagnostics((data) => {
       if (!ctx.leanPath || data.uri !== fileUri(ctx.leanPath)) return;
       if (typeof data.version === "number") {
         if (typeof ctx.lspVersion === "number" && data.version < ctx.lspVersion) return;
         ctx.lspVersion = data.version;
       }
       const marks: LeanDiagnosticMark[] = [];
-      for (const item of data.diagnostics ?? []) {
-        const diag = item as {
-          range?: { start?: { line?: number; character?: number }; end?: { line?: number; character?: number } };
-          severity?: number;
-          message?: string;
-          leanTags?: unknown[];
-        };
+      for (const diag of data.diagnostics ?? []) {
         const start = positionToOffset(ctx.leanText, diag.range?.start?.line ?? 0, diag.range?.start?.character ?? 0);
         const end = positionToOffset(ctx.leanText, diag.range?.end?.line ?? 0, diag.range?.end?.character ?? 0);
         const from = fullOffsetToLocal(ctx, start);
@@ -3671,18 +3623,11 @@ class LeanPlaceholderWidget extends MeasuredWidget {
         });
       }
       const sig = diagnosticSignature(marks);
-      if (sig !== lastDiagnosticsSig) {
-        if (diagnosticsTimer) clearTimeout(diagnosticsTimer);
-        diagnosticsTimer = setTimeout(() => {
-          diagnosticsTimer = null;
-          lastDiagnosticsSig = sig;
-          child.dispatch({ effects: SetLeanDiagnostics.of(marks) });
-        }, 420);
-      }
-      scheduleGoalRetryFromPush();
+      diagnosticsDebounce.schedule(() => {
+        child.dispatch({ effects: SetLeanDiagnostics.of(marks) });
+      }, sig);
     });
-    const unsubProgress = api.lean.onProgress((raw) => {
-      const data = raw as { uri?: string; version?: number; processing?: unknown[] };
+    const unsubProgress = api.lean.onProgress((data) => {
       if (!ctx.leanPath || data.uri !== fileUri(ctx.leanPath)) return;
       if (typeof data.version === "number") {
         if (typeof ctx.lspVersion === "number" && data.version < ctx.lspVersion) return;
@@ -3690,25 +3635,25 @@ class LeanPlaceholderWidget extends MeasuredWidget {
       }
       const marks = progressMarksFromLeanNotification(ctx, data.processing ?? [], child.state.doc.length);
       const sig = progressSignature(marks);
-      if (sig !== lastProgressSig) {
-        if (progressTimer) clearTimeout(progressTimer);
-        progressTimer = setTimeout(() => {
-          progressTimer = null;
-          lastProgressSig = sig;
-          child.dispatch({ effects: SetLeanProgress.of(marks) });
-        }, 180);
+      progressDebounce.schedule(() => {
+        child.dispatch({ effects: SetLeanProgress.of(marks) });
+      }, sig);
+      // Deterministic goal re-query: fire exactly when the server signals the cursor's
+      // region finished elaborating (falling edge of the "processing" state). This
+      // replaces the old fixed 550ms blind poll (scheduleGoalRetryFromPush).
+      const pos = child.state.selection.main.from;
+      const nowProcessing = marks.some((m) => m.kind === "processing" && pos >= m.from && pos <= m.to);
+      const elaborationDone = cursorWasProcessing && !nowProcessing;
+      const idleWithNoMarks = !cursorWasProcessing && marks.length === 0;
+      if ((elaborationDone || idleWithNoMarks) && lastPublishedGoals === null && !lastPublishedAccomplished) {
+        renderGoals(child);
       }
-      scheduleGoalRetryFromPush();
+      cursorWasProcessing = nowProcessing;
     });
-    const unsubSemanticTokens = api.lean.onSemanticTokens((raw) => {
-      const data = raw as { uri?: string; legend?: unknown; data?: unknown[] };
+    const unsubSemanticTokens = api.lean.onSemanticTokens((data) => {
       if (!ctx.leanPath || data.uri !== fileUri(ctx.leanPath)) return;
       const sig = semanticTokensSignature(data);
-      if (sig === lastSemanticTokensSig) return;
-      if (semanticTokensTimer) clearTimeout(semanticTokensTimer);
-      semanticTokensTimer = setTimeout(() => {
-        semanticTokensTimer = null;
-        lastSemanticTokensSig = sig;
+      semanticTokensDebounce.schedule(() => {
         child.dispatch({
           effects: SetLeanSemanticTokens.of({
             text: ctx.leanText,
@@ -3717,7 +3662,7 @@ class LeanPlaceholderWidget extends MeasuredWidget {
             data: data.data ?? [],
           }),
         });
-      }, 420);
+      }, sig);
     });
     const onRegionJump = (event: Event): void => {
       const detail = (event as LeanRegionJumpEvent).detail;
@@ -3806,10 +3751,11 @@ class LeanPlaceholderWidget extends MeasuredWidget {
       unsubDiag();
       unsubProgress();
       unsubSemanticTokens();
-      if (goalRetryTimer) clearTimeout(goalRetryTimer);
-      if (diagnosticsTimer) clearTimeout(diagnosticsTimer);
-      if (progressTimer) clearTimeout(progressTimer);
-      if (semanticTokensTimer) clearTimeout(semanticTokensTimer);
+      goalDebounce.cancel();
+      saveDebounce.cancel();
+      diagnosticsDebounce.cancel();
+      progressDebounce.cancel();
+      semanticTokensDebounce.cancel();
       window.removeEventListener("aaronnote:lean-region-jump", onRegionJump);
       window.removeEventListener("aaronnote:lean-region-insert", onRegionInsert);
       window.removeEventListener("aaronnote:lean-region-apply-edit", onRegionApplyEdit);
@@ -3819,8 +3765,7 @@ class LeanPlaceholderWidget extends MeasuredWidget {
     };
 
     void api.lean.readRegion({ notePath: noteInfo.notePath, tag, selector })
-      .then((raw) => {
-        const res = raw as LeanRegionRead;
+      .then((res) => {
         if (res?.ok === false) throw new Error(res.message || "Lean region load failed");
         ctx.leanPath = String(res.leanPath ?? "");
         ctx.leanText = String(res.text ?? "");

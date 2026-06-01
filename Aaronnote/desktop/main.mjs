@@ -1600,9 +1600,16 @@ function jupyterScrollScript(body = {}) {
 
   const result = scrollNow();
   if (!result.scrolled) {
-    window.setTimeout(scrollNow, 100);
-    window.setTimeout(scrollNow, 350);
-    window.setTimeout(scrollNow, 900);
+    // Retry each animation frame until the anchor element appears in the DOM,
+    // stopping as soon as it does or a ~1500ms deadline passes. Replaces the old
+    // fire-and-hope triple-shot (100 / 350 / 900ms) which guessed at render timing.
+    const deadline = Date.now() + 1500;
+    const retry = () => {
+      if (Date.now() > deadline) return;
+      const r = scrollNow();
+      if (!r.scrolled) requestAnimationFrame(retry);
+    };
+    requestAnimationFrame(retry);
   }
   return result;
 })()

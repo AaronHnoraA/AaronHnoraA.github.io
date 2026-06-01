@@ -3,6 +3,7 @@ import "../src/styles/theme-typora.css";
 import "./style.css";
 
 import { createEditor, type Editor, type EditorCommand, type QuickInsertItem } from "../src/lib.ts";
+import { CoalescedTimer } from "../src/coalesced-timer.ts";
 import type { EditorView } from "@codemirror/view";
 import { setFindHighlightRanges } from "../src/cm6/find-highlight.ts";
 import { markdownHrefAt } from "../src/cm6/editor-cm6.ts";
@@ -675,8 +676,8 @@ let leanNotesRoot = "";
 let currentMode: "markdown" | "source" = "markdown";
 const LARGE_RENDERED_OPEN_BYTES = 1_000_000;
 let currentStandalone = false;
-let noteCssUpdateTimer = 0;
-let saveTimer = 0;
+const noteCssDebounce = new CoalescedTimer(120);
+const saveDebounce = new CoalescedTimer(900);
 let draftSaveTimer = 0;
 let draftSaveIdleHandle = 0;
 let draftSavePending = false;
@@ -1017,7 +1018,7 @@ function focusFilesystemRangerSoon(attempts = 8): void {
   const run = (remaining: number) => {
     window.requestAnimationFrame(() => {
       if (filesystemBrowser.focus() || remaining <= 1) return;
-      window.setTimeout(() => run(remaining - 1), 40);
+      run(remaining - 1);
     });
   };
   run(attempts);
@@ -1028,7 +1029,7 @@ function focusRecentListSoon(attempts = 8): void {
   const run = (remaining: number) => {
     window.requestAnimationFrame(() => {
       if (filesystemBrowser.focusRecent() || remaining <= 1) return;
-      window.setTimeout(() => run(remaining - 1), 40);
+      run(remaining - 1);
     });
   };
   run(attempts);
@@ -2143,8 +2144,7 @@ function markDirty(): void {
     return;
   }
   setStatus("Dirty");
-  window.clearTimeout(saveTimer);
-  saveTimer = window.setTimeout(() => save(), 900);
+  saveDebounce.schedule(() => save());
 }
 
 function stringArrayEqual(a: readonly string[] = [], b: readonly string[] = []): boolean {
@@ -3260,8 +3260,7 @@ function updateNoteCss(markdown = editor.getMarkdown()): void {
 }
 
 function scheduleNoteCssUpdate(): void {
-  window.clearTimeout(noteCssUpdateTimer);
-  noteCssUpdateTimer = window.setTimeout(() => updateNoteCss(), 120);
+  noteCssDebounce.schedule(() => updateNoteCss());
 }
 
 function fileNameFromPath(path: string): string {
@@ -3354,8 +3353,7 @@ function save(): void {
 }
 
 async function flushCurrentSaveForGit(): Promise<void> {
-  window.clearTimeout(saveTimer);
-  saveTimer = 0;
+  saveDebounce.cancel();
   if (!currentFile || editRevision === savedRevision || saveConflictActive) return;
   await saveStandalone();
 }
@@ -8984,7 +8982,7 @@ function flushState(options: { keepalive?: boolean } = {}): void {
   saveCursorPositionsLocalNow();
   saveRecentNotesLocalNow();
   flushDraftRemember();
-  window.clearTimeout(saveTimer);
+  saveDebounce.cancel();
   flushSaveKeepalive();
 }
 
@@ -9158,8 +9156,8 @@ async function openStandaloneFile(file: string): Promise<void> {
 function applyOpen(msg: Extract<Inbound, { type: "open" }>, options: { preserveFocus?: boolean } = {}): void {
   saveCursorPositionNow({ force: true });
   flushDraftRemember();
-  window.clearTimeout(saveTimer);
-  window.clearTimeout(noteCssUpdateTimer);
+  saveDebounce.cancel();
+  noteCssDebounce.cancel();
   saveAbortController?.abort();
   saveAbortController = null;
   saveConflictActive = false;
