@@ -5,6 +5,7 @@ import "./style.css";
 import { createEditor, type Editor, type EditorCommand, type QuickInsertItem } from "../src/lib.ts";
 import { CoalescedTimer } from "../src/coalesced-timer.ts";
 import { Epoch } from "../src/async-epoch.ts";
+import { matchChord, historyChordKind, type ShortcutCtx } from "../src/keymap/shortcut-router.ts";
 import type { EditorView } from "@codemirror/view";
 import { setFindHighlightRanges } from "../src/cm6/find-highlight.ts";
 import { markdownHrefAt } from "../src/cm6/editor-cm6.ts";
@@ -9334,21 +9335,24 @@ function runHistoryCommand(kind: "undo" | "redo"): void {
   scheduleCursorPositionSave();
 }
 
-function primaryShortcutModifier(event: KeyboardEvent): boolean {
-  return /Mac/.test(navigator.platform)
-    ? event.metaKey && !event.ctrlKey
-    : event.ctrlKey && !event.metaKey;
+function historyShortcutKind(event: KeyboardEvent): "undo" | "redo" | null {
+  return historyChordKind(event);
 }
 
-function historyShortcutKind(event: KeyboardEvent): "undo" | "redo" | null {
-  if (event.altKey) return null;
-  const key = event.key.toLowerCase();
-  if (/Mac/.test(navigator.platform) && event.ctrlKey && !event.metaKey && key === "z") return "redo";
-  if (!primaryShortcutModifier(event)) return null;
-  if (key === "z" && !event.shiftKey) return "undo";
-  if (key === "z" && event.shiftKey) return "redo";
-  if (key === "y" && !event.shiftKey) return "redo";
-  return null;
+function buildShortcutCtx(event: KeyboardEvent): ShortcutCtx {
+  const blockingOverlayOpen = !snippetPopup.hidden
+    || !quickInsertPopup.hidden
+    || !selectionTool.hidden
+    || !findTool.hidden
+    || linkPreview.isOpen()
+    || !relationPanel.hidden;
+  return {
+    editorOwnsTarget: editorOwnsEventTarget(event),
+    fromLeanEmbedded: eventFromLeanEmbeddedEditor(event),
+    overlayOpen: blockingOverlayOpen,
+    vimMode,
+    notesTool: activeNotesTool(),
+  };
 }
 
 function eventFromLeanEmbeddedEditor(event: Event): boolean {
@@ -9374,235 +9378,128 @@ document.addEventListener("keydown", (event) => {
 }, { capture: true });
 
 document.addEventListener("keydown", (event) => {
-  const primaryMod = primaryShortcutModifier(event);
-  const fromLeanEmbeddedEditor = eventFromLeanEmbeddedEditor(event);
-  const ctrlEnter = event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey && event.key === "Enter";
-  if (primaryMod && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "l") {
+  const ctx = buildShortcutCtx(event);
+  const ctrlEnter = matchChord(event, { ctrl: true, meta: false, shift: false, alt: false, key: "enter" });
+  // Lean toggle: fires from any context including Lean sub-editors.
+  if (matchChord(event, { primary: true, shift: false, alt: false, key: "l" })) {
     event.preventDefault();
     event.stopPropagation();
     toggleLeanPanel();
     return;
   }
-  if (!ctrlEnter && fromLeanEmbeddedEditor) return;
-  if (handleLeanLocationsPickerKey(event)) {
-    event.stopPropagation();
+  // From a Lean sub-editor, only Ctrl+Enter (toggle notes/editor page) passes through.
+  if (!ctrlEnter && ctx.fromLeanEmbedded) return;
+
+  if (handleLeanLocationsPickerKey(event)) { event.stopPropagation(); return; }
+  if (handleCommandPaletteKey(event)) { event.stopPropagation(); return; }
+  if (handleJumpModeKey(event)) return;
+
+  if (matchChord(event, { primary: true, shift: true, alt: false, key: "p" })) {
+    event.preventDefault(); event.stopPropagation(); openCommandPalette(); return;
+  }
+  if (matchChord(event, { primary: true, shift: true, alt: false, key: "s" })) {
+    event.preventDefault(); event.stopPropagation(); void checkProse(); return;
+  }
+  if (matchChord(event, { primary: true, shift: false, alt: false, key: "j" })) {
+    event.preventDefault(); event.stopPropagation(); toggleJumpStackPanel(); return;
+  }
+  if (matchChord(event, { primary: true, shift: true, alt: false, key: "t" })) {
+    event.preventDefault(); event.stopPropagation(); void openTodayDaily(); return;
+  }
+  if (matchChord(event, { primary: true, shift: true, alt: false, key: "l" })) {
+    event.preventDefault(); event.stopPropagation(); void insertLeanBlock(); return;
+  }
+
+  const plainEscape = matchChord(event, { meta: false, ctrl: false, alt: false, shift: false, key: "escape" });
+  const shouldDismissMathPreview = !mathPreview.hidden && !ctx.editorOwnsTarget;
+  if (plainEscape && (ctx.overlayOpen || shouldDismissMathPreview)) {
+    event.preventDefault(); event.stopPropagation();
+    hideEditorOverlays(); closeRelationPanel(); editor.focus();
     return;
   }
-  if (handleCommandPaletteKey(event)) {
-    event.stopPropagation();
-    return;
-  }
-  if (handleJumpModeKey(event)) {
-    return;
-  }
-  if (primaryMod && event.shiftKey && !event.altKey && event.key.toLowerCase() === "p") {
-    event.preventDefault();
-    event.stopPropagation();
-    openCommandPalette();
-    return;
-  }
-  if (primaryMod && event.shiftKey && !event.altKey && event.key.toLowerCase() === "s") {
-    event.preventDefault();
-    event.stopPropagation();
-    void checkProse();
-    return;
-  }
-  if (primaryMod && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "j") {
-    event.preventDefault();
-    event.stopPropagation();
-    toggleJumpStackPanel();
-    return;
-  }
-  if (primaryMod && event.shiftKey && !event.altKey && event.key.toLowerCase() === "t") {
-    event.preventDefault();
-    event.stopPropagation();
-    void openTodayDaily();
-    return;
-  }
-  if (primaryMod && event.shiftKey && !event.altKey && event.key.toLowerCase() === "l") {
-    event.preventDefault();
-    event.stopPropagation();
-    void insertLeanBlock();
-    return;
-  }
-  const plainEscape = event.key === "Escape"
-    && !event.metaKey
-    && !event.ctrlKey
-    && !event.altKey
-    && !event.shiftKey;
-  const blockingOverlayOpen = !snippetPopup.hidden
-    || !quickInsertPopup.hidden
-    || !selectionTool.hidden
-    || !findTool.hidden
-    || linkPreview.isOpen()
-    || !relationPanel.hidden;
-  const shouldDismissMathPreview = !mathPreview.hidden && !editorOwnsEventTarget(event);
-  if (plainEscape && (blockingOverlayOpen || shouldDismissMathPreview)) {
-    event.preventDefault();
-    event.stopPropagation();
-    hideEditorOverlays();
-    closeRelationPanel();
-    editor.focus();
-    return;
-  }
+
   if (ctrlEnter) {
-    event.preventDefault();
-    event.stopPropagation();
-    const activeTool = activeNotesTool();
-    if (!notesPage.hidden && (activeTool === "filesystem" || activeTool === "recent")) {
+    event.preventDefault(); event.stopPropagation();
+    if (!notesPage.hidden && (ctx.notesTool === "filesystem" || ctx.notesTool === "recent")) {
       showEditorPage();
     } else {
       openFilesystemPage();
     }
     return;
   }
+
   if (
     !notesPage.hidden
-    && (activeNotesTool() === "filesystem" || activeNotesTool() === "recent")
-    && !event.metaKey
-    && !event.ctrlKey
-    && !event.shiftKey
-    && !event.altKey
-    && event.key === "Tab"
+    && (ctx.notesTool === "filesystem" || ctx.notesTool === "recent")
+    && matchChord(event, { meta: false, ctrl: false, shift: false, alt: false, key: "tab" })
   ) {
-    event.preventDefault();
-    event.stopPropagation();
-    showNotesTool(activeNotesTool() === "filesystem" ? "recent" : "filesystem");
+    event.preventDefault(); event.stopPropagation();
+    showNotesTool(ctx.notesTool === "filesystem" ? "recent" : "filesystem");
     return;
   }
+
   if (
-    editorOwnsEventTarget(event)
-    && !event.metaKey
-    && !event.ctrlKey
-    && !event.altKey
+    ctx.editorOwnsTarget
+    && !event.metaKey && !event.ctrlKey && !event.altKey
     && (event.key.length === 1 || ["Backspace", "Delete", "Enter", "Tab"].includes(event.key))
   ) {
     snippetMouseSuppressed = false;
   }
-  if (primaryMod && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "f") {
-    event.preventDefault();
-    event.stopPropagation();
-    openFindTool();
-    return;
+
+  if (matchChord(event, { primary: true, shift: false, alt: false, key: "f" })) {
+    event.preventDefault(); event.stopPropagation(); openFindTool(); return;
   }
-  if (event.key === "/" && !event.shiftKey && !event.altKey) {
-    const isMac = /Mac/.test(navigator.platform);
-    if (isMac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey) {
-      event.preventDefault();
-      event.stopPropagation();
-      toggleSourceMode();
-      return;
-    }
+  if (matchChord(event, { primary: true, shift: false, alt: false, key: "/" })) {
+    event.preventDefault(); event.stopPropagation(); toggleSourceMode(); return;
   }
-  if (editorOwnsEventTarget(event) && runPluginKeyHandlers(event)) {
-    event.stopPropagation();
-    return;
+
+  if (ctx.editorOwnsTarget && runPluginKeyHandlers(event)) { event.stopPropagation(); return; }
+
+  if (ctx.vimMode !== "insert" && ctx.editorOwnsTarget
+    && matchChord(event, { meta: false, ctrl: false, alt: false, shift: false, key: "/" })) {
+    event.preventDefault(); event.stopPropagation(); openFindTool(); return;
   }
-  if (
-    vimMode !== "insert"
-    && event.key === "/"
-    && !event.metaKey
-    && !event.ctrlKey
-    && !event.altKey
-    && !event.shiftKey
-    && editorOwnsEventTarget(event)
-  ) {
-    event.preventDefault();
-    event.stopPropagation();
-    openFindTool();
-    return;
+  if (matchChord(event, { alt: true, ctrl: false, meta: false, shift: false, key: "t" })) {
+    event.preventDefault(); event.stopPropagation(); toc.classList.toggle("is-collapsed"); return;
   }
-  if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.key.toLowerCase() === "t") {
-    event.preventDefault();
-    event.stopPropagation();
-    toc.classList.toggle("is-collapsed");
-    return;
+
+  if (handleQuickInsertKey(event)) { event.stopPropagation(); return; }
+  if (handleSnippetPopupKey(event)) { event.stopPropagation(); return; }
+
+  if (ctx.vimMode === "normal" && ctx.editorOwnsTarget
+    && matchChord(event, { meta: false, ctrl: false, alt: false, shift: false, key: "s" })) {
+    event.preventDefault(); event.stopPropagation(); startJumpMode(); return;
   }
-  if (handleQuickInsertKey(event)) {
-    event.stopPropagation();
-    return;
+
+  if (ctx.editorOwnsTarget) {
+    const editorCmd = matchChord(event, { primary: true, alt: false, shift: false, key: "b" }) ? "bold"
+      : matchChord(event, { primary: true, alt: false, shift: false, key: "i" }) ? "italic"
+      : matchChord(event, { primary: true, alt: false, shift: false, key: "k" }) ? "link"
+      : null;
+    if (editorCmd) { event.preventDefault(); event.stopPropagation(); runEditorCommand(editorCmd); return; }
   }
-  if (handleSnippetPopupKey(event)) {
-    event.stopPropagation();
-    return;
-  }
-  if (
-    vimMode === "normal"
-    && event.key === "s"
-    && !event.metaKey
-    && !event.ctrlKey
-    && !event.altKey
-    && !event.shiftKey
-    && editorOwnsEventTarget(event)
-  ) {
-    event.preventDefault();
-    event.stopPropagation();
-    startJumpMode();
-    return;
-  }
-  if (editorOwnsEventTarget(event)) {
-    const key = event.key.toLowerCase();
-    const primaryMod = /Mac/.test(navigator.platform)
-      ? event.metaKey && !event.ctrlKey
-      : event.ctrlKey && !event.metaKey;
-    if (primaryMod && !event.altKey && !event.shiftKey) {
-      const command = key === "b"
-        ? "bold"
-        : key === "i"
-          ? "italic"
-          : key === "k"
-            ? "link"
-            : null;
-      if (command) {
-        event.preventDefault();
-        event.stopPropagation();
-        runEditorCommand(command);
-        return;
-      }
-    }
-  }
-  if (event.metaKey && !event.shiftKey && !event.altKey && !event.ctrlKey && event.key.toLowerCase() === "t") {
+
+  if (matchChord(event, { meta: true, ctrl: false, shift: false, alt: false, key: "t" })) {
     const jupyterTocTag = handleJupyterTocTagCommand();
-    if (jupyterTocTag !== "miss") {
-      event.preventDefault();
-      event.stopPropagation();
-      return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-    void handleTagCommand();
+    event.preventDefault(); event.stopPropagation();
+    if (jupyterTocTag === "miss") void handleTagCommand();
     return;
   }
-  if (event.key === "]" && event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
-    if (jumpSnippetTabstop()) {
-      event.preventDefault();
-      event.stopPropagation();
-      return;
-    }
+
+  if (matchChord(event, { meta: true, ctrl: false, shift: false, alt: false, key: "]" })) {
+    if (jumpSnippetTabstop()) { event.preventDefault(); event.stopPropagation(); return; }
   }
-  if (event.key === "[" && event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
-    if (jumpSnippetTabstopBack()) {
-      event.preventDefault();
-      event.stopPropagation();
-      return;
-    }
+  if (matchChord(event, { meta: true, ctrl: false, shift: false, alt: false, key: "[" })) {
+    if (jumpSnippetTabstopBack()) { event.preventDefault(); event.stopPropagation(); return; }
   }
-  if (vim.handleKeyDown(event)) {
-    updateVimCursorNow();
-    event.stopPropagation();
-    return;
+
+  if (vim.handleKeyDown(event)) { updateVimCursorNow(); event.stopPropagation(); return; }
+
+  if (matchChord(event, { meta: true, ctrl: false, shift: false, alt: false, key: "s" })) {
+    event.preventDefault(); event.stopPropagation(); save(); return;
   }
-  if (event.metaKey && !event.shiftKey && !event.altKey && !event.ctrlKey && event.key.toLowerCase() === "s") {
-    event.preventDefault();
-    event.stopPropagation();
-    save();
-    return;
-  }
-  if (event.metaKey && !event.altKey && !event.ctrlKey && !event.shiftKey && event.key.toLowerCase() === "p") {
-    event.preventDefault();
-    event.stopPropagation();
-    void exportPdf();
-    return;
+  if (matchChord(event, { meta: true, ctrl: false, shift: false, alt: false, key: "p" })) {
+    event.preventDefault(); event.stopPropagation(); void exportPdf(); return;
   }
 }, true);
 

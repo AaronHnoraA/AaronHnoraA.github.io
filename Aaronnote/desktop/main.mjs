@@ -5,6 +5,7 @@ import { access, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { findExecutable, findKittyExecutable, findLeanExternalExecutables, kittyDirectoryCommand, leanExternalNvimCommand } from "./lean-external.mjs";
+import { shouldOwnShortcut, historyShortcutCommand } from "./shortcuts.mjs";
 import { jupyterLabUrl, jupyterLaunchArgs, jupyterSelectorPath, mergeJupyterEnv, parseNulEnv } from "./jupyter.mjs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { homedir } from "node:os";
@@ -118,25 +119,6 @@ protocol.registerSchemesAsPrivileged([{
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) app.exit(0);
 
-function shouldOwnShortcut(input) {
-  if (input.alt || input.control) return false;
-  if (!input.meta) return false;
-  const key = input.key.toLowerCase();
-  if (key === "j" || key === "w") return !input.shift;
-  return key === "l" || key === "r";
-}
-
-function historyShortcutCommand(input) {
-  if (input.alt) return "";
-  const key = String(input.key || "").toLowerCase();
-  if (process.platform === "darwin" && input.control && !input.meta && key === "z") return "redo";
-  const primary = (input.meta && !input.control) || (input.control && !input.meta);
-  if (!primary) return "";
-  if (key === "z" && input.shift) return "redo";
-  if (key === "z" && !input.shift) return "undo";
-  if (key === "y" && !input.shift) return "redo";
-  return "";
-}
 
 const ZOOM_STEP = 0.5;
 const DEFAULT_ZOOM_LEVEL = 2;
