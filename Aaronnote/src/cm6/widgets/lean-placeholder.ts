@@ -129,6 +129,8 @@ export type LeanEditorController = {
 
 const leanControllers = new Map<string, LeanEditorController>();
 let activeLeanControllerId = "";
+export const LEAN_DOCPOP_AUTO_CHANGE_EVENT = "aaronnote:lean-docpop-auto-change";
+let leanDocPopAutoEnabled = false;
 
 export function registerLeanController(controller: LeanEditorController): void {
   leanControllers.set(controller.id, controller);
@@ -149,6 +151,21 @@ export function getLeanController(id: string): LeanEditorController | null {
 
 export function activeLeanController(): LeanEditorController | null {
   return activeLeanControllerId ? leanControllers.get(activeLeanControllerId) ?? null : null;
+}
+
+export function getLeanDocPopAutoEnabled(): boolean {
+  return leanDocPopAutoEnabled;
+}
+
+export function setLeanDocPopAutoEnabled(enabled: boolean): void {
+  const next = Boolean(enabled);
+  if (next === leanDocPopAutoEnabled) return;
+  leanDocPopAutoEnabled = next;
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(LEAN_DOCPOP_AUTO_CHANGE_EVENT, {
+      detail: { enabled: next },
+    }));
+  }
 }
 
 /**
@@ -1778,18 +1795,48 @@ function leanCursorHover(ctx: LeanContext): Extension {
   let timer: ReturnType<typeof setTimeout> | null = null;
   const hoverEpoch = new Epoch();
   let lastKey = "";
+  const clearAutoHover = (view: EditorView): void => {
+    const hasCursorHover = view.state.field(leanCursorHoverField, false) !== null;
+    if (!timer && !lastKey && !hasCursorHover) return;
+    if (timer) clearTimeout(timer);
+    timer = null;
+    lastKey = "";
+    hoverEpoch.cancel();
+    if (hasCursorHover) view.dispatch({ effects: SetLeanCursorHover.of(null) });
+  };
   return [
     leanCursorHoverField,
+    ViewPlugin.fromClass(class {
+      private readonly view: EditorView;
+      private readonly onAutoChange = (): void => {
+        if (!getLeanDocPopAutoEnabled()) clearAutoHover(this.view);
+      };
+
+      constructor(view: EditorView) {
+        this.view = view;
+        window.addEventListener(LEAN_DOCPOP_AUTO_CHANGE_EVENT, this.onAutoChange);
+      }
+
+      destroy(): void {
+        window.removeEventListener(LEAN_DOCPOP_AUTO_CHANGE_EVENT, this.onAutoChange);
+        if (timer) clearTimeout(timer);
+        timer = null;
+        hoverEpoch.cancel();
+      }
+    }),
     EditorView.updateListener.of((update) => {
       if (!update.selectionSet && !update.docChanged && !update.focusChanged) return;
-      if (timer) clearTimeout(timer);
       const view = update.view;
+      if (!getLeanDocPopAutoEnabled()) {
+        clearAutoHover(view);
+        return;
+      }
+      if (timer) clearTimeout(timer);
       const selection = view.state.selection.main;
       const pos = selection.head;
       const pointerSelection = update.transactions.some((tr) => tr.isUserEvent("select.pointer"));
       if (pointerSelection || !view.hasFocus || !selection.empty || !ctx.leanPath || !ctx.region) {
-        lastKey = "";
-        view.dispatch({ effects: SetLeanCursorHover.of(null) });
+        clearAutoHover(view);
         return;
       }
       const key = `${pos}:${view.state.doc.length}:${ctx.leanText.length}`;
@@ -2991,6 +3038,16 @@ function handleLeanEditToolKey(event: KeyboardEvent, view: EditorView): boolean 
   return false;
 }
 
+function handleLeanDocPopKey(ctx: LeanContext, event: KeyboardEvent, view: EditorView): boolean {
+  if (event.isComposing) return false;
+  const isMac = /Mac/.test(navigator.platform);
+  const primary = isMac ? event.metaKey && !event.ctrlKey && !event.altKey : event.ctrlKey && !event.metaKey && !event.altKey;
+  if (!primary || event.shiftKey || event.code !== "KeyD") return false;
+  blockKey(event);
+  void runLeanLocationAction(ctx, view, "hover");
+  return true;
+}
+
 function handleLeanUndoRedoKey(event: KeyboardEvent, view: EditorView): boolean {
   const key = event.key.toLowerCase();
   const isMac = /Mac/.test(navigator.platform);
@@ -3064,6 +3121,7 @@ function leanKeyboardIsolation(ctx: LeanContext): Extension {
       if (handleLeanPopupEscapeKey(event, view)) return true;
       if (handleLeanCompletionKey(event, view)) return true;
       if (handleLeanEditToolKey(event, view)) return true;
+      if (handleLeanDocPopKey(ctx, event, view)) return true;
       if (vim.handleKeyDown(event, view)) return true;
       event.stopPropagation();
       return false;

@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, test } from "@voidzero-dev/vite-plus-test";
 import {
   activeLeanController,
+  getLeanDocPopAutoEnabled,
   getLeanController,
+  LEAN_DOCPOP_AUTO_CHANGE_EVENT,
   registerLeanController,
   setActiveLeanController,
+  setLeanDocPopAutoEnabled,
   unregisterLeanController,
   type LeanEditAction,
   type LeanEditorController,
@@ -33,6 +36,7 @@ describe("lean controller registry", () => {
   afterEach(() => {
     unregisterLeanController("a");
     unregisterLeanController("b");
+    setLeanDocPopAutoEnabled(false);
   });
 
   test("register / get / unregister", () => {
@@ -86,5 +90,26 @@ describe("lean controller registry", () => {
     expect(a.lsp).toEqual(["definition", "references"]);
     expect(a.edits).toEqual(["toggleLineComment"]);
     expect(a.jumps).toEqual([[12, 3]]);
+  });
+
+  test("doc popup auto mode defaults off and only emits on change", () => {
+    const events: boolean[] = [];
+    const onChange = (event: Event): void => {
+      events.push(Boolean((event as CustomEvent<{ enabled?: boolean }>).detail?.enabled));
+    };
+    window.addEventListener(LEAN_DOCPOP_AUTO_CHANGE_EVENT, onChange);
+    try {
+      expect(getLeanDocPopAutoEnabled()).toBe(false);
+      setLeanDocPopAutoEnabled(false);
+      expect(events).toEqual([]);
+      setLeanDocPopAutoEnabled(true);
+      expect(getLeanDocPopAutoEnabled()).toBe(true);
+      setLeanDocPopAutoEnabled(true);
+      expect(events).toEqual([true]);
+      setLeanDocPopAutoEnabled(false);
+      expect(events).toEqual([true, false]);
+    } finally {
+      window.removeEventListener(LEAN_DOCPOP_AUTO_CHANGE_EVENT, onChange);
+    }
   });
 });

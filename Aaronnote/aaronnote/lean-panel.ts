@@ -21,6 +21,11 @@ import { renderLeanMarkdown } from "../src/lean-render.ts";
 import { CoalescedTimer } from "../src/coalesced-timer.ts";
 import { Epoch } from "../src/async-epoch.ts";
 import { createLeanOfficialInfoviewHost } from "./lean-infoview-host.ts";
+import {
+  getLeanDocPopAutoEnabled,
+  LEAN_DOCPOP_AUTO_CHANGE_EVENT,
+  setLeanDocPopAutoEnabled,
+} from "../src/cm6/widgets/lean-placeholder.ts";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -155,7 +160,10 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
 </div>
 <div class="lean-panel-body" data-lean-panel-body>
   <section class="lean-panel-pane lean-panel-pane--info" data-lean-info-pane>
-    <div class="lean-panel-pane-title">Infoview</div>
+    <div class="lean-panel-pane-title lean-panel-pane-title--toolbar">
+      <span>Infoview</span>
+      <button class="lean-panel-btn lean-panel-btn--text" data-lean-auto-docpop aria-pressed="false" title="Enable automatic Lean doc popups">Auto</button>
+    </div>
     <section class="lean-panel-section lean-panel-official" data-lean-official-section>
       <div class="lean-official-infoview" data-lean-official-infoview></div>
     </section>
@@ -217,6 +225,7 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
   const messagesList = requireEl<HTMLElement>(root, "[data-lean-messages-list]");
   const messagesTitle = requireEl<HTMLElement>(root, "[data-lean-messages-pane] .lean-panel-section-title");
   const widthResizer = requireEl<HTMLElement>(root, "[data-lean-width-resizer]");
+  const autoDocPopBtn = requireEl<HTMLButtonElement>(root, "[data-lean-auto-docpop]");
   const pinBtn = requireEl<HTMLButtonElement>(root, "[data-lean-pin]");
   const pauseBtn = requireEl<HTMLButtonElement>(root, "[data-lean-pause]");
   const refreshBtn = requireEl<HTMLButtonElement>(root, "[data-lean-refresh]");
@@ -258,6 +267,18 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
   let lastMessagesSig = "";
   let lastCurrentSig = "";
   const renderMessagesTimer = new CoalescedTimer(LSP_UI_IDLE_MS);
+
+  const syncAutoDocPopButton = (): void => {
+    const enabled = getLeanDocPopAutoEnabled();
+    autoDocPopBtn.classList.toggle("is-active", enabled);
+    autoDocPopBtn.setAttribute("aria-pressed", String(enabled));
+    autoDocPopBtn.title = enabled
+      ? "Disable automatic Lean doc popups"
+      : "Enable automatic Lean doc popups";
+  };
+  const onAutoDocPopChange = (): void => syncAutoDocPopButton();
+  window.addEventListener(LEAN_DOCPOP_AUTO_CHANGE_EVENT, onAutoDocPopChange);
+  syncAutoDocPopButton();
 
   // -------------------------------------------------------------------------
   // Push subscriptions
@@ -1021,6 +1042,11 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
 
   void bodyEl;
 
+  autoDocPopBtn.addEventListener("click", () => {
+    setLeanDocPopAutoEnabled(!getLeanDocPopAutoEnabled());
+    syncAutoDocPopButton();
+  });
+
   pinBtn.addEventListener("click", () => {
     pinned = !pinned;
     pinBtn.classList.toggle("is-active", pinned);
@@ -1209,6 +1235,7 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
       unsubDiag();
       unsubStatus();
       window.removeEventListener("aaronnote:lean-region-infoview", onRegionInfoview);
+      window.removeEventListener(LEAN_DOCPOP_AUTO_CHANGE_EVENT, onAutoDocPopChange);
       officialInfoview.destroy();
     },
   };
