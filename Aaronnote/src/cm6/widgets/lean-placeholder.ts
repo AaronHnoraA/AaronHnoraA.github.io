@@ -188,6 +188,7 @@ type LeanDiagnosticMark = {
 };
 
 type LeanDiagnosticTag = "unsolvedGoals" | "goalsAccomplished";
+type LeanDiagnosticDecorationKind = LeanDiagnosticMark["severity"] | "success" | "incomplete";
 type LeanProgressKind = "processing" | "fatalError";
 
 type LeanProgressMark = {
@@ -388,6 +389,12 @@ function leanDiagnosticTags(rawTags: unknown): LeanDiagnosticTag[] {
     }
   }
   return Array.from(new Set(tags));
+}
+
+function leanProgressKind(rawKind: unknown): LeanProgressKind | null {
+  if (rawKind === 2 || rawKind === "2" || rawKind === "fatalError") return "fatalError";
+  if (rawKind === 1 || rawKind === "1" || rawKind == null || rawKind === "processing") return "processing";
+  return null;
 }
 
 function semanticTokenClass(tokenType: string): string {
@@ -972,6 +979,7 @@ function shadowStyles(): HTMLStyleElement {
     .lean-host .cm-lean-status-sign--warning { color: #fbbf24; }
     .lean-host .cm-lean-status-sign--info { color: #60a5fa; }
     .lean-host .cm-lean-status-sign--processing { color: #67e8f9; }
+    .lean-host .cm-lean-status-sign--incomplete { color: #f59e0b; }
     .lean-host .cm-lean-status-sign--blocked { color: #fb7185; }
     .lean-host .cm-activeLineGutter {
       background: #24211e !important;
@@ -1154,6 +1162,8 @@ function shadowStyles(): HTMLStyleElement {
     .lean-host .cm-lean-diag--error { text-decoration-color: #f87171; }
     .lean-host .cm-lean-diag--warning { text-decoration-color: #fbbf24; }
     .lean-host .cm-lean-diag--info { text-decoration-color: #60a5fa; }
+    .lean-host .cm-lean-diag--success { text-decoration-color: #facc15; }
+    .lean-host .cm-lean-diag--incomplete { text-decoration-color: #f59e0b; }
     .cm-tooltip,
     .cm-tooltip-autocomplete,
     .lean-host .cm-tooltip,
@@ -1471,7 +1481,7 @@ const leanDiagnosticDecorations = StateField.define<DecorationSet>({
         return Decoration.set(effect.value
           .filter((diag) => diag.from < diag.to)
           .map((diag) => Decoration.mark({
-            class: `cm-lean-diag cm-lean-diag--${diag.severity}`,
+            class: `cm-lean-diag cm-lean-diag--${diagnosticDecorationKind(diag)}`,
             attributes: { title: diag.message },
           }).range(diag.from, diag.to)), true);
       }
@@ -1481,15 +1491,16 @@ const leanDiagnosticDecorations = StateField.define<DecorationSet>({
   provide: (field) => EditorView.decorations.from(field),
 });
 
-type LeanStatusSignKind = "processing" | "success" | "info" | "warning" | "blocked" | "error";
+type LeanStatusSignKind = "processing" | "success" | "info" | "warning" | "incomplete" | "blocked" | "error";
 
 const leanStatusSignRank: Record<LeanStatusSignKind, number> = {
   processing: 0,
   info: 1,
   success: 2,
   warning: 3,
-  blocked: 4,
-  error: 5,
+  incomplete: 4,
+  blocked: 5,
+  error: 6,
 };
 
 const leanStatusSignText: Record<LeanStatusSignKind, string> = {
@@ -1497,6 +1508,7 @@ const leanStatusSignText: Record<LeanStatusSignKind, string> = {
   success: "✓",
   info: "i",
   warning: "!",
+  incomplete: "⊢",
   blocked: "⊘",
   error: "×",
 };
@@ -1528,6 +1540,12 @@ class LeanStatusGutterMarker extends GutterMarker {
 
 const leanStatusGutterSpacer = new LeanStatusGutterMarker("error", "");
 
+function diagnosticDecorationKind(diag: LeanDiagnosticMark): LeanDiagnosticDecorationKind {
+  if (diag.leanTags.includes("goalsAccomplished")) return "success";
+  if (diag.leanTags.includes("unsolvedGoals")) return "incomplete";
+  return diag.severity;
+}
+
 function setLeanStatusSign(
   byLine: Map<number, { kind: LeanStatusSignKind; title: string }>,
   lineNo: number,
@@ -1558,7 +1576,7 @@ function addLeanStatusRange(
 
 function diagnosticStatusSignKind(diag: LeanDiagnosticMark): LeanStatusSignKind {
   if (diag.leanTags.includes("goalsAccomplished")) return "success";
-  if (diag.leanTags.includes("unsolvedGoals")) return "error";
+  if (diag.leanTags.includes("unsolvedGoals")) return "incomplete";
   return diag.severity;
 }
 
@@ -1576,6 +1594,45 @@ function progressStatusTitle(mark: LeanProgressMark): string {
   return mark.kind === "fatalError"
     ? "Lean hit a fatal file-processing error"
     : "Lean is elaborating this range";
+}
+
+export function leanDiagnosticPresentationForTest(input: { severity?: number; leanTags?: unknown[]; message?: string }): {
+  decoration: string;
+  status: string;
+  title: string;
+} {
+  const diag: LeanDiagnosticMark = {
+    from: 0,
+    to: 1,
+    severity: severityName(input.severity),
+    message: input.message ?? "",
+    leanTags: leanDiagnosticTags(input.leanTags),
+  };
+  return {
+    decoration: diagnosticDecorationKind(diag),
+    status: diagnosticStatusSignKind(diag),
+    title: diagnosticStatusTitle(diag),
+  };
+}
+
+export function leanProgressPresentationForTest(input: { kind?: unknown }): { status: string; title: string } | null {
+  const kind = leanProgressKind(input.kind);
+  if (!kind) return null;
+  const mark: LeanProgressMark = { from: 0, to: 1, kind };
+  return {
+    status: progressStatusSignKind(mark),
+    title: progressStatusTitle(mark),
+  };
+}
+
+export function leanDominantStatusForTest(kinds: string[]): string | null {
+  let best: LeanStatusSignKind | null = null;
+  for (const kind of kinds) {
+    if (!(kind in leanStatusSignRank)) continue;
+    const next = kind as LeanStatusSignKind;
+    if (!best || leanStatusSignRank[next] > leanStatusSignRank[best]) best = next;
+  }
+  return best;
 }
 
 function buildLeanStatusGutter(state: EditorState): RangeSet<GutterMarker> {
@@ -3140,7 +3197,7 @@ function leanKeyboardIsolation(ctx: LeanContext): Extension {
 function progressMarksFromLeanNotification(ctx: LeanContext, rawProgress: LspFileProgressItem[], docLength: number): LeanProgressMark[] {
   const marks: LeanProgressMark[] = [];
   for (const progress of rawProgress) {
-    const kind: LeanProgressKind | null = progress.kind === 2 ? "fatalError" : progress.kind === 1 || progress.kind == null ? "processing" : null;
+    const kind = leanProgressKind(progress.kind);
     if (!kind) continue;
     const start = progress.range?.start;
     const end = progress.range?.end ?? start;

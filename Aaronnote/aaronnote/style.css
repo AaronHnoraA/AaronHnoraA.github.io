@@ -4029,6 +4029,32 @@ body.book-toc-open .aaronnote-editor {
   color: #0f5ea8;
 }
 
+.lean-panel-action-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid #d6c8b7;
+  border-radius: 5px;
+  background: #f3eadc;
+}
+
+.lean-panel-action-group .lean-panel-btn {
+  border-color: transparent;
+  background: transparent;
+}
+
+.lean-panel-action-group .lean-panel-btn:hover {
+  border-color: #c5a98d;
+  background: #fffaf2;
+}
+
+.lean-panel-action-group .lean-panel-btn.is-active {
+  border-color: #0f5ea8;
+  background: #e4f0ff;
+  color: #0f5ea8;
+}
+
 .lean-panel-btn--icon {
   font-size: 13px;
   padding: 0 3px;
@@ -4039,6 +4065,10 @@ body.book-toc-open .aaronnote-editor {
   padding: 0 6px;
   font-size: 10px;
   font-weight: 700;
+}
+
+.lean-panel-btn--auto {
+  min-width: 40px;
 }
 
 /* Body */
@@ -4085,23 +4115,6 @@ body.book-toc-open .aaronnote-editor {
   background: #f4efe6;
   color: #94151b;
   font-size: 12px;
-}
-
-.lean-panel-pane-title--toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.lean-panel-pane-title--toolbar > span {
-  min-width: 0;
-}
-
-.lean-panel-pane-title--toolbar .lean-panel-btn {
-  height: 20px;
-  letter-spacing: 0;
-  text-transform: none;
 }
 
 .lean-panel-splitter {
@@ -4930,6 +4943,8 @@ body.book-toc-open .aaronnote-editor {
 .cm-editor .cm-lean-diag--error   { text-decoration-color: #dc2626; }
 .cm-editor .cm-lean-diag--warning { text-decoration-color: #d97706; }
 .cm-editor .cm-lean-diag--info    { text-decoration-color: #3b82f6; }
+.cm-editor .cm-lean-diag--success { text-decoration-color: #ca8a04; }
+.cm-editor .cm-lean-diag--incomplete { text-decoration-color: #f59e0b; }
 
 /* File-progress overlay (Lean still elaborating) */
 .cm-editor .cm-lean-processing {

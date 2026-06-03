@@ -1,5 +1,5 @@
 import { loadRenderInfoview } from "@leanprover/infoview/loader";
-import { defaultInfoviewConfig, type EditorApi, type InfoviewApi } from "@leanprover/infoview-api";
+import { defaultInfoviewConfig, type EditorApi, type InfoviewActionKind, type InfoviewApi } from "@leanprover/infoview-api";
 import infoviewModuleUrl from "../node_modules/@leanprover/infoview/dist/index.production.min.js?url";
 import infoviewReactUrl from "../node_modules/@leanprover/infoview/dist/react.production.min.js?url";
 import infoviewReactDomUrl from "../node_modules/@leanprover/infoview/dist/react-dom.production.min.js?url";
@@ -14,8 +14,11 @@ type LeanInfoviewLocation = {
 
 type LeanOfficialInfoviewHost = {
   setLocation: (location: LeanInfoviewLocation | null) => void;
+  refresh: () => void;
+  requestAction: (kind: InfoviewActionKind) => void;
   hasContent: () => boolean;
   isReady: () => boolean;
+  textContent: () => string;
   destroy: () => void;
 };
 
@@ -265,11 +268,21 @@ export function createLeanOfficialInfoviewHost(root: HTMLElement, options: LeanO
       if (location) void publishLocation(location).catch((err) => console.warn("[lean-infoview] publish location failed", err));
       else void infoview?.changedCursorLocation(undefined).catch((err) => console.warn("[lean-infoview] clear cursor location failed", err));
     },
+    refresh() {
+      if (current) void publishLocation(current).catch((err) => console.warn("[lean-infoview] refresh failed", err));
+    },
+    requestAction(kind) {
+      void infoview?.requestedAction({ kind }).then(markContentSoon)
+        .catch((err) => console.warn(`[lean-infoview] action ${kind} failed`, err));
+    },
     hasContent() {
       return Boolean(root.textContent?.trim());
     },
     isReady() {
       return ready;
+    },
+    textContent() {
+      return root.innerText || root.textContent || "";
     },
     destroy() {
       destroyed = true;

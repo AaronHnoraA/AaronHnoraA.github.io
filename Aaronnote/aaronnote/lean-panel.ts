@@ -149,10 +149,13 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
 <div class="lean-panel-header">
   <span class="lean-panel-title">Lean 4</span>
   <span class="lean-panel-status lean-panel-status--inactive" data-lean-status>Not started</span>
-  <button class="lean-panel-btn lean-panel-btn--icon" data-lean-pin title="Pin current infoview position">⌖</button>
-  <button class="lean-panel-btn lean-panel-btn--icon" data-lean-pause title="Pause infoview updates">Ⅱ</button>
-  <button class="lean-panel-btn lean-panel-btn--icon" data-lean-refresh title="Refresh infoview">⟳</button>
-  <button class="lean-panel-btn lean-panel-btn--icon" data-lean-copy title="Copy infoview">⧉</button>
+  <div class="lean-panel-action-group" aria-label="Infoview controls">
+    <button class="lean-panel-btn lean-panel-btn--text lean-panel-btn--auto" data-lean-auto-docpop aria-pressed="false" title="Enable automatic Lean doc popups">Auto</button>
+    <button class="lean-panel-btn lean-panel-btn--icon" data-lean-pin aria-label="Pin infoview" aria-pressed="false" title="Pin current infoview position">⌖</button>
+    <button class="lean-panel-btn lean-panel-btn--icon" data-lean-pause aria-label="Pause infoview" aria-pressed="false" title="Pause infoview updates">Ⅱ</button>
+    <button class="lean-panel-btn lean-panel-btn--icon" data-lean-refresh aria-label="Refresh infoview" title="Refresh infoview">⟳</button>
+    <button class="lean-panel-btn lean-panel-btn--icon" data-lean-copy aria-label="Copy infoview" title="Copy infoview">⧉</button>
+  </div>
   <button class="lean-panel-btn lean-panel-btn--text" data-lean-cache title="Download Mathlib binary cache">Cache</button>
   <button class="lean-panel-btn lean-panel-btn--icon" data-lean-restart title="Restart Lean server">↺</button>
   <button class="lean-panel-btn lean-panel-btn--text" data-lean-stop title="Stop Lean LSP">Stop</button>
@@ -160,10 +163,7 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
 </div>
 <div class="lean-panel-body" data-lean-panel-body>
   <section class="lean-panel-pane lean-panel-pane--info" data-lean-info-pane>
-    <div class="lean-panel-pane-title lean-panel-pane-title--toolbar">
-      <span>Infoview</span>
-      <button class="lean-panel-btn lean-panel-btn--text" data-lean-auto-docpop aria-pressed="false" title="Enable automatic Lean doc popups">Auto</button>
-    </div>
+    <div class="lean-panel-pane-title">Infoview</div>
     <section class="lean-panel-section lean-panel-official" data-lean-official-section>
       <div class="lean-official-infoview" data-lean-official-infoview></div>
     </section>
@@ -279,6 +279,20 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
   const onAutoDocPopChange = (): void => syncAutoDocPopButton();
   window.addEventListener(LEAN_DOCPOP_AUTO_CHANGE_EVENT, onAutoDocPopChange);
   syncAutoDocPopButton();
+
+  const officialActive = (): boolean =>
+    officialInfoview.isReady() && Boolean(activeLeanPosition) && officialInfoview.hasContent();
+
+  const syncPinPauseButtons = (): void => {
+    pinBtn.classList.toggle("is-active", pinned);
+    pinBtn.setAttribute("aria-pressed", String(pinned));
+    pinBtn.title = pinned ? "Unpin infoview" : "Pin current infoview position";
+    pauseBtn.classList.toggle("is-active", paused);
+    pauseBtn.setAttribute("aria-pressed", String(paused));
+    pauseBtn.textContent = paused ? "▶" : "Ⅱ";
+    pauseBtn.title = paused ? "Resume infoview updates" : "Pause infoview updates";
+  };
+  syncPinPauseButtons();
 
   // -------------------------------------------------------------------------
   // Push subscriptions
@@ -1015,6 +1029,9 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
         activeLeanPosition = null;
         currentGoalError = null;
         allMessagesCollapsed = true;
+        pinned = false;
+        paused = false;
+        syncPinPauseButtons();
         messagesPane.classList.add("lean-section--collapsed");
         currentDiagnostics = [];
         currentDiagnosticsUri = "";
@@ -1049,8 +1066,10 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
 
   pinBtn.addEventListener("click", () => {
     pinned = !pinned;
-    pinBtn.classList.toggle("is-active", pinned);
-    pinBtn.title = pinned ? "Unpin infoview" : "Pin current infoview position";
+    syncPinPauseButtons();
+    if (officialInfoview.isReady() && activeLeanPosition) {
+      officialInfoview.requestAction("togglePin");
+    }
     if (!pinned) {
       lastGoalsSig = "";
       lastMessagesSig = "";
@@ -1060,9 +1079,10 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
 
   pauseBtn.addEventListener("click", () => {
     paused = !paused;
-    pauseBtn.classList.toggle("is-active", paused);
-    pauseBtn.textContent = paused ? "▶" : "Ⅱ";
-    pauseBtn.title = paused ? "Resume infoview updates" : "Pause infoview updates";
+    syncPinPauseButtons();
+    if (officialInfoview.isReady() && activeLeanPosition) {
+      officialInfoview.requestAction("togglePaused");
+    }
     if (!paused) {
       lastGoalsSig = "";
       lastMessagesSig = "";
@@ -1072,27 +1092,34 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
   });
 
   refreshBtn.addEventListener("click", () => {
+    const wasPaused = paused;
+    const wasPinned = pinned;
     paused = false;
     pinned = false;
-    pauseBtn.classList.remove("is-active");
-    pinBtn.classList.remove("is-active");
-    pauseBtn.textContent = "Ⅱ";
+    syncPinPauseButtons();
+    if (officialInfoview.isReady() && activeLeanPosition) {
+      if (wasPaused) officialInfoview.requestAction("togglePaused");
+      if (wasPinned) officialInfoview.requestAction("togglePin");
+    }
     lastGoalsSig = "";
     lastMessagesSig = "";
     lastOutlineSig = "";
     lastOutlineUri = "";
+    officialInfoview.refresh();
     refresh();
     scheduleOutlineLoad(0, true);
     renderMessagesForActive();
   });
 
   copyBtn.addEventListener("click", () => {
+    const officialText = officialActive() ? officialInfoview.textContent().trim() : "";
     const text = [
+      officialText,
       activeLeanPosition ? activeLocationLabel() : "",
       currentGoalError ? `Error updating: ${currentGoalError}` : "",
-      currentGoalState.goals ?? "",
-      currentGoalState.termGoal ? `Expected type:\n${currentGoalState.termGoal}` : "",
-      messagesList.textContent ?? "",
+      officialText ? "" : currentGoalState.goals ?? "",
+      officialText ? "" : currentGoalState.termGoal ? `Expected type:\n${currentGoalState.termGoal}` : "",
+      officialText ? "" : messagesList.textContent ?? "",
     ].filter(Boolean).join("\n\n");
     void navigator.clipboard?.writeText(text)
       .catch((err) => console.warn("[lean] clipboard copy failed", err));
@@ -1205,9 +1232,7 @@ export function createLeanPanel(options: LeanPanelOptions): LeanPanel {
       messagesPane.classList.add("lean-section--collapsed");
       pinned = false;
       paused = false;
-      pinBtn.classList.remove("is-active");
-      pauseBtn.classList.remove("is-active");
-      pauseBtn.textContent = "Ⅱ";
+      syncPinPauseButtons();
       currentGoalState = { goals: null, termGoal: null, blockIndex: null };
       currentGoalsAccomplished = false;
       currentLayout = noteLayouts.get(layoutKey()) ?? { width: DEFAULT_WIDTH, splitRatio: DEFAULT_SPLIT_RATIO, outlineHeight: DEFAULT_OUTLINE_HEIGHT };
