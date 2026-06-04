@@ -116,6 +116,9 @@ contextBridge.exposeInMainWorld("aaronnoteApi", {
     showLeanEditorMenu: (options = {}) => invoke("aaronnote:api:shell:show-lean-editor-menu", options),
     openLeanLocation: (target = {}) => invoke("aaronnote:api:shell:open-lean-location", target),
   },
+  externalEditor: {
+    open: (target = {}) => invoke("aaronnote:api:external-editor:open", target),
+  },
   jupyter: {
     request: (action = "", body = {}) => invoke("aaronnote:api:jupyter:request", String(action || ""), body || {}),
     scroll: (body = {}) => invoke("aaronnote:api:jupyter:scroll", body || {}),

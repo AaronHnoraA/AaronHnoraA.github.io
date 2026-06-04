@@ -33,6 +33,7 @@
     "build": "tsc && vp build",
     "build:lib": "tsc && vp build --config vite.lib.config.ts",
     "preview": "vp preview",
+    "snippets:migrate-nvim": "node scripts/migrate-yas-to-nvim-snippets.mjs",
     "test": "vp test --run",
     "prepublishOnly": "npm run build:lib"
   },

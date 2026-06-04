@@ -24,6 +24,9 @@ export type LeanRegionRead = LeanOk & {
 export type LeanOpenRegionResponse = LeanOk & {
   lspVersion?: number;
   leanPath?: string;
+  text?: string;
+  body?: string;
+  region?: LeanRegionMeta;
 };
 
 /** `update-region` response. */

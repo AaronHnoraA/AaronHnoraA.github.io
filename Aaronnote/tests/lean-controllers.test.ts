@@ -25,6 +25,7 @@ function fakeController(id: string): LeanEditorController & { lsp: LeanLspAction
     selector: "",
     async runLspAction(action) { lsp.push(action); },
     runEditAction(action) { edits.push(action); },
+    async openExternal() {},
     jumpTo(line, character) { jumps.push([line, character]); },
     lsp,
     edits,

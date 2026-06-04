@@ -124,6 +124,7 @@ export type LeanEditorController = {
   selector: string;
   runLspAction(action: LeanLspAction, position?: LeanPosition): Promise<void>;
   runEditAction(action: LeanEditAction): void;
+  openExternal(position?: LeanPosition): Promise<void>;
   jumpTo(line: number, character: number): void; // full-file Lean line/character
 };
 
@@ -892,50 +893,95 @@ function leanCopilotEditor(view: EditorView): CopilotEditorLike {
 function shadowStyles(): HTMLStyleElement {
   const style = document.createElement("style");
   style.textContent = `
-    :host { all: initial; display: block; box-sizing: border-box; padding: 10px 0; }
+    :host {
+      all: initial;
+      display: block;
+      box-sizing: border-box;
+      padding: 10px 0;
+      --lean-paper: #fffdf8;
+      --lean-paper-soft: #f4efe6;
+      --lean-paper-warm: #efe3cc;
+      --lean-paper-muted: #f7ecd7;
+      --lean-line: #d8caba;
+      --lean-rule: #b49367;
+      --lean-accent: #684a2c;
+      --lean-ink: #23180f;
+      --lean-muted: #6b553b;
+      --lean-faint: #7a6041;
+      --lean-red: #7f1d1d;
+      --lean-blue: #145c8c;
+      --lean-green: #14532d;
+      --lean-gold: #9a6500;
+      --lean-shadow: 0 12px 28px rgb(67 39 25 / 14%);
+    }
     .lean-card {
       display: block;
       position: relative;
-      border: 1px solid #3a3530;
-      background: #171615;
-      color: #e8e2da;
+      overflow: hidden;
+      border: 1px solid var(--lean-rule);
+      border-left: 3px solid var(--lean-accent);
+      border-radius: 3px;
+      background: var(--lean-paper);
+      color: var(--lean-ink);
       font-family: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       margin: 0;
+      box-shadow: var(--lean-shadow);
     }
-    .lean-card.is-error { border-color: #7f1d1d; }
+    .lean-card.is-error {
+      border-color: #b91c1c;
+      border-left-color: #b91c1c;
+      background: #fff7f7;
+    }
     .lean-head {
       display: flex;
       align-items: center;
       gap: 8px;
-      min-height: 28px;
-      padding: 0 10px;
-      border-bottom: 1px solid #3a3530;
-      background: #2a2724;
+      min-height: 30px;
+      padding: 0 10px 0 11px;
+      border-bottom: 1px solid var(--lean-line);
+      background: var(--lean-paper-warm);
       box-sizing: border-box;
     }
     .lean-label {
-      color: #c8b5e8;
+      color: var(--lean-accent);
       font-size: 10px;
       font-weight: 700;
       text-transform: uppercase;
     }
-    .lean-tag { color: #f9e2af; font-size: 11px; }
-    .lean-status { margin-left: auto; color: #9b928a; font-size: 11px; }
+    .lean-tag { color: var(--lean-muted); font-size: 11px; }
+    .lean-external {
+      border: 1px solid #c2a37a;
+      background: var(--lean-paper-muted);
+      color: var(--lean-accent);
+      border-radius: 3px;
+      font: inherit;
+      font-size: 11px;
+      line-height: 1;
+      padding: 4px 7px;
+      cursor: pointer;
+    }
+    .lean-external:hover {
+      border-color: var(--lean-rule);
+      background: var(--lean-paper-warm);
+      color: var(--lean-red);
+    }
+    .lean-external:disabled { opacity: 0.45; cursor: default; }
+    .lean-status { margin-left: auto; color: var(--lean-faint); font-size: 11px; }
     .lean-host .cm-editor {
-      background: #1e1c1a;
-      color: #e8e2da;
+      background: var(--lean-paper);
+      color: var(--lean-ink);
       border: 0;
       outline: none;
     }
     .lean-host .cm-editor.cm-focused { outline: none; }
-    .lean-host .cm-line { color: #e8e2da; }
-    .lean-host .cm-scroller { font-family: inherit; caret-color: #ffffff; }
+    .lean-host .cm-line { color: var(--lean-ink); }
+    .lean-host .cm-scroller { font-family: inherit; caret-color: var(--lean-red); }
     .lean-host .cm-content {
       min-height: 56px;
       padding: 8px 12px 10px;
       font-size: 13px;
       line-height: 1.6;
-      caret-color: #ffffff !important;
+      caret-color: var(--lean-red) !important;
     }
     .lean-host .cm-cursorLayer,
     .lean-host .cm-selectionLayer {
@@ -946,16 +992,16 @@ function shadowStyles(): HTMLStyleElement {
       visibility: visible !important;
     }
     .lean-host .cm-gutters {
-      background: #191715 !important;
-      color: #736a62 !important;
-      border-right: 1px solid #342f2a !important;
+      background: var(--lean-paper-soft) !important;
+      color: var(--lean-faint) !important;
+      border-right: 1px solid var(--lean-line) !important;
       padding-right: 2px;
       font-size: 12px;
     }
     .lean-host .cm-lineNumbers .cm-gutterElement {
       min-width: 30px;
       padding: 0 8px 0 7px;
-      color: #7b736b !important;
+      color: var(--lean-faint) !important;
       font-weight: 600;
       font-variant-numeric: tabular-nums;
       text-align: right;
@@ -974,31 +1020,31 @@ function shadowStyles(): HTMLStyleElement {
       line-height: inherit;
       text-align: center;
     }
-    .lean-host .cm-lean-status-sign--success { color: #facc15; }
-    .lean-host .cm-lean-status-sign--error { color: #f87171; }
-    .lean-host .cm-lean-status-sign--warning { color: #fbbf24; }
-    .lean-host .cm-lean-status-sign--info { color: #60a5fa; }
-    .lean-host .cm-lean-status-sign--processing { color: #67e8f9; }
-    .lean-host .cm-lean-status-sign--incomplete { color: #f59e0b; }
-    .lean-host .cm-lean-status-sign--blocked { color: #fb7185; }
+    .lean-host .cm-lean-status-sign--success { color: var(--lean-gold); }
+    .lean-host .cm-lean-status-sign--error { color: #b91c1c; }
+    .lean-host .cm-lean-status-sign--warning { color: #b45309; }
+    .lean-host .cm-lean-status-sign--info { color: var(--lean-blue); }
+    .lean-host .cm-lean-status-sign--processing { color: #0f766e; }
+    .lean-host .cm-lean-status-sign--incomplete { color: #b45309; }
+    .lean-host .cm-lean-status-sign--blocked { color: #be123c; }
     .lean-host .cm-activeLineGutter {
-      background: #24211e !important;
-      color: #e0d2be !important;
-      box-shadow: inset 2px 0 0 #b88a4a;
+      background: var(--lean-paper-warm) !important;
+      color: var(--lean-accent) !important;
+      box-shadow: inset 2px 0 0 var(--lean-accent);
     }
     .lean-host .cm-activeLine {
-      background: rgb(255 255 255 / 2.5%);
+      background: rgb(180 147 103 / 12%);
     }
     .lean-host .cm-cursor,
     .lean-host .cm-dropCursor {
       display: block !important;
       visibility: visible !important;
-      border-left: 2px solid #f8f1e8 !important;
-      border-left-color: #f8f1e8 !important;
+      border-left: 2px solid var(--lean-red) !important;
+      border-left-color: var(--lean-red) !important;
     }
     .lean-host .cm-editor.cm-focused .cm-cursor,
     .lean-host .cm-editor.cm-focused .cm-dropCursor {
-      border-left: 2px solid #ffffff !important;
+      border-left: 2px solid var(--lean-red) !important;
     }
     .lean-host .cm-editor[data-lean-vim-mode="normal"] .cm-cursor,
     .lean-host .cm-editor[data-lean-vim-mode="normal"] .cm-dropCursor,
@@ -1006,34 +1052,34 @@ function shadowStyles(): HTMLStyleElement {
     .lean-host .cm-editor[data-lean-vim-mode="visual"] .cm-dropCursor,
     .lean-host .cm-editor[data-lean-vim-mode="visual-line"] .cm-cursor,
     .lean-host .cm-editor[data-lean-vim-mode="visual-line"] .cm-dropCursor {
-      border-left: 3px solid #fb4058 !important;
-      border-left-color: #fb4058 !important;
+      border-left: 3px solid #b91c1c !important;
+      border-left-color: #b91c1c !important;
     }
     .lean-host .cm-editor[data-lean-vim-mode="normal"] .cm-activeLine,
     .lean-host .cm-editor[data-lean-vim-mode="visual"] .cm-activeLine,
     .lean-host .cm-editor[data-lean-vim-mode="visual-line"] .cm-activeLine {
-      background: rgba(178, 13, 34, 0.18) !important;
+      background: rgb(178 13 34 / 10%) !important;
     }
     .lean-host .cm-editor[data-lean-vim-mode="normal"] .cm-activeLineGutter,
     .lean-host .cm-editor[data-lean-vim-mode="visual"] .cm-activeLineGutter,
     .lean-host .cm-editor[data-lean-vim-mode="visual-line"] .cm-activeLineGutter {
-      box-shadow: inset 3px 0 0 #fb4058;
+      box-shadow: inset 3px 0 0 #b91c1c;
     }
     .lean-host .cm-selectionBackground,
     .lean-host .cm-focused .cm-selectionBackground,
     .lean-host ::selection {
-      background: #315f8f !important;
-      color: #ffffff !important;
+      background: rgb(20 92 140 / 18%) !important;
+      color: var(--lean-ink) !important;
     }
     .lean-host .cm-tooltip-autocomplete ul li[aria-selected] {
-      background: #315f8f;
-      color: #ffffff;
+      background: var(--lean-paper-warm);
+      color: var(--lean-red);
     }
     .cm-tooltip {
-      background: #171615 !important;
-      color: #f4eee7 !important;
-      border: 1px solid #4a433d !important;
-      box-shadow: 0 14px 34px rgb(0 0 0 / 36%) !important;
+      background: var(--lean-paper) !important;
+      color: var(--lean-ink) !important;
+      border: 1px solid var(--lean-line) !important;
+      box-shadow: var(--lean-shadow) !important;
     }
     .cm-tooltip .cm-completionLabel,
     .cm-tooltip .cm-completionDetail,
@@ -1045,35 +1091,35 @@ function shadowStyles(): HTMLStyleElement {
     .cm-tooltip.cm-tooltip-hover,
     .cm-tooltip .cm-tooltip-hover,
     .cm-lean-hover-tooltip {
-      background: #171615 !important;
-      color: #f4eee7 !important;
+      background: var(--lean-paper) !important;
+      color: var(--lean-ink) !important;
     }
     .cm-tooltip-autocomplete {
       box-sizing: border-box;
       max-width: min(760px, calc(100vw - 32px));
       max-height: 330px;
       overflow: hidden;
-      background: #171615 !important;
-      color: #f4eee7 !important;
-      box-shadow: 0 14px 34px rgb(0 0 0 / 36%);
+      background: var(--lean-paper) !important;
+      color: var(--lean-ink) !important;
+      box-shadow: var(--lean-shadow);
     }
     .cm-tooltip-autocomplete ul {
-      background: #1f1d1a !important;
-      color: #f4eee7 !important;
+      background: var(--lean-paper) !important;
+      color: var(--lean-ink) !important;
       max-height: 320px;
-      scrollbar-color: #7a7068 #2a2724;
+      scrollbar-color: var(--lean-rule) var(--lean-paper-soft);
     }
     .cm-tooltip-autocomplete ul li {
-      color: #f4eee7 !important;
-      background: #1f1d1a !important;
+      color: var(--lean-ink) !important;
+      background: var(--lean-paper) !important;
       opacity: 1;
     }
     .cm-tooltip-autocomplete ul li[aria-selected] {
-      background: #1f5fbf !important;
-      color: #ffffff !important;
+      background: var(--lean-paper-warm) !important;
+      color: var(--lean-red) !important;
     }
     .cm-tooltip-autocomplete .cm-completionIcon {
-      color: #9cc7ff;
+      color: var(--lean-blue);
       opacity: 1;
     }
     .cm-tooltip-autocomplete .cm-completionIcon::after {
@@ -1083,94 +1129,94 @@ function shadowStyles(): HTMLStyleElement {
       font-style: normal;
       font-weight: 700;
     }
-    .cm-tooltip-autocomplete .cm-completionIcon-method::after { content: "◆"; color: #60a5fa; }
-    .cm-tooltip-autocomplete .cm-completionIcon-function::after { content: "ƒ"; color: #60a5fa; }
-    .cm-tooltip-autocomplete .cm-completionIcon-variable::after { content: "𝑥"; color: #e8e2da; }
-    .cm-tooltip-autocomplete .cm-completionIcon-class::after { content: "C"; color: #fbbf24; }
-    .cm-tooltip-autocomplete .cm-completionIcon-interface::after { content: "I"; color: #fbbf24; }
-    .cm-tooltip-autocomplete .cm-completionIcon-type::after { content: "T"; color: #fbbf24; }
-    .cm-tooltip-autocomplete .cm-completionIcon-namespace::after { content: "□"; color: #c084fc; }
-    .cm-tooltip-autocomplete .cm-completionIcon-property::after { content: "·"; color: #34d399; }
-    .cm-tooltip-autocomplete .cm-completionIcon-constant::after { content: "π"; color: #34d399; }
-    .cm-tooltip-autocomplete .cm-completionIcon-enum::after { content: "E"; color: #fbbf24; }
-    .cm-tooltip-autocomplete .cm-completionIcon-keyword::after { content: "K"; color: #c084fc; }
-    .cm-tooltip-autocomplete .cm-completionIcon-snippet::after { content: "✂"; color: #f59e0b; }
-    .cm-tooltip-autocomplete .cm-completionIcon-text::after { content: "a"; color: #c8c1b8; }
+    .cm-tooltip-autocomplete .cm-completionIcon-method::after { content: "◆"; color: var(--lean-blue); }
+    .cm-tooltip-autocomplete .cm-completionIcon-function::after { content: "ƒ"; color: var(--lean-blue); }
+    .cm-tooltip-autocomplete .cm-completionIcon-variable::after { content: "𝑥"; color: var(--lean-ink); }
+    .cm-tooltip-autocomplete .cm-completionIcon-class::after { content: "C"; color: var(--lean-gold); }
+    .cm-tooltip-autocomplete .cm-completionIcon-interface::after { content: "I"; color: var(--lean-gold); }
+    .cm-tooltip-autocomplete .cm-completionIcon-type::after { content: "T"; color: var(--lean-gold); }
+    .cm-tooltip-autocomplete .cm-completionIcon-namespace::after { content: "□"; color: var(--lean-accent); }
+    .cm-tooltip-autocomplete .cm-completionIcon-property::after { content: "·"; color: var(--lean-green); }
+    .cm-tooltip-autocomplete .cm-completionIcon-constant::after { content: "π"; color: var(--lean-green); }
+    .cm-tooltip-autocomplete .cm-completionIcon-enum::after { content: "E"; color: var(--lean-gold); }
+    .cm-tooltip-autocomplete .cm-completionIcon-keyword::after { content: "K"; color: var(--lean-accent); }
+    .cm-tooltip-autocomplete .cm-completionIcon-snippet::after { content: "S"; color: #b45309; }
+    .cm-tooltip-autocomplete .cm-completionIcon-text::after { content: "a"; color: var(--lean-faint); }
     .cm-tooltip-autocomplete .cm-completionLabel,
     .cm-tooltip-autocomplete .cm-completionDetail {
       color: inherit;
       opacity: 1;
     }
     .cm-tooltip-autocomplete .cm-completionDetail {
-      color: #c8c1b8;
+      color: var(--lean-faint);
     }
     .cm-tooltip-autocomplete ul li[aria-selected] .cm-completionDetail {
-      color: #eaf2ff;
+      color: var(--lean-muted);
     }
     .lean-host .cm-completionMatchedText {
-      color: #facc15;
+      color: var(--lean-red);
       text-decoration: none;
     }
-    .lean-host .cm-lean-ts-keyword { color: #f0b45f; font-weight: 600; }
+    .lean-host .cm-lean-ts-keyword { color: #9a3412; font-weight: 600; }
     .lean-host .cm-lean-ts-function,
     .lean-host .cm-lean-ts-function-builtin,
-    .lean-host .cm-lean-ts-function-definition { color: #d6b36a; font-weight: 600; }
+    .lean-host .cm-lean-ts-function-definition { color: var(--lean-red); font-weight: 600; }
     .lean-host .cm-lean-ts-variable,
-    .lean-host .cm-lean-ts-variable-parameter { color: #e8e2da; }
+    .lean-host .cm-lean-ts-variable-parameter { color: var(--lean-ink); }
     .lean-host .cm-lean-ts-type,
     .lean-host .cm-lean-ts-constructor,
-    .lean-host .cm-lean-ts-constant { color: #a7d39b; }
-    .lean-host .cm-lean-ts-string { color: #9fd18b; }
+    .lean-host .cm-lean-ts-constant { color: var(--lean-green); }
+    .lean-host .cm-lean-ts-string { color: #8a3c0f; }
     .lean-host .cm-lean-ts-comment {
-      color: #6fa878;
+      color: #52675a;
       font-style: italic;
     }
-    .lean-host .cm-lean-ts-number { color: #93c5fd; }
+    .lean-host .cm-lean-ts-number { color: var(--lean-blue); }
     .lean-host .cm-lean-ts-operator,
     .lean-host .cm-lean-ts-punctuation,
     .lean-host .cm-lean-ts-punctuation-bracket,
     .lean-host .cm-lean-ts-punctuation-delimiter {
-      color: #a7b0bd;
+      color: #6b5f53;
     }
     .lean-host .cm-lean-token-keyword,
-    .lean-host .cm-lean-token-macro { color: #c084fc; font-weight: 600; }
+    .lean-host .cm-lean-token-macro { color: #9a3412; font-weight: 600; }
     .lean-host .cm-lean-token-command,
     .lean-host .cm-lean-token-function,
-    .lean-host .cm-lean-token-method { color: #60a5fa; font-weight: 600; }
+    .lean-host .cm-lean-token-method { color: var(--lean-red); font-weight: 600; }
     .lean-host .cm-lean-token-tactic,
-    .lean-host .cm-lean-token-constant { color: #34d399; }
+    .lean-host .cm-lean-token-constant { color: var(--lean-green); }
     .lean-host .cm-lean-token-namespace,
     .lean-host .cm-lean-token-type,
     .lean-host .cm-lean-token-class,
     .lean-host .cm-lean-token-struct,
-    .lean-host .cm-lean-token-typeparameter { color: #fbbf24; }
+    .lean-host .cm-lean-token-typeparameter { color: var(--lean-gold); }
     .lean-host .cm-lean-token-variable,
     .lean-host .cm-lean-token-parameter,
-    .lean-host .cm-lean-token-property { color: #e8e2da; }
-    .lean-host .cm-lean-token-string { color: #fca5a5; }
-    .lean-host .cm-lean-token-comment { color: #6fa878; font-style: italic; }
-    .lean-host .cm-lean-token-number { color: #93c5fd; }
+    .lean-host .cm-lean-token-property { color: var(--lean-ink); }
+    .lean-host .cm-lean-token-string { color: #8a3c0f; }
+    .lean-host .cm-lean-token-comment { color: #52675a; font-style: italic; }
+    .lean-host .cm-lean-token-number { color: var(--lean-blue); }
     .lean-host .cm-lean-token-operator,
     .lean-host .cm-lean-token-punctuation {
-      color: #a7b0bd;
+      color: #6b5f53;
     }
     .lean-host .cm-lean-diag {
       text-decoration-line: underline;
       text-decoration-style: wavy;
       text-underline-offset: 3px;
     }
-    .lean-host .cm-lean-diag--error { text-decoration-color: #f87171; }
-    .lean-host .cm-lean-diag--warning { text-decoration-color: #fbbf24; }
-    .lean-host .cm-lean-diag--info { text-decoration-color: #60a5fa; }
-    .lean-host .cm-lean-diag--success { text-decoration-color: #facc15; }
+    .lean-host .cm-lean-diag--error { text-decoration-color: #dc2626; }
+    .lean-host .cm-lean-diag--warning { text-decoration-color: #d97706; }
+    .lean-host .cm-lean-diag--info { text-decoration-color: #3b82f6; }
+    .lean-host .cm-lean-diag--success { text-decoration-color: #ca8a04; }
     .lean-host .cm-lean-diag--incomplete { text-decoration-color: #f59e0b; }
     .cm-tooltip,
     .cm-tooltip-autocomplete,
     .lean-host .cm-tooltip,
     .lean-host .cm-tooltip-autocomplete {
-      background: #171615 !important;
-      color: #f4eee7 !important;
-      border: 1px solid #4a433d !important;
+      background: var(--lean-paper) !important;
+      color: var(--lean-ink) !important;
+      border: 1px solid var(--lean-line) !important;
       font-family: inherit;
       z-index: 1000;
     }
@@ -1190,7 +1236,7 @@ function shadowStyles(): HTMLStyleElement {
       font-family: inherit;
       font-size: 12px;
       line-height: 1.45;
-      color: #f4eee7 !important;
+      color: var(--lean-ink) !important;
     }
     .cm-lean-completion-info {
       padding: 6px 10px;
@@ -1203,7 +1249,7 @@ function shadowStyles(): HTMLStyleElement {
       margin: 0 0 6px;
       font-size: 12px;
       line-height: 1.45;
-      color: #93c5fd;
+      color: var(--lean-blue);
       white-space: pre-wrap;
     }
     .cm-lean-completion-doc {
@@ -1212,7 +1258,7 @@ function shadowStyles(): HTMLStyleElement {
       overflow: auto;
       font-size: 12px;
       line-height: 1.5;
-      color: #c8c1b8;
+      color: var(--lean-faint);
       white-space: pre-wrap;
     }
     .cm-lean-completion-info .cm-lean-completion-type:only-child {
@@ -1222,47 +1268,47 @@ function shadowStyles(): HTMLStyleElement {
       display: grid;
       gap: 2px;
       white-space: pre-wrap;
-      color: #f4eee7;
+      color: var(--lean-ink);
     }
     .lean-render-line--target {
       margin-top: 5px;
       padding-top: 5px;
-      border-top: 1px solid #4a433d;
-      color: #fecaca;
+      border-top: 1px solid var(--lean-line);
+      color: var(--lean-red);
       font-weight: 650;
     }
     .lean-render-paragraph {
       margin: 0 0 6px;
-      color: #e7ded4;
+      color: var(--lean-ink);
       white-space: normal;
     }
     .lean-render-paragraph:last-child {
       margin-bottom: 0;
     }
     .lean-render-inline-code {
-      color: #93c5fd;
-      background: #25211d;
+      color: var(--lean-blue);
+      background: var(--lean-paper-soft);
       border-radius: 3px;
       padding: 0 3px;
     }
-    .lean-render-name { color: #93c5fd; font-weight: 700; }
+    .lean-render-name { color: var(--lean-blue); font-weight: 700; }
     .lean-render-punct,
     .cm-lean-ts-punctuation,
     .cm-lean-ts-punctuation-bracket,
     .cm-lean-ts-punctuation-delimiter,
-    .cm-lean-ts-operator { color: #a7b0bd; }
-    .cm-lean-ts-keyword { color: #f0b45f; font-weight: 650; }
+    .cm-lean-ts-operator { color: #6b5f53; }
+    .cm-lean-ts-keyword { color: #9a3412; font-weight: 650; }
     .cm-lean-ts-function,
     .cm-lean-ts-function-builtin,
-    .cm-lean-ts-function-definition { color: #d6b36a; font-weight: 650; }
+    .cm-lean-ts-function-definition { color: var(--lean-red); font-weight: 650; }
     .cm-lean-ts-variable,
-    .cm-lean-ts-variable-parameter { color: #f4eee7; }
+    .cm-lean-ts-variable-parameter { color: var(--lean-ink); }
     .cm-lean-ts-type,
     .cm-lean-ts-constructor,
-    .cm-lean-ts-constant { color: #a7d39b; }
-    .cm-lean-ts-string { color: #9fd18b; }
-    .cm-lean-ts-comment { color: #6fa878; font-style: italic; }
-    .cm-lean-ts-number { color: #93c5fd; }
+    .cm-lean-ts-constant { color: var(--lean-green); }
+    .cm-lean-ts-string { color: #8a3c0f; }
+    .cm-lean-ts-comment { color: #52675a; font-style: italic; }
+    .cm-lean-ts-number { color: var(--lean-blue); }
   `;
   return style;
 }
@@ -1278,12 +1324,27 @@ function tooltipStyles(): HTMLStyleElement {
       height: 0;
       overflow: visible;
       z-index: 99999;
+      --lean-paper: #fffdf8;
+      --lean-paper-soft: #f4efe6;
+      --lean-paper-warm: #efe3cc;
+      --lean-line: #d8caba;
+      --lean-rule: #b49367;
+      --lean-accent: #684a2c;
+      --lean-ink: #23180f;
+      --lean-muted: #6b553b;
+      --lean-faint: #7a6041;
+      --lean-red: #7f1d1d;
+      --lean-blue: #145c8c;
+      --lean-green: #14532d;
+      --lean-gold: #9a6500;
+      --lean-shadow: 0 12px 28px rgb(67 39 25 / 14%);
     }
     .lean-editor-tooltips .cm-tooltip {
-      background: #171615 !important;
-      color: #f4eee7 !important;
-      border: 1px solid #4a433d !important;
-      box-shadow: 0 14px 34px rgb(0 0 0 / 36%) !important;
+      background: var(--lean-paper) !important;
+      color: var(--lean-ink) !important;
+      border: 1px solid var(--lean-line) !important;
+      border-radius: 3px;
+      box-shadow: var(--lean-shadow) !important;
       font-family: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       z-index: 99999 !important;
     }
@@ -1297,31 +1358,31 @@ function tooltipStyles(): HTMLStyleElement {
       max-width: min(760px, calc(100vw - 32px));
       max-height: 330px;
       overflow: hidden;
-      background: #171615 !important;
-      color: #f4eee7 !important;
-      box-shadow: 0 14px 34px rgb(0 0 0 / 36%);
+      background: var(--lean-paper) !important;
+      color: var(--lean-ink) !important;
+      box-shadow: var(--lean-shadow);
     }
     .lean-editor-tooltips .cm-tooltip-autocomplete ul {
-      background: #1f1d1a !important;
-      color: #f4eee7 !important;
+      background: var(--lean-paper) !important;
+      color: var(--lean-ink) !important;
       max-height: 320px;
-      scrollbar-color: #7a7068 #2a2724;
+      scrollbar-color: var(--lean-rule) var(--lean-paper-soft);
     }
     .lean-editor-tooltips .cm-tooltip-autocomplete ul li {
-      color: #f4eee7 !important;
-      background: #1f1d1a !important;
+      color: var(--lean-ink) !important;
+      background: var(--lean-paper) !important;
       opacity: 1;
     }
     .lean-editor-tooltips .cm-tooltip-autocomplete ul li[aria-selected] {
-      background: #1f5fbf !important;
-      color: #ffffff !important;
+      background: var(--lean-paper-warm) !important;
+      color: var(--lean-red) !important;
     }
-    .lean-editor-tooltips .cm-tooltip-autocomplete .cm-completionIcon { color: #9cc7ff; opacity: 1; }
+    .lean-editor-tooltips .cm-tooltip-autocomplete .cm-completionIcon { color: var(--lean-blue); opacity: 1; }
     .lean-editor-tooltips .cm-tooltip-autocomplete .cm-completionLabel,
     .lean-editor-tooltips .cm-tooltip-autocomplete .cm-completionDetail { color: inherit; opacity: 1; }
-    .lean-editor-tooltips .cm-tooltip-autocomplete .cm-completionDetail { color: #c8c1b8; }
-    .lean-editor-tooltips .cm-tooltip-autocomplete ul li[aria-selected] .cm-completionDetail { color: #eaf2ff; }
-    .lean-editor-tooltips .cm-completionMatchedText { color: #facc15; text-decoration: none; }
+    .lean-editor-tooltips .cm-tooltip-autocomplete .cm-completionDetail { color: var(--lean-faint); }
+    .lean-editor-tooltips .cm-tooltip-autocomplete ul li[aria-selected] .cm-completionDetail { color: var(--lean-muted); }
+    .lean-editor-tooltips .cm-completionMatchedText { color: var(--lean-red); text-decoration: none; }
     .lean-editor-tooltips[data-lean-hide-completion-info="true"] .cm-completionInfo {
       display: none !important;
     }
@@ -1339,7 +1400,7 @@ function tooltipStyles(): HTMLStyleElement {
       font-family: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-size: 12px;
       line-height: 1.45;
-      color: #f4eee7 !important;
+      color: var(--lean-ink) !important;
     }
     .lean-editor-tooltips .cm-lean-completion-info {
       padding: 6px 10px;
@@ -1352,7 +1413,7 @@ function tooltipStyles(): HTMLStyleElement {
       margin: 0 0 6px;
       font-size: 12px;
       line-height: 1.45;
-      color: #93c5fd;
+      color: var(--lean-blue);
       white-space: pre-wrap;
     }
     .lean-editor-tooltips .cm-lean-completion-doc {
@@ -1361,15 +1422,15 @@ function tooltipStyles(): HTMLStyleElement {
       overflow: auto;
       font-size: 12px;
       line-height: 1.5;
-      color: #c8c1b8;
+      color: var(--lean-faint);
       white-space: pre-wrap;
     }
     .lean-editor-tooltips .cm-lean-completion-info .cm-lean-completion-type:only-child { margin-bottom: 0; }
     .lean-editor-tooltips .cm-completionInfo {
-      background: #1a1816 !important;
-      border: 1px solid #4a433d !important;
+      background: var(--lean-paper) !important;
+      border: 1px solid var(--lean-line) !important;
       border-left: none !important;
-      box-shadow: 4px 4px 16px rgb(0 0 0 / 40%) !important;
+      box-shadow: var(--lean-shadow) !important;
       max-width: min(420px, calc(100vw - 48px));
       max-height: min(220px, calc(100vh - 96px));
       overflow-y: auto;
@@ -1381,52 +1442,52 @@ function tooltipStyles(): HTMLStyleElement {
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.04em;
-      color: #a78bfa;
+      color: var(--lean-accent);
       margin-bottom: 5px;
     }
     .lean-editor-tooltips .lean-render-code {
       display: grid;
       gap: 2px;
       white-space: pre-wrap;
-      color: #f4eee7;
+      color: var(--lean-ink);
     }
     .lean-editor-tooltips .lean-render-line--target {
       margin-top: 5px;
       padding-top: 5px;
-      border-top: 1px solid #4a433d;
-      color: #fecaca;
+      border-top: 1px solid var(--lean-line);
+      color: var(--lean-red);
       font-weight: 650;
     }
     .lean-editor-tooltips .lean-render-paragraph {
       margin: 0 0 6px;
-      color: #e7ded4;
+      color: var(--lean-ink);
       white-space: normal;
     }
     .lean-editor-tooltips .lean-render-paragraph:last-child { margin-bottom: 0; }
     .lean-editor-tooltips .lean-render-inline-code {
-      color: #93c5fd;
-      background: #25211d;
+      color: var(--lean-blue);
+      background: var(--lean-paper-soft);
       border-radius: 3px;
       padding: 0 3px;
     }
-    .lean-editor-tooltips .lean-render-name { color: #93c5fd; font-weight: 700; }
+    .lean-editor-tooltips .lean-render-name { color: var(--lean-blue); font-weight: 700; }
     .lean-editor-tooltips .lean-render-punct,
     .lean-editor-tooltips .cm-lean-ts-punctuation,
     .lean-editor-tooltips .cm-lean-ts-punctuation-bracket,
     .lean-editor-tooltips .cm-lean-ts-punctuation-delimiter,
-    .lean-editor-tooltips .cm-lean-ts-operator { color: #a7b0bd; }
-    .lean-editor-tooltips .cm-lean-ts-keyword { color: #f0b45f; font-weight: 650; }
+    .lean-editor-tooltips .cm-lean-ts-operator { color: #6b5f53; }
+    .lean-editor-tooltips .cm-lean-ts-keyword { color: #9a3412; font-weight: 650; }
     .lean-editor-tooltips .cm-lean-ts-function,
     .lean-editor-tooltips .cm-lean-ts-function-builtin,
-    .lean-editor-tooltips .cm-lean-ts-function-definition { color: #d6b36a; font-weight: 650; }
+    .lean-editor-tooltips .cm-lean-ts-function-definition { color: var(--lean-red); font-weight: 650; }
     .lean-editor-tooltips .cm-lean-ts-variable,
-    .lean-editor-tooltips .cm-lean-ts-variable-parameter { color: #f4eee7; }
+    .lean-editor-tooltips .cm-lean-ts-variable-parameter { color: var(--lean-ink); }
     .lean-editor-tooltips .cm-lean-ts-type,
     .lean-editor-tooltips .cm-lean-ts-constructor,
-    .lean-editor-tooltips .cm-lean-ts-constant { color: #a7d39b; }
-    .lean-editor-tooltips .cm-lean-ts-string { color: #9fd18b; }
-    .lean-editor-tooltips .cm-lean-ts-comment { color: #6fa878; font-style: italic; }
-    .lean-editor-tooltips .cm-lean-ts-number { color: #93c5fd; }
+    .lean-editor-tooltips .cm-lean-ts-constant { color: var(--lean-green); }
+    .lean-editor-tooltips .cm-lean-ts-string { color: #8a3c0f; }
+    .lean-editor-tooltips .cm-lean-ts-comment { color: #52675a; font-style: italic; }
+    .lean-editor-tooltips .cm-lean-ts-number { color: var(--lean-blue); }
   `;
   return style;
 }
@@ -3315,17 +3376,27 @@ class LeanPlaceholderWidget extends MeasuredWidget {
     const tagEl = document.createElement("span");
     tagEl.className = "lean-tag";
     tagEl.textContent = selector ? `${selector} #${tag}` : `default #${tag}`;
+    const externalButton = document.createElement("button");
+    externalButton.type = "button";
+    externalButton.className = "lean-external";
+    externalButton.title = "Open this Lean block in Neovide";
+    externalButton.textContent = "Neovide";
     const status = document.createElement("span");
     status.className = "lean-status";
     status.textContent = "Loading";
-    head.append(label, tagEl, status);
+    head.append(label, tagEl, externalButton, status);
     const host = document.createElement("div");
     host.className = "lean-host";
     card.append(head, host);
     shadow.append(card);
+    if (!api.externalEditor.available()) {
+      externalButton.disabled = true;
+      externalButton.title = "Neovide integration unavailable";
+    }
 
     const noteInfo = getLeanNoteInfo(parentView);
     if (!noteInfo || !tag || !api.lean.available()) {
+      externalButton.disabled = true;
       status.textContent = !noteInfo ? "No note" : !tag ? "Missing tag" : "Lean unavailable";
       card.classList.add("is-error");
       return outer;
@@ -3475,6 +3546,44 @@ class LeanPlaceholderWidget extends MeasuredWidget {
       if (syncPromise) await syncPromise;
       if (body === lastSyncedBody) return;
       await syncRegion(body, "lsp");
+    };
+
+    const currentFullPosition = (position?: LeanPosition): LeanPosition => {
+      if (position && Number.isFinite(position.line)) {
+        return { line: Math.max(0, Number(position.line) || 0), character: Math.max(0, Number(position.character) || 0) };
+      }
+      const fullOffset = localOffsetToFull(ctx, child.state.selection.main.from);
+      return fullOffset == null ? { line: 0, character: 0 } : offsetToPosition(ctx.leanText, fullOffset);
+    };
+
+    const openLeanRegionInNeovide = async (position?: LeanPosition): Promise<void> => {
+      if (!loaded) return;
+      status.textContent = "Opening Neovide";
+      card.classList.remove("is-error");
+      try {
+        await ctx.syncForLsp?.();
+        const openRes = await api.lean.openRegionFile({ notePath: noteInfo.notePath, tag, selector });
+        if (openRes?.ok === false) throw new Error(openRes.message || "Lean region open failed");
+        if (openRes?.text) ctx.leanText = String(openRes.text);
+        if (openRes?.region) ctx.region = openRes.region;
+        if (openRes?.leanPath) ctx.leanPath = String(openRes.leanPath);
+        if (typeof openRes?.lspVersion === "number") ctx.lspVersion = openRes.lspVersion;
+        if (!ctx.leanPath) throw new Error("Lean mirror file is unavailable");
+        const pos = currentFullPosition(position);
+        const result = await api.externalEditor.open({
+          kind: "file",
+          file: ctx.leanPath,
+          line: pos.line,
+          character: pos.character,
+        });
+        if (!result.ok) throw new Error(result.message || "Neovide open failed");
+        status.textContent = "Opened in Neovide";
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Neovide open failed";
+        status.textContent = message;
+        card.classList.add("is-error");
+        window.dispatchEvent(new CustomEvent("aaronnote:lean-status", { detail: { message } }));
+      }
     };
 
     ctx.jumpToFullPosition = (line, character) => {
@@ -3662,6 +3771,16 @@ class LeanPlaceholderWidget extends MeasuredWidget {
       root: shadow,
     });
     child.dom.dataset.leanVimMode = "insert";
+    externalButton.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+    externalButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setActiveLeanController(copilotEditorId);
+      void openLeanRegionInNeovide();
+    });
     // Re-measure once webfonts settle; a rejected fonts.ready is harmless here.
     void document.fonts?.ready.then(() => requestLeanMeasure()).catch(() => {});
     host.addEventListener("mousedown", () => {
@@ -3717,6 +3836,7 @@ class LeanPlaceholderWidget extends MeasuredWidget {
       selector,
       runLspAction: (action, position) => runLeanLocationAction(ctx, child, action, position),
       runEditAction: (action) => runLeanEditAction(child, action),
+      openExternal: (position) => openLeanRegionInNeovide(position),
       jumpTo: (line, character) => ctx.jumpToFullPosition?.(line, character),
     });
 

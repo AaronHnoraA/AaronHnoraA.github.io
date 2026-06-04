@@ -117,6 +117,9 @@ type NativeApi = {
     showLeanEditorMenu?: (options?: unknown) => Promise<unknown>;
     openLeanLocation?: (target: { file: string; line: number; character: number }) => Promise<{ ok?: boolean; message?: string }>;
   };
+  externalEditor?: {
+    open?: (target?: unknown) => Promise<unknown>;
+  };
   jupyter?: {
     request?: (action: string, body?: unknown) => Promise<unknown>;
     scroll?: (body?: unknown) => Promise<unknown>;
@@ -533,6 +536,25 @@ export const api = {
       if (!native) return { ok: false, message: "External Lean navigation unavailable" };
       const res = await native(target) as { ok?: boolean; message?: string };
       return { ok: Boolean(res?.ok), message: res?.message };
+    },
+  },
+
+  externalEditor: {
+    available(): boolean {
+      return Boolean(nativeApi()?.externalEditor?.open);
+    },
+
+    async open(target: unknown): Promise<{ ok: boolean; editor?: string; file?: string; cwd?: string; message?: string }> {
+      const native = nativeApi()?.externalEditor?.open;
+      if (!native) return { ok: false, message: "External editor integration unavailable" };
+      const res = await native(target) as { ok?: boolean; editor?: string; file?: string; cwd?: string; message?: string };
+      return {
+        ok: Boolean(res?.ok),
+        editor: res?.editor,
+        file: res?.file,
+        cwd: res?.cwd,
+        message: res?.message,
+      };
     },
   },
 

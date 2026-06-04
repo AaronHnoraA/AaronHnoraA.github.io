@@ -4,7 +4,8 @@ import { existsSync, statSync } from "node:fs";
 import { access, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { basename, dirname, join, relative, resolve } from "node:path";
-import { findExecutable, findKittyExecutable, findLeanExternalExecutables, kittyDirectoryCommand, leanExternalNvimCommand } from "./lean-external.mjs";
+import { findExecutable, findKittyExecutable, kittyDirectoryCommand } from "./lean-external.mjs";
+import { openExternalEditorTarget } from "./external-editor.mjs";
 import { shouldOwnShortcut, historyShortcutCommand } from "./shortcuts.mjs";
 import { jupyterLabUrl, jupyterLaunchArgs, jupyterSelectorPath, mergeJupyterEnv, parseNulEnv } from "./jupyter.mjs";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -598,6 +599,7 @@ function registerApiIpc() {
     return message ? { ok: false, file: target, message } : { ok: true, file: target };
   });
   registerApiHandler("aaronnote:api:shell:open-directory-in-kitty", (body) => openDirectoryInKitty(body || {}));
+  registerApiHandler("aaronnote:api:external-editor:open", (body) => openExternalEditorTarget(body || {}, { resolveFile: resolveShellPath }));
   registerApiHandler("aaronnote:api:shell:show-attachment-menu", (file, base, options = {}) => {
     const target = resolveMediaFile(file, base);
     const href = String(options?.href || file || "");
@@ -640,7 +642,10 @@ function registerApiIpc() {
     const character = Number(options?.character ?? 0);
     const lsp = (action, label) => ({ label, click: () => runInSpecificWindow(win, leanMenuActionScript(editorId, "lsp", action, line, character)) });
     const edit = (action, label) => ({ label, click: () => runInSpecificWindow(win, leanMenuActionScript(editorId, "edit", action, line, character)) });
+    const external = (action, label) => ({ label, click: () => runInSpecificWindow(win, leanMenuActionScript(editorId, "external", action, line, character)) });
     Menu.buildFromTemplate([
+      external("openNeovide", "Open in Neovide"),
+      { type: "separator" },
       {
         label: "Lean Symbol",
         submenu: [
@@ -1053,24 +1058,12 @@ function leanMenuActionScript(editorId, kind, action, line, character) {
 function openLeanLocation(target) {
   const file = String(target?.file ?? "");
   if (!file || !existsSync(file)) return { ok: false, message: `Lean source not found: ${file}` };
-  const { kitty, nvim } = findLeanExternalExecutables();
-  if (!kitty) return { ok: false, message: "Kitty executable not found. Set AARONNOTE_KITTY or update PATH." };
-  if (!nvim) return { ok: false, message: "Neovim executable not found. Set AARONNOTE_NVIM or update PATH." };
-  const { command, args } = leanExternalNvimCommand({
-    kitty,
-    nvim,
+  return openExternalEditorTarget({
+    kind: "file",
     file,
     line: target?.line,
     character: target?.character,
-  });
-  try {
-    const child = spawn(command, args, { detached: true, stdio: "ignore" });
-    child.once("error", (err) => console.error("Lean external editor failed", err));
-    child.unref();
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : "Failed to open Kitty" };
-  }
+  }, { resolveFile: (path) => resolve(String(path || "")) });
 }
 
 function openDirectoryInKitty(body) {

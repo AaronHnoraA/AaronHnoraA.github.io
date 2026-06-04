@@ -7260,6 +7260,7 @@ function commandPaletteCommands(): AaronnoteCommand[] {
     { id: "lean-goto-implementation", title: "Lean: Go to Implementation", group: "Lean", keywords: ["lsp", "lean4", "gi"], enabled: () => !!activeLeanController(), run: () => void activeLeanController()?.runLspAction("implementation") },
     { id: "lean-find-references", title: "Lean: Find References", group: "Lean", keywords: ["lsp", "lean4", "gr"], enabled: () => !!activeLeanController(), run: () => void activeLeanController()?.runLspAction("references") },
     { id: "lean-show-hover", title: "Lean: Show Hover", group: "Lean", keywords: ["lsp", "lean4", "K", "docs"], enabled: () => !!activeLeanController(), run: () => void activeLeanController()?.runLspAction("hover") },
+    { id: "lean-open-neovide", title: "Lean: Open in Neovide", group: "Lean", keywords: ["external", "editor", "nvim", "neovim"], enabled: () => !!activeLeanController() && api.externalEditor.available(), run: async () => { await activeLeanController()?.openExternal(); } },
     { id: "lean-toggle-line-comment", title: "Lean: Toggle Line Comment", group: "Lean", keywords: ["edit", "lean4", "--"], enabled: () => !!activeLeanController(), run: () => activeLeanController()?.runEditAction("toggleLineComment") },
     { id: "lean-toggle-block-comment", title: "Lean: Toggle Block Comment", group: "Lean", keywords: ["edit", "lean4", "/-"], enabled: () => !!activeLeanController(), run: () => activeLeanController()?.runEditAction("toggleBlockComment") },
     { id: "lean-duplicate-down", title: "Lean: Duplicate Line Down", group: "Lean", keywords: ["edit", "lean4", "copy"], enabled: () => !!activeLeanController(), run: () => activeLeanController()?.runEditAction("duplicateDown") },
@@ -7585,6 +7586,7 @@ function handleLeanEditorMenuAction(detail: Record<string, unknown>): void {
   const character = Number(detail?.character ?? 0);
   if (kind === "lsp") void controller.runLspAction(action as LeanLspAction, { line, character });
   else if (kind === "edit") controller.runEditAction(action as LeanEditAction);
+  else if (kind === "external" && action === "openNeovide") void controller.openExternal({ line, character });
 }
 
 function quickInsertPrefix(before: string): { query: string; deleteBefore: number } | null {
