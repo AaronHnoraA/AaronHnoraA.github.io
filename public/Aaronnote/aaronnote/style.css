@@ -1333,15 +1333,17 @@ body.lean-panel-open .aaronnote-editor {
   min-height: 220px;
   max-height: 42vh;
   overflow: auto;
-  border: 1px solid var(--aaron-paper-line);
-  border-radius: 4px;
-  background: #171615;
-  color: #e8e2da;
+  border: 1px solid #b49367;
+  border-left: 3px solid #684a2c;
+  border-radius: 3px;
+  background: #fffdf8;
+  color: #23180f;
   font-family: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 12px;
   line-height: 1.55;
   padding: 12px;
   white-space: pre-wrap;
+  box-shadow: 0 1px 0 rgb(255 255 255 / 65%) inset;
 }
 
 .aaronnote-plugin-toolbar {
@@ -2117,9 +2119,17 @@ body.lean-panel-open .aaronnote-editor {
   display: block;
   width: fit-content;
   max-width: 100%;
-  margin: 0.22em auto;
+  margin: 0.14em auto;
   overflow: hidden;
   text-align: center;
+}
+
+.aaronnote-math-block > .katex-display {
+  display: inline-block;
+  width: auto;
+  max-width: 100%;
+  margin: 0.08em 0;
+  overflow: visible;
 }
 
 .aaronnote-math-block.is-math-scaled {
@@ -2133,6 +2143,9 @@ body.lean-panel-open .aaronnote-editor {
   border-radius: 3px;
   padding: 0.08em 0.32em;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  box-sizing: border-box;
 }
 
 .aaronnote-snippet-popup,
@@ -2239,14 +2252,31 @@ body.lean-panel-open .aaronnote-editor {
 .aaronnote-math-preview {
   max-width: min(680px, calc(100vw - 16px));
   max-height: min(420px, calc(100vh - 24px));
-  overflow: auto;
+  overflow: hidden;
   padding: 10px 12px;
   color: var(--aaron-ink);
 }
 
 .aaronnote-math-preview.is-display {
-  padding: 12px 16px;
+  max-width: calc(100vw - 16px);
 }
+
+.aaronnote-math-preview.is-overflowing {
+  overflow: auto;
+}
+
+.aaronnote-math-preview.is-error {
+  max-width: min(420px, calc(100vw - 16px));
+  overflow: auto;
+  color: #9f1239;
+  background: #fff1f2;
+  border-color: #fecdd3;
+  font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.aaronnote-math-preview.is-display { padding: 12px 16px; }
 
 .aaronnote-command-palette {
   position: fixed;
@@ -4001,6 +4031,32 @@ body.book-toc-open .aaronnote-editor {
   color: #0f5ea8;
 }
 
+.lean-panel-action-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid #d6c8b7;
+  border-radius: 5px;
+  background: #f3eadc;
+}
+
+.lean-panel-action-group .lean-panel-btn {
+  border-color: transparent;
+  background: transparent;
+}
+
+.lean-panel-action-group .lean-panel-btn:hover {
+  border-color: #c5a98d;
+  background: #fffaf2;
+}
+
+.lean-panel-action-group .lean-panel-btn.is-active {
+  border-color: #0f5ea8;
+  background: #e4f0ff;
+  color: #0f5ea8;
+}
+
 .lean-panel-btn--icon {
   font-size: 13px;
   padding: 0 3px;
@@ -4011,6 +4067,10 @@ body.book-toc-open .aaronnote-editor {
   padding: 0 6px;
   font-size: 10px;
   font-weight: 700;
+}
+
+.lean-panel-btn--auto {
+  min-width: 40px;
 }
 
 /* Body */
@@ -4885,6 +4945,8 @@ body.book-toc-open .aaronnote-editor {
 .cm-editor .cm-lean-diag--error   { text-decoration-color: #dc2626; }
 .cm-editor .cm-lean-diag--warning { text-decoration-color: #d97706; }
 .cm-editor .cm-lean-diag--info    { text-decoration-color: #3b82f6; }
+.cm-editor .cm-lean-diag--success { text-decoration-color: #ca8a04; }
+.cm-editor .cm-lean-diag--incomplete { text-decoration-color: #f59e0b; }
 
 /* File-progress overlay (Lean still elaborating) */
 .cm-editor .cm-lean-processing {
@@ -4936,22 +4998,23 @@ body.book-toc-open .aaronnote-editor {
   overflow: auto;
   box-sizing: border-box;
   padding: 6px 10px;
-  border: 1px solid #4a433d;
-  border-radius: 4px;
-  background: #171615;
-  box-shadow: 0 14px 34px rgb(0 0 0 / 36%);
+  border: 1px solid #d8caba;
+  border-radius: 3px;
+  background: #fffdf8;
+  box-shadow: 0 12px 28px rgb(67 39 25 / 14%);
   font: 12px/1.5 var(--aaron-font-mono);
-  color: #f4eee7;
+  color: #23180f;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
 .cm-tooltip-autocomplete,
 .cm-completionInfo {
-  background: #171615 !important;
-  color: #f4eee7 !important;
-  border: 1px solid #4a433d !important;
-  box-shadow: 0 14px 34px rgb(0 0 0 / 36%) !important;
+  background: #fffdf8 !important;
+  color: #23180f !important;
+  border: 1px solid #d8caba !important;
+  border-radius: 3px;
+  box-shadow: 0 12px 28px rgb(67 39 25 / 14%) !important;
 }
 
 .cm-completionInfo {
@@ -4961,19 +5024,20 @@ body.book-toc-open .aaronnote-editor {
 }
 
 .cm-tooltip-autocomplete ul {
-  background: #1f1d1a !important;
-  color: #f4eee7 !important;
+  background: #fffdf8 !important;
+  color: #23180f !important;
+  scrollbar-color: #b49367 #f4efe6;
 }
 
 .cm-tooltip-autocomplete ul li {
-  background: #1f1d1a !important;
-  color: #f4eee7 !important;
+  background: #fffdf8 !important;
+  color: #23180f !important;
   opacity: 1 !important;
 }
 
 .cm-tooltip-autocomplete ul li[aria-selected] {
-  background: #1f5fbf !important;
-  color: #ffffff !important;
+  background: #efe3cc !important;
+  color: #7f1d1d !important;
 }
 
 .cm-tooltip-autocomplete .cm-completionLabel,
@@ -4984,7 +5048,7 @@ body.book-toc-open .aaronnote-editor {
 }
 
 .cm-tooltip-autocomplete .cm-completionDetail {
-  color: #c8c1b8 !important;
+  color: #7a6041 !important;
 }
 
 /* lean4 org-env block styling is fully defined in src/styles/widgets.css */
