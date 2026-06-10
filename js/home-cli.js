@@ -84,6 +84,7 @@
           ["random",   "Open a random note"],
           ["graph",    "Open the knowledge graph"],
           ["archive",  "Go to the full notes archive"],
+          ["publications", "Publications and preprints"],
           ["neofetch", "Show personal info panel"],
           ["cv",       "Open CV (PDF)"],
           ["github",   "Open GitHub profile"],
@@ -289,14 +290,36 @@
       return line("out-ok", "Opening: " + n.title);
     },
 
+    publications(_args) {
+      return [
+        blank(),
+        line("out-section-title", "Publications & preprints"),
+        blank(),
+        line("out-dim",  "  No publications yet."),
+        blank(),
+        line("out-val",  "  Working on research with Youming Qiao (UNSW Sydney)."),
+        line("out-val",  "  Results forthcoming."),
+      ].join("\n");
+    },
+
     graph(_args) {
-      window.open("notes.html#graph", "_self");
-      return line("out-ok", "Opening knowledge graph…");
+      const id = "cli-graph-" + Date.now();
+      window.__GRAPH_NO_AUTO_INIT__ = true;
+      loadGraphEngine().then(() => {
+        const el = document.getElementById(id);
+        if (el && window.initKnowledgeGraph) {
+          window.initKnowledgeGraph({ container: el, toolbar: false });
+        }
+      });
+      return [
+        blank(),
+        line("out-dim", "  Loading knowledge graph…"),
+        `<div id="${id}" class="cli-graph-container"></div>`,
+      ].join("\n");
     },
 
     archive(_args) {
-      window.open("notes.html", "_self");
-      return line("out-ok", "Opening archive…");
+      return COMMANDS.notes([]);
     },
 
     cv(_args) {
@@ -427,11 +450,11 @@
     function sep() { return `<div class="ff-sep"></div>`; }
 
     const infoHtml = [
-      kv("Name",       escHtml("Aaron He (何浩晨)")),
+      kv("Name",       escHtml("Chang He (Aaron)")),
       kv("Role",       escHtml("Mathematics undergraduate")),
       kv("Program",    escHtml("Talented Students Program")),
       kv("School",     escHtml("UNSW Sydney")),
-      kv("Supervisor", escHtml("Youming Qiao")),
+      kv("Supervisor", "<a class='out-note-link' href='https://sites.google.com/site/jimmyqiao86/' target='_blank'>Youming Qiao</a>"),
       kv("Research",   escHtml("Quantum · TCS · Algebra")),
       kv("Location",   escHtml("Sydney, AU")),
       sep(),
@@ -441,7 +464,7 @@
       kv("Updated", escHtml(String(updated)),   "nf-val-hi"),
       kv("Uptime",  escHtml(siteAge + " days"), "nf-val-hi"),
       sep(),
-      kv("Email",  "<a class='out-note-link' href='mailto:aaron.he@student.unsw.edu.au'>aaron.he…</a>"),
+      kv("Email",  "<a class='out-note-link' href='mailto:aaron.he@student.unsw.edu.au'>aaron.he@student.unsw.edu.au</a>"),
       kv("GitHub", "<a class='out-note-link' href='https://github.com/AaronHnoraA' target='_blank'>AaronHnoraA</a>"),
       kv("CV",     "<a class='out-note-link' href='CV/Aaron_He_CV.pdf' target='_blank'>Aaron_He_CV.pdf</a>"),
     ].join("");
@@ -456,6 +479,25 @@
       `<div class="ff-logo">${logoHtml}</div>` +
       `<div class="ff-info">${infoHtml}${palette}</div>` +
       `</div>`
+    );
+  }
+
+  /* ── Dynamic graph engine loader ────────────────────────────────────── */
+
+  function loadGraphEngine() {
+    function loadScript(src) {
+      return new Promise((res) => {
+        if (document.querySelector('script[src="' + src + '"]')) { res(); return; }
+        const s = document.createElement("script");
+        s.src = src; s.onload = res; s.onerror = res;
+        document.head.appendChild(s);
+      });
+    }
+    const d3Ready = typeof d3 !== "undefined"
+      ? Promise.resolve()
+      : loadScript("https://d3js.org/d3.v7.min.js");
+    return d3Ready.then(() =>
+      window.initKnowledgeGraph ? Promise.resolve() : loadScript("js/graph.js")
     );
   }
 
