@@ -93,8 +93,8 @@ body.site-home.home-cli {
 }
 
 .t-blank { display: block; height: 1.5em; }
-.t-dim   { color: #414868; }
-.t-hint  { color: #565f89; }
+.t-dim   { color: #6272a4; }
+.t-hint  { color: #9aa5ce; }
 .t-cmd   { color: #e0af68; }
 .t-url   { color: #7dcfff; text-decoration: underline; cursor: pointer; }
 
@@ -136,10 +136,10 @@ body.site-home.home-cli {
   font-size: 13.5px;
 }
 
-.nf-border { color: #414868; }
+.nf-border { color: #6272a4; }
 .nf-title  { color: #c0caf5; font-weight: bold; }
 .nf-key    { color: #7dcfff; }
-.nf-arrow  { color: #414868; }
+.nf-arrow  { color: #6272a4; }
 .nf-val    { color: #c0caf5; }
 .nf-val-hi { color: #9ece6a; }
 .nf-icon   { color: #bb9af7; }
@@ -153,7 +153,7 @@ body.site-home.home-cli {
 }
 
 .fortune-quote { color: #e0af68; }
-.fortune-attr  { color: #565f89; font-style: italic; }
+.fortune-attr  { color: #9aa5ce; font-style: italic; }
 
 /* ── Command output areas ──────────────────────────────────────────────── */
 
@@ -173,7 +173,7 @@ body.site-home.home-cli {
 .out-section-title { color: #bb9af7; font-weight: bold; display: block; }
 .out-note-item  { color: #c0caf5; display: block; padding-left: 0; }
 .out-note-group { color: #9ece6a; margin-top: 4px; }
-.out-note-date  { color: #414868; }
+.out-note-date  { color: #6272a4; }
 .out-note-link  { color: #7aa2f7; text-decoration: underline; cursor: pointer; }
 .out-note-link:hover { color: #7dcfff; }
 .out-key  { color: #7dcfff; }
@@ -185,7 +185,7 @@ body.site-home.home-cli {
 .out-table { border-collapse: collapse; font: inherit; }
 .out-table td { padding: 0 1.5ch 0 0; vertical-align: top; white-space: pre; }
 .out-table .td-key { color: #7dcfff; }
-.out-table .td-arrow { color: #414868; }
+.out-table .td-arrow { color: #6272a4; }
 
 /* color swatches row (like fastfetch palette) */
 .palette-row { display: block; margin-top: 4px; }
@@ -237,10 +237,12 @@ body.site-home.home-cli {
 
 .tab-hint {
   display: inline-block;
-  color: #414868;
+  color: #6272a4;
   pointer-events: none;
   white-space: pre;
 }
+
+.out-dim { color: #6272a4; }
 
 /* ── Tag buttons (clickable) ───────────────────────────────────────────── */
 
