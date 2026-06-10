@@ -15,14 +15,23 @@
   let histIdx = -1;
   let savedDraft = "";
 
+  /* ── Virtual filesystem state ────────────────────────────────────────── */
+  let cwd = "~";
+
   /* ── Auto-scroll ─────────────────────────────────────────────────────── */
   function scrollBottom() {
     scroll.scrollTop = scroll.scrollHeight;
   }
 
-  /* ── Build prompt PS1 HTML ───────────────────────────────────────────── */
+  /* ── Build prompt PS1 HTML (dynamic cwd) ────────────────────────────── */
   function ps1() {
-    return `<span class="p-user">hc</span><span class="p-at">@</span><span class="p-host">Aaron</span> <span class="p-path">~</span> <span class="p-sym">%</span>`;
+    return `<span class="p-user">hc</span><span class="p-at">@</span><span class="p-host">Aaron</span> <span class="p-path">${escHtml(cwd)}</span> <span class="p-sym">%</span>`;
+  }
+
+  /* Sync the live input-area prompt path span */
+  function updateInputPrompt() {
+    const el = document.querySelector(".prompt-area .p-path");
+    if (el) el.textContent = cwd;
   }
 
   /* ── Append a command block (echo + output) ──────────────────────────── */
@@ -64,6 +73,52 @@
     return window.KNOWLEDGE_DATA || null;
   }
 
+  /* ── Virtual filesystem helpers ──────────────────────────────────────── */
+
+  function findGroup(name, k) {
+    if (!k) return null;
+    const lower = name.toLowerCase();
+    return k.groups.find((g) =>
+      g.label === name || g.label.toLowerCase() === lower ||
+      (g.key && (g.key === name || g.key.toLowerCase() === lower))
+    ) || null;
+  }
+
+  /* Resolve a target path relative to cwd; returns null if not found */
+  function resolvePath(target, k) {
+    if (!target || target === "~") return "~";
+    if (target.startsWith("~/")) return target.replace(/\/$/, "");
+    if (target === "..") {
+      if (cwd === "~") return "~";
+      if (cwd === "~/notes") return "~";
+      if (cwd.startsWith("~/notes/")) return "~/notes";
+      return "~";
+    }
+    const lower = target.toLowerCase();
+    if (lower === "notes" || lower === "notes/") return "~/notes";
+    if (lower === "cv") return "~/CV";
+    /* Smart: look for a group under notes/ from anywhere */
+    const g = findGroup(target, k);
+    if (g) return "~/notes/" + g.label;
+    return null;
+  }
+
+  /* ── Global run hook (used by tag-btn onclick) ───────────────────────── */
+  window._termRun = function (cmd) {
+    if (cmd.trim()) {
+      inputHistory.unshift(cmd);
+      if (inputHistory.length > 200) inputHistory.pop();
+    }
+    histIdx = -1;
+    savedDraft = "";
+    const output = dispatch(cmd);
+    if (output !== null) {
+      appendBlock(cmd, output || "");
+    } else if (cmd.trim() !== "clear" && cmd.trim() !== "cls") {
+      appendBlock(cmd, "");
+    }
+  };
+
   /* ── COMMANDS ─────────────────────────────────────────────────────────── */
 
   const COMMANDS = {
@@ -74,22 +129,24 @@
         blank(),
         `<table class="out-table">` +
         rows([
-          ["about",    "Personal information and research profile"],
-          ["notes",    "Browse published notes by section"],
-          ["ls",       "List top-level sections (alias: dir)"],
-          ["search",   "Search notes: search <query>"],
-          ["tags",     "List all tags"],
-          ["books",    "List books and note series"],
-          ["recent",   "Show most recently updated notes"],
-          ["random",   "Open a random note"],
-          ["graph",    "Open the knowledge graph"],
-          ["archive",  "Go to the full notes archive"],
+          ["about",        "Personal information and research profile"],
+          ["notes",        "Browse published notes by section"],
+          ["ls [path]",    "List directory (cwd-aware)"],
+          ["cd <dir>",     "Change directory  (~ notes/ <group>)"],
+          ["tree",         "Directory tree of notes"],
+          ["search <q>",   "Search notes by title or tag"],
+          ["tags",         "List all tags (click to search)"],
+          ["books",        "List books and note series"],
+          ["recent [n]",   "Most recently updated notes"],
+          ["random",       "Open a random note"],
+          ["graph",        "Open the knowledge graph"],
+          ["archive",      "Go to the full notes archive"],
           ["publications", "Publications and preprints"],
-          ["neofetch", "Show personal info panel"],
-          ["cv",       "Open CV (PDF)"],
-          ["github",   "Open GitHub profile"],
-          ["clear",    "Clear the terminal"],
-          ["help",     "Show this message"],
+          ["neofetch",     "Show personal info panel"],
+          ["cv",           "Open CV (PDF)"],
+          ["github",       "Open GitHub profile"],
+          ["clear",        "Clear the terminal"],
+          ["help",         "Show this message"],
         ]) +
         `</table>`,
       ].join("\n");
@@ -136,25 +193,99 @@
       ].join("\n");
     },
 
+    cd(args) {
+      const k = getKnowledge();
+      const target = args[0];
+      if (!target || target === "~") {
+        cwd = "~";
+        updateInputPrompt();
+        return null;
+      }
+      const resolved = resolvePath(target, k);
+      if (!resolved) {
+        return line("out-error", `cd: ${escHtml(target)}: No such directory`);
+      }
+      cwd = resolved;
+      updateInputPrompt();
+      return null;
+    },
+
     ls(args) {
       const k = getKnowledge();
-      if (args[0] === "notes/" || args[0] === "notes") {
-        return COMMANDS.notes([]);
-      }
-      const sections = k
-        ? k.groups.map((g) => `<div class="out-note-item">  <span class="out-note-group">${escHtml(g.label)}/</span> <span class="out-note-date">(${g.items.length} notes)</span></div>`).join("")
-        : line("out-warn", "Note data not loaded yet. Try again in a moment.");
+      const target = args[0];
 
-      return [
-        blank(),
-        line("out-section-title", "~/notes/"),
-        sections,
-        blank(),
-        line("out-dim", "  CV/          about.txt      research.txt"),
-      ].join("\n");
+      let path = cwd;
+      if (target) {
+        const r = resolvePath(target, k);
+        if (!r) return line("out-error", `ls: ${escHtml(target)}: No such directory`);
+        path = r;
+      }
+
+      if (path === "~") {
+        const groupList = k
+          ? k.groups.map((g) =>
+              `<div class="out-note-item">  <span class="out-note-group">${escHtml(g.label)}/</span> <span class="out-note-date">(${g.items.length} notes)</span></div>`
+            ).join("")
+          : "";
+        return [
+          blank(),
+          line("out-section-title", "~/"),
+          `<div class="out-note-item">  <span class="out-note-group">notes/</span></div>`,
+          groupList,
+          blank(),
+          line("out-dim", "  CV/          about.txt      research.txt"),
+        ].join("\n");
+      }
+
+      if (path === "~/notes") {
+        if (!k) return line("out-warn", "Note data not loaded yet.");
+        const sections = k.groups.map((g) =>
+          `<div class="out-note-item">  <span class="out-note-group">${escHtml(g.label)}/</span> <span class="out-note-date">(${g.items.length} notes)</span></div>`
+        ).join("");
+        return [blank(), line("out-section-title", "~/notes/"), sections].join("\n");
+      }
+
+      if (path.startsWith("~/notes/")) {
+        const groupName = path.slice("~/notes/".length);
+        const g = findGroup(groupName, k);
+        if (!g) return line("out-error", `ls: ${escHtml(path)}: No such directory`);
+        const items = g.items.map((n) => {
+          const lnk = n.link
+            ? `<a class="out-note-link" href="${escHtml(n.link)}" target="_blank">${escHtml(n.title)}</a>`
+            : escHtml(n.title);
+          const date = n.date ? ` <span class="out-note-date">${escHtml(n.date)}</span>` : "";
+          return `<div class="out-note-item">  ${lnk}${date}</div>`;
+        }).join("");
+        return [blank(), line("out-section-title", escHtml(path) + "/"), items].join("\n");
+      }
+
+      return line("out-error", `ls: ${escHtml(path)}: No such directory`);
     },
 
     dir(args) { return COMMANDS.ls(args); },
+
+    tree(_args) {
+      const k = getKnowledge();
+      const parts = [blank(), line("out-section-title", "~/")];
+      parts.push(`<div class="out-note-item"><span class="out-note-group">├── notes/</span></div>`);
+      if (k) {
+        k.groups.forEach((g, i) => {
+          const last = i === k.groups.length - 1;
+          const branch = last ? "└──" : "├──";
+          parts.push(
+            `<div class="out-note-item">` +
+            `<span class="nf-border">│   </span>` +
+            `<span class="out-note-group">${escHtml(branch)} ${escHtml(g.label)}/</span>` +
+            ` <span class="out-note-date">(${g.items.length})</span>` +
+            `</div>`
+          );
+        });
+      }
+      parts.push(`<div class="out-note-item"><span class="out-note-group">├── CV/</span></div>`);
+      parts.push(`<div class="out-note-item t-dim">├── about.txt</div>`);
+      parts.push(`<div class="out-note-item t-dim">└── research.txt</div>`);
+      return parts.join("\n");
+    },
 
     notes(args) {
       const k = getKnowledge();
@@ -190,10 +321,10 @@
         parts.push(`<div class="out-note-group">  ${escHtml(g.label)}/</div>`);
         g.items.slice(0, 20).forEach((n) => {
           const date = n.date ? `<span class="out-note-date"> ${escHtml(n.date)}</span>` : "";
-          const link = n.link
+          const lnk = n.link
             ? `<a class="out-note-link" href="${escHtml(n.link)}" target="_blank">${escHtml(n.title)}</a>`
             : escHtml(n.title);
-          parts.push(`<div class="out-note-item">    ${link}${date}</div>`);
+          parts.push(`<div class="out-note-item">    ${lnk}${date}</div>`);
         });
         if (g.items.length > 20) {
           parts.push(`<div class="out-note-item t-dim">    … and ${g.items.length - 20} more</div>`);
@@ -218,10 +349,15 @@
       if (!k) return line("out-warn", "Note data not loaded yet.");
       const tags = (k.publicTags || k.tags || []).slice(0, 60);
       if (!tags.length) return line("out-warn", "No tags found.");
+      const tagHtml = tags.map((t) => {
+        const name = escHtml(t.name || t);
+        const count = t.count || "";
+        return `<span class="t-cmd tag-btn" onclick="window._termRun('search ${name}')">${name}</span><span class="out-note-date">(${count})</span>`;
+      }).join("  ");
       return [
         blank(),
         line("out-section-title", `Tags (${tags.length})`),
-        `  ` + tags.map((t) => `<span class="t-cmd">${escHtml(t.name || t)}</span><span class="out-note-date">(${t.count || ""})</span>`).join("  "),
+        `  ` + tagHtml,
       ].join("\n");
     },
 
@@ -271,11 +407,11 @@
       ];
 
       notes.forEach((n) => {
-        const link = n.link
+        const lnk = n.link
           ? `<a class="out-note-link" href="${escHtml(n.link)}" target="_blank">${escHtml(n.title)}</a>`
           : escHtml(n.title);
         const date = n.date ? ` <span class="out-note-date">${escHtml(n.date)}</span>` : "";
-        parts.push(`<div class="out-note-item">  ${link}${date}</div>`);
+        parts.push(`<div class="out-note-item">  ${lnk}${date}</div>`);
       });
 
       return parts.join("\n");
@@ -303,23 +439,13 @@
     },
 
     graph(_args) {
-      const id = "cli-graph-" + Date.now();
-      window.__GRAPH_NO_AUTO_INIT__ = true;
-      loadGraphEngine().then(() => {
-        const el = document.getElementById(id);
-        if (el && window.initKnowledgeGraph) {
-          window.initKnowledgeGraph({ container: el, toolbar: false });
-        }
-      });
-      return [
-        blank(),
-        line("out-dim", "  Loading knowledge graph…"),
-        `<div id="${id}" class="cli-graph-container"></div>`,
-      ].join("\n");
+      window.open("notes.html#graph", "_self");
+      return line("out-ok", "Opening knowledge graph…");
     },
 
     archive(_args) {
-      return COMMANDS.notes([]);
+      window.open("notes.html", "_self");
+      return line("out-ok", "Opening archive…");
     },
 
     cv(_args) {
@@ -362,7 +488,8 @@
     },
 
     pwd(_args) {
-      return line("t-line", "/Users/hc");
+      const map = { "~": "/Users/hc", "~/notes": "/Users/hc/notes", "~/CV": "/Users/hc/CV" };
+      return line("t-line", map[cwd] || cwd.replace("~", "/Users/hc"));
     },
 
     cat(args) {
@@ -415,7 +542,6 @@
     const linkCount = stats ? stats.totalReferenceEdges : "—";
     const updated   = stats ? daysAgo(stats.latestDate) : "—";
 
-    /* ── Bloch-sphere ASCII logo ── */
     function ll(inner) { return `<span class="ff-logo-line">${inner}</span>`; }
     function sp(s)     { return `<span class="ff-sphere">${escHtml(s)}</span>`; }
     function kt(s)     { return `<span class="ff-ket">${escHtml(s)}</span>`; }
@@ -434,7 +560,6 @@
       ll(cp("  |ψ⟩ = α|0⟩+β|1⟩")),
     ].join("");
 
-    /* ── Info rows ── */
     const KW = 10;
     function kv(key, val, valCls) {
       valCls = valCls || "nf-val";
@@ -479,25 +604,6 @@
       `<div class="ff-logo">${logoHtml}</div>` +
       `<div class="ff-info">${infoHtml}${palette}</div>` +
       `</div>`
-    );
-  }
-
-  /* ── Dynamic graph engine loader ────────────────────────────────────── */
-
-  function loadGraphEngine() {
-    function loadScript(src) {
-      return new Promise((res) => {
-        if (document.querySelector('script[src="' + src + '"]')) { res(); return; }
-        const s = document.createElement("script");
-        s.src = src; s.onload = res; s.onerror = res;
-        document.head.appendChild(s);
-      });
-    }
-    const d3Ready = typeof d3 !== "undefined"
-      ? Promise.resolve()
-      : loadScript("https://d3js.org/d3.v7.min.js");
-    return d3Ready.then(() =>
-      window.initKnowledgeGraph ? Promise.resolve() : loadScript("js/graph.js")
     );
   }
 
@@ -571,11 +677,11 @@
     if (!notes.length) return "";
 
     const items = notes.map((n) => {
-      const link = n.link
+      const lnk = n.link
         ? `<a class="out-note-link" href="${escHtml(n.link)}" target="_blank">${escHtml(n.title)}</a>`
         : escHtml(n.title);
       const date = n.date ? ` <span class="out-note-date">${escHtml(n.date)}</span>` : "";
-      return `<div class="out-note-item">  ${link}${date}</div>`;
+      return `<div class="out-note-item">  ${lnk}${date}</div>`;
     }).join("");
 
     return [
@@ -612,9 +718,78 @@
     return line("out-error", `${escHtml(cmd)}: command not found  (type help for available commands)`);
   }
 
+  /* ── Tab completion ─────────────────────────────────────────────────── */
+
+  const COMMAND_NAMES = Object.keys(COMMANDS).sort();
+
+  function tabCandidates(text) {
+    const trimmed = text.trimStart();
+    const spaceIdx = trimmed.indexOf(" ");
+
+    if (spaceIdx === -1) {
+      /* Completing command name */
+      return COMMAND_NAMES.filter((c) => c.startsWith(trimmed) && c !== trimmed);
+    }
+
+    const cmd  = trimmed.slice(0, spaceIdx).toLowerCase();
+    const rest = trimmed.slice(spaceIdx + 1);
+
+    if (cmd === "cd" || cmd === "ls") {
+      const k = getKnowledge();
+      const paths = ["notes", "notes/", "CV", "~"];
+      if (k) k.groups.forEach((g) => paths.push(g.label, "notes/" + g.label));
+      const lo = rest.toLowerCase();
+      return paths.filter((p) => p.toLowerCase().startsWith(lo) && p.toLowerCase() !== lo);
+    }
+
+    if (cmd === "search" || cmd === "tag") {
+      const k = getKnowledge();
+      const tags = k ? (k.publicTags || k.tags || []).map((t) => t.name || t) : [];
+      const lo = rest.toLowerCase();
+      return tags.filter((t) => t.toLowerCase().startsWith(lo) && t.toLowerCase() !== lo);
+    }
+
+    return [];
+  }
+
+  function applyCompletion(text, completion) {
+    const trimmed = text.trimStart();
+    const spaceIdx = trimmed.indexOf(" ");
+    if (spaceIdx === -1) return completion + " ";
+    return trimmed.slice(0, spaceIdx + 1) + completion + " ";
+  }
+
   /* ── Keyboard handler ─────────────────────────────────────────────────── */
 
   input.addEventListener("keydown", (e) => {
+    if (e.key === "Tab") {
+      e.preventDefault();
+      const text = input.value;
+      const candidates = tabCandidates(text);
+      if (candidates.length === 0) return;
+
+      if (candidates.length === 1) {
+        input.value = applyCompletion(text, candidates[0]);
+      } else {
+        /* Common prefix fill + show options */
+        const common = candidates.reduce((a, b) => {
+          let i = 0;
+          while (i < a.length && i < b.length && a[i].toLowerCase() === b[i].toLowerCase()) i++;
+          return a.slice(0, i);
+        });
+        const listHtml = candidates.map((c) => `<span class="t-cmd">${escHtml(c)}</span>`).join("  ");
+        appendBlock(text, listHtml);
+
+        const trimmed = text.trimStart();
+        const spaceIdx = trimmed.indexOf(" ");
+        const currentWord = spaceIdx === -1 ? trimmed : trimmed.slice(spaceIdx + 1);
+        if (common.length > currentWord.length) {
+          input.value = applyCompletion(text, common);
+        }
+      }
+      return;
+    }
+
     if (e.key === "Enter") {
       const raw = input.value;
       input.value = "";
