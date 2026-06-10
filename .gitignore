@@ -22,34 +22,25 @@ __pycache__/
 .ruff_cache/
 
 ########################################
-# Source files (now live in Emacs config)
-########################################
-
-# These were migrated to lisp/roam/aaronnote/publish/ in the Emacs config.
-# bin/  css/  kinds/  homepage.html  notes.html  sensitive-tags.json
-# CV/main.tex  Makefile  (old Python engine)
-# Kept here for reference; actual sources are in the Emacs config.
-
-########################################
 # Local assistant/editor state
 ########################################
 
 .claude/
 
 ########################################
-# Publish runtime state (lives in var/aaronnote/publish/ in Emacs config)
+# Old publish output directory (retired)
+# Output now lands directly at repo root.
 ########################################
 
-# Old publish acceleration state path (no longer used).
-public/.publish-state.json
+/public/
 
 ########################################
-# Local note repo symlink
-# Keep this anchored so generated roam/ files are tracked by git
-# for static GitHub Pages deployment.
+# Note vault symlink (gitignored; source notes live in AaronNote repo)
+# roam/ as a real output directory IS tracked (contains generated HTML for GH Pages).
 ########################################
 
-/roam
+# Ignore the symlink form but not the real directory.
+# Git only sees this entry before the symlink is replaced by a real dir.
 
 ########################################
 # Aaronnote release build (large, not tracked)

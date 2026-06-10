@@ -1,1 +1,0 @@
-import{$ as e}from"./vendor-diagram-Cwr1hJoN.js";export{e as createArchitectureServices};

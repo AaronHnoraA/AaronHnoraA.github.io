@@ -1,1 +1,0 @@
-function e(e){return e.trim().toLowerCase().split(/\s+/,1)[0]??``}function t(t){return[`mermaid`,`mindmap`,`marmind`,`markmind`].includes(e(t))}export{t};
