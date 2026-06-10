@@ -99,10 +99,10 @@
         blank(),
         `<table class="out-table">` +
         rows([
-          ["Name",       "Aaron He (何浩晨)"],
+          ["Name",       "Chang He (Aaron)"],
           ["Role",       "Mathematics undergraduate, UNSW Sydney"],
           ["Program",    "Talented Students Program"],
-          ["Supervisor", "Youming Qiao"],
+          ["Supervisor", "<a class='out-note-link' href='https://sites.google.com/site/jimmyqiao86/'>Youming Qiao</a>"],
           ["Research",   "Quantum computing · TCS · Linear algebra"],
           ["Email",      "<a class='out-note-link' href='mailto:aaron.he@student.unsw.edu.au'>aaron.he@student.unsw.edu.au</a>"],
           ["GitHub",     "<a class='out-note-link' href='https://github.com/AaronHnoraA' target='_blank'>AaronHnoraA</a>"],
