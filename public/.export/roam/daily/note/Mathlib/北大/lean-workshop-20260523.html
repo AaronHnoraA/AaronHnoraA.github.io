@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lean4-Mathlib | Aaron He</title>
+  <link rel="stylesheet" href="../../../../../Aaronnote/aaronnote/style.css?v=20260522-local-graph" />
+  <link rel="stylesheet" href="../../../../../Aaronnote/src/styles/widgets.css?v=20260522-local-graph" />
+  <link rel="stylesheet" href="../../../../../Aaronnote/src/styles/theme-typora.css?v=20260522-local-graph" />
+  <link rel="stylesheet" href="../../../../../css/aaronnote-published.css?v=20260522-local-graph" />
+</head>
+<body class="aaronnote-published-document aaronnote-pdf-document" data-note-kind="default">
+  <main class="aaronnote-shell published-note-page published-note-pdf" data-note-kind="default">
+
+    <section class="aaronnote-body">
+      <section class="aaronnote-editor" id="editor">
+        <div class="typora-web-wrap">
+          <div class="typora-web-editor-host">
+            <article id="content" class="cm-editor" data-note-title="Lean4-Mathlib" data-note-kind="default">
+              <div class="cm-org-env-block org-env-block" data-kind="meta" data-label="Meta"><div class="org-env-meta aaronnote-meta-cover"><h1 class="aaronnote-meta-title">Lean4-Mathlib</h1><p class="aaronnote-meta-date">2026-05-21</p><nav class="aaronnote-meta-tags"><button class="aaronnote-meta-tag">#algebra</button><button class="aaronnote-meta-tag">#math</button><button class="aaronnote-meta-tag">#note</button><button class="aaronnote-meta-tag">#mathlib</button></nav></div></div><org-env-block data-kind="summary" data-title="项目简介" data-label="Summary" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">Summary</span><span class="org-env-heading-title" data-empty="false">项目简介</span></span><div class="org-env-content"><p>这是一个北大ai4math团队牵头的Lean4 Mathlib review为主题的学习交流和未来工作对接项目.</p>
+<p>Lean4(Mathlib) 的思想来自于相信所有数学语句都能进行形式化表示. 然后如程序一般, 逻辑的关联可以使用语言编译等技术进行处理. 通过形式化的方式,我们可以让计算机来验证数学定理的正确性,从而提高数学研究的效率和准确性. 同时可以让人类更多focus在数学的简洁性上面.</p>
+<p>根据这么多年的发展, 有一些很不错的成果. 比如tao主推的Mathlib视图从公理开始, 逐步构建了一个庞大的数学库, 包含了各种数学领域的定理和证明.
+同时AI结合lean来处理数学问题,和常规数学表达转换为lean的知识库分发也是个很大的主题.</p>
+<p>this is</p>
+<ul>
+<li><a href="https://beta.reaslab.io">s</a></li>
+<li>M2F (团队成员作品)</li>
+</ul>
+<p><img src="./images/lean-workshop-20260523/image.png" alt="image.png"></p>
+</div></org-env-block><org-env-block class="cm-org-env-block org-env-block org-env-lean4 org-env-lean4-region" data-kind="lean4" data-title="lean-mpj4xygk" data-label="Lean 4" data-comment-open="false" data-lean-region="true"><span class="org-env-heading cm-org-env-heading-widget" data-org-env-kind="lean4"><span class="org-env-heading-label cm-org-env-label">Lean 4</span><span class="org-env-heading-title" data-empty="false">lean-mpj4xygk</span></span><div class="org-env-content"><pre class="aaronnote-lean-code"><code class="language-lean4"><span class="code-token-keyword">import</span> Mathlib<span class="code-token-operator">.</span>Data<span class="code-token-operator">.</span>Real<span class="code-token-operator">.</span>Basic</code></pre></div></org-env-block><h1>Course 1</h1>
+<org-env-block data-kind="attention" data-title="课程目的" data-label="Attention" data-comment-open="false"><span class="org-env-heading"><span class="org-env-heading-label">Attention</span><span class="org-env-heading-title" data-empty="false">课程目的</span></span><div class="org-env-content"><p>经过训练,希望能掌握为能把任何自然语言的数学内容翻译成Lean4代码的能力,并且能在Lean4中进行一些基本的数学证明.</p>
+</div></org-env-block><h2>数学形式化</h2>
+<p>数学形式化和普通的数学证明有很多区别, 因为一个概念作为库函数是需要在普世情况下都是用,并且不能有歧义的. 这就要求我们在定义一个概念的时候,要非常清晰和严谨. 同时在证明一个定理的时候,也要非常细致和严谨,不能有任何的漏洞. 这个需要对概念收敛等操作.</p>
+<p>Lean 和 mathlib是不一样的 lean知识个工具, mathlib</p>
+<p>Ai可以生成很多好的lean代码, 但是不够好不够美.</p>
+<p>同时需要考虑一些工程上面的事情, 比如可维护性, 工程能力等</p>
+<h2>Lean语言基本语法</h2>
+<p><img src="./images/lean-workshop-20260523/image-2.png" alt="image-2.png"></p>
+<table>
+<thead>
+<tr>
+<th>数学字符</th>
+<th>代码</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="aaronnote-math-inline" data-tex="\mathbb{N}" data-math-render-key="inline
+\mathbb{N}"><span class="katex"><span class="katex-html"><span class="base"><span class="strut" style="height:0.6889em;"></span><span class="mord mathbb">N</span></span></span></span></span></td>
+<td>\N</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4>课后作业 01</h4>
+<org-env-block class="cm-org-env-block org-env-block org-env-lean4 org-env-lean4-region" data-kind="lean4" data-title="lean-mpj2rlmg" data-label="Lean 4" data-comment-open="false" data-lean-region="true"><span class="org-env-heading cm-org-env-heading-widget" data-org-env-kind="lean4"><span class="org-env-heading-label cm-org-env-label">Lean 4</span><span class="org-env-heading-title" data-empty="false">lean-mpj2rlmg</span></span><div class="org-env-content"><pre class="aaronnote-lean-code"><code class="language-lean4"><span class="code-token-comment">-- An example.</span>
+<span class="code-token-keyword">example</span> <span class="code-token-punctuation">(</span>a b <span class="code-token-function">c</span> <span class="code-token-operator">:</span> ℝ<span class="code-token-punctuation">)</span> <span class="code-token-operator">:</span> a <span class="code-token-operator">*</span> b <span class="code-token-operator">*</span> c <span class="code-token-operator">=</span> b <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">*</span> c<span class="code-token-punctuation">)</span> <span class="code-token-operator">:=</span> <span class="code-token-keyword">by</span>
+  rw <span class="code-token-punctuation">[</span>mul_comm a b<span class="code-token-punctuation">]</span>
+  rw <span class="code-token-punctuation">[</span>mul_assoc b a c<span class="code-token-punctuation">]</span>
+
+<span class="code-token-comment">-- Try these.</span>
+<span class="code-token-keyword">example</span> <span class="code-token-punctuation">(</span>a b <span class="code-token-function">c</span> <span class="code-token-operator">:</span> ℝ<span class="code-token-punctuation">)</span> <span class="code-token-operator">:</span> c <span class="code-token-operator">*</span> b <span class="code-token-operator">*</span> a <span class="code-token-operator">=</span> b <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">*</span> c<span class="code-token-punctuation">)</span> <span class="code-token-operator">:=</span> <span class="code-token-keyword">by</span>
+  sorry
+
+<span class="code-token-keyword">example</span> <span class="code-token-punctuation">(</span>a b <span class="code-token-function">c</span> <span class="code-token-operator">:</span> ℝ<span class="code-token-punctuation">)</span> <span class="code-token-operator">:</span> a <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>b <span class="code-token-operator">*</span> c<span class="code-token-punctuation">)</span> <span class="code-token-operator">=</span> b <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">*</span> c<span class="code-token-punctuation">)</span> <span class="code-token-operator">:=</span> <span class="code-token-keyword">by</span>
+  sorry
+
+<span class="code-token-comment">-- An example.</span>
+<span class="code-token-keyword">example</span> <span class="code-token-punctuation">(</span>a b <span class="code-token-function">c</span> <span class="code-token-operator">:</span> ℝ<span class="code-token-punctuation">)</span> <span class="code-token-operator">:</span> a <span class="code-token-operator">*</span> b <span class="code-token-operator">*</span> c <span class="code-token-operator">=</span> b <span class="code-token-operator">*</span> c <span class="code-token-operator">*</span> <span class="code-token-function">a</span> <span class="code-token-operator">:=</span> <span class="code-token-keyword">by</span>
+  rw <span class="code-token-punctuation">[</span>mul_assoc<span class="code-token-punctuation">]</span>
+  rw <span class="code-token-punctuation">[</span>mul_comm<span class="code-token-punctuation">]</span>
+
+<span class="code-token-comment">/- Try doing the first of these without providing any arguments at all,
+   and the second with only one argument. -/</span>
+<span class="code-token-keyword">example</span> <span class="code-token-punctuation">(</span>a b <span class="code-token-function">c</span> <span class="code-token-operator">:</span> ℝ<span class="code-token-punctuation">)</span> <span class="code-token-operator">:</span> a <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>b <span class="code-token-operator">*</span> c<span class="code-token-punctuation">)</span> <span class="code-token-operator">=</span> b <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>c <span class="code-token-operator">*</span> a<span class="code-token-punctuation">)</span> <span class="code-token-operator">:=</span> <span class="code-token-keyword">by</span>
+  sorry
+
+<span class="code-token-keyword">example</span> <span class="code-token-punctuation">(</span>a b <span class="code-token-function">c</span> <span class="code-token-operator">:</span> ℝ<span class="code-token-punctuation">)</span> <span class="code-token-operator">:</span> a <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>b <span class="code-token-operator">*</span> c<span class="code-token-punctuation">)</span> <span class="code-token-operator">=</span> b <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">*</span> c<span class="code-token-punctuation">)</span> <span class="code-token-operator">:=</span> <span class="code-token-keyword">by</span>
+  sorry
+
+<span class="code-token-comment">-- Using facts from the local context.</span>
+<span class="code-token-keyword">example</span> <span class="code-token-punctuation">(</span>a b c d e <span class="code-token-function">f</span> <span class="code-token-operator">:</span> ℝ<span class="code-token-punctuation">)</span> <span class="code-token-punctuation">(</span><span class="code-token-function">h</span> <span class="code-token-operator">:</span> a <span class="code-token-operator">*</span> b <span class="code-token-operator">=</span> c <span class="code-token-operator">*</span> d<span class="code-token-punctuation">)</span> <span class="code-token-punctuation">(</span><span class="code-token-function">h'</span> <span class="code-token-operator">:</span> e <span class="code-token-operator">=</span> f<span class="code-token-punctuation">)</span> <span class="code-token-operator">:</span> a <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>b <span class="code-token-operator">*</span> e<span class="code-token-punctuation">)</span> <span class="code-token-operator">=</span> c <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>d <span class="code-token-operator">*</span> f<span class="code-token-punctuation">)</span> <span class="code-token-operator">:=</span> <span class="code-token-keyword">by</span>
+  rw <span class="code-token-punctuation">[</span>h'<span class="code-token-punctuation">]</span>
+  rw <span class="code-token-punctuation">[</span><span class="code-token-operator">←</span> mul_assoc<span class="code-token-punctuation">]</span>
+  rw <span class="code-token-punctuation">[</span>h<span class="code-token-punctuation">]</span>
+  rw <span class="code-token-punctuation">[</span>mul_assoc<span class="code-token-punctuation">]</span>
+
+<span class="code-token-keyword">example</span> <span class="code-token-punctuation">(</span>a b c d e <span class="code-token-function">f</span> <span class="code-token-operator">:</span> ℝ<span class="code-token-punctuation">)</span> <span class="code-token-punctuation">(</span><span class="code-token-function">h</span> <span class="code-token-operator">:</span> b <span class="code-token-operator">*</span> c <span class="code-token-operator">=</span> e <span class="code-token-operator">*</span> f<span class="code-token-punctuation">)</span> <span class="code-token-operator">:</span> a <span class="code-token-operator">*</span> b <span class="code-token-operator">*</span> c <span class="code-token-operator">*</span> d <span class="code-token-operator">=</span> a <span class="code-token-operator">*</span> e <span class="code-token-operator">*</span> f <span class="code-token-operator">*</span> <span class="code-token-function">d</span> <span class="code-token-operator">:=</span> <span class="code-token-keyword">by</span>
+  sorry
+
+<span class="code-token-keyword">example</span> <span class="code-token-punctuation">(</span>a b c <span class="code-token-function">d</span> <span class="code-token-operator">:</span> ℝ<span class="code-token-punctuation">)</span> <span class="code-token-punctuation">(</span><span class="code-token-function">hyp</span> <span class="code-token-operator">:</span> c <span class="code-token-operator">=</span> b <span class="code-token-operator">*</span> a <span class="code-token-operator">-</span> d<span class="code-token-punctuation">)</span> <span class="code-token-punctuation">(</span><span class="code-token-function">hyp'</span> <span class="code-token-operator">:</span> d <span class="code-token-operator">=</span> a <span class="code-token-operator">*</span> b<span class="code-token-punctuation">)</span> <span class="code-token-operator">:</span> c <span class="code-token-operator">=</span> <span class="code-token-number">0</span> <span class="code-token-operator">:=</span> <span class="code-token-keyword">by</span>
+  sorry
+
+<span class="code-token-keyword">example</span> <span class="code-token-punctuation">(</span>a b c d e <span class="code-token-function">f</span> <span class="code-token-operator">:</span> ℝ<span class="code-token-punctuation">)</span> <span class="code-token-punctuation">(</span><span class="code-token-function">h</span> <span class="code-token-operator">:</span> a <span class="code-token-operator">*</span> b <span class="code-token-operator">=</span> c <span class="code-token-operator">*</span> d<span class="code-token-punctuation">)</span> <span class="code-token-punctuation">(</span><span class="code-token-function">h'</span> <span class="code-token-operator">:</span> e <span class="code-token-operator">=</span> f<span class="code-token-punctuation">)</span> <span class="code-token-operator">:</span> a <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>b <span class="code-token-operator">*</span> e<span class="code-token-punctuation">)</span> <span class="code-token-operator">=</span> c <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>d <span class="code-token-operator">*</span> f<span class="code-token-punctuation">)</span> <span class="code-token-operator">:=</span> <span class="code-token-keyword">by</span>
+  rw <span class="code-token-punctuation">[</span>h'<span class="code-token-punctuation">,</span> <span class="code-token-operator">←</span> mul_assoc<span class="code-token-punctuation">,</span> h<span class="code-token-punctuation">,</span> mul_assoc<span class="code-token-punctuation">]</span>
+
+<span class="code-token-keyword">section</span>
+
+<span class="code-token-keyword">variable</span> <span class="code-token-punctuation">(</span>a b c d e <span class="code-token-function">f</span> <span class="code-token-operator">:</span> ℝ<span class="code-token-punctuation">)</span>
+
+<span class="code-token-keyword">example</span> <span class="code-token-punctuation">(</span><span class="code-token-function">h</span> <span class="code-token-operator">:</span> a <span class="code-token-operator">*</span> b <span class="code-token-operator">=</span> c <span class="code-token-operator">*</span> d<span class="code-token-punctuation">)</span> <span class="code-token-punctuation">(</span><span class="code-token-function">h'</span> <span class="code-token-operator">:</span> e <span class="code-token-operator">=</span> f<span class="code-token-punctuation">)</span> <span class="code-token-operator">:</span> a <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>b <span class="code-token-operator">*</span> e<span class="code-token-punctuation">)</span> <span class="code-token-operator">=</span> c <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>d <span class="code-token-operator">*</span> f<span class="code-token-punctuation">)</span> <span class="code-token-operator">:=</span> <span class="code-token-keyword">by</span>
+  rw <span class="code-token-punctuation">[</span>h'<span class="code-token-punctuation">,</span> <span class="code-token-operator">←</span> mul_assoc<span class="code-token-punctuation">,</span> h<span class="code-token-punctuation">,</span> mul_assoc<span class="code-token-punctuation">]</span>
+
+<span class="code-token-keyword">end</span>
+
+<span class="code-token-keyword">section</span>
+<span class="code-token-keyword">variable</span> <span class="code-token-punctuation">(</span>a b <span class="code-token-function">c</span> <span class="code-token-operator">:</span> ℝ<span class="code-token-punctuation">)</span>
+
+#check a
+#check a <span class="code-token-operator">+</span> b
+#<span class="code-token-function">check</span> <span class="code-token-punctuation">(</span><span class="code-token-function">a</span> <span class="code-token-operator">:</span> ℝ<span class="code-token-punctuation">)</span>
+#check mul_comm a b
+#<span class="code-token-function">check</span> <span class="code-token-punctuation">(</span>mul_comm a <span class="code-token-function">b</span> <span class="code-token-operator">:</span> a <span class="code-token-operator">*</span> b <span class="code-token-operator">=</span> b <span class="code-token-operator">*</span> a<span class="code-token-punctuation">)</span>
+#check mul_assoc c a b
+#check mul_comm a
+#check mul_comm
+
+<span class="code-token-keyword">end</span>
+
+<span class="code-token-keyword">section</span>
+<span class="code-token-keyword">variable</span> <span class="code-token-punctuation">(</span>a <span class="code-token-function">b</span> <span class="code-token-operator">:</span> ℝ<span class="code-token-punctuation">)</span>
+
+<span class="code-token-keyword">example</span> <span class="code-token-operator">:</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">+</span> b<span class="code-token-punctuation">)</span> <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">+</span> b<span class="code-token-punctuation">)</span> <span class="code-token-operator">=</span> a <span class="code-token-operator">*</span> a <span class="code-token-operator">+</span> <span class="code-token-number">2</span> <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">*</span> b<span class="code-token-punctuation">)</span> <span class="code-token-operator">+</span> b <span class="code-token-operator">*</span> <span class="code-token-function">b</span> <span class="code-token-operator">:=</span> <span class="code-token-keyword">by</span>
+  rw <span class="code-token-punctuation">[</span>mul_add<span class="code-token-punctuation">,</span> add_mul<span class="code-token-punctuation">,</span> add_mul<span class="code-token-punctuation">]</span>
+  rw <span class="code-token-punctuation">[</span><span class="code-token-operator">←</span> add_assoc<span class="code-token-punctuation">,</span> <span class="code-token-function">add_assoc</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">*</span> a<span class="code-token-punctuation">)</span><span class="code-token-punctuation">]</span>
+  rw <span class="code-token-punctuation">[</span>mul_comm b a<span class="code-token-punctuation">,</span> <span class="code-token-operator">←</span> two_mul<span class="code-token-punctuation">]</span>
+
+<span class="code-token-keyword">example</span> <span class="code-token-operator">:</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">+</span> b<span class="code-token-punctuation">)</span> <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">+</span> b<span class="code-token-punctuation">)</span> <span class="code-token-operator">=</span> a <span class="code-token-operator">*</span> a <span class="code-token-operator">+</span> <span class="code-token-number">2</span> <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">*</span> b<span class="code-token-punctuation">)</span> <span class="code-token-operator">+</span> b <span class="code-token-operator">*</span> <span class="code-token-function">b</span> <span class="code-token-operator">:=</span>
+  <span class="code-token-keyword">calc</span>
+    <span class="code-token-punctuation">(</span>a <span class="code-token-operator">+</span> b<span class="code-token-punctuation">)</span> <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">+</span> b<span class="code-token-punctuation">)</span> <span class="code-token-operator">=</span> a <span class="code-token-operator">*</span> a <span class="code-token-operator">+</span> b <span class="code-token-operator">*</span> a <span class="code-token-operator">+</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">*</span> b <span class="code-token-operator">+</span> b <span class="code-token-operator">*</span> b<span class="code-token-punctuation">)</span> <span class="code-token-operator">:=</span> <span class="code-token-keyword">by</span>
+      rw <span class="code-token-punctuation">[</span>mul_add<span class="code-token-punctuation">,</span> add_mul<span class="code-token-punctuation">,</span> add_mul<span class="code-token-punctuation">]</span>
+    _ <span class="code-token-operator">=</span> a <span class="code-token-operator">*</span> a <span class="code-token-operator">+</span> <span class="code-token-punctuation">(</span>b <span class="code-token-operator">*</span> a <span class="code-token-operator">+</span> a <span class="code-token-operator">*</span> b<span class="code-token-punctuation">)</span> <span class="code-token-operator">+</span> b <span class="code-token-operator">*</span> <span class="code-token-function">b</span> <span class="code-token-operator">:=</span> <span class="code-token-keyword">by</span>
+      rw <span class="code-token-punctuation">[</span><span class="code-token-operator">←</span> add_assoc<span class="code-token-punctuation">,</span> <span class="code-token-function">add_assoc</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">*</span> a<span class="code-token-punctuation">)</span><span class="code-token-punctuation">]</span>
+    _ <span class="code-token-operator">=</span> a <span class="code-token-operator">*</span> a <span class="code-token-operator">+</span> <span class="code-token-number">2</span> <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">*</span> b<span class="code-token-punctuation">)</span> <span class="code-token-operator">+</span> b <span class="code-token-operator">*</span> <span class="code-token-function">b</span> <span class="code-token-operator">:=</span> <span class="code-token-keyword">by</span>
+      rw <span class="code-token-punctuation">[</span>mul_comm b a<span class="code-token-punctuation">,</span> <span class="code-token-operator">←</span> two_mul<span class="code-token-punctuation">]</span>
+
+<span class="code-token-keyword">example</span> <span class="code-token-operator">:</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">+</span> b<span class="code-token-punctuation">)</span> <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">+</span> b<span class="code-token-punctuation">)</span> <span class="code-token-operator">=</span> a <span class="code-token-operator">*</span> a <span class="code-token-operator">+</span> <span class="code-token-number">2</span> <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">*</span> b<span class="code-token-punctuation">)</span> <span class="code-token-operator">+</span> b <span class="code-token-operator">*</span> <span class="code-token-function">b</span> <span class="code-token-operator">:=</span>
+  <span class="code-token-keyword">calc</span>
+    <span class="code-token-punctuation">(</span>a <span class="code-token-operator">+</span> b<span class="code-token-punctuation">)</span> <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">+</span> b<span class="code-token-punctuation">)</span> <span class="code-token-operator">=</span> a <span class="code-token-operator">*</span> a <span class="code-token-operator">+</span> b <span class="code-token-operator">*</span> a <span class="code-token-operator">+</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">*</span> b <span class="code-token-operator">+</span> b <span class="code-token-operator">*</span> b<span class="code-token-punctuation">)</span> <span class="code-token-operator">:=</span> <span class="code-token-keyword">by</span>
+      sorry
+    _ <span class="code-token-operator">=</span> a <span class="code-token-operator">*</span> a <span class="code-token-operator">+</span> <span class="code-token-punctuation">(</span>b <span class="code-token-operator">*</span> a <span class="code-token-operator">+</span> a <span class="code-token-operator">*</span> b<span class="code-token-punctuation">)</span> <span class="code-token-operator">+</span> b <span class="code-token-operator">*</span> <span class="code-token-function">b</span> <span class="code-token-operator">:=</span> <span class="code-token-keyword">by</span>
+      sorry
+    _ <span class="code-token-operator">=</span> a <span class="code-token-operator">*</span> a <span class="code-token-operator">+</span> <span class="code-token-number">2</span> <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">*</span> b<span class="code-token-punctuation">)</span> <span class="code-token-operator">+</span> b <span class="code-token-operator">*</span> <span class="code-token-function">b</span> <span class="code-token-operator">:=</span> <span class="code-token-keyword">by</span>
+      sorry
+
+<span class="code-token-keyword">end</span>
+
+<span class="code-token-comment">-- Try these. For the second, use the theorems listed underneath.</span>
+<span class="code-token-keyword">section</span>
+<span class="code-token-keyword">variable</span> <span class="code-token-punctuation">(</span>a b c <span class="code-token-function">d</span> <span class="code-token-operator">:</span> ℝ<span class="code-token-punctuation">)</span>
+
+<span class="code-token-keyword">example</span> <span class="code-token-operator">:</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">+</span> b<span class="code-token-punctuation">)</span> <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>c <span class="code-token-operator">+</span> d<span class="code-token-punctuation">)</span> <span class="code-token-operator">=</span> a <span class="code-token-operator">*</span> c <span class="code-token-operator">+</span> a <span class="code-token-operator">*</span> d <span class="code-token-operator">+</span> b <span class="code-token-operator">*</span> c <span class="code-token-operator">+</span> b <span class="code-token-operator">*</span> <span class="code-token-function">d</span> <span class="code-token-operator">:=</span> <span class="code-token-keyword">by</span>
+  sorry
+
+<span class="code-token-keyword">example</span> <span class="code-token-punctuation">(</span>a <span class="code-token-function">b</span> <span class="code-token-operator">:</span> ℝ<span class="code-token-punctuation">)</span> <span class="code-token-operator">:</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">+</span> b<span class="code-token-punctuation">)</span> <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">-</span> b<span class="code-token-punctuation">)</span> <span class="code-token-operator">=</span> a ^ <span class="code-token-number">2</span> <span class="code-token-operator">-</span> b ^ <span class="code-token-number">2</span> <span class="code-token-operator">:=</span> <span class="code-token-keyword">by</span>
+  sorry
+
+#check pow_two a
+#check mul_sub a b c
+#check add_mul a b c
+#check add_sub a b c
+#check sub_sub a b c
+#check add_zero a
+
+<span class="code-token-keyword">end</span>
+
+<span class="code-token-comment">-- Examples.</span>
+
+<span class="code-token-keyword">section</span>
+<span class="code-token-keyword">variable</span> <span class="code-token-punctuation">(</span>a b c <span class="code-token-function">d</span> <span class="code-token-operator">:</span> ℝ<span class="code-token-punctuation">)</span>
+
+<span class="code-token-keyword">example</span> <span class="code-token-punctuation">(</span>a b c <span class="code-token-function">d</span> <span class="code-token-operator">:</span> ℝ<span class="code-token-punctuation">)</span> <span class="code-token-punctuation">(</span><span class="code-token-function">hyp</span> <span class="code-token-operator">:</span> c <span class="code-token-operator">=</span> d <span class="code-token-operator">*</span> a <span class="code-token-operator">+</span> b<span class="code-token-punctuation">)</span> <span class="code-token-punctuation">(</span><span class="code-token-function">hyp'</span> <span class="code-token-operator">:</span> b <span class="code-token-operator">=</span> a <span class="code-token-operator">*</span> d<span class="code-token-punctuation">)</span> <span class="code-token-operator">:</span> c <span class="code-token-operator">=</span> <span class="code-token-number">2</span> <span class="code-token-operator">*</span> a <span class="code-token-operator">*</span> <span class="code-token-function">d</span> <span class="code-token-operator">:=</span> <span class="code-token-keyword">by</span>
+  rw <span class="code-token-punctuation">[</span>hyp'<span class="code-token-punctuation">]</span> at hyp
+  rw <span class="code-token-punctuation">[</span>mul_comm d a<span class="code-token-punctuation">]</span> at hyp
+  rw <span class="code-token-punctuation">[</span><span class="code-token-operator">←</span> <span class="code-token-function">two_mul</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">*</span> d<span class="code-token-punctuation">)</span><span class="code-token-punctuation">]</span> at hyp
+  rw <span class="code-token-punctuation">[</span><span class="code-token-operator">←</span> mul_assoc <span class="code-token-number">2</span> a d<span class="code-token-punctuation">]</span> at hyp
+  exact hyp
+
+<span class="code-token-keyword">example</span> <span class="code-token-operator">:</span> c <span class="code-token-operator">*</span> b <span class="code-token-operator">*</span> a <span class="code-token-operator">=</span> b <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">*</span> c<span class="code-token-punctuation">)</span> <span class="code-token-operator">:=</span> <span class="code-token-keyword">by</span>
+  ring
+
+<span class="code-token-keyword">example</span> <span class="code-token-operator">:</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">+</span> b<span class="code-token-punctuation">)</span> <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">+</span> b<span class="code-token-punctuation">)</span> <span class="code-token-operator">=</span> a <span class="code-token-operator">*</span> a <span class="code-token-operator">+</span> <span class="code-token-number">2</span> <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">*</span> b<span class="code-token-punctuation">)</span> <span class="code-token-operator">+</span> b <span class="code-token-operator">*</span> <span class="code-token-function">b</span> <span class="code-token-operator">:=</span> <span class="code-token-keyword">by</span>
+  ring
+
+<span class="code-token-keyword">example</span> <span class="code-token-operator">:</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">+</span> b<span class="code-token-punctuation">)</span> <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">-</span> b<span class="code-token-punctuation">)</span> <span class="code-token-operator">=</span> a ^ <span class="code-token-number">2</span> <span class="code-token-operator">-</span> b ^ <span class="code-token-number">2</span> <span class="code-token-operator">:=</span> <span class="code-token-keyword">by</span>
+  ring
+
+<span class="code-token-keyword">example</span> <span class="code-token-punctuation">(</span><span class="code-token-function">hyp</span> <span class="code-token-operator">:</span> c <span class="code-token-operator">=</span> d <span class="code-token-operator">*</span> a <span class="code-token-operator">+</span> b<span class="code-token-punctuation">)</span> <span class="code-token-punctuation">(</span><span class="code-token-function">hyp'</span> <span class="code-token-operator">:</span> b <span class="code-token-operator">=</span> a <span class="code-token-operator">*</span> d<span class="code-token-punctuation">)</span> <span class="code-token-operator">:</span> c <span class="code-token-operator">=</span> <span class="code-token-number">2</span> <span class="code-token-operator">*</span> a <span class="code-token-operator">*</span> <span class="code-token-function">d</span> <span class="code-token-operator">:=</span> <span class="code-token-keyword">by</span>
+  rw <span class="code-token-punctuation">[</span>hyp<span class="code-token-punctuation">,</span> hyp'<span class="code-token-punctuation">]</span>
+  ring
+
+<span class="code-token-keyword">end</span>
+
+<span class="code-token-keyword">example</span> <span class="code-token-punctuation">(</span>a b <span class="code-token-function">c</span> <span class="code-token-operator">:</span> ℕ<span class="code-token-punctuation">)</span> <span class="code-token-punctuation">(</span><span class="code-token-function">h</span> <span class="code-token-operator">:</span> a <span class="code-token-operator">+</span> b <span class="code-token-operator">=</span> c<span class="code-token-punctuation">)</span> <span class="code-token-operator">:</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">+</span> b<span class="code-token-punctuation">)</span> <span class="code-token-operator">*</span> <span class="code-token-punctuation">(</span>a <span class="code-token-operator">+</span> b<span class="code-token-punctuation">)</span> <span class="code-token-operator">=</span> a <span class="code-token-operator">*</span> c <span class="code-token-operator">+</span> b <span class="code-token-operator">*</span> <span class="code-token-function">c</span> <span class="code-token-operator">:=</span> <span class="code-token-keyword">by</span>
+  nth_rw <span class="code-token-number">2</span> <span class="code-token-punctuation">[</span>h<span class="code-token-punctuation">]</span>
+  rw <span class="code-token-punctuation">[</span>add_mul<span class="code-token-punctuation">]</span></code></pre></div></org-env-block>
+            </article>
+          </div>
+        </div>
+      </section>
+
+
+    </section>
+  </main>
+
+</body>
+</html>
