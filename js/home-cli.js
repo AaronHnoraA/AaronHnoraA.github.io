@@ -73,6 +73,22 @@
     return window.KNOWLEDGE_DATA || null;
   }
 
+  /* ── Person info (single source of truth) ───────────────────────────── */
+  const PERSON = {
+    name:           "Chang He (Aaron)",
+    role:           "Mathematics undergraduate",
+    program:        "Talented Students Program",
+    school:         "UNSW Sydney",
+    supervisorText: "Youming Qiao",
+    supervisorUrl:  "https://sites.google.com/site/jimmyqiao86/",
+    research:       "Quantum · TCS · Algebra",
+    location:       "Sydney, AU",
+    email:          "aaron.he@student.unsw.edu.au",
+    github:         "AaronHnoraA",
+    githubUrl:      "https://github.com/AaronHnoraA",
+    cv:             "CV/Aaron_He_CV.pdf",
+  };
+
   /* ── Virtual filesystem helpers ──────────────────────────────────────── */
 
   function findGroup(name, k) {
@@ -102,6 +118,52 @@
     if (g) return "~/notes/" + g.label;
     return null;
   }
+
+  /* ── Interactive search filter (used by search-live inputs) ─────────── */
+  window._searchFilter = function (uid, query) {
+    const notes     = window["_sn_" + uid];
+    const resultsEl = document.getElementById(uid + "-r");
+    const countEl   = document.getElementById(uid + "-n");
+    if (!notes || !resultsEl) return;
+
+    const q = (query || "").trim().toLowerCase();
+    let filtered;
+    if (!q) {
+      filtered = notes.slice(0, 20);
+    } else {
+      filtered = notes.filter((n) => {
+        const title = (n.title || "").toLowerCase();
+        const tags  = (n.tags  || []).join(" ").toLowerCase();
+        const group = (n.group || "").toLowerCase();
+        return title.includes(q) || tags.includes(q) || group.includes(q);
+      });
+    }
+
+    if (countEl) countEl.textContent = q ? ` (${filtered.length})` : ` (${notes.length})`;
+
+    if (!filtered.length) {
+      resultsEl.innerHTML = `<div class="out-note-item t-dim">  no results</div>`;
+      return;
+    }
+
+    const MAX = 30;
+    const shown = filtered.slice(0, MAX);
+    const parts = shown.map((n) => {
+      const lnk  = n.link
+        ? `<a class="out-note-link" href="${escHtml(n.link)}">${escHtml(n.title)}</a>`
+        : escHtml(n.title);
+      const date  = n.date  ? ` <span class="out-note-date">${escHtml(n.date)}</span>` : "";
+      const group = n.group ? ` <span class="out-note-date">${escHtml(n.group)}</span>` : "";
+      const tags  = (n.tags || []).slice(0, 3).map((t) =>
+        `<span class="t-cmd tag-btn" onclick="window._termRun('search ${escHtml(t)}')">${escHtml(t)}</span>`
+      ).join(" ");
+      return `<div class="out-note-item">  ${lnk}${date}${group}${tags ? "  " + tags : ""}</div>`;
+    });
+    if (filtered.length > MAX) {
+      parts.push(`<div class="out-note-item t-dim">  … and ${filtered.length - MAX} more</div>`);
+    }
+    resultsEl.innerHTML = parts.join("");
+  };
 
   /* ── Global run hook (used by tag-btn onclick) ───────────────────────── */
   window._termRun = function (cmd) {
@@ -153,18 +215,20 @@
     },
 
     about(_args) {
+      const p = PERSON;
       return [
         blank(),
         `<table class="out-table">` +
         rows([
-          ["Name",       "Chang He (Aaron)"],
-          ["Role",       "Computer Science undergraduate, UNSW Sydney"],
-          ["Program",    "<a class='out-note-link' href='https://www.unsw.edu.au/science/student-life-resources/student-opportunities/talented-students-program'>Talented Students Program</a>"],
-          ["Supervisor", "<a class='out-note-link' href='https://sites.google.com/site/jimmyqiao86/'>Youming Qiao</a>"],
-          ["Research",   "Quantum computing · TCS · Linear algebra"],
-          ["Email",      "<a class='out-note-link' href='mailto:aaron.he@student.unsw.edu.au'>aaron.he@student.unsw.edu.au</a>"],
-          ["GitHub",     "<a class='out-note-link' href='https://github.com/AaronHnoraA' target='_blank'>AaronHnoraA</a>"],
-          ["CV",         "<a class='out-note-link' href='CV/Aaron_He_CV.pdf' target='_blank'>Aaron_He_CV.pdf</a>"],
+          ["Name",       escHtml(p.name)],
+          ["Role",       escHtml(p.role)],
+          ["School",     escHtml(p.school)],
+          ["Program",    escHtml(p.program)],
+          ["Supervisor", `<a class='out-note-link' href='${escHtml(p.supervisorUrl)}' target='_blank'>${escHtml(p.supervisorText)}</a>`],
+          ["Research",   escHtml(p.research)],
+          ["Email",      `<a class='out-note-link' href='mailto:${escHtml(p.email)}'>${escHtml(p.email)}</a>`],
+          ["GitHub",     `<a class='out-note-link' href='${escHtml(p.githubUrl)}' target='_blank'>${escHtml(p.github)}</a>`],
+          ["CV",         `<a class='out-note-link' href='${escHtml(p.cv)}' target='_blank'>${escHtml(p.cv)}</a>`],
         ]) +
         `</table>`,
         blank(),
@@ -340,8 +404,32 @@
     },
 
     search(args) {
-      if (args.length === 0) return line("out-warn", "Usage: search <query>");
-      return COMMANDS.notes(args);
+      const k = getKnowledge();
+      if (!k) return line("out-warn", "Note data not loaded yet.");
+      const initialQuery = args.join(" ").trim();
+      const uid = "srch" + Date.now();
+      window["_sn_" + uid] = k.publicNotes || k.notes || [];
+      setTimeout(() => {
+        const inp = document.getElementById(uid + "-q");
+        if (inp) {
+          inp.focus();
+          window._searchFilter(uid, initialQuery);
+        }
+      }, 0);
+      return (
+        `<div class="search-live" id="${uid}">` +
+        `<div class="search-live-bar">` +
+        `<span class="t-dim">/ </span>` +
+        `<input id="${uid}-q" class="search-live-input" type="text" ` +
+        `value="${escHtml(initialQuery)}" placeholder="filter notes…" ` +
+        `autocomplete="off" autocorrect="off" spellcheck="false" ` +
+        `oninput="window._searchFilter('${uid}',this.value)" ` +
+        `onkeydown="if(event.key==='Escape'){document.getElementById('terminal-input').focus()}" />` +
+        `<span class="search-live-count" id="${uid}-n"></span>` +
+        `</div>` +
+        `<div class="search-live-results" id="${uid}-r"></div>` +
+        `</div>`
+      );
     },
 
     tags(_args) {
@@ -627,14 +715,15 @@
 
     function sep() { return `<div class="ff-sep"></div>`; }
 
+    const p = PERSON;
     const infoHtml = [
-      kv("Name",       escHtml("Chang He (Aaron)")),
-      kv("Role",       escHtml("Computer Science undergraduate")),
-      kv("Program",    escHtml("<a class='out-note-link' href='https://www.unsw.edu.au/science/student-life-resources/student-opportunities/talented-students-program'>Talented Students Program</a>")),
-      kv("School",     escHtml("UNSW Sydney")),
-      kv("Supervisor", "<a class='out-note-link' href='https://sites.google.com/site/jimmyqiao86/' target='_blank'>Youming Qiao</a>"),
-      kv("Research",   escHtml("Quantum · TCS · Algebra")),
-      kv("Location",   escHtml("Sydney, AU")),
+      kv("Name",       escHtml(p.name)),
+      kv("Role",       escHtml(p.role)),
+      kv("School",     escHtml(p.school)),
+      kv("Program",    escHtml(p.program)),
+      kv("Supervisor", `<a class='out-note-link' href='${escHtml(p.supervisorUrl)}' target='_blank'>${escHtml(p.supervisorText)}</a>`),
+      kv("Research",   escHtml(p.research)),
+      kv("Location",   escHtml(p.location)),
       sep(),
       kv("Notes",   escHtml(String(noteCount)), "nf-val-hi"),
       kv("Tags",    escHtml(String(tagCount)),  "nf-val-hi"),
@@ -642,9 +731,9 @@
       kv("Updated", escHtml(String(updated)),   "nf-val-hi"),
       kv("Uptime",  escHtml(siteAge + " days"), "nf-val-hi"),
       sep(),
-      kv("Email",  "<a class='out-note-link' href='mailto:aaron.he@student.unsw.edu.au'>aaron.he@student.unsw.edu.au</a>"),
-      kv("GitHub", "<a class='out-note-link' href='https://github.com/AaronHnoraA' target='_blank'>AaronHnoraA</a>"),
-      kv("CV",     "<a class='out-note-link' href='CV/Aaron_He_CV.pdf' target='_blank'>Aaron_He_CV.pdf</a>"),
+      kv("Email",  `<a class='out-note-link' href='mailto:${escHtml(p.email)}'>${escHtml(p.email)}</a>`),
+      kv("GitHub", `<a class='out-note-link' href='${escHtml(p.githubUrl)}' target='_blank'>${escHtml(p.github)}</a>`),
+      kv("CV",     `<a class='out-note-link' href='${escHtml(p.cv)}' target='_blank'>${escHtml(p.cv)}</a>`),
     ].join("");
 
     const palette =

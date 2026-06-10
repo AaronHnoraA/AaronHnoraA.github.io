@@ -345,6 +345,51 @@ body.site-home.home-cli {
 
 .float-focus-panel.empty { color: #6272a4; }
 
+/* ── Interactive search widget ─────────────────────────────────────────── */
+
+.search-live {
+  margin: 2px 0 4px;
+}
+
+.search-live-bar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border: 1px solid #2d3149;
+  border-radius: 5px;
+  padding: 4px 8px;
+  background: #1e2030;
+  max-width: 560px;
+}
+
+.search-live-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #c0caf5;
+  font: inherit;
+  flex: 1;
+  caret-color: #c0caf5;
+  padding: 0;
+  min-width: 0;
+}
+
+.search-live-input::placeholder { color: #414868; }
+
+.search-live-count {
+  color: #6272a4;
+  font-size: 0.88em;
+  flex-shrink: 0;
+}
+
+.search-live-results {
+  margin-top: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #414868 transparent;
+}
+
 /* ── Mobile fallback ───────────────────────────────────────────────────── */
 
 @media (max-width: 600px) {
