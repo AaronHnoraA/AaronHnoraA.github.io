@@ -439,13 +439,43 @@
     },
 
     graph(_args) {
-      window.open("notes.html#graph", "_self");
-      return line("out-ok", "Opening knowledge graph…");
+      showFloat("Knowledge Graph", (body) => {
+        body.style.overflow = "hidden";
+        const graphEl = document.createElement("div");
+        graphEl.id = "graph-container-float";
+        graphEl.style.cssText = "width:100%;height:calc(100% - 38px);";
+        const focusEl = document.createElement("div");
+        focusEl.id = "graph-focus-float";
+        focusEl.className = "graph-focus empty float-focus-panel";
+        body.appendChild(graphEl);
+        body.appendChild(focusEl);
+        setTimeout(() => {
+          if (typeof initKnowledgeGraph === "function") {
+            initKnowledgeGraph({
+              container:      graphEl,
+              focusPanel:     focusEl,
+              knowledge:      window.KNOWLEDGE_DATA,
+              toolbar:        true,
+              dispatchTagEvents:   false,
+              dispatchFocusEvents: false,
+            });
+          } else {
+            graphEl.innerHTML = '<div style="padding:20px;color:#9aa5ce">graph.js not loaded.</div>';
+          }
+        }, 30);
+      });
+      return null;
     },
 
     archive(_args) {
-      window.open("notes.html", "_self");
-      return line("out-ok", "Opening archive…");
+      showFloat("Notes Archive", (body) => {
+        body.style.padding = "0";
+        const iframe = document.createElement("iframe");
+        iframe.src = "notes.html";
+        iframe.style.cssText = "display:block;width:100%;height:100%;border:none;";
+        body.appendChild(iframe);
+      });
+      return null;
     },
 
     cv(_args) {
@@ -846,6 +876,52 @@
     const len = input.value.length;
     input.setSelectionRange(len, len);
   }
+
+  /* ── Floating overlay window ─────────────────────────────────────────── */
+
+  let floatMaximised = false;
+
+  function showFloat(title, renderFn) {
+    const overlay  = document.getElementById("float-overlay");
+    const titleEl  = document.getElementById("float-title");
+    const body     = document.getElementById("float-body");
+    const win      = document.getElementById("float-window");
+    if (!overlay || !titleEl || !body) return;
+    titleEl.textContent = title;
+    body.innerHTML = "";
+    body.style.overflow = "";
+    body.style.padding = "";
+    floatMaximised = false;
+    win && win.classList.remove("float-maximised");
+    overlay.classList.remove("hidden");
+    renderFn(body);
+  }
+
+  window.closeFloat = function () {
+    const overlay = document.getElementById("float-overlay");
+    const body    = document.getElementById("float-body");
+    if (overlay) overlay.classList.add("hidden");
+    if (body)    body.innerHTML = "";
+    setTimeout(() => { input && input.focus(); }, 50);
+  };
+
+  window.toggleFloatMax = function () {
+    const win = document.getElementById("float-window");
+    if (!win) return;
+    floatMaximised = !floatMaximised;
+    win.classList.toggle("float-maximised", floatMaximised);
+  };
+
+  /* ESC closes float */
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      const overlay = document.getElementById("float-overlay");
+      if (overlay && !overlay.classList.contains("hidden")) {
+        e.preventDefault();
+        window.closeFloat();
+      }
+    }
+  });
 
   /* ── Click anywhere → focus input ────────────────────────────────────── */
 

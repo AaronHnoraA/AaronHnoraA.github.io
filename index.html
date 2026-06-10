@@ -78,6 +78,22 @@ Type <span class="t-cmd">help</span> for available commands. &nbsp;<span class="
     </div><!-- /terminal-body -->
   </div><!-- /terminal-window -->
 
+  <!-- Floating overlay window -->
+  <div id="float-overlay" class="float-overlay hidden" onclick="if(event.target===this)closeFloat()">
+    <div class="float-window" id="float-window">
+      <div class="float-chrome">
+        <div class="window-controls">
+          <span class="wc wc-close" onclick="closeFloat()" title="Close"></span>
+          <span class="wc wc-min"></span>
+          <span class="wc wc-max" onclick="toggleFloatMax()" title="Maximise"></span>
+        </div>
+        <div class="float-title" id="float-title"></div>
+        <div style="width:53px"></div>
+      </div>
+      <div class="float-body" id="float-body"></div>
+    </div>
+  </div>
+
   <!-- Stone badge — fixed corner -->
   <a href="https://stone.professorlee.work"
      target="_blank"
@@ -91,10 +107,12 @@ Type <span class="t-cmd">help</span> for available commands. &nbsp;<span class="
   </a>
 
   <!-- Data & scripts -->
-  <script src="js/data.js?v=20260610-cli5"></script>
-  <script src="js/knowledge.js?v=20260610-cli5"></script>
-  <script src="js/home-cli.js?v=20260610-cli5"></script>
-  <script src="js/oneko.js?v=20260610-cli5"></script>
+  <script src="js/data.js?v=20260610-cli6"></script>
+  <script src="js/knowledge.js?v=20260610-cli6"></script>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="js/graph.js?v=20260610-cli6"></script>
+  <script src="js/home-cli.js?v=20260610-cli6"></script>
+  <script src="js/oneko.js?v=20260610-cli6"></script>
 </body>
 
 </html>
