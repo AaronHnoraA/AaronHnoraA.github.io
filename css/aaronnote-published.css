@@ -551,3 +551,21 @@
     width: min(360px, calc(100vw - 18px));
   }
 }
+
+/* ─── KaTeX font fix for published pages ──────────────────────────────────
+   widgets.css overrides every .katex * with !important to apply the local
+   custom math font (GFS Neohellenic Math / Libertinus Math). Those fonts are
+   only available in the desktop app context. On the web, the KaTeX CDN CSS
+   is loaded and provides proper @font-face for each alphabet. The rules below
+   restore KaTeX's own per-alphabet font assignments so that blackboard-bold,
+   calligraphic, Fraktur, etc. render correctly from the CDN fonts.          */
+
+.aaronnote-published-document .cm-editor .katex .mathbb  { font-family: KaTeX_AMS, "Times New Roman", serif !important; }
+.aaronnote-published-document .cm-editor .katex .mathcal { font-family: KaTeX_Caligraphic, "Times New Roman", serif !important; }
+.aaronnote-published-document .cm-editor .katex .mathscr { font-family: KaTeX_Script, cursive !important; }
+.aaronnote-published-document .cm-editor .katex .mathfrak { font-family: KaTeX_Fraktur, "Palatino Linotype", Palatino, serif !important; }
+.aaronnote-published-document .cm-editor .katex .mathtt  { font-family: KaTeX_Typewriter, monospace !important; }
+.aaronnote-published-document .cm-editor .katex .mathsf  { font-family: KaTeX_SansSerif, sans-serif !important; }
+.aaronnote-published-document .cm-editor .katex .mathit,
+.aaronnote-published-document .cm-editor .katex .mord.mathnormal { font-family: KaTeX_Math, "Times New Roman", serif !important; }
+
