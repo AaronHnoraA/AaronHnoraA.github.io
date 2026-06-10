@@ -158,8 +158,8 @@
         `<table class="out-table">` +
         rows([
           ["Name",       "Chang He (Aaron)"],
-          ["Role",       "Mathematics undergraduate, UNSW Sydney"],
-          ["Program",    "Talented Students Program"],
+          ["Role",       "Computer Science undergraduate, UNSW Sydney"],
+          ["Program",    "<a class='out-note-link' href='https://www.unsw.edu.au/science/student-life-resources/student-opportunities/talented-students-program'>Talented Students Program</a>"],
           ["Supervisor", "<a class='out-note-link' href='https://sites.google.com/site/jimmyqiao86/'>Youming Qiao</a>"],
           ["Research",   "Quantum computing · TCS · Linear algebra"],
           ["Email",      "<a class='out-note-link' href='mailto:aaron.he@student.unsw.edu.au'>aaron.he@student.unsw.edu.au</a>"],
@@ -439,41 +439,64 @@
     },
 
     graph(_args) {
-      showFloat("Knowledge Graph", (body) => {
-        body.style.overflow = "hidden";
-        const graphEl = document.createElement("div");
-        graphEl.id = "graph-container-float";
-        graphEl.style.cssText = "width:100%;height:calc(100% - 38px);";
-        const focusEl = document.createElement("div");
-        focusEl.id = "graph-focus-float";
-        focusEl.className = "graph-focus empty float-focus-panel";
-        body.appendChild(graphEl);
-        body.appendChild(focusEl);
-        setTimeout(() => {
-          if (typeof initKnowledgeGraph === "function") {
-            initKnowledgeGraph({
-              container:      graphEl,
-              focusPanel:     focusEl,
-              knowledge:      window.KNOWLEDGE_DATA,
-              toolbar:        true,
-              dispatchTagEvents:   false,
-              dispatchFocusEvents: false,
-            });
-          } else {
-            graphEl.innerHTML = '<div style="padding:20px;color:#9aa5ce">graph.js not loaded.</div>';
+      if (typeof window.MacWindow === "undefined") {
+        return line("out-err", "mac-window.js not loaded.");
+      }
+      window.MacWindow.open({
+        title: "Knowledge Graph",
+        width: Math.min(window.innerWidth * 0.88, 1100),
+        height: Math.min(window.innerHeight * 0.85, 760),
+        hasFocus: true,
+        build(body, focus) {
+          body.style.overflow = "hidden";
+          body.style.display  = "flex";
+          body.style.flexDirection = "column";
+
+          const graphEl = document.createElement("div");
+          graphEl.id = "graph-container-float";
+          graphEl.style.cssText = "flex:1;min-height:0;";
+
+          if (focus) {
+            focus.id        = "graph-focus-float";
+            focus.className = "macwin-focus graph-focus empty";
           }
-        }, 30);
+
+          body.appendChild(graphEl);
+
+          setTimeout(() => {
+            if (typeof initKnowledgeGraph === "function") {
+              initKnowledgeGraph({
+                container:           graphEl,
+                focusPanel:          focus,
+                knowledge:           window.KNOWLEDGE_DATA,
+                toolbar:             true,
+                dispatchTagEvents:   false,
+                dispatchFocusEvents: false,
+              });
+            } else {
+              graphEl.innerHTML = '<div style="padding:20px;color:#9aa5ce">graph.js not loaded.</div>';
+            }
+          }, 30);
+        },
       });
       return null;
     },
 
     archive(_args) {
-      showFloat("Notes Archive", (body) => {
-        body.style.padding = "0";
-        const iframe = document.createElement("iframe");
-        iframe.src = "notes.html";
-        iframe.style.cssText = "display:block;width:100%;height:100%;border:none;";
-        body.appendChild(iframe);
+      if (typeof window.MacWindow === "undefined") {
+        return line("out-err", "mac-window.js not loaded.");
+      }
+      window.MacWindow.open({
+        title: "Notes Archive",
+        width: Math.min(window.innerWidth * 0.88, 1100),
+        height: Math.min(window.innerHeight * 0.85, 760),
+        build(body) {
+          body.style.padding = "0";
+          const iframe = document.createElement("iframe");
+          iframe.src = "notes.html";
+          iframe.style.cssText = "display:block;width:100%;height:100%;border:none;";
+          body.appendChild(iframe);
+        },
       });
       return null;
     },
@@ -606,8 +629,8 @@
 
     const infoHtml = [
       kv("Name",       escHtml("Chang He (Aaron)")),
-      kv("Role",       escHtml("Mathematics undergraduate")),
-      kv("Program",    escHtml("Talented Students Program")),
+      kv("Role",       escHtml("Computer Science undergraduate")),
+      kv("Program",    escHtml("<a class='out-note-link' href='https://www.unsw.edu.au/science/student-life-resources/student-opportunities/talented-students-program'>Talented Students Program</a>")),
       kv("School",     escHtml("UNSW Sydney")),
       kv("Supervisor", "<a class='out-note-link' href='https://sites.google.com/site/jimmyqiao86/' target='_blank'>Youming Qiao</a>"),
       kv("Research",   escHtml("Quantum · TCS · Algebra")),
@@ -877,51 +900,19 @@
     input.setSelectionRange(len, len);
   }
 
-  /* ── Floating overlay window ─────────────────────────────────────────── */
+  /* ── Login time ──────────────────────────────────────────────────────── */
 
-  let floatMaximised = false;
-
-  function showFloat(title, renderFn) {
-    const overlay  = document.getElementById("float-overlay");
-    const titleEl  = document.getElementById("float-title");
-    const body     = document.getElementById("float-body");
-    const win      = document.getElementById("float-window");
-    if (!overlay || !titleEl || !body) return;
-    titleEl.textContent = title;
-    body.innerHTML = "";
-    body.style.overflow = "";
-    body.style.padding = "";
-    floatMaximised = false;
-    win && win.classList.remove("float-maximised");
-    overlay.classList.remove("hidden");
-    renderFn(body);
-  }
-
-  window.closeFloat = function () {
-    const overlay = document.getElementById("float-overlay");
-    const body    = document.getElementById("float-body");
-    if (overlay) overlay.classList.add("hidden");
-    if (body)    body.innerHTML = "";
-    setTimeout(() => { input && input.focus(); }, 50);
-  };
-
-  window.toggleFloatMax = function () {
-    const win = document.getElementById("float-window");
-    if (!win) return;
-    floatMaximised = !floatMaximised;
-    win.classList.toggle("float-maximised", floatMaximised);
-  };
-
-  /* ESC closes float */
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
-      const overlay = document.getElementById("float-overlay");
-      if (overlay && !overlay.classList.contains("hidden")) {
-        e.preventDefault();
-        window.closeFloat();
-      }
-    }
-  });
+  (function () {
+    const el = document.querySelector("[data-login-time]");
+    if (!el) return;
+    const d   = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    const mons = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const ts = `${days[d.getDay()]} ${mons[d.getMonth()]} ${String(d.getDate()).padStart(2," ")} `
+             + `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    el.textContent = `login time: ${ts} on ttys004`;
+  })();
 
   /* ── Click anywhere → focus input ────────────────────────────────────── */
 

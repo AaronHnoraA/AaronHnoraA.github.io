@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="../../Aaronnote/src/styles/theme-typora.css?v=20260610-katex-notepage" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.47/dist/katex.min.css" crossorigin="anonymous" />
   <link rel="stylesheet" href="../../css/aaronnote-published.css?v=20260610-katex-notepage" />
+  <link rel="stylesheet" href="../../css/mac-window.css?v=20260610-katex-notepage" />
 </head>
 <body class="aaronnote-published-document" data-note-kind="default">
   <main class="aaronnote-shell published-note-page" data-note-kind="default">
@@ -462,31 +463,17 @@ e^{i\theta}|\psi\rangle."><span class="katex-display"><span class="katex"><span 
         <nav data-toc-list aria-label="Page outline"></nav>
       </aside>
 
-      <aside class="aaronnote-local-graph is-collapsed" data-published-local-graph hidden>
-        <button type="button" data-local-graph-toggle aria-expanded="false">Graph</button>
-        <section class="aaronnote-local-graph-panel" aria-label="Local graph">
-          <header>
-            <strong>Local graph</strong>
-            <span data-local-graph-status></span>
-          </header>
-          <div class="aaronnote-local-graph-controls">
-            <label class="aaronnote-local-graph-depth">
-              <span>Depth</span>
-              <input data-local-graph-depth type="range" min="1" max="2" step="1" value="1" />
-              <b data-local-graph-depth-label>1</b>
-            </label>
-            <label><input data-local-graph-refs type="checkbox" checked /> Refs</label>
-            <label><input data-local-graph-backlinks type="checkbox" checked /> Backlinks</label>
-            <label><input data-local-graph-tags type="checkbox" checked /> Tags</label>
-          </div>
-          <div class="aaronnote-local-graph-canvas" data-local-graph-canvas></div>
-        </section>
-      </aside>
+      <div class="aaronnote-local-graph-trigger-wrap" data-published-local-graph>
+        <button type="button" class="macwin-graph-trigger" data-local-graph-open aria-label="Open local graph">
+          ⬡ Graph
+        </button>
+      </div>
 
     </section>
   </main>
   <script src="../../js/note-page.js?v=20260610-katex-notepage"></script>
   <script src="../../Aaronnote/aaronnote/published-toc.js?v=20260610-katex-notepage"></script>
+  <script src="../../js/mac-window.js?v=20260610-katex-notepage"></script>
   <script type="module" src="../../Aaronnote/aaronnote/published-local-graph.js?v=20260610-katex-notepage"></script>
 
 </body>
