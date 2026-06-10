@@ -79,11 +79,14 @@
           ["ls",       "List top-level sections (alias: dir)"],
           ["search",   "Search notes: search <query>"],
           ["tags",     "List all tags"],
-          ["graph",    "Open the knowledge graph (archive page)"],
+          ["books",    "List books and note series"],
+          ["recent",   "Show most recently updated notes"],
+          ["random",   "Open a random note"],
+          ["graph",    "Open the knowledge graph"],
           ["archive",  "Go to the full notes archive"],
+          ["neofetch", "Show personal info panel"],
           ["cv",       "Open CV (PDF)"],
           ["github",   "Open GitHub profile"],
-          ["neofetch", "Show system information"],
           ["clear",    "Clear the terminal"],
           ["help",     "Show this message"],
         ]) +
@@ -221,6 +224,71 @@
       ].join("\n");
     },
 
+    books(_args) {
+      const k = getKnowledge();
+      if (!k) return line("out-warn", "Note data not loaded yet.");
+      const books = k.books || [];
+      if (!books.length) return line("out-warn", "No books published yet.");
+
+      const parts = [
+        blank(),
+        line("out-section-title", "Books & note series"),
+        blank(),
+      ];
+
+      books.forEach((b) => {
+        const linkEl = b.link
+          ? `<a class="out-note-link" href="${escHtml(b.link)}" target="_blank">${escHtml(b.title)}</a>`
+          : escHtml(b.title);
+        const sections = b.toc && b.toc.length
+          ? `<span class="out-note-date"> (${b.toc.length} sections)</span>`
+          : "";
+        const path = b.path
+          ? `<span class="out-note-date"> · ${escHtml(b.path)}</span>`
+          : "";
+        parts.push(`<div class="out-note-item">  ${linkEl}${path}${sections}</div>`);
+      });
+
+      return parts.join("\n");
+    },
+
+    recent(args) {
+      const k = getKnowledge();
+      if (!k) return line("out-warn", "Note data not loaded yet.");
+
+      const count = Math.min(parseInt(args[0]) || 10, 50);
+      const notes = (k.publicNotes || [])
+        .filter((n) => n.date)
+        .sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0))
+        .slice(0, count);
+
+      if (!notes.length) return line("out-warn", "No notes with dates found.");
+
+      const parts = [
+        blank(),
+        line("out-section-title", `Recent notes (${notes.length})`),
+      ];
+
+      notes.forEach((n) => {
+        const link = n.link
+          ? `<a class="out-note-link" href="${escHtml(n.link)}" target="_blank">${escHtml(n.title)}</a>`
+          : escHtml(n.title);
+        const date = n.date ? ` <span class="out-note-date">${escHtml(n.date)}</span>` : "";
+        parts.push(`<div class="out-note-item">  ${link}${date}</div>`);
+      });
+
+      return parts.join("\n");
+    },
+
+    random(_args) {
+      const k = getKnowledge();
+      const notes = k ? (k.publicNotes || []) : [];
+      if (!notes.length) return line("out-warn", "No notes available.");
+      const n = notes[Math.floor(Math.random() * notes.length)];
+      if (n.link) window.open(n.link, "_blank");
+      return line("out-ok", "Opening: " + n.title);
+    },
+
     graph(_args) {
       window.open("notes.html#graph", "_self");
       return line("out-ok", "Opening knowledge graph…");
@@ -241,9 +309,8 @@
       return line("out-ok", "Opening GitHub profile in new tab.");
     },
 
-    neofetch(_args) {
-      return buildNeofetch();
-    },
+    neofetch(_args) { return buildFastfetch(); },
+    fastfetch(_args) { return buildFastfetch(); },
 
     clear(_args) {
       history.innerHTML = "";
@@ -278,10 +345,10 @@
     cat(args) {
       const target = args[0] || "";
       const map = {
-        "about.txt": () => COMMANDS.about([]),
+        "about.txt":    () => COMMANDS.about([]),
         "research.txt": () => COMMANDS.research([]),
-        "hostname": () => line("t-line", "Aaron-MBP.local"),
-        "/etc/hostname": () => line("t-line", "Aaron-MBP.local"),
+        "hostname":     () => line("t-line", "Aaron-MBP.local"),
+        "/etc/hostname":() => line("t-line", "Aaron-MBP.local"),
       };
       if (map[target]) return map[target]();
       return line("out-error", `cat: ${escHtml(target)}: No such file or directory`);
@@ -290,94 +357,106 @@
     open(args) {
       const target = args[0] || "";
       if (target === "notes" || target === "notes.html") return COMMANDS.archive([]);
-      if (target === "graph") return COMMANDS.graph([]);
-      if (target === "cv" || target === "cv.pdf" || target === "CV") return COMMANDS.cv([]);
-      if (target === "github") return COMMANDS.github([]);
+      if (target === "graph")                            return COMMANDS.graph([]);
+      if (target === "cv" || target === "CV")           return COMMANDS.cv([]);
+      if (target === "github")                          return COMMANDS.github([]);
+      if (target === "books")                           return COMMANDS.books([]);
       return line("out-error", `open: ${escHtml(target)}: not found`);
     },
   };
 
-  /* ── Neofetch generator ──────────────────────────────────────────────── */
+  /* ── Personal fastfetch (boot + neofetch command) ─────────────────────── */
 
-  /* Nerd font codepoints — renders correctly if visitor has a nerd font,
-     degrades gracefully to blank glyph otherwise. */
-  const NF = {
-    apple:   "",  /* nf-fa-apple */
-    laptop:  "󰌢",  /* nf-md-laptop  U+F0322 */
-    kernel:  "",  /* nf-dev-apple_full */
-    box:     "󰏖",  /* nf-md-package_variant U+F03D6 */
-    clock:   "󰅐",  /* nf-md-clock_time_four_outline U+F0150 */
-    monitor: "󰍹",  /* nf-md-monitor U+F0379 */
-    wm:      "󰧢",  /* nf-cod-window U+F08E2 */
-    shell:   "",  /* nf-pl-left_hard_divider */
-    term:    "",  /* nf-fa-terminal */
-    cpu:     "󰿠",  /* nf-md-cpu_64_bit U+F0FE0 */
-    gpu:     "󰅛",  /* nf-md-memory U+F035B */
-    mem:     "󰅭",  /* nf-md-memory U+F046D */
-    ip:      "\uDB82\uDA5F",  /* nf-md-ip_network U+F0A5F */
-    globe:   "\uDB82\uDA60",  /* nf-md-ip_network_outline U+F0A60 */
-  };
+  function buildFastfetch() {
+    const k = getKnowledge();
+    const stats = k ? k.stats : null;
 
-  function buildNeofetch() {
     const siteAge = Math.floor(
       (Date.now() - new Date("2025-06-01").getTime()) / (1000 * 60 * 60 * 24),
     );
-    const k = getKnowledge();
-    const noteCount = k ? (k.publicNotes || k.notes || []).length : "—";
 
-    /* key width aligns all arrows */
-    const KW = 12;
+    function daysAgo(dateStr) {
+      if (!dateStr) return "—";
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      const days = Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24));
+      if (days === 0) return "today";
+      if (days === 1) return "1 day ago";
+      return days + " days ago";
+    }
 
-    function kv(icon, key, val, valCls = "nf-val") {
-      const iconHtml = icon
-        ? `<span class="nf-icon">${icon}</span> `
-        : `  `;
-      const paddedKey = key.padEnd(KW);
+    const noteCount = stats
+      ? stats.totalNotes
+      : k ? (k.publicNotes || []).length : "—";
+    const tagCount  = stats ? stats.totalTags  : "—";
+    const linkCount = stats ? stats.totalReferenceEdges : "—";
+    const updated   = stats ? daysAgo(stats.latestDate) : "—";
+
+    /* ── Bloch-sphere ASCII logo ── */
+    function ll(inner) { return `<span class="ff-logo-line">${inner}</span>`; }
+    function sp(s)     { return `<span class="ff-sphere">${escHtml(s)}</span>`; }
+    function kt(s)     { return `<span class="ff-ket">${escHtml(s)}</span>`; }
+    function pl(s)     { return `<span class="ff-plus">${escHtml(s)}</span>`; }
+    function cp(s)     { return `<span class="ff-caption">${escHtml(s)}</span>`; }
+    function dm(s)     { return `<span class="nf-border">${escHtml(s)}</span>`; }
+
+    const logoHtml = [
+      ll(sp("         .----.")),
+      ll(sp("        /  |   \\")),
+      ll(sp("       |   |    |") + "  " + kt("|0⟩")),
+      ll(sp("       | ") + pl("-+-") + sp("   |") + "  " + dm("─────")),
+      ll(sp("       |   |    |") + "  " + kt("|1⟩")),
+      ll(sp("        \\  |   /")),
+      ll(sp("         '----'")),
+      ll(cp("  |ψ⟩ = α|0⟩+β|1⟩")),
+    ].join("");
+
+    /* ── Info rows ── */
+    const KW = 10;
+    function kv(key, val, valCls) {
+      valCls = valCls || "nf-val";
       return (
-        `    ${iconHtml}` +
-        `<span class="nf-key">${escHtml(paddedKey)}</span>` +
-        `<span class="nf-arrow">-&gt;   </span>` +
-        `<span class="${valCls}">${val}</span>`
+        `<div class="ff-row">` +
+        `<span class="nf-key">${escHtml(key.padEnd(KW))}</span>` +
+        `<span class="nf-arrow"> →  </span>` +
+        `<span class="${valCls}">${val}</span>` +
+        `</div>`
       );
     }
 
-    const W = 80;
-    const title = " System Information ";
-    const rem = W - title.length - 2;
-    const bL = "─".repeat(Math.floor(rem / 2));
-    const bR = "─".repeat(Math.ceil(rem / 2));
+    function sep() { return `<div class="ff-sep"></div>`; }
 
-    function tline(inner) {
-      return `<span class="t-line">${inner}</span>`;
-    }
+    const infoHtml = [
+      kv("Name",       escHtml("Aaron He (何浩晨)")),
+      kv("Role",       escHtml("Mathematics undergraduate")),
+      kv("Program",    escHtml("Talented Students Program")),
+      kv("School",     escHtml("UNSW Sydney")),
+      kv("Supervisor", escHtml("Youming Qiao")),
+      kv("Research",   escHtml("Quantum · TCS · Algebra")),
+      kv("Location",   escHtml("Sydney, AU")),
+      sep(),
+      kv("Notes",   escHtml(String(noteCount)), "nf-val-hi"),
+      kv("Tags",    escHtml(String(tagCount)),  "nf-val-hi"),
+      kv("Links",   escHtml(String(linkCount)), "nf-val-hi"),
+      kv("Updated", escHtml(String(updated)),   "nf-val-hi"),
+      kv("Uptime",  escHtml(siteAge + " days"), "nf-val-hi"),
+      sep(),
+      kv("Email",  "<a class='out-note-link' href='mailto:aaron.he@student.unsw.edu.au'>aaron.he…</a>"),
+      kv("GitHub", "<a class='out-note-link' href='https://github.com/AaronHnoraA' target='_blank'>AaronHnoraA</a>"),
+      kv("CV",     "<a class='out-note-link' href='CV/Aaron_He_CV.pdf' target='_blank'>Aaron_He_CV.pdf</a>"),
+    ].join("");
 
-    const lineData = [
-      `<span class="nf-border">┌${bL}</span><span class="nf-title">${title}</span><span class="nf-border">${bR}┐</span>`,
-      ``,
-      kv(NF.apple,   "OS",           "macOS Tahoe 26.5.1 (25F80) arm64"),
-      kv(NF.laptop,  "Machine",      "MacBook Pro (14-inch, 2023)"),
-      kv(NF.kernel,  "Kernel",       "Darwin 25.5.0"),
-      kv(NF.box,     "Packages",     "465 (brew), 26 (brew-cask), 146 (nix-system), 359 (nix-user)"),
-      kv(NF.monitor, "Resolution",   "6016x3384 @ 60Hz, 3600x2338 @ 120Hz"),
-      kv(NF.wm,      "WM",           "Quartz Compositor 1.600.0 (with Yabai)"),
-      kv(NF.shell,   "Shell",        "zsh 5.9"),
-      kv(NF.term,    "Terminal",     "kitty 0.47.1"),
-      kv(NF.cpu,     "CPU",          "Apple M2 Max (12) @ 3.50 GHz"),
-      kv(NF.gpu,     "GPU",          "Apple M2 Max (30) @ 1.40 GHz [Integrated]"),
-      kv(NF.mem,     "Memory",       "25.03 GiB / 32.00 GiB (78%)"),
-      kv(NF.globe,   "Location",     "Sydney, AU"),
-      kv("",         "Site age",     `${siteAge} days`, "nf-val-hi"),
-      kv("",         "Notes",        `${noteCount} published`, "nf-val-hi"),
-      ``,
-      `<span class="nf-border">└${"─".repeat(W)}┘</span>`,
-    ];
+    const palette =
+      `<div class="palette-row ff-palette">` +
+      [0,1,2,3,4,5,6,7].map((i) => `<span class="swatch swatch-${i}">  </span>`).join("") +
+      `</div>`;
 
-    const palette = tline(
-      `\n                                  ` +
-      [0,1,2,3,4,5,6,7].map((i) => `<span class="swatch swatch-${i}">  </span>`).join(""),
+    return (
+      `<div class="fastfetch">` +
+      `<div class="ff-logo">${logoHtml}</div>` +
+      `<div class="ff-info">${infoHtml}${palette}</div>` +
+      `</div>`
     );
-
-    return lineData.map(tline).join("") + palette;
   }
 
   /* ── Fortune / cow generator ─────────────────────────────────────────── */
@@ -436,6 +515,34 @@
     );
   }
 
+  /* ── Recent notes preview (boot) ─────────────────────────────────────── */
+
+  function buildRecentPreview() {
+    const k = getKnowledge();
+    if (!k || !(k.publicNotes || []).length) return "";
+
+    const notes = (k.publicNotes || [])
+      .filter((n) => n.date)
+      .sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0))
+      .slice(0, 3);
+
+    if (!notes.length) return "";
+
+    const items = notes.map((n) => {
+      const link = n.link
+        ? `<a class="out-note-link" href="${escHtml(n.link)}" target="_blank">${escHtml(n.title)}</a>`
+        : escHtml(n.title);
+      const date = n.date ? ` <span class="out-note-date">${escHtml(n.date)}</span>` : "";
+      return `<div class="out-note-item">  ${link}${date}</div>`;
+    }).join("");
+
+    return [
+      `<span class="t-line out-section-title">Recent:</span>`,
+      items,
+      `<span class="t-blank"></span>`,
+    ].join("");
+  }
+
   /* ── Table builder ───────────────────────────────────────────────────── */
 
   function rows(pairs) {
@@ -460,7 +567,7 @@
       return COMMANDS[cmd](args);
     }
 
-    return line("out-error", `${escHtml(cmd)}: command not found  (type <span class="t-cmd">help</span> for available commands)`);
+    return line("out-error", `${escHtml(cmd)}: command not found  (type help for available commands)`);
   }
 
   /* ── Keyboard handler ─────────────────────────────────────────────────── */
@@ -533,9 +640,12 @@
 
   /* ── Startup boot sequence ────────────────────────────────────────────── */
 
-  // Render static neofetch and fortune
   const nfEl = document.getElementById("neofetch-static");
-  if (nfEl) nfEl.innerHTML = buildNeofetch();
+  if (nfEl) nfEl.innerHTML = buildFastfetch();
+
+  const rcEl = document.getElementById("recent-static");
+  if (rcEl) rcEl.innerHTML = buildRecentPreview();
+
   const ftEl = document.getElementById("fortune-static");
   if (ftEl) ftEl.innerHTML = buildFortune();
 

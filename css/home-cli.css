@@ -199,6 +199,44 @@ body.site-home.home-cli {
 .swatch-6 { background: #7dcfff; }
 .swatch-7 { background: #c0caf5; }
 
+/* ── Fastfetch two-column layout ───────────────────────────────────────── */
+
+.fastfetch {
+  display: flex;
+  gap: 3ch;
+  align-items: flex-start;
+  margin: 2px 0 4px;
+}
+
+.ff-logo { flex-shrink: 0; }
+
+.ff-logo-line {
+  display: block;
+  white-space: pre;
+  line-height: 1.5;
+}
+
+.ff-sphere  { color: #7dcfff; }
+.ff-plus    { color: #bb9af7; font-weight: bold; }
+.ff-ket     { color: #9ece6a; }
+.ff-caption { color: #bb9af7; }
+
+.ff-info { flex: 1; min-width: 0; }
+
+.ff-row {
+  display: block;
+  white-space: pre;
+  line-height: 1.5;
+}
+
+.ff-sep { height: 0.5em; }
+
+.ff-palette { padding-top: 0.3em; }
+
+/* ── Recent boot preview ───────────────────────────────────────────────── */
+
+.recent-block { margin: 2px 0 4px; }
+
 /* ── Mobile fallback ───────────────────────────────────────────────────── */
 
 @media (max-width: 600px) {
@@ -210,5 +248,9 @@ body.site-home.home-cli {
   }
   .neofetch-block {
     font-size: 11px;
+  }
+  .fastfetch {
+    flex-direction: column;
+    gap: 1ch;
   }
 }
