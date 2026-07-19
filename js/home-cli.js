@@ -23,6 +23,11 @@
     scroll.scrollTop = scroll.scrollHeight;
   }
 
+  function terminalIsVisible() {
+    const slide = input.closest(".cli-slide");
+    return !slide || slide.classList.contains("present");
+  }
+
   /* ── Build prompt PS1 HTML (dynamic cwd) ────────────────────────────── */
   function ps1() {
     return `<span class="p-user">hc</span><span class="p-at">@</span><span class="p-host">Aaron</span> <span class="p-path">${escHtml(cwd)}</span> <span class="p-sym">%</span>`;
@@ -83,7 +88,6 @@
     supervisorUrl:  "https://sites.google.com/site/jimmyqiao86/",
     research:       "Quantum · TCS · Algebra",
     location:       "Sydney, AU",
-    email:          "aaron.he@student.unsw.edu.au",
     github:         "AaronHnoraA",
     githubUrl:      "https://github.com/AaronHnoraA",
     cv:             "CV/Aaron_He_CV.pdf",
@@ -198,7 +202,6 @@
           ["tree",         "Directory tree of notes"],
           ["search <q>",   "Search notes by title or tag"],
           ["tags",         "List all tags (click to search)"],
-          ["books",        "List books and note series"],
           ["recent [n]",   "Most recently updated notes"],
           ["random",       "Open a random note"],
           ["graph",        "Open the knowledge graph"],
@@ -226,7 +229,7 @@
           ["Program",    escHtml(p.program)],
           ["Supervisor", `<a class='out-note-link' href='${escHtml(p.supervisorUrl)}' target='_blank'>${escHtml(p.supervisorText)}</a>`],
           ["Research",   escHtml(p.research)],
-          ["Email",      `<a class='out-note-link' href='mailto:${escHtml(p.email)}'>${escHtml(p.email)}</a>`],
+          ["Email",      `<a class='out-note-link' href='#' data-contact-link>Send email</a>`],
           ["GitHub",     `<a class='out-note-link' href='${escHtml(p.githubUrl)}' target='_blank'>${escHtml(p.github)}</a>`],
           ["CV",         `<a class='out-note-link' href='${escHtml(p.cv)}' target='_blank'>${escHtml(p.cv)}</a>`],
         ]) +
@@ -449,34 +452,6 @@
       ].join("\n");
     },
 
-    books(_args) {
-      const k = getKnowledge();
-      if (!k) return line("out-warn", "Note data not loaded yet.");
-      const books = k.books || [];
-      if (!books.length) return line("out-warn", "No books published yet.");
-
-      const parts = [
-        blank(),
-        line("out-section-title", "Books & note series"),
-        blank(),
-      ];
-
-      books.forEach((b) => {
-        const linkEl = b.link
-          ? `<a class="out-note-link" href="${escHtml(b.link)}" target="_blank">${escHtml(b.title)}</a>`
-          : escHtml(b.title);
-        const sections = b.toc && b.toc.length
-          ? `<span class="out-note-date"> (${b.toc.length} sections)</span>`
-          : "";
-        const path = b.path
-          ? `<span class="out-note-date"> · ${escHtml(b.path)}</span>`
-          : "";
-        parts.push(`<div class="out-note-item">  ${linkEl}${path}${sections}</div>`);
-      });
-
-      return parts.join("\n");
-    },
-
     recent(args) {
       const k = getKnowledge();
       if (!k) return line("out-warn", "Note data not loaded yet.");
@@ -651,7 +626,6 @@
       if (target === "graph")                            return COMMANDS.graph([]);
       if (target === "cv" || target === "CV")           return COMMANDS.cv([]);
       if (target === "github")                          return COMMANDS.github([]);
-      if (target === "books")                           return COMMANDS.books([]);
       return line("out-error", `open: ${escHtml(target)}: not found`);
     },
   };
@@ -731,7 +705,7 @@
       kv("Updated", escHtml(String(updated)),   "nf-val-hi"),
       kv("Uptime",  escHtml(siteAge + " days"), "nf-val-hi"),
       sep(),
-      kv("Email",  `<a class='out-note-link' href='mailto:${escHtml(p.email)}'>${escHtml(p.email)}</a>`),
+      kv("Email",  `<a class='out-note-link' href='#' data-contact-link>Send email</a>`),
       kv("GitHub", `<a class='out-note-link' href='${escHtml(p.githubUrl)}' target='_blank'>${escHtml(p.github)}</a>`),
       kv("CV",     `<a class='out-note-link' href='${escHtml(p.cv)}' target='_blank'>${escHtml(p.cv)}</a>`),
     ].join("");
@@ -1011,6 +985,11 @@
     }
   });
 
+  window.addEventListener("aaronnote:cli-visible", () => {
+    input.focus({ preventScroll: true });
+    scrollBottom();
+  });
+
   /* ── Startup boot sequence ────────────────────────────────────────────── */
 
   const nfEl = document.getElementById("neofetch-static");
@@ -1025,7 +1004,7 @@
   setTimeout(() => {
     const hint = document.getElementById("terminal-hint");
     if (hint) hint.style.visibility = "visible";
-    input.focus();
+    if (terminalIsVisible()) input.focus({ preventScroll: true });
     scrollBottom();
   }, 100);
 
