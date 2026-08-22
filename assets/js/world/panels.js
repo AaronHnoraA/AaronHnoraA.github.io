@@ -17,6 +17,7 @@ import { CSS3DObject, CSS3DRenderer } from './css3d.js';
 import { GATES, PANELS } from './curve.js';
 import { seatFrame } from './rig.js';
 import { renderMath } from './math.js';
+import { SHOR_STEPS, shorStepAt } from './states.js';
 
 /** How far ahead of the viewer a panel stands when it comes into view. */
 const AHEAD = 8.9;
@@ -50,13 +51,18 @@ const smoothstep = (a, b, x) => {
   return t * t * (3 - 2 * t);
 };
 
-export function buildPanels(loop, scene, host, circuit) {
+export function buildPanels(loop, scene, host, circuit, flight) {
   const renderer = new CSS3DRenderer();
   renderer.domElement.className = 'world-css';
   host.appendChild(renderer.domElement);
+  const focusLayer = document.createElement('div');
+  focusLayer.className = 'panel-focus-layer';
+  focusLayer.setAttribute('aria-live', 'off');
+  host.appendChild(focusLayer);
 
   const panels = [];
   const gateLabels = [];
+  const qubitLabels = [];
 
   PANELS.forEach(({ id, t, shot }) => {
     const el = document.getElementById(id);
@@ -82,7 +88,10 @@ export function buildPanels(loop, scene, host, circuit) {
     scene.add(object);
     el.classList.add('is-panel');
 
-    const panel = { id, t, object, el, forward: new THREE.Vector3(), visible: 1 };
+    const panel = {
+      id, t, object, el, forward: new THREE.Vector3(), visible: 1,
+      promoted: false, worldTransform: '',
+    };
     panels.push(panel);
   });
 
@@ -112,13 +121,70 @@ export function buildPanels(loop, scene, host, circuit) {
     });
   }
 
+  /* Algorithm telemetry belongs to the quantum objects, not to the page UI.
+   * These CSS3D annotations follow the primary Bloch forms. The flat document
+   * never contains a second copy of any of this 3D-only material. */
+  const primaryFlyers = (flight?.flyers || [])
+    .filter((flyer) => flyer.cohort === 0)
+    .sort((a, b) => a.j - b.j);
+  for (const flyer of primaryFlyers) {
+    const el = document.createElement('div');
+    el.className = 'qubit-label';
+    el.setAttribute('aria-hidden', 'true');
+    const index = document.createElement('b');
+    index.textContent = `q${flyer.j}`;
+    const math = document.createElement('span');
+    math.className = 'qubit-label-math';
+    el.append(index, math);
+    el.style.opacity = '0';
+    el.style.visibility = 'hidden';
+
+    const object = new CSS3DObject(el);
+    object.scale.setScalar(1 / PX_PER_UNIT);
+    scene.add(object);
+    qubitLabels.push({ flyer, object, el, math, stepId: '', visible: 0 });
+  }
+
+  const stageEl = document.createElement('div');
+  stageEl.className = 'quantum-stage-label';
+  stageEl.setAttribute('aria-hidden', 'true');
+  stageEl.innerHTML = `
+    <span class="quantum-stage-meta"></span>
+    <strong class="quantum-stage-name"></strong>
+    <span class="quantum-stage-math"></span>
+  `;
+  stageEl.style.opacity = '0';
+  stageEl.style.visibility = 'hidden';
+  const stageObject = new CSS3DObject(stageEl);
+  stageObject.scale.setScalar(1 / PX_PER_UNIT);
+  scene.add(stageObject);
+  const stageLabel = {
+    flyer: primaryFlyers[0] || null,
+    object: stageObject,
+    el: stageEl,
+    meta: stageEl.querySelector('.quantum-stage-meta'),
+    name: stageEl.querySelector('.quantum-stage-name'),
+    math: stageEl.querySelector('.quantum-stage-math'),
+    stepId: '',
+    visible: 0,
+  };
+
   const _toCam = new THREE.Vector3();
   const _fwd = new THREE.Vector3();
   const _cameraRight = new THREE.Vector3();
+  const _cameraUp = new THREE.Vector3();
+
+  function setVisibility(item, want) {
+    if (Math.abs(want - item.visible) <= 0.002) return;
+    item.visible = want;
+    item.el.style.opacity = want.toFixed(3);
+    item.el.style.visibility = want < 0.02 ? 'hidden' : 'visible';
+  }
 
   return {
     panels,
     gateLabels,
+    qubitLabels,
     renderer,
 
     /** Called every frame: decide which panels are worth showing. */
@@ -140,11 +206,12 @@ export function buildPanels(loop, scene, host, circuit) {
           p.el.style.visibility = want < 0.02 ? 'hidden' : 'visible';
         }
       }
+      _cameraRight.set(1, 0, 0).applyQuaternion(camera.quaternion);
+      _cameraUp.set(0, 1, 0).applyQuaternion(camera.quaternion);
       for (const label of gateLabels) {
         if (label.anchor) label.anchor.getWorldPosition(label.object.position);
         else loop.point(label.t, label.object.position);
-        _cameraRight.set(1, 0, 0).applyQuaternion(camera.quaternion);
-        label.object.position.addScaledVector(camera.up, -0.35)
+        label.object.position.addScaledVector(_cameraUp, -0.35)
           .addScaledVector(_cameraRight, 0.42);
         label.object.quaternion.copy(camera.quaternion);
         _toCam.subVectors(camera.position, label.object.position);
@@ -155,17 +222,87 @@ export function buildPanels(loop, scene, host, circuit) {
         const close = smoothstep(2.8, 4.6, distance);
         const along = Math.abs(loop.delta(head, label.t));
         const current = 1 - smoothstep(0.045, 0.095, along);
-        const want = far * close * current * (focused ? 0.12 : 1);
-        if (Math.abs(want - label.visible) > 0.002) {
-          label.visible = want;
-          label.el.style.opacity = want.toFixed(3);
-          label.el.style.visibility = want < 0.02 ? 'hidden' : 'visible';
+        const want = far * close * current * (focused ? 0.055 : 0.82);
+        setVisibility(label, want);
+      }
+
+      for (const label of qubitLabels) {
+        label.flyer.visual.root.getWorldPosition(label.object.position);
+        label.object.position
+          .addScaledVector(_cameraRight, label.flyer.j % 2 ? 0.46 : 0.58)
+          .addScaledVector(_cameraUp, label.flyer.j > 1 ? -0.22 : 0.28);
+        label.object.quaternion.copy(camera.quaternion);
+
+        const step = shorStepAt(label.flyer.currentT ?? head);
+        if (step.id !== label.stepId) {
+          label.stepId = step.id;
+          renderMath(label.math, step.qubits[label.flyer.j]);
         }
+
+        _toCam.subVectors(camera.position, label.object.position);
+        const distance = _toCam.length();
+        const labelScale = THREE.MathUtils.clamp(distance / 7.2, 0.68, 1.9) / PX_PER_UNIT;
+        label.object.scale.setScalar(labelScale);
+        const far = 1 - smoothstep(15, 22, distance);
+        const close = smoothstep(2.3, 3.7, distance);
+        const want = far * close * (label.flyer.displayFade ?? 1) * (focused ? 0.035 : 0.78);
+        setVisibility(label, want);
+      }
+
+      if (stageLabel.flyer) {
+        stageLabel.flyer.visual.root.getWorldPosition(stageLabel.object.position);
+        stageLabel.object.position
+          .addScaledVector(_cameraRight, 0.92)
+          .addScaledVector(_cameraUp, 1.02);
+        stageLabel.object.quaternion.copy(camera.quaternion);
+
+        const step = shorStepAt(stageLabel.flyer.currentT ?? head);
+        if (step.id !== stageLabel.stepId) {
+          stageLabel.stepId = step.id;
+          const index = SHOR_STEPS.indexOf(step) + 1;
+          stageLabel.meta.textContent = `${String(index).padStart(2, '0')} / ${SHOR_STEPS.length}`;
+          stageLabel.name.textContent = step.title;
+          renderMath(stageLabel.math, step.formula);
+        }
+
+        _toCam.subVectors(camera.position, stageLabel.object.position);
+        const distance = _toCam.length();
+        const stageScale = THREE.MathUtils.clamp(distance / 7.2, 0.68, 1.75) / PX_PER_UNIT;
+        stageLabel.object.scale.setScalar(stageScale);
+        const far = 1 - smoothstep(16, 23, distance);
+        const close = smoothstep(2.7, 4.0, distance);
+        const want = far * close * (stageLabel.flyer.displayFade ?? 1) * (focused ? 0.025 : 0.72);
+        setVisibility(stageLabel, want);
       }
     },
     byId: (id) => panels.find((p) => p.id === id),
+    promote(panel) {
+      if (!panel || panel.promoted) return;
+      panel.promoted = true;
+      panel.worldTransform = panel.el.style.transform;
+      scene.remove(panel.object);
+      panel.el.classList.add('is-overlay');
+      panel.el.style.position = 'relative';
+      panel.el.style.transform = 'none';
+      panel.el.style.userSelect = 'text';
+      panel.el.style.visibility = 'visible';
+      panel.el.style.opacity = '1';
+      panel.el.style.display = '';
+      focusLayer.appendChild(panel.el);
+    },
+    restore(panel) {
+      if (!panel?.promoted) return;
+      panel.promoted = false;
+      panel.el.classList.remove('is-overlay');
+      panel.el.style.position = 'absolute';
+      panel.el.style.transform = panel.worldTransform;
+      panel.el.style.userSelect = 'none';
+      panel.el.style.opacity = panel.visible.toFixed(3);
+      panel.el.style.visibility = panel.visible < 0.02 ? 'hidden' : 'visible';
+      scene.add(panel.object);
+    },
     render(scene_, camera) { renderer.render(scene_, camera); },
     setSize(w, h) { renderer.setSize(w, h); },
-    dispose() { renderer.domElement.remove(); },
+    dispose() { focusLayer.remove(); renderer.domElement.remove(); },
   };
 }

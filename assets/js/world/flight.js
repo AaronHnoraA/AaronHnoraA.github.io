@@ -231,6 +231,8 @@ export function buildFlight(loop, { registry }) {
         visual,
         filament,
         followed,
+        currentT: 0,
+        displayFade: 0,
         state: { qubits: Array.from({ length: 4 }, () => ({})) },
       });
     }
@@ -281,6 +283,7 @@ export function buildFlight(loop, { registry }) {
 
   function poseQubit(flyer, head, dt, camera, emphasis) {
     const t = routeT(flyer, head);
+    flyer.currentT = t;
     positionOf(flyer, head, _a);
     positionOf(flyer, head + EPS, _b);
     loop.point(t, _axisPoint);
@@ -306,6 +309,7 @@ export function buildFlight(loop, { registry }) {
 
     const fade = nearness(_a, camera, flyer.followed)
       * (flyer.followed ? Math.max(emphasis, 0.34) : emphasis);
+    flyer.displayFade = fade;
     resetOpacity(flyer.visual, fade);
 
     const descriptor = samplePrecomputedState(t, flyer.state).qubits[flyer.j];

@@ -108,6 +108,19 @@ export const SHOR_STEPS = Object.freeze([
     [tex`\lvert0\rangle`, tex`\lvert0\rangle`, tex`\lvert1\rangle`, tex`\lvert0\rangle`]),
 ]);
 
+/** The authored ledger entry at a closed-loop coordinate. Keeping this lookup
+ * beside the table lets the Bloch visuals and their 3D annotations read from
+ * exactly the same precomputed source. */
+export function shorStepAt(t) {
+  const u = ((t % 1) + 1) % 1;
+  let current = SHOR_STEPS[0];
+  for (let i = 1; i < SHOR_STEPS.length; i++) {
+    if (u + 1e-5 < SHOR_STEPS[i].t) break;
+    current = SHOR_STEPS[i];
+  }
+  return current;
+}
+
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const ease = (x) => {
   const t = clamp01(x);

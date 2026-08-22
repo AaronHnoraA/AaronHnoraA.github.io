@@ -13,16 +13,18 @@ The top-bar switch moves explicitly between the document and the 3D view.
 When the conditions allow, JavaScript lifts those same sections into a 3D
 world built on a continuously sampled, double-lobed loop. Eight restrained
 qubit forms move in two sparse groups; a precomputed visual-state table stays
-behind the scenes. The 3D-only HUD turns that fixed playback into a ten-step
-Shor timeline with locally rendered KaTeX formulae; the plain personal document
-contains none of this circuit annotation.
+behind the scenes. Lightweight CSS3D annotations attach that fixed ten-step
+Shor playback, its gate formulae, and each qubit expression directly to the
+objects they describe; the plain personal document contains none of this
+circuit annotation.
 The first view follows the lead qubit. The sections become CSS3D panels standing in that world: still real
 HTML, still selectable, still reachable by a screen reader. Click one and the
 camera flies square to it so its text has no perspective left in it.
 
-The top navigation owns the five personal sections; the bottom HUD owns the
-Shor playback steps and qubit expressions. Follow the lead qubit, scrub the
-precomputed circuit, or pause motion. While a panel is focused, its links,
+The top navigation and the bottom HUD both own the five personal sections. The
+HUD also follows the lead qubit, scrubs the closed world, and pauses motion;
+algorithm notation stays in the scene instead of competing with site
+navigation. While a panel is focused, its links,
 selection and scrolling stay interactive; only Escape, browser history, or a
 click outside the card exits it. Anime.js choreographs the
 interface and reading transitions; camera and circuit motion stay in the
