@@ -1,7 +1,4 @@
-########################################
-# OS / Editor noise
-########################################
-
+# OS / editor noise
 .DS_Store
 Thumbs.db
 *.swp
@@ -9,41 +6,11 @@ Thumbs.db
 *.tmp
 Icon?
 
-########################################
-# Python runtime/cache
-########################################
-
+# Python / tooling caches
 __pycache__/
 *.py[cod]
-.ipynb_checkpoints/
-.jupyter/
-.pytest_cache/
 .mypy_cache/
 .ruff_cache/
 
-########################################
-# Local assistant/editor state
-########################################
-
+# Local assistant state
 .claude/
-
-########################################
-# Old publish output directory (retired)
-# Output now lands directly at repo root.
-########################################
-
-/public/
-
-########################################
-# Note vault symlink (gitignored; source notes live in AaronNote repo)
-# roam/ as a real output directory IS tracked (contains generated HTML for GH Pages).
-########################################
-
-# Ignore the symlink form but not the real directory.
-# Git only sees this entry before the symlink is replaced by a real dir.
-
-########################################
-# Aaronnote release build (large, not tracked)
-########################################
-
-Aaronnote/release/

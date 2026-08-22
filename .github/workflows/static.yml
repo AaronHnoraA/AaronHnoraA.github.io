@@ -24,20 +24,25 @@ jobs:
 
       - name: Verify static site artifact
         run: |
-          if [ ! -f index.html ]; then
-            echo "::error::index.html is missing. Run make publish-build locally and commit the generated files before deploying."
-            exit 1
-          fi
-          if [ ! -d roam ]; then
-            echo "::error::roam/ is missing. Run make publish-build locally and commit the generated note HTML files."
-            exit 1
-          fi
-          note_count="$(find roam -type f -name '*.html' | wc -l | tr -d ' ')"
-          if [ "$note_count" -eq 0 ]; then
-            echo "::error::No static note HTML files found under roam/."
-            exit 1
-          fi
-          echo "Deploying $note_count prebuilt note pages from roam/."
+          missing=0
+          # The vendored licences are checked too: publishing three.js or
+          # anime.js without them would breach their terms.
+          for f in \
+            index.html research.html cv.html links.html credits.html \
+            assets/css/site.css assets/js/site.js assets/js/hero-circuit.js \
+            assets/fallback/circuit.svg \
+            vendor/three/three.module.min.js vendor/three/three.core.min.js \
+            vendor/three/LICENSE \
+            vendor/anime/anime.esm.min.js vendor/anime/LICENSE.md \
+            LICENSE
+          do
+            if [ ! -f "$f" ]; then
+              echo "::error::missing $f"
+              missing=1
+            fi
+          done
+          [ "$missing" -eq 0 ] || exit 1
+          echo "Static site looks complete."
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

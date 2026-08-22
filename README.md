@@ -1,70 +1,47 @@
-# Org / Aaronnote Workspace
+# Personal site — Chang He (Aaron)
 
-This repository serves two purposes:
+The source of my personal academic homepage, and the artifact that gets served.
+Hand-written HTML, CSS and JavaScript: no framework, no bundler, no build step
+for the pages themselves.
 
-1. Development, testing, and packaging of `Aaronnote/`.
-2. Publishing, indexing, and maintenance of the Markdown knowledge base under `roam/`.
+## Layout
 
-The focus is on the editor, the publish pipeline, the data model, and the maintenance workflow — not on note content itself.
-
-## Documentation
-
-- [docs/README.md](docs/README.md): Documentation index
-- [docs/project.md](docs/project.md): Project structure, ownership boundaries, maintenance conventions
-- [docs/codebase.md](docs/codebase.md): Code layout and key modules
-- [docs/status.md](docs/status.md): Current development state, test status, known issues
-
-## Repository Layout
-
-- `Aaronnote/`: Typora-style Markdown editor — web, desktop, and server builds.
-- `roam/`: Local symlink to the Markdown note repository. It is ignored by this repo and remains the canonical source of truth for note content.
-- `public/`: Published static site artifacts. These files are rebuilt locally, then committed so GitHub Pages can deploy them as plain static files.
-- `bin/publish-site`: Publish script that generates `public/` from `roam/`.
-- `agent/`: Derived indexes, condensed wiki, and maintenance scripts for AI retrieval.
-- `CV/`: LaTeX résumé source and build output; largely independent of the editor/publish pipeline.
-
-## Publishing
-
-Publishing is intentionally local-first:
-
-1. `make publish` reads the local `roam/` note tree and renders the static site into `public/`.
-2. Sensitive notes and sensitive tags are masked in the published graph, links, lists, and rendered pages.
-3. The generated `public/` files are committed to this repository.
-4. GitHub Actions only uploads the committed `public/` directory to GitHub Pages. It does not clone `roam/`, install editor dependencies, or run the renderer.
-
-This keeps private note access and rendering logic on the local machine. The GitHub runner only sees the already-published static artifact.
-
-Before pushing a Pages update:
-
-```sh
-make publish
-git status --short public
-git add public
-git commit -m "Publish static site"
-git push
+```
+index.html            home, with the animated Shor-circuit hero
+research.html         interests, publications and preprints
+cv.html               CV summary, linking the typeset PDF
+links.html            other pages of mine, and pages worth reading
+credits.html          licences, dependencies, acknowledgement, references
+assets/css/           the single stylesheet
+assets/js/            site behaviour, and the three.js hero scene
+assets/fallback/      static circuit drawing, used without WebGL
+assets/img/           favicon
+vendor/               three.js and anime.js, each with its licence
+CV/                   the generated CV PDF
 ```
 
-## Common Commands
+## Building and deploying
 
-From the repo root:
-
-```sh
-make publish
-make maintain
-make build
-```
-
-From `Aaronnote/`:
+Only one thing is generated: the CV PDF, compiled from LaTeX. Everything else
+is committed as written. The commands live in the Emacs configuration that owns
+the deployment, and are documented in `docs/publish-workflow.md` there:
 
 ```sh
-npm install
-npm test
-npm run start:vite
-npm run build
+make publish-build     # compile the CV, check the site is complete
+make publish           # the above, then commit, push, and rsync to the NAS
+make publish-deploy    # deploy only
 ```
 
-## Current State
+Deployment is a plain file copy: the repository *is* the site, so its root is
+what gets served.
 
-- `Aaronnote` last full test run on 2026-05-19: `48` test files, `628` tests, all passing.
-- The publish pipeline is file-system and derived-data oriented, not a centralized database.
-- Known limitations and next steps: [docs/status.md](docs/status.md).
+## Licensing
+
+* Site code (HTML, CSS, JavaScript, SVG written for this site) — MIT, see
+  [LICENSE](LICENSE).
+* Prose, the CV, and images — © Chang He, all rights reserved.
+* `vendor/` — third-party, each under its own licence, shipped unmodified with
+  the licence file intact.
+
+The full picture, including what inspired the hero animation and the papers the
+animation depicts, is on [credits.html](credits.html).

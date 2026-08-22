@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en" class="no-js">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Credits &amp; licences — Chang He (Aaron)</title>
+<meta name="description" content="Licensing of this site, the third-party software it ships, the work that inspired its animation, and the sources the animation depicts.">
+<meta name="theme-color" content="#f6f3ec">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/site.css">
+<script type="importmap">
+{"imports":{"three":"./vendor/three/three.module.min.js","anime":"./vendor/anime/anime.esm.min.js"}}
+</script>
+<script type="module" src="assets/js/site.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<div class="wrap">
+  <header class="masthead">
+    <a class="masthead-name" href="index.html">Chang He <span>/ Aaron</span></a>
+    <nav class="masthead-nav" aria-label="Primary">
+      <a href="research.html">Research</a>
+      <a href="cv.html">CV</a>
+      <a href="links.html">Links</a>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="section">
+      <div class="column">
+        <p class="eyebrow">Colophon</p>
+        <h1>Credits &amp; licences</h1>
+        <p class="lede">
+          What this site is made of, who else's work is in it, and what you may
+          do with any of it.
+        </p>
+      </div>
+    </section>
+
+    <!-- ================================================== licence of this site -->
+    <section class="section" aria-labelledby="licence" data-reveal>
+      <div class="section-head">
+        <p class="eyebrow">This site</p>
+        <div class="column"><h2 id="licence">Licence</h2></div>
+      </div>
+      <dl class="facts">
+        <div>
+          <dt>Code</dt>
+          <dd>
+            The HTML, CSS and JavaScript written for this site are released
+            under the <a href="LICENSE">MIT licence</a>,
+            © <span data-year>2026</span> Chang He. Take the circuit animation
+            and do something better with it.
+          </dd>
+        </div>
+        <div>
+          <dt>Content</dt>
+          <!-- To open the writing up instead, replace the line below with a
+               Creative Commons grant, e.g. CC BY-NC-ND 4.0. This <dd> is the
+               only place the content licence is stated. -->
+          <dd>
+            Text, the CV, and images on this site are
+            © <span data-year>2026</span> Chang He. All rights reserved.
+          </dd>
+        </div>
+        <div>
+          <dt>Third-party code</dt>
+          <dd>
+            Shipped unmodified under its own licence, listed below. Nothing here
+            relicenses it.
+          </dd>
+        </div>
+      </dl>
+    </section>
+
+    <!-- ============================================================== software -->
+    <section class="section" aria-labelledby="software" data-reveal>
+      <div class="section-head">
+        <p class="eyebrow">Dependencies</p>
+        <div class="column">
+          <h2 id="software">Software this page ships</h2>
+          <p>
+            Both are vendored into this repository rather than loaded from a CDN,
+            so the page works offline and calls no third-party host. Each
+            arrives with its original licence file, unaltered.
+          </p>
+        </div>
+      </div>
+      <ul class="entries">
+        <li class="entry">
+          <div class="entry-meta">MIT</div>
+          <div class="entry-body">
+            <h3><a href="https://threejs.org/" rel="noopener">three.js</a> 0.185.1</h3>
+            <p>
+              WebGL renderer and scene graph, by mrdoob and the three.js
+              contributors. Used for the circuit on the front page.
+            </p>
+            <p class="entry-note">
+              Licence as shipped: <a href="vendor/three/LICENSE">vendor/three/LICENSE</a> ·
+              Source: <a href="https://github.com/mrdoob/three.js" rel="noopener">github.com/mrdoob/three.js</a>
+            </p>
+          </div>
+        </li>
+        <li class="entry">
+          <div class="entry-meta">MIT</div>
+          <div class="entry-body">
+            <h3><a href="https://animejs.com/" rel="noopener">anime.js</a> 4.5.0</h3>
+            <p>
+              Animation engine by Julian Garnier. It drives the gate sequence —
+              a quantum circuit is a timeline, which is exactly what anime.js
+              is for — and the small entrance transitions on each page.
+            </p>
+            <p class="entry-note">
+              Licence as shipped: <a href="vendor/anime/LICENSE.md">vendor/anime/LICENSE.md</a> ·
+              Source: <a href="https://github.com/juliangarnier/anime" rel="noopener">github.com/juliangarnier/anime</a>
+            </p>
+          </div>
+        </li>
+        <li class="entry">
+          <div class="entry-meta">None</div>
+          <div class="entry-body">
+            <h3>Typefaces</h3>
+            <p>
+              No font files are distributed with this site. Every rule falls back
+              through fonts already installed on your machine, so there is no
+              third-party font licence to observe and no font host to call.
+            </p>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <!-- =========================================================== inspiration -->
+    <section class="section" aria-labelledby="inspiration" data-reveal>
+      <div class="section-head">
+        <p class="eyebrow">Acknowledgement</p>
+        <div class="column"><h2 id="inspiration">What inspired the animation</h2></div>
+      </div>
+      <div class="column prose">
+        <p>
+          The <em>feel</em> of the front page — a slow flight through a sparse
+          field, seen from something moving through it, with objects trailing
+          ribbons behind them — was inspired by
+          <a href="https://paperplanes.world/" rel="noopener"><em>Paper Planes</em></a>
+          (paperplanes.world), made by
+          <a href="https://activetheory.net/" rel="noopener">Active Theory</a>
+          for Google and launched on Peace Day 2016.
+        </p>
+        <p>
+          <strong>No code, assets, geometry, shaders, textures or copy from that
+          project are used here.</strong> It is a separate work by other people,
+          and its rights are theirs. Everything on this site was written from
+          scratch: the scene, the flight path, the materials and the subject
+          matter are my own, and the subject matter — a quantum circuit rather
+          than paper planes — is different in the first place. The
+          acknowledgement is here because credit for an idea is owed even when
+          nothing is copied.
+        </p>
+      </div>
+    </section>
+
+    <!-- ================================================================ sources -->
+    <section class="section" aria-labelledby="sources" data-reveal>
+      <div class="section-head">
+        <p class="eyebrow">References</p>
+        <div class="column">
+          <h2 id="sources">What the animation depicts</h2>
+          <p>
+            The front page draws a real algorithm, so it is worth citing
+            properly.
+          </p>
+        </div>
+      </div>
+      <ul class="entries">
+        <li class="entry">
+          <div class="entry-meta">1997</div>
+          <div class="entry-body">
+            <h3>P. W. Shor</h3>
+            <p>
+              <em>Polynomial-Time Algorithms for Prime Factorization and Discrete
+              Logarithms on a Quantum Computer.</em>
+              SIAM Journal on Computing <strong>26</strong>(5), 1484–1509.
+            </p>
+            <p class="entry-note">
+              Preprint: <a href="https://arxiv.org/abs/quant-ph/9508027" rel="noopener">arXiv:quant-ph/9508027</a>
+            </p>
+          </div>
+        </li>
+        <li class="entry">
+          <div class="entry-meta">2010</div>
+          <div class="entry-body">
+            <h3>M. A. Nielsen &amp; I. L. Chuang</h3>
+            <p>
+              <em>Quantum Computation and Quantum Information</em>, 10th
+              anniversary edition, Cambridge University Press. The circuit
+              conventions used in the animation — control dots, the boxed
+              modular exponentiation, the inverse QFT, meter symbols — follow
+              §5.3.
+            </p>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <!-- ================================================================= build -->
+    <section class="section" aria-labelledby="build" data-reveal>
+      <div class="section-head">
+        <p class="eyebrow">Build</p>
+        <div class="column"><h2 id="build">How the page is made</h2></div>
+      </div>
+      <div class="column prose">
+        <p>
+          Hand-written HTML and CSS, no framework and no build step. The CV PDF
+          is produced from LaTeX with <code>latexmk</code>. Deployment is a
+          plain file copy.
+        </p>
+        <p>
+          If the animation is not running, that is deliberate: it stops when the
+          tab is hidden or the hero is scrolled out of view, and it never starts
+          if your system asks for reduced motion or WebGL is unavailable — you
+          get a static drawing of the same circuit instead. You can force that
+          drawing with <a href="index.html?static=1"><code>?static=1</code></a>.
+        </p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<footer class="wrap">
+  <div class="colophon">
+    <p>© <span data-year>2026</span> Chang He</p>
+    <p><a href="credits.html">Credits &amp; licences</a></p>
+  </div>
+</footer>
+</body>
+</html>
