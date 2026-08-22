@@ -4,17 +4,35 @@ The source of my personal academic homepage, and the artifact that gets served.
 Hand-written HTML, CSS and JavaScript: no framework, no bundler, no build step
 for the pages themselves.
 
-## Layout
+## One document, two layouts
+
+`index.html` is a complete, readable document: five sections in normal flow.
+That is what you get with JavaScript off, without WebGL, or with `?flat=1`.
+The top-bar switch moves explicitly between the document and the 3D view.
+
+When the conditions allow, JavaScript lifts those same sections into a 3D
+world built on a continuously sampled, double-lobed loop. Eight restrained
+qubit forms move in two sparse groups; a precomputed visual-state table stays
+behind the scenes rather than turning the homepage into an algorithm lesson.
+The first view follows the lead qubit. The sections become CSS3D panels standing in that world: still real
+HTML, still selectable, still reachable by a screen reader. Click one and the
+camera flies square to it so its text has no perspective left in it.
+
+The top navigation and the flight HUD share the same five stations. Follow the
+lead qubit, scroll or drag for manual flight, scrub the route, or pause motion.
+While a panel is focused, world input stays locked until Return, Escape, a new
+station, or browser history explicitly exits it. Anime.js choreographs the
+interface and reading transitions; camera and circuit motion stay in the
+deterministic render loop.
+
+Nothing is duplicated between the two layouts. There is no second copy of the
+content to keep in sync.
 
 ```
-index.html            home, with the animated Shor-circuit hero
-research.html         interests, publications and preprints
-cv.html               CV summary, linking the typeset PDF
-links.html            other pages of mine, and pages worth reading
-credits.html          licences, dependencies, acknowledgement, references
-assets/css/           the single stylesheet
-assets/js/            site behaviour, and the three.js hero scene
-assets/fallback/      static circuit drawing, used without WebGL
+index.html            the whole site
+assets/css/site.css   both layouts, one stylesheet
+assets/js/site.js     decides document or world
+assets/js/world/      curve, circuit, precomputed states, qubits, rig, panels
 assets/img/           favicon
 vendor/               three.js and anime.js, each with its licence
 CV/                   the generated CV PDF
@@ -35,6 +53,18 @@ make publish-deploy    # deploy only
 Deployment is a plain file copy: the repository *is* the site, so its root is
 what gets served.
 
+### Looking at it locally
+
+The page uses ES modules and an import map, so `file://` will not do:
+
+```sh
+python3 -m http.server 8137 -d .
+```
+
+`?flat=1` forces the plain document, `?static=1` renders a single frame, and
+`?debug=1` exposes the running scene on `window.__world`. For repeatable visual
+tests, `?head=0.25&flow=0.5` selects camera and quantum-flow positions.
+
 ## Licensing
 
 * Site code (HTML, CSS, JavaScript, SVG written for this site) — MIT, see
@@ -43,5 +73,5 @@ what gets served.
 * `vendor/` — third-party, each under its own licence, shipped unmodified with
   the licence file intact.
 
-The full picture, including what inspired the hero animation and the papers the
-animation depicts, is on [credits.html](credits.html).
+The visual references and software acknowledgements are in the Credits section
+of the site itself.

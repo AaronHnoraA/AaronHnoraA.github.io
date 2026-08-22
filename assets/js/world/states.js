@@ -1,0 +1,113 @@
+/*
+ * states.js — precomputed visual states for one small Shor demonstration.
+ * Copyright (c) 2026 Chang He. MIT (see /LICENSE).
+ *
+ * This is deliberately a playback table, not a quantum simulator. The browser
+ * interpolates display descriptors that were written down for the fixed
+ * N = 15, a = 2 example; it never constructs or evolves a state vector.
+ */
+
+const PI = Math.PI;
+const HALF_PI = PI / 2;
+
+const q = (theta, phi, purity = 1, split = 0) =>
+  Object.freeze({ theta, phi, purity, split });
+
+/* `qubits` are Bloch-display descriptors only. `purity` shortens the Bloch
+ * vector when a counting qubit is entangled with the work register; `split`
+ * opens its coherence shell. Stage names are internal timing markers only. */
+export const PRECOMPUTED_STAGES = Object.freeze([
+  Object.freeze({
+    id: 'prepare', t: 0.000,
+    qubits: Object.freeze([q(0, 0), q(0, 0), q(0, 0), q(0, 0)]),
+  }),
+  Object.freeze({
+    id: 'hadamard', t: 0.105,
+    qubits: Object.freeze([q(HALF_PI, 0), q(HALF_PI, 0), q(HALF_PI, 0), q(HALF_PI, 0)]),
+  }),
+  Object.freeze({
+    id: 'cu1', t: 0.225,
+    qubits: Object.freeze([q(HALF_PI, 0.35, 0.20, 1), q(HALF_PI, 0), q(HALF_PI, 0), q(HALF_PI, 0)]),
+  }),
+  Object.freeze({
+    id: 'cu2', t: 0.305,
+    qubits: Object.freeze([q(HALF_PI, 0.35, 0.20, 1), q(HALF_PI, 1.10, 0.20, 1), q(HALF_PI, 0), q(HALF_PI, 0)]),
+  }),
+  Object.freeze({
+    id: 'cu4', t: 0.385,
+    qubits: Object.freeze([q(HALF_PI, 0.35, 0.20, 1), q(HALF_PI, 1.10, 0.20, 1), q(HALF_PI, 1.90, 0.20, 1), q(HALF_PI, 0)]),
+  }),
+  Object.freeze({
+    id: 'cu8', t: 0.465,
+    qubits: Object.freeze([q(HALF_PI, 0.35, 0.20, 1), q(HALF_PI, 1.10, 0.20, 1), q(HALF_PI, 1.90, 0.20, 1), q(HALF_PI, 2.65, 0.20, 1)]),
+  }),
+  Object.freeze({
+    id: 'periodic', t: 0.535,
+    qubits: Object.freeze([q(HALF_PI, 0.55, 0.16, 1), q(HALF_PI, 1.35, 0.16, 1), q(HALF_PI, 2.15, 0.16, 1), q(HALF_PI, 2.95, 0.16, 1)]),
+  }),
+  Object.freeze({
+    id: 'iqft', t: 0.665,
+    qubits: Object.freeze([q(HALF_PI, 0.0, 0.72, 0.35), q(HALF_PI, PI, 0.72, 0.35), q(PI * 0.72, PI / 2, 0.72, 0.35), q(HALF_PI, -PI / 2, 0.72, 0.35)]),
+  }),
+  Object.freeze({
+    id: 'measure', t: 0.765,
+    qubits: Object.freeze([q(0, 0), q(0, 0), q(PI, 0), q(0, 0)]),
+  }),
+  Object.freeze({
+    id: 'classical', t: 0.855,
+    qubits: Object.freeze([q(0, 0), q(0, 0), q(PI, 0), q(0, 0)]),
+  }),
+  Object.freeze({
+    id: 'factors', t: 0.925,
+    qubits: Object.freeze([q(0, 0), q(0, 0), q(PI, 0), q(0, 0)]),
+  }),
+  Object.freeze({
+    id: 'recycle', t: 1.000,
+    qubits: Object.freeze([q(0, 0), q(0, 0), q(0, 0), q(0, 0)]),
+  }),
+]);
+
+const clamp01 = (x) => Math.max(0, Math.min(1, x));
+const ease = (x) => {
+  const t = clamp01(x);
+  return t * t * (3 - 2 * t);
+};
+
+function angleLerp(a, b, amount) {
+  let d = (b - a) % (PI * 2);
+  if (d > PI) d -= PI * 2;
+  if (d < -PI) d += PI * 2;
+  return a + d * amount;
+}
+
+/** Sample the authored playback table. Transitions occupy only the final part
+ * of each gate interval, so states are readable instead of constantly twitching. */
+export function samplePrecomputedState(t, out = {}) {
+  const u = ((t % 1) + 1) % 1;
+  let left = PRECOMPUTED_STAGES[0];
+  let right = PRECOMPUTED_STAGES[1];
+  for (let i = 0; i < PRECOMPUTED_STAGES.length - 1; i++) {
+    if (u >= PRECOMPUTED_STAGES[i].t && u < PRECOMPUTED_STAGES[i + 1].t) {
+      left = PRECOMPUTED_STAGES[i];
+      right = PRECOMPUTED_STAGES[i + 1];
+      break;
+    }
+  }
+  const interval = Math.max(1e-6, right.t - left.t);
+  const local = (u - left.t) / interval;
+  const mix = ease((local - 0.48) / 0.52);
+
+  out.t = u;
+  out.stage = mix < 0.5 ? left : right;
+  out.qubits ||= Array.from({ length: 4 }, () => ({}));
+  for (let j = 0; j < 4; j++) {
+    const a = left.qubits[j];
+    const b = right.qubits[j];
+    const target = out.qubits[j];
+    target.theta = a.theta + (b.theta - a.theta) * mix;
+    target.phi = angleLerp(a.phi, b.phi, mix);
+    target.purity = a.purity + (b.purity - a.purity) * mix;
+    target.split = a.split + (b.split - a.split) * mix;
+  }
+  return out;
+}
