@@ -1,7 +1,5 @@
 /*
  * panels.js — the page's own content, lifted into the world.
- * Copyright (c) 2026 Chang He. MIT (see /LICENSE).
- *
  * These are not pictures of text. Each panel is the real <section> element
  * from the document, moved into a CSS3DObject: still selectable, still
  * searchable, still reachable by a screen reader, still a link when it is a
@@ -14,7 +12,7 @@
 
 import * as THREE from 'three';
 import { CSS3DObject, CSS3DRenderer } from './css3d.js';
-import { GATES, PANELS } from './curve.js';
+import { GATES } from './curve.js';
 import { seatFrame } from './rig.js';
 import { renderMath } from './math.js';
 import { SHOR_STEPS, shorStepAt } from './states.js';
@@ -51,7 +49,71 @@ const smoothstep = (a, b, x) => {
   return t * t * (3 - 2 * t);
 };
 
-export function buildPanels(loop, scene, host, circuit, flight) {
+const wrap = (t) => ((t % 1) + 1) % 1;
+const numberFrom = (value, fallback) => {
+  if (value === undefined || value === '') return fallback;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+function largestGapMidpoint(used) {
+  if (!used.length) return 0.035;
+  const sorted = [...used].sort((a, b) => a - b);
+  let start = sorted[0];
+  let gap = -1;
+  for (let i = 0; i < sorted.length; i++) {
+    const a = sorted[i];
+    const b = i === sorted.length - 1 ? sorted[0] + 1 : sorted[i + 1];
+    if (b - a > gap) { start = a; gap = b - a; }
+  }
+  return wrap(start + gap / 2);
+}
+
+/** The HTML sections are the content registry. A new `.panel[id]` therefore
+ * becomes a flat section, a CSS3D card and a route station without a JS edit.
+ * Explicit positions preserve art direction; omitted positions are placed in
+ * the largest free arc of the closed world. */
+export function collectPanelStations(host) {
+  const elements = [...host.querySelectorAll(':scope > section.panel[id]')];
+  const ids = new Set();
+  for (const el of elements) {
+    if (ids.has(el.id)) throw new Error(`Duplicate panel id: #${el.id}`);
+    ids.add(el.id);
+    if (el.dataset.worldT && !Number.isFinite(Number(el.dataset.worldT))) {
+      console.warn(`Ignoring invalid data-world-t on #${el.id}`);
+    }
+  }
+  const used = elements
+    .map((el) => numberFrom(el.dataset.worldT, NaN))
+    .filter(Number.isFinite)
+    .map(wrap);
+
+  return elements.map((el) => {
+    let t = numberFrom(el.dataset.worldT, NaN);
+    if (Number.isFinite(t)) t = wrap(t);
+    else {
+      t = largestGapMidpoint(used);
+      used.push(t);
+    }
+    const defaultLabel = el.id
+      .split('-')
+      .filter(Boolean)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+    return Object.freeze({
+      id: el.id,
+      el,
+      t,
+      label: el.dataset.worldLabel || defaultLabel,
+      shot: Object.freeze({
+        side: Math.sign(numberFrom(el.dataset.worldSide, 1)) || 1,
+        lift: numberFrom(el.dataset.worldLift, 0.3),
+      }),
+    });
+  });
+}
+
+export function buildPanels(loop, scene, host, circuit, flight, stations) {
   const renderer = new CSS3DRenderer();
   renderer.domElement.className = 'world-css';
   host.appendChild(renderer.domElement);
@@ -64,16 +126,14 @@ export function buildPanels(loop, scene, host, circuit, flight) {
   const gateLabels = [];
   const qubitLabels = [];
 
-  PANELS.forEach(({ id, t, shot }) => {
-    const el = document.getElementById(id);
-    if (!el) return;
+  stations.forEach(({ id, el, t, shot }) => {
 
     /* Every station uses the same screen-side safe area.  The previous
      * alternating layout made the circuit and content compete unpredictably;
      * the circuit now owns the left/depth field and reading owns the right. */
     const view = seatFrame(loop, t - APPROACH);
-    const side = (shot?.side || 1) * SIDE;
-    const rise = shot?.lift || 0.3;
+    const side = (shot?.side ?? 1) * SIDE;
+    const rise = shot?.lift ?? 0.3;
 
     const object = new CSS3DObject(el);
     object.position.copy(view.pos)

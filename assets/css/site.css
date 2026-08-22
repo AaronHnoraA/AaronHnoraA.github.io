@@ -1,7 +1,5 @@
 /*
  * site.css — Chang He, personal academic site.
- * Copyright (c) 2026 Chang He. MIT (see /LICENSE).
- *
  * Two layouts from one document. By default this is a plain vertical page.
  * When JavaScript lifts the sections into the 3D world, `html.is-world` turns
  * the same markup into floating panels. Nothing is duplicated between them.
@@ -149,23 +147,6 @@ a:hover { color: var(--ink); text-decoration-color: var(--ink); }
 html:not(.is-world) .panel > .panel-detail { max-width: none; }
 html:not(.is-world) .panel-detail > * { max-width: var(--measure); }
 
-.colophon {
-  max-width: 58rem;
-  margin-inline: auto;
-  padding: 2rem var(--gutter) 3rem;
-  border-top: 1px solid var(--rule);
-  font-family: var(--sans);
-  font-size: 0.78rem;
-  color: var(--ink-faint);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem 1.5rem;
-  justify-content: space-between;
-}
-.colophon a { color: var(--ink-faint); }
-.colophon a:hover { color: var(--ink); }
-.colophon p { margin: 0; }
-
 /* -------------------------------------------------------------- typography */
 
 .eyebrow {
@@ -222,21 +203,6 @@ p.lede {
 code { font-family: var(--mono); font-size: 0.86em;
   background: var(--paper-sunk); padding: 0.08em 0.32em; border-radius: 3px; }
 
-.entry-note { font-size: 0.9rem; color: var(--ink-soft); }
-
-.tag {
-  display: inline-block;
-  font-family: var(--sans);
-  font-size: 0.62rem;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--accent);
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-  border-radius: 999px;
-  padding: 0.05rem 0.45rem;
-  vertical-align: 0.12em;
-}
-
 dl.facts { margin: 0 0 1.2rem; }
 dl.facts div {
   display: grid;
@@ -280,25 +246,6 @@ ul.link-list span { display: block; font-size: 0.88rem; color: var(--ink-soft); 
   transition: background 140ms ease, border-color 140ms ease;
 }
 .button:hover { color: var(--ink); background: var(--paper-sunk); border-color: var(--ink-faint); }
-
-.panel-hint {
-  font-family: var(--sans);
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-  color: var(--ink-faint);
-  margin-top: 1.4rem;
-}
-html:not(.is-world) .panel-hint { display: none; }
-
-
-.noscript-note {
-  max-width: 58rem;
-  margin: 0 auto;
-  padding: 0 var(--gutter) 2rem;
-  font-family: var(--sans);
-  font-size: 0.8rem;
-  color: var(--ink-faint);
-}
 
 /* ============================================================= world mode */
 
@@ -349,19 +296,6 @@ html.is-world .world.is-reading:active { cursor: default; }
   opacity: 1 !important;
   pointer-events: auto;
   user-select: text !important;
-}
-
-html.is-world .colophon {
-  position: fixed;
-  inset: auto auto 0.85rem var(--gutter);
-  z-index: 40;
-  max-width: none;
-  padding: 0;
-  border: 0;
-  background: none;
-  backdrop-filter: none;
-  gap: 0.35rem 1rem;
-  font-size: 0.66rem;
 }
 
 /* Panels: the same sections, now paper floating in the world. */
@@ -418,8 +352,6 @@ html.is-world .panel.is-focused .panel-preview {
   border-bottom: 1px solid var(--rule);
 }
 html.is-world .panel.is-focused .panel-detail { display: block; }
-html.is-world .panel-hint { display: none; }
-
 html.is-world .gate-label {
   min-width: 124px;
   padding: 0.4rem 0.52rem 0.43rem;
@@ -619,7 +551,12 @@ html.is-world .quantum-stage-label {
   transform: translateX(-50%);
   font: 600 0.52rem/1 var(--mono);
   white-space: nowrap;
+  transition: opacity 160ms ease;
 }
+.flight-hud.has-dense-route .route-station span { opacity: 0; }
+.flight-hud.has-dense-route .route-station:hover span,
+.flight-hud.has-dense-route .route-station:focus-visible span,
+.flight-hud.has-dense-route .route-station.is-current span { opacity: 1; }
 .route-station:hover,
 .route-station.is-current { color: var(--accent); }
 .route-station:hover::before { background: var(--accent); }
@@ -635,8 +572,6 @@ html.is-world .quantum-stage-label {
   opacity: 0.24;
   pointer-events: none;
 }
-
-html.is-world .noscript-note { display: none; }
 
 @media (max-width: 68rem) {
   .flight-hud {
@@ -676,7 +611,6 @@ html.is-world .noscript-note { display: none; }
   html.is-world .panel,
   html.is-world .panel.is-focused { width: 360px; }
   html.is-world .panel.is-focused { max-height: min(72vh, 560px); }
-  html.is-world .colophon { display: none; }
 }
 
 @media (max-width: 30rem) {

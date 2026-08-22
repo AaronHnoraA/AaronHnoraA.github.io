@@ -1,7 +1,5 @@
 /*
  * flight.js — eight restrained qubit forms moving around the closed world.
- * Copyright (c) 2026 Chang He. MIT (see /LICENSE).
- *
  * Position and visual state are analytic functions of the loop coordinate.
  * No history buffer, random walk or runtime quantum simulation is involved.
  */

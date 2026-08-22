@@ -1,7 +1,5 @@
 /*
  * circuit.js — an abstract quantum structure along the closed loop.
- * Copyright (c) 2026 Chang He. MIT (see /LICENSE).
- *
  * The geometry keeps the rhythm of the hidden precomputed circuit without
  * putting notation or tutorial copy into the personal homepage.
  */

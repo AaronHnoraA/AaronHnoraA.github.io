@@ -1,7 +1,5 @@
 /*
  * states.js — precomputed visual states for one small Shor demonstration.
- * Copyright (c) 2026 Chang He. MIT (see /LICENSE).
- *
  * This is deliberately a playback table, not a quantum simulator. The browser
  * interpolates display descriptors that were written down for the fixed
  * N = 15, a = 2 example; it never constructs or evolves a state vector.

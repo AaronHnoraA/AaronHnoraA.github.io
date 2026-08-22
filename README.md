@@ -6,7 +6,7 @@ for the pages themselves.
 
 ## One document, two layouts
 
-`index.html` is a complete, readable document: five sections in normal flow.
+`index.html` is a complete, readable document whose sections stay in normal flow.
 That is what you get with JavaScript off, without WebGL, or with `?flat=1`.
 The top-bar switch moves explicitly between the document and the 3D view.
 
@@ -21,7 +21,7 @@ The first view follows the lead qubit. The sections become CSS3D panels standing
 HTML, still selectable, still reachable by a screen reader. Click one and the
 camera flies square to it so its text has no perspective left in it.
 
-The top navigation and the bottom HUD both own the five personal sections. The
+The top navigation and the bottom HUD both address the personal sections. The
 HUD also follows the lead qubit, scrubs the closed world, and pauses motion;
 algorithm notation stays in the scene instead of competing with site
 navigation. While a panel is focused, its links,
@@ -32,6 +32,28 @@ deterministic render loop.
 
 Nothing is duplicated between the two layouts. There is no second copy of the
 content to keep in sync.
+
+## Changing content
+
+Visitor-facing prose lives only in `index.html`. Editing text or links there
+updates both layouts because the 3D view moves the original section elements;
+it does not copy or template them.
+
+Every direct `section.panel` under `main[data-world]` is automatically
+registered as a flat section, a CSS3D card, and a bottom route node. To add one:
+
+1. Add a section with a unique `id`, a heading, `.panel-preview`, and
+   `.panel-detail`.
+2. Optionally set `data-world-label` for the short route label.
+3. Optionally set `data-world-t="0..1"`, `data-world-lift`, and
+   `data-world-side="-1|1"` to art-direct its position. With no
+   `data-world-t`, the runtime uses the largest free arc.
+4. Add a masthead link only when the section should be permanent primary
+   navigation.
+
+No JavaScript registry, fallback copy, or deployment manifest changes are
+needed for a content-only card. The maintenance note beside the first section
+in `index.html` is the compact reference.
 
 ```
 index.html            the whole site
@@ -78,5 +100,5 @@ tests, `?head=0.25&flow=0.5` selects camera and quantum-flow positions.
 * `vendor/` — third-party, each under its own licence, shipped unmodified with
   the licence file intact.
 
-The visual references and software acknowledgements are in the Credits section
-of the site itself.
+Legal metadata and third-party notices stay in the repository rather than in
+the academic homepage content.

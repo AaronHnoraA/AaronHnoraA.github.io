@@ -1,6 +1,5 @@
 /*
  * rig.js — a calm, horizon-led camera for the closed circuit.
- * Copyright (c) 2026 Chang He. MIT (see /LICENSE).
  */
 
 import * as THREE from 'three';

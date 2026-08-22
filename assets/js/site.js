@@ -1,7 +1,5 @@
 /*
  * site.js — decides whether this page is a document or a world.
- * Copyright (c) 2026 Chang He. MIT (see /LICENSE).
- *
  * The markup is a complete, readable document on its own. Only when the
  * conditions are right does JavaScript lift it into three dimensions. Every
  * explicit ?flat=1 or missing WebGL leaves a page that still works. Small
@@ -22,12 +20,6 @@ const numericParam = (name) => {
   const value = Number(raw);
   return Number.isFinite(value) ? value : undefined;
 };
-
-/* --------------------------------------------------------------- footer */
-
-for (const el of document.querySelectorAll('[data-year]')) {
-  el.textContent = String(new Date().getFullYear());
-}
 
 /* -------------------------------------------------------------- contact */
 

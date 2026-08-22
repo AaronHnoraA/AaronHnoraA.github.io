@@ -8,8 +8,7 @@ SVG written for it. It does NOT cover:
   * the prose, the CV, and any photographs or figures published here, which are
     © 2026 Chang He, all rights reserved; and
   * third-party software distributed under vendor/, each of which remains under
-    its own licence — see vendor/three/LICENSE and vendor/anime/LICENSE.md, and
-    the summary at /credits.html.
+    its own licence in that package's directory.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

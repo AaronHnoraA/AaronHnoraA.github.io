@@ -1,14 +1,13 @@
 /*
  * world/index.js — assembles the world, motion, reading states and flight HUD.
- * Copyright (c) 2026 Chang He. MIT (see /LICENSE).
  */
 
 import * as THREE from 'three';
 import { animate, createDraggable, createTimeline, spring, utils } from 'anime';
-import { makeLoop, PANELS } from './curve.js';
+import { makeLoop } from './curve.js';
 import { buildCircuit, PAPER } from './circuit.js';
 import { buildFlight } from './flight.js';
-import { buildPanels } from './panels.js';
+import { buildPanels, collectPanelStations } from './panels.js';
 import { makeRig, MODE } from './rig.js';
 import { ensureMathStyles } from './math.js';
 
@@ -17,6 +16,7 @@ const FLOW_SPEED = 0.0105;
 function buildFlightUI(host, loop, stations, actions, { still = false } = {}) {
   const hud = document.createElement('div');
   hud.className = 'flight-hud';
+  hud.classList.toggle('has-dense-route', stations.length > 6);
   hud.setAttribute('role', 'group');
   hud.setAttribute('aria-label', 'World navigation controls');
   hud.innerHTML = `
@@ -53,9 +53,7 @@ function buildFlightUI(host, loop, stations, actions, { still = false } = {}) {
 
   const stationButtons = new Map();
   for (const station of stations) {
-    const label = station.id === 'home'
-      ? 'Home'
-      : station.id.charAt(0).toUpperCase() + station.id.slice(1);
+    const label = station.label;
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'route-station';
@@ -242,6 +240,8 @@ function buildFlightUI(host, loop, stations, actions, { still = false } = {}) {
 
 export function mountWorld(host, opts = {}) {
   ensureMathStyles();
+  const stations = collectPanelStations(host);
+  if (!stations.length) return null;
   const canvas = document.createElement('canvas');
   canvas.className = 'world-gl';
 
@@ -280,7 +280,7 @@ export function mountWorld(host, opts = {}) {
   scene.add(circuit.group, flight.group);
 
   const cssScene = new THREE.Scene();
-  const panels = buildPanels(loop, cssScene, host, circuit, flight);
+  const panels = buildPanels(loop, cssScene, host, circuit, flight, stations);
   const rig = makeRig(loop, camera);
 
   let ui;
@@ -341,7 +341,7 @@ export function mountWorld(host, opts = {}) {
     rig.setPaused(paused);
   }
 
-  ui = buildFlightUI(host, loop, PANELS, {
+  ui = buildFlightUI(host, loop, stations, {
     focus: (id) => focusPanel(panels.byId(id)),
     pause: setPaused,
     follow: () => {

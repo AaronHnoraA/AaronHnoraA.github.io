@@ -1,7 +1,5 @@
 /*
  * curve.js — one continuous closed frame for the whole circuit.
- * Copyright (c) 2026 Chang He. MIT (see /LICENSE).
- *
  * The first version exposed the nearest one of a finite set of frame samples.
  * At cruise speed that left the camera frozen for several display frames and
  * then moved it in one visible step. The samples below are now only control
@@ -24,16 +22,6 @@ export const GATES = {
   measure: 0.75,
   classical: 0.84,
 };
-
-/* Each station owns a camera composition as well as a position on the loop.
- * Keeping the shot data beside the station makes navigation deterministic. */
-export const PANELS = [
-  { id: 'home',     t: 0.035, shot: { side: 1, lift: 0.20 } },
-  { id: 'research', t: 0.255, shot: { side: 1, lift: 0.45 } },
-  { id: 'cv',       t: 0.505, shot: { side: 1, lift: 0.25 } },
-  { id: 'links',    t: 0.705, shot: { side: 1, lift: 0.40 } },
-  { id: 'credits',  t: 0.895, shot: { side: 1, lift: 0.30 } },
-];
 
 /* A broad asymmetric double-lobed orbit. The apparent crossing is separated
  * vertically, so the circuit reads as one object without becoming a knot. */

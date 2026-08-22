@@ -33,7 +33,6 @@
       <a href="#research">Research</a>
       <a href="#cv">CV</a>
       <a href="#links">Links</a>
-      <a href="#credits">Credits</a>
     </nav>
     <a class="view-toggle" href="./" data-view-toggle>Enter 3D</a>
   </div>
@@ -41,8 +40,18 @@
 
 <main id="main" class="world" data-world>
 
+  <!-- Content maintenance:
+       - Every direct section.panel with a unique id is automatically a flat
+         section, a 3D card and a bottom route node.
+       - data-world-label names the compact route node.
+       - data-world-t (0..1), data-world-lift and data-world-side are optional
+         composition controls. Without data-world-t, the card uses the largest
+         free arc.
+       - Add a top-nav link separately only for permanent primary sections. -->
+
   <!-- ============================================================= home -->
-  <section id="home" class="panel panel-lead" aria-labelledby="home-heading">
+  <section id="home" class="panel panel-lead" aria-labelledby="home-heading"
+           data-world-label="Home" data-world-t="0.035" data-world-lift="0.20">
     <div class="panel-preview">
       <p class="eyebrow">Undergraduate · UNSW Sydney</p>
       <h1 id="home-heading">Chang He <em>(Aaron)</em></h1>
@@ -52,185 +61,82 @@
       </p>
     </div>
     <div class="panel-detail">
-    <!-- TODO(aaron): confirm the degree programme and year. The previous site
-         said "mathematics undergraduate"; adjust if that is still accurate. -->
-    <p>
-      Research with <a href="https://sites.google.com/site/jimmyqiao86/" rel="noopener">Youming Qiao</a>
-      at UTS. This site is a small spatial sketch around the questions I work on.
-    </p>
-    <p class="panel-hint">Explore the world · choose a station to read · Esc to return</p>
+      <p>
+        Research with <a href="https://sites.google.com/site/jimmyqiao86/" rel="noopener">Youming Qiao</a>
+        at UTS.
+      </p>
     </div>
   </section>
 
   <!-- ========================================================= research -->
-  <section id="research" class="panel" aria-labelledby="research-heading">
+  <section id="research" class="panel" aria-labelledby="research-heading"
+           data-world-label="Research" data-world-t="0.255" data-world-lift="0.45">
     <div class="panel-preview">
       <p class="eyebrow">Research</p>
       <h2 id="research-heading">Lines of inquiry</h2>
       <p class="panel-summary">Quantum algorithms · complexity · algebra</p>
     </div>
     <div class="panel-detail">
+      <h3>Quantum algorithms</h3>
+      <p>
+        Period finding and the hidden subgroup problem; what the quantum Fourier
+        transform actually exploits, and where the same trick stops working.
+      </p>
 
-    <h3>Quantum algorithms</h3>
-    <p>
-      Period finding and the hidden subgroup problem; what the quantum Fourier
-      transform actually exploits, and where the same trick stops working.
-    </p>
+      <h3>Theoretical computer science</h3>
+      <p>Complexity of isomorphism and equivalence problems, and the reductions between them.</p>
 
-    <h3>Theoretical computer science</h3>
-    <p>Complexity of isomorphism and equivalence problems, and the reductions between them.</p>
-
-    <h3>Algebra</h3>
-    <p>Group and tensor problems as a source of both algorithms and hardness.</p>
-
-    <h3>Publications &amp; preprints</h3>
-    <!-- TODO(aaron): replace with the real entry — title, full author list in
-         order, venue or arXiv id, and a link. -->
-    <p class="entry-note">
-      <strong>Title to come</strong> <span class="tag">in preparation</span><br>
-      Co-authored work with my supervisor's group; details posted once the
-      preprint is public.
-    </p>
+      <h3>Algebra</h3>
+      <p>Group and tensor problems as a source of both algorithms and hardness.</p>
     </div>
   </section>
 
   <!-- =============================================================== cv -->
-  <section id="cv" class="panel" aria-labelledby="cv-heading">
+  <section id="cv" class="panel" aria-labelledby="cv-heading"
+           data-world-label="CV" data-world-t="0.505" data-world-lift="0.25">
     <div class="panel-preview">
       <p class="eyebrow">Curriculum vitae</p>
       <h2 id="cv-heading">CV</h2>
       <p class="panel-summary">Study, research, contact and code.</p>
     </div>
     <div class="panel-detail">
-    <!-- TODO(aaron): fill in the fields marked "to confirm", and decide how
-         much belongs on a public page (grades are deliberately left out). -->
-    <dl class="facts">
-      <div><dt>Programme</dt><dd>Undergraduate, UNSW Sydney <span class="entry-note">— degree and year to confirm</span></dd></div>
-      <div><dt>Research</dt><dd>Quantum computing, theoretical computer science, algebra</dd></div>
-      <div><dt>Supervisor</dt><dd><a href="https://sites.google.com/site/jimmyqiao86/" rel="noopener">Youming Qiao</a>, UTS</dd></div>
-      <div><dt>Contact</dt><dd><a href="#" data-contact-link>Email</a></dd></div>
-      <div><dt>Code</dt><dd><a href="https://github.com/AaronHnoraA" rel="noopener me">github.com/AaronHnoraA</a></dd></div>
-    </dl>
-    <p><a class="button" href="CV/Aaron_He_CV.pdf">Download PDF</a></p>
+      <dl class="facts">
+        <div><dt>Programme</dt><dd>Undergraduate, UNSW Sydney</dd></div>
+        <div><dt>Research</dt><dd>Quantum computing, theoretical computer science, algebra</dd></div>
+        <div><dt>Supervisor</dt><dd><a href="https://sites.google.com/site/jimmyqiao86/" rel="noopener">Youming Qiao</a>, UTS</dd></div>
+        <div><dt>Contact</dt><dd><a href="#" data-contact-link>Email</a></dd></div>
+        <div><dt>Code</dt><dd><a href="https://github.com/AaronHnoraA" rel="noopener me">github.com/AaronHnoraA</a></dd></div>
+      </dl>
+      <p><a class="button" href="CV/Aaron_He_CV.pdf">Download PDF</a></p>
     </div>
   </section>
 
   <!-- ============================================================ links -->
-  <section id="links" class="panel" aria-labelledby="links-heading">
+  <section id="links" class="panel" aria-labelledby="links-heading"
+           data-world-label="Links" data-world-t="0.705" data-world-lift="0.40">
     <div class="panel-preview">
       <p class="eyebrow">Links</p>
       <h2 id="links-heading">Elsewhere</h2>
       <p class="panel-summary">Notes, code and collaborators.</p>
     </div>
     <div class="panel-detail">
-    <ul class="link-list">
-      <li>
-        <a href="https://wiki.pwo101.top/wiki" rel="noopener">Wiki</a>
-        <span>Working notes and write-ups — the long-form material lives there.</span>
-      </li>
-      <li>
-        <a href="https://github.com/AaronHnoraA" rel="noopener me">GitHub</a>
-        <span>Editor configuration, tooling, experiments.</span>
-      </li>
-      <li>
-        <a href="https://sites.google.com/site/jimmyqiao86/" rel="noopener">Youming Qiao</a>
-        <span>My supervisor — quantum computing and TCS, UTS.</span>
-      </li>
-    </ul>
-    <!-- TODO(aaron): add friends' and colleagues' homepages here. -->
-    </div>
-  </section>
-
-  <!-- ========================================================== credits -->
-  <section id="credits" class="panel" aria-labelledby="credits-heading">
-    <div class="panel-preview">
-      <p class="eyebrow">Colophon</p>
-      <h2 id="credits-heading">Credits &amp; licences</h2>
-      <p class="panel-summary">How the world and page were made.</p>
-    </div>
-    <div class="panel-detail">
-
-    <h3>This site</h3>
-    <p>
-      Code — the HTML, CSS, JavaScript and SVG written for this site — is MIT,
-      <a href="LICENSE">see LICENSE</a>. Text, the CV and images are
-      © <span data-year>2026</span> Chang He, all rights reserved.
-      <!-- To open the writing up, replace the previous clause with a Creative
-           Commons grant. This is the only place the content licence is stated. -->
-    </p>
-
-    <h3>Software this page ships</h3>
-    <p>
-      All three are vendored rather than loaded from a CDN, so the page calls no
-      third-party host, and each keeps its licence file intact.
-    </p>
-    <ul class="link-list">
-      <li>
-        <a href="https://threejs.org/" rel="noopener">three.js</a> 0.185.1 — MIT
-        <span>Renderer and scene graph, plus its CSS3DRenderer addon, which is
-        what puts these panels into the world as real HTML.
-        <a href="vendor/three/LICENSE">Licence</a>.</span>
-      </li>
-      <li>
-        <a href="https://animejs.com/" rel="noopener">anime.js</a> 4.5.0 — MIT
-        <span>Julian Garnier. Drives the interface transitions.
-        <a href="vendor/anime/LICENSE.md">Licence</a>.</span>
-      </li>
-      <li>
-        <a href="https://katex.org/" rel="noopener">KaTeX</a> 0.18.1 — MIT
-        <span>Typesets the circuit, gate and qubit expressions shown only in
-        the 3D world. It and its mathematics fonts are self-hosted.
-        <a href="vendor/katex/LICENSE">Licence</a>.</span>
-      </li>
-      <li>
-        Interface typefaces — none shipped
-        <span>Page typography falls back through fonts already on your machine.</span>
-      </li>
-    </ul>
-
-    <h3>What inspired the animation</h3>
-    <p>
-      The feel of the flight — a slow pass through a sparse field, seen from
-      something moving through it, with objects trailing ribbons — was inspired
-      by <a href="https://paperplanes.world/" rel="noopener">Paper Planes</a>,
-      made by <a href="https://activetheory.net/" rel="noopener">Active Theory</a>
-      for Google in 2016. <strong>No code, assets, geometry, shaders or textures
-      from that project are used here.</strong> Everything was written from
-      scratch, and the subject matter and interaction are different in the
-      first place. The acknowledgement is here because credit for an idea is
-      owed even when nothing is copied.
-    </p>
-
-    <h3>Visual note</h3>
-    <p class="entry-note">
-      The motion is informed by standard quantum-circuit notation and by
-      <a href="https://arxiv.org/abs/quant-ph/9508027" rel="noopener">Shor's
-      original algorithm paper</a>; it is an authored visual system, not a live
-      quantum-computing service.
-    </p>
-
-    <h3>If the flight is not running</h3>
-    <p>
-      Animation stops when the tab is hidden. Reduced-motion keeps the 3D
-      composition as a still frame; missing JavaScript or WebGL leaves this
-      complete document instead. You can always switch views from the top bar,
-      or force the document with <a href="?flat=1"><code>?flat=1</code></a>.
-    </p>
+      <ul class="link-list">
+        <li>
+          <a href="https://wiki.pwo101.top/wiki" rel="noopener">Wiki</a>
+          <span>Working notes and write-ups — the long-form material lives there.</span>
+        </li>
+        <li>
+          <a href="https://github.com/AaronHnoraA" rel="noopener me">GitHub</a>
+          <span>Code and research projects.</span>
+        </li>
+        <li>
+          <a href="https://sites.google.com/site/jimmyqiao86/" rel="noopener">Youming Qiao</a>
+          <span>My supervisor — quantum computing and TCS, UTS.</span>
+        </li>
+      </ul>
     </div>
   </section>
 
 </main>
-
-<footer class="colophon">
-  <p>© <span data-year>2026</span> Chang He</p>
-  <p><a href="#credits">Credits &amp; licences</a></p>
-</footer>
-
-<noscript>
-  <p class="noscript-note">
-    This page is a document first and a 3D scene second — everything above is
-    readable without JavaScript.
-  </p>
-</noscript>
 </body>
 </html>
