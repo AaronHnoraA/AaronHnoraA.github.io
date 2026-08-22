@@ -67,6 +67,47 @@ export const PRECOMPUTED_STAGES = Object.freeze([
   }),
 ]);
 
+/* The 3D-only playback ledger. These strings are authored alongside the
+ * descriptor table, so the HUD describes the same fixed computation that the
+ * Bloch displays enact. Nothing here is injected into the flat document. */
+const step = (id, t, marker, title, formula, qubits) => Object.freeze({
+  id, t, marker, title, formula, qubits: Object.freeze(qubits),
+});
+const tex = String.raw;
+
+export const SHOR_STEPS = Object.freeze([
+  step('prepare', 0.000, '0', 'Prepare',
+    tex`\lvert\psi_0\rangle=\lvert0000\rangle\lvert1\rangle`,
+    [tex`\lvert0\rangle`, tex`\lvert0\rangle`, tex`\lvert0\rangle`, tex`\lvert0\rangle`]),
+  step('hadamard', 0.090, 'H', 'Superposition',
+    tex`H^{\otimes4}\lvert0000\rangle=\frac14\sum_{x=0}^{15}\lvert x\rangle`,
+    [tex`\lvert+\rangle`, tex`\lvert+\rangle`, tex`\lvert+\rangle`, tex`\lvert+\rangle`]),
+  step('cu1', 0.210, 'U¹', 'Controlled U¹',
+    tex`C\!U^1:\lvert b\rangle\lvert y\rangle\mapsto\lvert b\rangle\lvert2^b y\bmod15\rangle`,
+    [tex`\rho_0(.35)`, tex`\lvert+\rangle`, tex`\lvert+\rangle`, tex`\lvert+\rangle`]),
+  step('cu2', 0.290, 'U²', 'Controlled U²',
+    tex`C\!U^2:\lvert b\rangle\lvert y\rangle\mapsto\lvert b\rangle\lvert4^b y\bmod15\rangle`,
+    [tex`\rho_0(.35)`, tex`\rho_1(1.10)`, tex`\lvert+\rangle`, tex`\lvert+\rangle`]),
+  step('cu4', 0.370, 'U⁴', 'Controlled U⁴',
+    tex`2^4\equiv1\pmod{15}\;\Longrightarrow\;C\!U^4=I`,
+    [tex`\rho_0(.35)`, tex`\rho_1(1.10)`, tex`\rho_2(1.90)`, tex`\lvert+\rangle`]),
+  step('cu8', 0.450, 'U⁸', 'Controlled U⁸',
+    tex`2^8\equiv1\pmod{15}\;\Longrightarrow\;C\!U^8=I`,
+    [tex`\rho_0(.35)`, tex`\rho_1(1.10)`, tex`\rho_2(1.90)`, tex`\rho_3(2.65)`]),
+  step('periodic', 0.535, 'f(x)', 'Period encoded',
+    tex`\lvert\psi\rangle=\frac14\sum_{x=0}^{15}\lvert x\rangle\lvert2^x\bmod15\rangle`,
+    [tex`\rho_0(.55)`, tex`\rho_1(1.35)`, tex`\rho_2(2.15)`, tex`\rho_3(2.95)`]),
+  step('iqft', 0.595, 'QFT†', 'Inverse Fourier transform',
+    tex`\operatorname{QFT}_{16}^{\dagger}\lvert\psi_c\rangle\;\leadsto\;y\in\{0,4,8,12\}`,
+    [tex`\lvert+\rangle`, tex`\lvert-\rangle`, tex`\lvert q(.72\pi,\pi/2)\rangle`, tex`\lvert-i\rangle`]),
+  step('measure', 0.750, 'M', 'Measurement',
+    tex`P(y)=\frac14,\qquad y\in\{0,4,8,12\}`,
+    [tex`\lvert0\rangle`, tex`\lvert0\rangle`, tex`\lvert1\rangle`, tex`\lvert0\rangle`]),
+  step('factors', 0.925, '3·5', 'Classical factors',
+    tex`\gcd(2^2\!\pm1,15)=\{3,5\}`,
+    [tex`\lvert0\rangle`, tex`\lvert0\rangle`, tex`\lvert1\rangle`, tex`\lvert0\rangle`]),
+]);
+
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const ease = (x) => {
   const t = clamp01(x);

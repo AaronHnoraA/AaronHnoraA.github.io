@@ -26,7 +26,7 @@ jobs:
         run: |
           missing=0
           # The vendored licences are checked too: publishing three.js or
-          # anime.js without them would breach their terms.
+          # anime.js or KaTeX without them would breach their terms.
           for f in \
             index.html \
             assets/css/site.css assets/js/site.js \
@@ -34,10 +34,12 @@ jobs:
             assets/js/world/circuit.js assets/js/world/flight.js \
             assets/js/world/rig.js assets/js/world/panels.js \
             assets/js/world/states.js \
-            assets/js/world/css3d.js \
+            assets/js/world/css3d.js assets/js/world/math.js \
             vendor/three/three.module.min.js vendor/three/three.core.min.js \
             vendor/three/CSS3DRenderer.js vendor/three/LICENSE \
             vendor/anime/anime.esm.min.js vendor/anime/LICENSE.md \
+            vendor/katex/katex.mjs vendor/katex/katex.min.css \
+            vendor/katex/LICENSE vendor/katex/fonts/KaTeX_Main-Regular.woff2 \
             LICENSE
           do
             if [ ! -f "$f" ]; then

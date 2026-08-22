@@ -290,7 +290,6 @@ ul.link-list span { display: block; font-size: 0.88rem; color: var(--ink-soft); 
 }
 html:not(.is-world) .panel-hint { display: none; }
 
-.panel-close { display: none; }
 
 .noscript-note {
   max-width: 58rem;
@@ -403,27 +402,28 @@ html.is-world .panel.is-focused .panel-preview {
 html.is-world .panel.is-focused .panel-detail { display: block; }
 html.is-world .panel-hint { display: none; }
 
-html.is-world .panel-close {
-  display: inline-flex;
-  align-items: center;
-  position: sticky;
-  top: 0;
-  z-index: 3;
-  float: right;
-  margin: 0 0 0.65rem 1rem;
-  padding: 0.45rem 0.1rem;
-  border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--accent) 44%, transparent);
-  color: var(--accent);
-  background: transparent;
-  font: 500 0.7rem/1 var(--sans);
+html.is-world .gate-label {
+  min-width: 138px;
+  padding: 0.48rem 0.62rem 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--rule));
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--paper-raised) 84%, transparent);
+  box-shadow: 0 10px 32px rgba(27, 26, 23, 0.09);
+  backdrop-filter: blur(7px);
+  color: var(--ink);
+  pointer-events: none;
+  transition: opacity 120ms linear;
+}
+.gate-label-name {
+  display: block;
+  margin-bottom: 0.22rem;
+  color: var(--ink-faint);
+  font: 600 0.54rem/1.1 var(--sans);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  cursor: pointer;
-  backdrop-filter: blur(5px);
 }
-html.is-world .panel-close::before { content: '←'; margin-right: 0.55rem; }
-html.is-world .panel-close:hover { color: var(--ink); border-color: var(--ink); }
+.gate-label-math { display: block; color: var(--accent); }
+.gate-label-math .katex { font-size: 1em; }
 
 /* --------------------------------------------------------- flight controls */
 
@@ -433,17 +433,14 @@ html.is-world .panel-close:hover { color: var(--ink); border-color: var(--ink); 
   right: 0;
   bottom: 0.78rem;
   z-index: 60;
-  width: min(34rem, calc(100vw - 18rem));
-  min-width: 28rem;
-  height: 2.6rem;
+  width: min(62rem, calc(100vw - 8rem));
+  min-width: 48rem;
   margin-inline: auto;
   display: grid;
-  grid-template-columns: 2.15rem 2.15rem minmax(12rem, 1fr);
-  align-items: center;
-  gap: 0.66rem;
-  padding: 0.28rem 0.75rem 0.28rem 0.32rem;
+  gap: 0.42rem;
+  padding: 0.5rem 0.78rem 0.46rem;
   border: 1px solid color-mix(in srgb, var(--rule-strong) 70%, transparent);
-  border-radius: 999px;
+  border-radius: 15px;
   background: color-mix(in srgb, var(--paper-raised) 78%, transparent);
   backdrop-filter: blur(12px);
   box-shadow: 0 8px 30px rgba(27, 26, 23, 0.09);
@@ -452,6 +449,69 @@ html.is-world .panel-close:hover { color: var(--ink); border-color: var(--ink); 
   transition: background 260ms ease, border-color 260ms ease;
 }
 .flight-hud.is-scrubbing { background: color-mix(in srgb, var(--paper-raised) 94%, transparent); }
+
+.quantum-readout {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 4.4rem 11.5rem minmax(15rem, 1fr) auto;
+  align-items: center;
+  gap: 0.45rem 0.8rem;
+  padding: 0 0.12rem 0.45rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--rule) 82%, transparent);
+  color: var(--ink-soft);
+}
+.quantum-step-count {
+  color: var(--ink-faint);
+  font: 600 0.58rem/1 var(--mono);
+  letter-spacing: 0.08em;
+}
+.quantum-step-name {
+  overflow: hidden;
+  color: var(--accent);
+  font: 600 0.68rem/1.2 var(--sans);
+  letter-spacing: 0.06em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.quantum-formula,
+.qubit-expression {
+  min-width: 0;
+  color: var(--ink);
+  font-style: normal;
+  white-space: nowrap;
+}
+.quantum-formula {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.quantum-formula .katex { font-size: 0.92em; }
+.qubit-expression {
+  display: flex;
+  gap: 0.42rem;
+  color: var(--ink-soft);
+}
+.qubit-state {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.18rem;
+  padding: 0.16rem 0.3rem;
+  border: 1px solid color-mix(in srgb, var(--rule) 84%, transparent);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--paper) 74%, transparent);
+}
+.qubit-state b {
+  color: var(--ink-faint);
+  font: 600 0.52rem/1 var(--mono);
+}
+.qubit-state .katex { font-size: 0.72em; }
+
+.flight-transport {
+  display: grid;
+  grid-template-columns: 2.15rem 2.15rem minmax(12rem, 1fr);
+  align-items: center;
+  gap: 0.66rem;
+}
 
 .motion-toggle,
 .follow-toggle {
@@ -473,10 +533,10 @@ html.is-world .panel-close:hover { color: var(--ink); border-color: var(--ink); 
 }
 .follow-toggle:disabled { cursor: default; }
 
-.route-control { position: relative; height: 2rem; }
+.route-control { position: relative; height: 2.15rem; }
 .route-track {
   position: absolute;
-  inset: 50% 0 auto;
+  inset: 40% 0 auto;
   height: 1px;
   background: var(--rule-strong);
 }
@@ -509,27 +569,45 @@ html.is-world .panel-close:hover { color: var(--ink); border-color: var(--ink); 
 .route-station {
   position: absolute;
   left: calc(var(--station) * 100%);
-  top: 50%;
-  width: 0.52rem;
-  height: 0.52rem;
+  top: 40%;
+  width: 2.2rem;
+  height: 1.85rem;
   padding: 0;
   transform: translate(-50%, -50%);
-  border: 1px solid var(--ink-faint);
-  border-radius: 50%;
-  background: var(--paper-raised);
+  border: 0;
+  background: transparent;
+  color: var(--ink-faint);
   cursor: pointer;
   pointer-events: auto;
   z-index: 1;
-  transition: transform 180ms ease, background 180ms ease, border-color 180ms ease;
+  transition: color 180ms ease;
+}
+.route-station::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0.48rem;
+  height: 0.48rem;
+  transform: translate(-50%, -50%);
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  background: var(--paper-raised);
+  transition: transform 180ms ease, background 180ms ease;
+}
+.route-station span {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 0.48rem);
+  transform: translateX(-50%);
+  font: 600 0.52rem/1 var(--mono);
+  white-space: nowrap;
 }
 .route-station:hover,
-.route-station.is-current {
-  transform: translate(-50%, -50%) scale(1.45);
-  border-color: var(--accent);
-}
-.route-station:hover { background: var(--accent); }
-.route-station.is-current {
-  background: var(--paper-raised);
+.route-station.is-current { color: var(--accent); }
+.route-station:hover::before { background: var(--accent); }
+.route-station.is-current::before {
+  transform: translate(-50%, -50%) scale(1.42);
   box-shadow: 0 0 0 1px var(--accent);
 }
 .flight-hud.is-reading .route-control,
@@ -542,9 +620,14 @@ html.is-world .noscript-note { display: none; }
 
 @media (max-width: 68rem) {
   .flight-hud {
-    width: min(29rem, calc(100vw - 10rem));
-    min-width: 24rem;
-    grid-template-columns: 2.15rem 2.15rem 1fr;
+    width: calc(100vw - 4rem);
+    min-width: 0;
+  }
+  .quantum-readout {
+    grid-template-columns: 4rem 10.5rem minmax(12rem, 1fr);
+  }
+  .qubit-expression {
+    grid-column: 2 / -1;
   }
   html.is-world .panel { width: 420px; }
   html.is-world .panel.is-focused { width: 520px; }
@@ -570,13 +653,56 @@ html.is-world .noscript-note { display: none; }
   .flight-hud {
     width: calc(100vw - 1rem);
     min-width: 0;
+    gap: 0.36rem;
+    padding: 0.45rem 0.55rem 0.42rem;
+  }
+  .quantum-readout {
+    grid-template-columns: 3.4rem minmax(0, 1fr);
+    gap: 0.32rem 0.55rem;
+  }
+  .quantum-formula,
+  .qubit-expression { grid-column: 1 / -1; }
+  .quantum-formula .katex { font-size: 0.76em; }
+  .qubit-expression {
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .qubit-expression::-webkit-scrollbar { display: none; }
+  .flight-transport {
     grid-template-columns: 2.15rem 2.15rem minmax(0, 1fr);
     gap: 0.55rem;
   }
+  .route-station span { display: none; }
+  .route-station.is-current span { display: block; }
   html.is-world .panel,
   html.is-world .panel.is-focused { width: 360px; }
   html.is-world .panel.is-focused { max-height: min(72vh, 560px); }
   html.is-world .colophon { display: none; }
+}
+
+@media (max-width: 30rem) {
+  .masthead-inner {
+    gap: 0.42rem;
+    padding: 0.62rem 0.55rem;
+  }
+  .masthead-name { font-size: 0.94rem; }
+  .masthead-nav {
+    gap: 0.68rem;
+    font-size: 0.68rem;
+    letter-spacing: 0.035em;
+  }
+  .view-toggle {
+    padding: 0.3rem 0.48rem;
+    font-size: 0.56rem;
+    letter-spacing: 0.05em;
+  }
+  .view-toggle { font-size: 0; }
+  .view-toggle::after {
+    content: attr(data-short-label);
+    font: 600 0.58rem/1 var(--sans);
+    letter-spacing: 0.05em;
+  }
 }
 
 /* --------------------------------------------------------------- motion */

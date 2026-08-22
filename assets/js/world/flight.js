@@ -22,6 +22,8 @@ const EPS = 0.00034;
 const NEAR_FADE = [3.6, 6.4];
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 const Z_AXIS = new THREE.Vector3(0, 0, 1);
+const PHASE = new THREE.Color('#6757a6');
+const PHASE_ARC = Math.PI * 1.48;
 
 const smoothstep = (a, b, x) => {
   const t = THREE.MathUtils.clamp((x - a) / (b - a), 0, 1);
@@ -34,12 +36,57 @@ function chordsAt(t) {
     * (1 - smoothstep(end - 0.015, end + 0.025, t));
 }
 
+function makeBlochGeometry(radius = 0.315, segments = 48) {
+  const positions = [];
+  const point = (plane, angle) => {
+    const a = Math.cos(angle) * radius;
+    const b = Math.sin(angle) * radius;
+    if (plane === 0) return [a, b, 0];
+    if (plane === 1) return [a, 0, b];
+    return [0, a, b];
+  };
+  for (let plane = 0; plane < 3; plane++) {
+    for (let i = 0; i < segments; i++) {
+      positions.push(...point(plane, TAU * i / segments));
+      positions.push(...point(plane, TAU * (i + 1) / segments));
+    }
+  }
+  const reach = radius * 1.14;
+  positions.push(-reach, 0, 0, reach, 0, 0);
+  positions.push(0, -reach, 0, 0, reach, 0);
+  positions.push(0, 0, -reach, 0, 0, reach);
+  return new THREE.BufferGeometry().setAttribute(
+    'position',
+    new THREE.Float32BufferAttribute(positions, 3),
+  );
+}
+
+function makeStateVectorGeometry(length = 0.30) {
+  const wing = 0.052;
+  const neck = length - 0.072;
+  return new THREE.BufferGeometry().setAttribute(
+    'position',
+    new THREE.Float32BufferAttribute([
+      0, 0, 0, 0, length, 0,
+      0, length, 0, wing, neck, 0,
+      0, length, 0, -wing, neck, 0,
+      0, length, 0, 0, neck, wing,
+      0, length, 0, 0, neck, -wing,
+    ], 3),
+  );
+}
+
 export function buildFlight(loop, { registry }) {
   const group = new THREE.Group();
-  const coreGeometry = new THREE.IcosahedronGeometry(0.225, 1);
-  const shellGeometry = new THREE.IcosahedronGeometry(0.292, 1);
-  const ringGeometry = new THREE.TorusGeometry(0.307, 0.0065, 5, 46);
-  const axisGeometry = new THREE.CylinderGeometry(0.007, 0.007, 1, 5);
+  const coreGeometry = new THREE.IcosahedronGeometry(0.125, 2);
+  const cageGeometry = makeBlochGeometry();
+  const vectorGeometry = makeStateVectorGeometry();
+  const phaseArcGeometry = new THREE.TorusGeometry(0.338, 0.005, 4, 52, PHASE_ARC);
+  const phaseMarkerGeometry = new THREE.ConeGeometry(0.026, 0.07, 4);
+  const poleGeometry = new THREE.BufferGeometry().setAttribute(
+    'position',
+    new THREE.Float32BufferAttribute([0, -0.315, 0, 0, 0.315, 0], 3),
+  );
 
   function standardMaterial(color, opacity, extra = {}) {
     const material = new THREE.MeshStandardMaterial({
@@ -68,32 +115,78 @@ export function buildFlight(loop, { registry }) {
     return material;
   }
 
+  function lineMaterial(color, opacity) {
+    const material = new THREE.LineBasicMaterial({
+      color,
+      transparent: true,
+      opacity,
+      depthWrite: false,
+      fog: true,
+    });
+    registry.push({ m: material, base: opacity });
+    return material;
+  }
+
+  function pointsMaterial(color, opacity, size) {
+    const material = new THREE.PointsMaterial({
+      color,
+      transparent: true,
+      opacity,
+      size,
+      sizeAttenuation: true,
+      depthWrite: false,
+      fog: true,
+    });
+    registry.push({ m: material, base: opacity });
+    return material;
+  }
+
   function makeQubit(color, alpha, scale) {
     const root = new THREE.Group();
     root.scale.setScalar(scale);
     root.frustumCulled = false;
 
-    const coreMaterial = standardMaterial(color, 0.76 * alpha);
-    const shellMaterial = basicMaterial(color.clone().lerp(PAPER, 0.35), 0.10 * alpha, {
-      wireframe: true,
+    const coreMaterial = standardMaterial(color, 0.52 * alpha, {
+      emissive: color,
+      emissiveIntensity: 0.16,
+      roughness: 0.42,
     });
-    const ringMaterial = basicMaterial(color.clone().lerp(PAPER, 0.08), 0.38 * alpha);
-    const axisMaterial = basicMaterial(INK.clone().lerp(color, 0.22), 0.54 * alpha);
+    const cageMaterial = lineMaterial(color.clone().lerp(PAPER, 0.18), 0.40 * alpha);
+    const vectorMaterial = lineMaterial(INK.clone().lerp(color, 0.44), 0.82 * alpha);
+    const phaseMaterial = basicMaterial(PHASE.clone().lerp(color, 0.22), 0.48 * alpha);
+    const poleMaterial = pointsMaterial(INK.clone().lerp(color, 0.30), 0.62 * alpha, 0.038);
+    const ghostMaterial = pointsMaterial(PHASE.clone().lerp(PAPER, 0.12), 0.36 * alpha, 0.082);
 
     const core = new THREE.Mesh(coreGeometry, coreMaterial);
-    const shell = new THREE.Mesh(shellGeometry, shellMaterial);
-    const ring = new THREE.Mesh(ringGeometry, ringMaterial);
-    const axis = new THREE.Mesh(axisGeometry, axisMaterial);
-    root.add(shell, core, ring, axis);
+    const cage = new THREE.LineSegments(cageGeometry, cageMaterial);
+    const vector = new THREE.LineSegments(vectorGeometry, vectorMaterial);
+    const phaseFrame = new THREE.Group();
+    const phaseSweep = new THREE.Group();
+    const phaseArc = new THREE.Mesh(phaseArcGeometry, phaseMaterial);
+    const phaseMarker = new THREE.Mesh(phaseMarkerGeometry, phaseMaterial);
+    phaseMarker.position.set(Math.cos(PHASE_ARC) * 0.338, Math.sin(PHASE_ARC) * 0.338, 0);
+    phaseMarker.rotation.z = PHASE_ARC;
+    const poles = new THREE.Points(poleGeometry, poleMaterial);
+    const ghostGeometry = new THREE.BufferGeometry().setAttribute(
+      'position',
+      new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, 0], 3),
+    );
+    const ghosts = new THREE.Points(ghostGeometry, ghostMaterial);
+    phaseSweep.add(phaseArc, phaseMarker);
+    phaseFrame.add(phaseSweep);
+    root.add(cage, poles, ghosts, core, vector, phaseFrame);
 
     return {
       root,
       core,
-      shell,
-      ring,
-      axis,
-      materials: [coreMaterial, shellMaterial, ringMaterial, axisMaterial],
-      bases: [0.76 * alpha, 0.10 * alpha, 0.38 * alpha, 0.54 * alpha],
+      cage,
+      vector,
+      phaseFrame,
+      phaseSweep,
+      phaseArc,
+      ghosts,
+      materials: [coreMaterial, cageMaterial, vectorMaterial, phaseMaterial, poleMaterial, ghostMaterial],
+      bases: [0.52 * alpha, 0.40 * alpha, 0.82 * alpha, 0.48 * alpha, 0.62 * alpha, 0.36 * alpha],
       baseColor: color.clone(),
     };
   }
@@ -222,20 +315,31 @@ export function buildFlight(loop, { registry }) {
       Math.sin(descriptor.theta) * Math.sin(descriptor.phi),
     ).normalize();
 
-    const axisLength = 0.22 * (0.28 + 0.72 * descriptor.purity);
-    flyer.visual.axis.position.copy(_direction).multiplyScalar(axisLength * 0.5);
-    flyer.visual.axis.scale.set(1, axisLength, 1);
-    flyer.visual.axis.quaternion.setFromUnitVectors(Y_AXIS, _direction);
-    _stateQuaternion.setFromUnitVectors(Z_AXIS, _direction);
-    flyer.visual.ring.quaternion.slerp(
+    const vectorScale = 0.46 + 0.54 * descriptor.purity;
+    _stateQuaternion.setFromUnitVectors(Y_AXIS, _direction);
+    flyer.visual.vector.quaternion.slerp(
       _stateQuaternion,
-      dt <= 0 ? 1 : 1 - Math.exp(-3.8 * Math.min(dt, 0.05)),
+      dt <= 0 ? 1 : 1 - Math.exp(-4.2 * Math.min(dt, 0.05)),
     );
-    flyer.visual.shell.scale.setScalar(0.96 + descriptor.split * 0.075);
-    flyer.visual.core.material.opacity *= 0.86 + 0.14 * descriptor.purity;
-    flyer.visual.shell.material.opacity *= 0.58 + 0.42 * descriptor.split;
-    flyer.visual.ring.material.opacity *= 0.70 + 0.30 * descriptor.purity;
-    flyer.visual.axis.material.opacity *= 0.20 + 0.80 * descriptor.purity;
+    flyer.visual.vector.scale.setScalar(vectorScale);
+    _stateQuaternion.setFromUnitVectors(Z_AXIS, _direction);
+    flyer.visual.phaseFrame.quaternion.slerp(
+      _stateQuaternion,
+      dt <= 0 ? 1 : 1 - Math.exp(-3.4 * Math.min(dt, 0.05)),
+    );
+    flyer.visual.phaseSweep.rotation.z = -descriptor.phi;
+    flyer.visual.core.scale.setScalar(0.76 + 0.24 * descriptor.purity);
+    flyer.visual.core.material.opacity *= 0.62 + 0.38 * descriptor.purity;
+    flyer.visual.cage.material.opacity *= 0.78 + 0.22 * descriptor.split;
+    flyer.visual.vector.material.opacity *= 0.42 + 0.58 * descriptor.purity;
+    flyer.visual.phaseArc.material.opacity *= 0.66 + 0.34 * descriptor.purity;
+
+    const ghostPositions = flyer.visual.ghosts.geometry.attributes.position;
+    const ghostRadius = 0.16 + descriptor.split * 0.09;
+    ghostPositions.setXYZ(0, _direction.x * ghostRadius, _direction.y * ghostRadius, _direction.z * ghostRadius);
+    ghostPositions.setXYZ(1, -_direction.x * ghostRadius, -_direction.y * ghostRadius, -_direction.z * ghostRadius);
+    ghostPositions.needsUpdate = true;
+    flyer.visual.ghosts.material.opacity *= descriptor.split * 0.88;
     _color.copy(flyer.visual.baseColor).lerp(PAPER, (1 - descriptor.purity) * 0.10);
     flyer.visual.core.material.color.copy(_color);
   }
@@ -252,18 +356,23 @@ export function buildFlight(loop, { registry }) {
       _up.subVectors(_a, _axisPoint);
       if (_up.lengthSq() < 1e-8) loop.normal(t, _up);
       _up.normalize();
+      positionOf(flyer, sampleHead + EPS, _b);
+      _forward.subVectors(_b, _a).normalize();
+      _side.crossVectors(_forward, _up).normalize();
 
       const taper = (1 - back) ** 1.45;
-      const separation = 0.008 + 0.018 * (1 - taper);
-      _color.copy(PAPER).lerp(flyer.filament.color, 0.10 + 0.90 * taper);
+      const phase = TAU * (back * 2.25 + t * 3.0 + flyer.j * 0.17 + flyer.cohort * 0.31);
+      const separation = 0.010 + 0.027 * (1 - taper);
       for (let strand = 0; strand < 2; strand++) {
-        const sign = strand ? -1 : 1;
+        const wave = Math.sin(phase + (strand ? Math.PI : 0));
+        const quadrature = Math.cos(phase + (strand ? Math.PI : 0));
         const position = flyer.filament.geometries[strand].attributes.position.array;
         const color = flyer.filament.geometries[strand].attributes.color.array;
         const offset = i * 3;
-        position[offset] = _a.x + _up.x * separation * sign;
-        position[offset + 1] = _a.y + _up.y * separation * sign;
-        position[offset + 2] = _a.z + _up.z * separation * sign;
+        position[offset] = _a.x + (_up.x * wave + _side.x * quadrature * 0.46) * separation;
+        position[offset + 1] = _a.y + (_up.y * wave + _side.y * quadrature * 0.46) * separation;
+        position[offset + 2] = _a.z + (_up.z * wave + _side.z * quadrature * 0.46) * separation;
+        _color.copy(PAPER).lerp(strand ? PHASE : flyer.filament.color, 0.10 + 0.90 * taper);
         color[offset] = _color.r;
         color[offset + 1] = _color.g;
         color[offset + 2] = _color.b;

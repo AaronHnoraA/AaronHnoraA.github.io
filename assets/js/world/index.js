@@ -10,28 +10,38 @@ import { buildCircuit, PAPER } from './circuit.js';
 import { buildFlight } from './flight.js';
 import { buildPanels } from './panels.js';
 import { makeRig, MODE } from './rig.js';
+import { SHOR_STEPS } from './states.js';
+import { ensureMathStyles, renderMath } from './math.js';
 
 const FLOW_SPEED = 0.0105;
 
-function buildFlightUI(host, loop, stations, actions, { still = false } = {}) {
+function buildFlightUI(host, loop, stations, steps, actions, { still = false } = {}) {
   const hud = document.createElement('div');
   hud.className = 'flight-hud';
   hud.setAttribute('role', 'group');
-  hud.setAttribute('aria-label', 'Flight controls');
+  hud.setAttribute('aria-label', 'Shor algorithm playback controls');
   hud.innerHTML = `
-    <button class="motion-toggle" type="button" aria-label="Pause motion" aria-pressed="false">
-      <span aria-hidden="true" data-motion-icon>Ⅱ</span>
-    </button>
-    <button class="follow-toggle" type="button" aria-label="Follow lead qubit" aria-pressed="true">
-      <span aria-hidden="true">◎</span>
-    </button>
-    <div class="route-control">
-      <div class="route-track" aria-hidden="true">
-        <span class="route-progress"></span>
-        <span class="route-thumb" role="slider" tabindex="0" aria-label="Flight position"
-              aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></span>
+    <div class="quantum-readout" aria-live="polite">
+      <span class="quantum-step-count" data-step-count></span>
+      <strong class="quantum-step-name" data-step-name></strong>
+      <code class="quantum-formula" data-step-formula></code>
+      <code class="qubit-expression" data-qubit-expression></code>
+    </div>
+    <div class="flight-transport">
+      <button class="motion-toggle" type="button" aria-label="Pause motion" aria-pressed="false">
+        <span aria-hidden="true" data-motion-icon>Ⅱ</span>
+      </button>
+      <button class="follow-toggle" type="button" aria-label="Follow lead qubit" aria-pressed="true">
+        <span aria-hidden="true">◎</span>
+      </button>
+      <div class="route-control">
+        <div class="route-track">
+          <span class="route-progress"></span>
+          <span class="route-thumb" role="slider" tabindex="0" aria-label="Shor algorithm position"
+                aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></span>
+        </div>
+        <div class="route-stations"></div>
       </div>
-      <div class="route-stations"></div>
     </div>
   `;
   host.appendChild(hud);
@@ -44,26 +54,39 @@ function buildFlightUI(host, loop, stations, actions, { still = false } = {}) {
   const progress = hud.querySelector('.route-progress');
   const thumb = hud.querySelector('.route-thumb');
   const stationHost = hud.querySelector('.route-stations');
+  const readout = hud.querySelector('.quantum-readout');
+  const stepCount = hud.querySelector('[data-step-count]');
+  const stepName = hud.querySelector('[data-step-name]');
+  const stepFormula = hud.querySelector('[data-step-formula]');
+  const qubitExpression = hud.querySelector('[data-qubit-expression]');
   const navLinks = new Map(
     [...document.querySelectorAll('.masthead-nav a[href^="#"], .masthead-name[href^="#"]')]
       .map((link) => [link.getAttribute('href').slice(1), link]),
   );
 
-  const stationButtons = new Map();
-  for (const station of stations) {
+  const stepButtons = new Map();
+  for (const [index, step] of steps.entries()) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'route-station';
-    button.style.setProperty('--station', station.t);
-    button.dataset.station = station.id;
-    button.setAttribute('aria-label', `Open ${station.id}`);
-    button.addEventListener('click', () => actions.focus(station.id));
+    button.style.setProperty('--station', step.t);
+    button.dataset.step = step.id;
+    button.title = `${index + 1}. ${step.title}`;
+    button.setAttribute('aria-label', `Step ${index + 1}: ${step.title}`);
+    button.innerHTML = `<span aria-hidden="true">${step.marker}</span>`;
+    button.addEventListener('click', () => {
+      if (!still) setPaused(true);
+      actions.beginSeek();
+      actions.seek(step.t);
+      actions.endSeek();
+    });
     stationHost.appendChild(button);
-    stationButtons.set(station.id, button);
+    stepButtons.set(step.id, button);
   }
 
   let paused = false;
   let activeId = '';
+  let activeStepId = '';
   let syncing = false;
   let currentHead = 0;
 
@@ -105,6 +128,7 @@ function buildFlightUI(host, loop, stations, actions, { still = false } = {}) {
     releaseEase: spring({ stiffness: 150, damping: 22 }),
     onGrab: () => {
       dismissHint();
+      if (!still) setPaused(true);
       hud.classList.add('is-scrubbing');
       actions.beginSeek();
     },
@@ -114,7 +138,10 @@ function buildFlightUI(host, loop, stations, actions, { still = false } = {}) {
       progress.style.transform = `scaleX(${head})`;
       actions.seek(head);
     },
-    onRelease: () => hud.classList.remove('is-scrubbing'),
+    onRelease: () => {
+      actions.endSeek();
+      hud.classList.remove('is-scrubbing');
+    },
     onSettle: () => hud.classList.remove('is-scrubbing'),
   });
 
@@ -128,8 +155,10 @@ function buildFlightUI(host, loop, stations, actions, { still = false } = {}) {
     event.preventDefault();
     event.stopPropagation();
     dismissHint();
+    if (!still) setPaused(true);
     actions.beginSeek();
     actions.seek(loop.wrap(next));
+    actions.endSeek();
   });
 
   function dismissHint() {
@@ -149,18 +178,54 @@ function buildFlightUI(host, loop, stations, actions, { still = false } = {}) {
   function setActive(id) {
     if (id === activeId) return;
     activeId = id;
-    for (const [stationId, button] of stationButtons) {
-      const current = stationId === id;
-      button.classList.toggle('is-current', current);
-      if (current) button.setAttribute('aria-current', 'location');
-      else button.removeAttribute('aria-current');
-    }
     for (const [stationId, link] of navLinks) {
       const current = stationId === id;
       link.classList.toggle('is-current', current);
       if (current) link.setAttribute('aria-current', 'location');
       else link.removeAttribute('aria-current');
     }
+  }
+
+  function stepIndexAt(head) {
+    let index = 0;
+    for (let i = 1; i < steps.length; i++) {
+      if (head + 1e-5 < steps[i].t) break;
+      index = i;
+    }
+    return index;
+  }
+
+  function setAlgorithmStep(index) {
+    const step = steps[index];
+    if (!step || step.id === activeStepId) return;
+    activeStepId = step.id;
+    stepCount.textContent = `${String(index + 1).padStart(2, '0')} / ${steps.length}`;
+    stepName.textContent = step.title;
+    thumb.setAttribute('aria-valuetext', `${index + 1}. ${step.title}`);
+    renderMath(stepFormula, step.formula);
+    qubitExpression.replaceChildren();
+    step.qubits.forEach((expression, qubit) => {
+      const item = document.createElement('span');
+      item.className = 'qubit-state';
+      const label = document.createElement('b');
+      label.textContent = `q${qubit}`;
+      const math = document.createElement('span');
+      renderMath(math, expression);
+      item.append(label, math);
+      qubitExpression.appendChild(item);
+    });
+    for (const [stepId, button] of stepButtons) {
+      const current = stepId === step.id;
+      button.classList.toggle('is-current', current);
+      if (current) button.setAttribute('aria-current', 'step');
+      else button.removeAttribute('aria-current');
+    }
+    animate(readout, {
+      opacity: [0.38, 1],
+      y: [3, 0],
+      duration: 360,
+      ease: 'out(3)',
+    });
   }
 
   function update(head, mode, focused) {
@@ -175,6 +240,7 @@ function buildFlightUI(host, loop, stations, actions, { still = false } = {}) {
     }
     const active = focused?.id || nearestStation(wrapped).id;
     setActive(active);
+    setAlgorithmStep(stepIndexAt(wrapped));
     const reading = mode === MODE.READ || mode === MODE.TRAVEL;
     hud.classList.toggle('is-reading', reading);
     followToggle.disabled = reading;
@@ -227,6 +293,7 @@ function buildFlightUI(host, loop, stations, actions, { still = false } = {}) {
 }
 
 export function mountWorld(host, opts = {}) {
+  ensureMathStyles();
   const canvas = document.createElement('canvas');
   canvas.className = 'world-gl';
 
@@ -265,12 +332,13 @@ export function mountWorld(host, opts = {}) {
   scene.add(circuit.group, flight.group);
 
   const cssScene = new THREE.Scene();
-  const panels = buildPanels(loop, cssScene, host);
+  const panels = buildPanels(loop, cssScene, host, circuit);
   const rig = makeRig(loop, camera);
 
   let ui;
   let flowHead = loop.wrap(opts.flow ?? 0.965);
   let motionPaused = Boolean(opts.still);
+  let flowScrubbing = false;
   let flowVelocity = 0;
   let focusedPanel = null;
 
@@ -300,7 +368,8 @@ export function mountWorld(host, opts = {}) {
     panel.el.classList.add('is-focused');
     panel.el.scrollTop = 0;
     ui?.focus(panel);
-    panel.el.querySelector('.panel-close')?.focus({ preventScroll: true });
+    panel.el.tabIndex = -1;
+    panel.el.focus({ preventScroll: true });
   }
 
   function releasePanel({ push = true } = {}) {
@@ -321,19 +390,24 @@ export function mountWorld(host, opts = {}) {
     rig.setPaused(paused);
   }
 
-  ui = buildFlightUI(host, loop, PANELS, {
+  ui = buildFlightUI(host, loop, PANELS, SHOR_STEPS, {
     focus: (id) => focusPanel(panels.byId(id)),
     pause: setPaused,
     follow: () => {
       if (!focusedPanel) rig.follow();
     },
     beginSeek: () => {
-      if (!focusedPanel) rig.seek(rig.state.head);
+      if (focusedPanel) return;
+      flowScrubbing = true;
+      flowVelocity = 0;
+      rig.follow();
     },
     seek: (head) => {
       if (focusedPanel) return;
-      rig.seek(head);
+      flowHead = loop.wrap(head);
+      rig.follow();
     },
+    endSeek: () => { flowScrubbing = false; },
   }, { still: Boolean(opts.still) });
 
   /* --------------------------------------------------------- interaction */
@@ -346,18 +420,12 @@ export function mountWorld(host, opts = {}) {
     });
   }
 
-  function onPanelClose(event) {
-    const close = event.target.closest('.panel-close');
-    if (!close) return;
-    event.preventDefault();
-    event.stopPropagation();
-    releasePanel();
-  }
-  host.addEventListener('click', onPanelClose);
-
   function onWorldClick(event) {
     if (!focusedPanel) return;
-    if (event.target.closest('.is-panel, .flight-hud')) return;
+    const insideInteractiveSurface = event.composedPath().some((node) => (
+      node instanceof Element && node.matches('.is-panel, .flight-hud')
+    ));
+    if (insideInteractiveSurface) return;
     releasePanel();
   }
   host.addEventListener('click', onWorldClick);
@@ -470,7 +538,7 @@ export function mountWorld(host, opts = {}) {
 
   function draw(dt) {
     const readScale = rig.state.mode === MODE.READ ? 0.24 : 1;
-    const targetVelocity = motionPaused ? 0 : FLOW_SPEED * readScale;
+    const targetVelocity = motionPaused || flowScrubbing ? 0 : FLOW_SPEED * readScale;
     flowVelocity = THREE.MathUtils.lerp(
       flowVelocity,
       targetVelocity,
@@ -485,8 +553,8 @@ export function mountWorld(host, opts = {}) {
     circuit.update(camera);
     const chords = flight.chordsAt(flowHead);
     for (const chord of circuit.qftChords) chord.material.opacity = 0.24 * chords * emphasis;
-    panels.update(camera, focusedPanel);
-    ui.update(rig.state.head, rig.state.mode, focusedPanel);
+    panels.update(camera, focusedPanel, flowHead);
+    ui.update(flowHead, rig.state.mode, focusedPanel);
     renderer.render(scene, camera);
     panels.render(cssScene, camera);
   }
@@ -560,7 +628,6 @@ export function mountWorld(host, opts = {}) {
       window.removeEventListener('hashchange', onHashChange);
       window.removeEventListener('keydown', onKey);
       host.removeEventListener('wheel', onWheel);
-      host.removeEventListener('click', onPanelClose);
       host.removeEventListener('click', onWorldClick);
       ui.destroy();
       panels.dispose();

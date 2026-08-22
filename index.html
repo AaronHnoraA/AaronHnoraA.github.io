@@ -52,7 +52,6 @@
       </p>
     </div>
     <div class="panel-detail">
-      <button class="panel-close" type="button" aria-label="Return to the world">Return to world</button>
     <!-- TODO(aaron): confirm the degree programme and year. The previous site
          said "mathematics undergraduate"; adjust if that is still accurate. -->
     <p>
@@ -71,7 +70,6 @@
       <p class="panel-summary">Quantum algorithms · complexity · algebra</p>
     </div>
     <div class="panel-detail">
-      <button class="panel-close" type="button" aria-label="Return to the world">Return to world</button>
 
     <h3>Quantum algorithms</h3>
     <p>
@@ -104,7 +102,6 @@
       <p class="panel-summary">Study, research, contact and code.</p>
     </div>
     <div class="panel-detail">
-      <button class="panel-close" type="button" aria-label="Return to the world">Return to world</button>
     <!-- TODO(aaron): fill in the fields marked "to confirm", and decide how
          much belongs on a public page (grades are deliberately left out). -->
     <dl class="facts">
@@ -126,7 +123,6 @@
       <p class="panel-summary">Notes, code and collaborators.</p>
     </div>
     <div class="panel-detail">
-      <button class="panel-close" type="button" aria-label="Return to the world">Return to world</button>
     <ul class="link-list">
       <li>
         <a href="https://wiki.pwo101.top/wiki" rel="noopener">Wiki</a>
@@ -153,7 +149,6 @@
       <p class="panel-summary">How the world and page were made.</p>
     </div>
     <div class="panel-detail">
-      <button class="panel-close" type="button" aria-label="Return to the world">Return to world</button>
 
     <h3>This site</h3>
     <p>
@@ -166,7 +161,7 @@
 
     <h3>Software this page ships</h3>
     <p>
-      Both are vendored rather than loaded from a CDN, so the page calls no
+      All three are vendored rather than loaded from a CDN, so the page calls no
       third-party host, and each keeps its licence file intact.
     </p>
     <ul class="link-list">
@@ -182,8 +177,14 @@
         <a href="vendor/anime/LICENSE.md">Licence</a>.</span>
       </li>
       <li>
-        Typefaces — none shipped
-        <span>Every rule falls back through fonts already on your machine.</span>
+        <a href="https://katex.org/" rel="noopener">KaTeX</a> 0.18.1 — MIT
+        <span>Typesets the circuit, gate and qubit expressions shown only in
+        the 3D world. It and its mathematics fonts are self-hosted.
+        <a href="vendor/katex/LICENSE">Licence</a>.</span>
+      </li>
+      <li>
+        Interface typefaces — none shipped
+        <span>Page typography falls back through fonts already on your machine.</span>
       </li>
     </ul>
 

@@ -61,6 +61,7 @@ function viewURL(nextFlat) {
 function showFlatToggle() {
   if (!viewToggle) return;
   viewToggle.textContent = 'Enter 3D';
+  viewToggle.dataset.shortLabel = '3D';
   viewToggle.setAttribute('aria-label', 'Enter the 3D circuit');
   viewToggle.href = viewURL(false);
 }
@@ -68,6 +69,7 @@ function showFlatToggle() {
 function showWorldToggle() {
   if (!viewToggle) return;
   viewToggle.textContent = 'Close 3D';
+  viewToggle.dataset.shortLabel = '2D';
   viewToggle.setAttribute('aria-label', 'Close 3D and read the static page');
   viewToggle.href = viewURL(true);
 }
