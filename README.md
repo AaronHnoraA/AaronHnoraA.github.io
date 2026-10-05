@@ -62,13 +62,13 @@ assets/js/site.js     decides document or world
 assets/js/world/      curve, circuit, precomputed states, qubits, rig, panels
 assets/img/           favicon
 vendor/               three.js, anime.js and KaTeX, each with its licence
-CV/                   the generated CV PDF
+CV/                   the CV: LaTeX source (main.tex) and the generated PDF
 ```
 
 ## Building and deploying
 
-Only one thing is generated: the CV PDF, compiled from LaTeX. Everything else
-is committed as written. The commands live in the Emacs configuration that owns
+Only one thing is generated: the CV PDF, compiled from `CV/main.tex`. Everything
+else is committed as written. The commands live in the Emacs configuration that owns
 the deployment, and are documented in `docs/publish-workflow.md` there:
 
 ```sh

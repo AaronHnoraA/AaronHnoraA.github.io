@@ -1,0 +1,198 @@
+%% Compile with: latexmk -xelatex -interaction=nonstopmode main.tex
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[fontsize=10.5pt]{scrextend}
+\usepackage{fontspec}
+\usepackage{libertinus}
+\usepackage{geometry}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{microtype}
+\usepackage{hyperref}
+
+\geometry{top=1.3cm, bottom=1.3cm, left=2.2cm, right=2.2cm}
+
+\definecolor{linkink}{RGB}{22,52,104}
+\definecolor{ruleink}{gray}{0.35}
+\definecolor{quietink}{gray}{0.30}
+
+\hypersetup{
+  colorlinks=true,
+  urlcolor=linkink,
+  linkcolor=linkink,
+  pdftitle={Chang He (Aaron) -- Curriculum Vitae},
+  pdfauthor={Chang He},
+  pdfsubject={Curriculum Vitae},
+  pdfkeywords={quantum computing, theoretical computer science, algebra}
+}
+
+% Section style: letterspaced small caps over a hairline rule
+\titleformat{\section}
+  {\normalfont\large\scshape}
+  {}
+  {0em}
+  {\addfontfeatures{LetterSpace=6.0}\MakeLowercase}
+  [\vspace{-5pt}{\color{ruleink}\rule{\linewidth}{0.4pt}}]
+\titlespacing{\section}{0pt}{10pt}{5pt}
+
+\setlist[itemize]{leftmargin=1.4em, topsep=3pt, itemsep=1.5pt, parsep=0pt,
+                  label={\raisebox{0.15ex}{\footnotesize\textbullet}}}
+
+\setlength{\parindent}{0pt}
+\pagestyle{empty}
+\linespread{1.0}
+\emergencystretch=1.5em
+
+% \cventry{institution}{place}{role}{dates}
+\newcommand{\cventry}[4]{%
+  \textbf{#1}\hfill #2\par
+  \vspace{1pt}%
+  \textit{#3}\hfill \textit{#4}\par}
+
+% \interest{area}{description}
+\newcommand{\interest}[2]{%
+  \item[\textit{#1}] #2}
+
+\newcommand{\sep}{\hspace{0.6em}{\color{ruleink}\textperiodcentered}\hspace{0.6em}}
+
+\begin{document}
+
+%% ── Header ──────────────────────────────────────────────────────────────────
+\begin{center}
+  {\huge\scshape\addfontfeatures{LetterSpace=8.0}chang he}%
+  \hspace{0.5em}{\Large\itshape (Aaron)}\\[9pt]
+  {\small\color{quietink}%
+   Undergraduate, \href{https://www.unsw.edu.au}{UNSW Sydney}%
+   \sep Sydney, Australia}\\[5pt]
+  {\small
+   \href{mailto:aaron.he@student.unsw.edu.au}{aaron.he@student.unsw.edu.au}%
+   \sep
+   \href{https://aaronhnoraa.github.io}{aaronhnoraa.github.io}%
+   \sep
+   \href{https://github.com/AaronHnoraA}{github.com/AaronHnoraA}%
+   \sep
+   \href{https://wiki.pwo101.top/wiki}{wiki.pwo101.top}}
+\end{center}
+
+%% ── Education ───────────────────────────────────────────────────────────────
+\section{Education}
+
+\cventry
+  {\href{https://www.unsw.edu.au}{University of New South Wales (UNSW)}}
+  {Sydney, Australia}
+  {Bachelor of Advanced Computer Science (Honours)
+   (\href{https://www.handbook.unsw.edu.au/undergraduate/programs/2026/3779}{UNSW 3779})}
+  {Term 3, 2024 -- Present}
+
+\begin{itemize}
+  \item Expected graduation: Term 3, 2028. Transferred from Bachelor of Science in Mathematics
+        (\href{https://www.handbook.unsw.edu.au/undergraduate/programs/2026/3956}{UNSW 3956}).
+  \item Academic standing: WAM 83.5; admitted to the UNSW
+        \href{https://www.unsw.edu.au/science/student-life-resources/student-opportunities/talented-students-program}{Talented Students Program}
+        (TSP) in 2025.
+\end{itemize}
+
+%% ── Research Interests ──────────────────────────────────────────────────────
+\section{Research Interests}
+
+\begin{description}[leftmargin=0pt, labelsep=0.5em, topsep=0pt, itemsep=3pt,
+                    parsep=0pt, font=\normalfont]
+  \interest{Quantum computing.}
+    {Quantum algorithms and quantum simulation.}
+  \interest{Theoretical computer science.}
+    {Computational complexity and algebraic algorithms: tensor, group, and graph
+     isomorphism; linear code equivalence (LCE); reductions among equivalence
+     problems.}
+  \interest{Algebra.}
+    {Multilinear algebra and tensor spaces, group actions, canonical forms and
+     invariants.}
+\end{description}
+
+%% ── Research Experience ─────────────────────────────────────────────────────
+\section{Research Experience}
+
+\cventry
+  {Research, \href{https://www.uts.edu.au}{University of Technology Sydney (UTS)}}
+  {Sydney, Australia}
+  {Supervised by \href{https://sites.google.com/site/jimmyqiao86/}{Youming Qiao}}
+  {October 2026 -- Present}
+
+\begin{itemize}
+  \item Starting work on the linear code equivalence (LCE) and matrix code
+        equivalence (MCE) problems.
+\end{itemize}
+
+\vspace{4pt}
+
+\cventry
+  {Research, \href{https://www.uts.edu.au}{University of Technology Sydney (UTS)}}
+  {Sydney, Australia}
+  {Supervised by \href{https://sites.google.com/site/jimmyqiao86/}{Youming Qiao}
+   and \href{https://sites.google.com/site/melderau/}{Murray Elder}}
+  {Late 2025 -- September 2026}
+
+\begin{itemize}
+  \item Studied isomorphism and automorphism problems for tensors, groups, algebras, and polynomials.
+  \item Proved that an $r$-uniform hypergraph is connected if and only if its
+        associated tensor is indecomposable, linking graph structure to tensor
+        structure; contributed to the manuscript below.
+\end{itemize}
+
+\vspace{4pt}
+
+\cventry
+  {Independent Study, \href{https://www.uts.edu.au}{University of Technology Sydney (UTS)}}
+  {Sydney, Australia}
+  {Supervised by \href{https://sites.google.com/site/jimmyqiao86/}{Youming Qiao}}
+  {Term 2 -- Term 3, 2025}
+
+\begin{itemize}
+  \item Supervised reading in quantum computing: Nielsen and Chuang,
+        \textit{Quantum Computation and Quantum Information}, and other standard texts.
+\end{itemize}
+
+\vspace{4pt}
+
+\cventry
+  {\href{https://www.unsw.edu.au/science/student-life-resources/student-opportunities/talented-students-program}{Talented Students Program}, UNSW}
+  {Sydney, Australia}
+  {Supervised by \href{https://research.unsw.edu.au/people/dr-quoc-thong-le-gia}{Quoc Le Gia}}
+  {Term 1, 2025}
+
+\begin{itemize}
+  \item Supervised reading of selected literature in large language models; practice in
+        extracting technical assumptions and presenting mathematical and algorithmic ideas.
+\end{itemize}
+
+%% ── Manuscripts ─────────────────────────────────────────────────────────────
+\section{Manuscripts}
+
+\begin{itemize}
+  \item Murray Elder, \textbf{Chang He}, Luke Mathieson, Euan Mendoza, and Youming Qiao.
+        \textit{On isomorphism and automorphism problems for tensors, groups,
+        algebras, and polynomials.}
+        Submitted to ITCS 2027, under review (authors in alphabetical order).
+\end{itemize}
+
+%% ── Technical Skills ────────────────────────────────────────────────────────
+\section{Technical Skills}
+
+\begin{description}[leftmargin=0pt, labelsep=0.5em, topsep=0pt, itemsep=2pt,
+                    parsep=0pt, font=\normalfont]
+  \interest{Programming.}{Python, C/C++, JavaScript/TypeScript; Git, LaTeX, Unix shell.}
+  \interest{Quantum and AI.}{Qiskit (working knowledge); building and using LLM agents.}
+\end{description}
+
+%% ── Academic Activities ─────────────────────────────────────────────────────
+\section{Academic Activities}
+
+\begin{itemize}
+  \item Member, Sydney Algorithms and Computing Theory (SACT) group, University of Sydney.
+  \item \href{https://www.maths.usyd.edu.au/s/scnitm/pieter-QuantumComputingReadingGr}{MathQuEST
+        Reading Group on Quantum Computing}, University of Sydney, 2026.
+  \item \href{https://sites.google.com/view/sydney-tcs-winter-school-2026/home}{Sydney
+        TCS Winter School}: Interactive Proofs and the PCP Theorem, University of Sydney, July 2026.
+\end{itemize}
+
+\end{document}
