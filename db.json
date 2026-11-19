@@ -41,10 +41,7 @@
     {
       "id": "int-qc", "type": "interest", "show": "both",
       "area": "Quantum computing",
-      "text": {
-        "cv":  "Quantum error correction, quantum tomography, quantum simulation, and quantum communication.",
-        "web": "Quantum algorithms and quantum simulation."
-      }
+      "text": "Quantum error correction, quantum tomography, quantum simulation, and quantum communication."
     },
     {
       "id": "int-tcs", "type": "interest", "show": "both",
@@ -55,7 +52,7 @@
       }
     },
     {
-      "id": "int-alg", "type": "interest", "show": "web",
+      "id": "int-alg", "type": "interest", "show": "none",
       "area": "Algebra",
       "text": {
         "cv":  "Multilinear algebra and tensor spaces, group actions, canonical forms and invariants.",
@@ -182,9 +179,9 @@
     },
 
     { "id": "fact-programme",  "type": "fact", "show": "web", "label": "Programme",    "value": "{edu-unsw.degree}, {profile.institution.name}" },
-    { "id": "fact-research",   "type": "fact", "show": "web", "label": "Research",     "value": "Quantum computing, theoretical computer science, algebra" },
-    { "id": "fact-supervisor", "type": "fact", "show": "web", "label": "Supervisor",   "value": "{res-lce.supervisors.0}, {res-lce.org}" },
-    { "id": "fact-current",    "type": "fact", "show": "web", "label": "Current work", "value": "Linear and matrix code equivalence (LCE, MCE)" },
+    { "id": "fact-research",   "type": "fact", "show": "web", "label": "Research",     "value": "Quantum computing, theoretical computer science" },
+    { "id": "fact-supervisor", "type": "fact", "show": "web", "label": "Supervisors",  "value": "{res-lce.supervisors.0}, {res-lce.org}; {res-hill.supervisors.0}, {res-hill.org}" },
+    { "id": "fact-current",    "type": "fact", "show": "web", "label": "Current work", "value": "Linear and matrix code equivalence (LCE, MCE); tensors in quantum information" },
     { "id": "fact-contact",    "type": "fact", "show": "web", "label": "Contact",      "html": "<a href=\"#\" data-contact-link>Email</a>" },
     { "id": "fact-code",       "type": "fact", "show": "web", "label": "Code",         "html": "<a href=\"{profile.contact.github.url}\" rel=\"noopener me\">{profile.contact.github.label}</a>" }
   ],
