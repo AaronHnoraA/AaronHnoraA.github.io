@@ -35,7 +35,23 @@ content to keep in sync.
 
 ## Changing content
 
-Visitor-facing prose lives only in `index.html`. Editing text or links there
+CV facts that also appear on the homepage live in `db.json`, the one source for
+both. Edit it, then run `python3 scripts/render.py`: that rewrites the CV body in
+`CV/main.tex` and the marked `<!-- db:NAME -->` regions of `index.html`, so the
+page stays static HTML. In `db.json`:
+
+* every entry has `show`: `both`, `cv`, `web` or `none`;
+* `layout.cv.sections` and `layout.web.regions` set, in order, which sections
+  or blocks each side has, their style, and which entry `types` feed them;
+  an entry's optional `slot` moves it into a specific section or block;
+* any text field may be `{"cv": "...", "web": "..."}` to word the two sides
+  differently, and `{entry-id.field}` templates reuse one value in another.
+
+`python3 scripts/render.py --check` fails if a generated region is stale.
+A new homepage region needs its marker pair in `index.html` and an entry under
+`layout.web.regions`.
+
+All other visitor-facing prose lives only in `index.html`. Editing text or links there
 updates both layouts because the 3D view moves the original section elements;
 it does not copy or template them.
 
@@ -57,6 +73,8 @@ in `index.html` is the compact reference.
 
 ```
 index.html            the whole site
+db.json               CV and homepage data, plus where each piece appears
+scripts/render.py     renders db.json into CV/main.tex and index.html
 assets/css/site.css   both layouts, one stylesheet
 assets/js/site.js     decides document or world
 assets/js/world/      curve, circuit, precomputed states, qubits, rig, panels
@@ -67,8 +85,10 @@ CV/                   the CV: LaTeX source (main.tex) and the generated PDF
 
 ## Building and deploying
 
-Only one thing is generated: the CV PDF, compiled from `CV/main.tex`. Everything
-else is committed as written. The commands live in the Emacs configuration that owns
+Generated, and committed: the `db.json` regions of `CV/main.tex` and
+`index.html`, and the CV PDF compiled from `CV/main.tex`. `make publish-build`
+renders `db.json` before compiling, and every build or deploy refuses a stale
+render. Everything else is committed as written. The commands live in the Emacs configuration that owns
 the deployment, and are documented in `docs/publish-workflow.md` there:
 
 ```sh

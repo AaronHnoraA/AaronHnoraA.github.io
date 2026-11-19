@@ -1,0 +1,185 @@
+{
+  "$comment": [
+    "Single source for the CV PDF and the homepage. After editing run: python3 scripts/render.py",
+    "entries[].show: both | cv | web | none   (where the entry appears)",
+    "entries[].slot: {\"cv\": \"<section id>\", \"web\": \"<block id>\"}  optional; overrides placement by type",
+    "Any text field may be a string, or {\"cv\": \"...\", \"web\": \"...\"} to word it differently per side.",
+    "Inline markup: [text](url), **bold**, *italic*, $math$.  Templates: {entry-id.field} or {profile.field}, e.g. {res-lce.supervisors.0}",
+    "layout.<target>.enabled turns a whole output off; sections/blocks have their own show: true|false and render in list order."
+  ],
+
+  "profile": {
+    "given": "Chang",
+    "family": "He",
+    "preferred": "Aaron",
+    "role": "Undergraduate",
+    "institution": { "name": "UNSW Sydney", "url": "https://www.unsw.edu.au" },
+    "location": "Sydney, Australia",
+    "contact": {
+      "email":    { "label": "aaron.he@student.unsw.edu.au", "url": "mailto:aaron.he@student.unsw.edu.au" },
+      "homepage": { "label": "aaronhnoraa.github.io",        "url": "https://aaronhnoraa.github.io" },
+      "github":   { "label": "github.com/AaronHnoraA",       "url": "https://github.com/AaronHnoraA" },
+      "wiki":     { "label": "wiki.pwo101.top",              "url": "https://wiki.pwo101.top/wiki" }
+    }
+  },
+
+  "entries": [
+    {
+      "id": "edu-unsw", "type": "education", "show": "cv",
+      "heading": "[University of New South Wales (UNSW)](https://www.unsw.edu.au)",
+      "place": "Sydney, Australia",
+      "degree": "Bachelor of Advanced Computer Science (Honours)",
+      "code": { "name": "UNSW 3779", "url": "https://www.handbook.unsw.edu.au/undergraduate/programs/2026/3779" },
+      "dates": "Term 3, 2024 – Present",
+      "points": [
+        "Expected graduation: Term 3, 2028. Transferred from Bachelor of Science in Mathematics ([UNSW 3956](https://www.handbook.unsw.edu.au/undergraduate/programs/2026/3956)).",
+        "Academic standing: WAM 83.5; admitted to the UNSW [Talented Students Program](https://www.unsw.edu.au/science/student-life-resources/student-opportunities/talented-students-program) (TSP) in 2025."
+      ]
+    },
+
+    {
+      "id": "int-qc", "type": "interest", "show": "both",
+      "area": "Quantum computing",
+      "text": "Quantum algorithms and quantum simulation."
+    },
+    {
+      "id": "int-tcs", "type": "interest", "show": "both",
+      "area": "Theoretical computer science",
+      "text": {
+        "cv":  "Computational complexity and algebraic algorithms: tensor, group, and graph isomorphism; linear code equivalence (LCE); reductions among equivalence problems.",
+        "web": "Complexity of isomorphism and equivalence problems — tensors, groups, graphs, and linear and matrix codes (LCE, MCE) — and the reductions between them."
+      }
+    },
+    {
+      "id": "int-alg", "type": "interest", "show": "both",
+      "area": "Algebra",
+      "text": {
+        "cv":  "Multilinear algebra and tensor spaces, group actions, canonical forms and invariants.",
+        "web": "Multilinear algebra and tensor spaces, group actions, canonical forms and invariants, as a source of both algorithms and hardness."
+      }
+    },
+
+    {
+      "id": "res-lce", "type": "research", "show": "cv",
+      "heading": "Research, [University of Technology Sydney (UTS)](https://www.uts.edu.au)",
+      "org": "UTS",
+      "place": "Sydney, Australia",
+      "supervisors": [
+        { "name": "Youming Qiao", "url": "https://sites.google.com/site/jimmyqiao86/" }
+      ],
+      "dates": "October 2026 – Present",
+      "points": [
+        "Starting work on the linear code equivalence (LCE) and matrix code equivalence (MCE) problems."
+      ]
+    },
+    {
+      "id": "res-tensor", "type": "research", "show": "cv",
+      "heading": "Research, [University of Technology Sydney (UTS)](https://www.uts.edu.au)",
+      "org": "UTS",
+      "place": "Sydney, Australia",
+      "supervisors": [
+        { "name": "Youming Qiao", "url": "https://sites.google.com/site/jimmyqiao86/" },
+        { "name": "Murray Elder", "url": "https://sites.google.com/site/melderau/" }
+      ],
+      "dates": "Late 2025 – September 2026",
+      "points": [
+        "Studied isomorphism and automorphism problems for tensors, groups, algebras, and polynomials.",
+        "Proved that an $r$-uniform hypergraph is connected if and only if its associated tensor is indecomposable, linking graph structure to tensor structure; contributed to the manuscript below."
+      ]
+    },
+    {
+      "id": "res-qc-reading", "type": "research", "show": "cv",
+      "heading": "Independent Study, [University of Technology Sydney (UTS)](https://www.uts.edu.au)",
+      "org": "UTS",
+      "place": "Sydney, Australia",
+      "supervisors": [
+        { "name": "Youming Qiao", "url": "https://sites.google.com/site/jimmyqiao86/" }
+      ],
+      "dates": "Term 2 – Term 3, 2025",
+      "points": [
+        "Supervised reading in quantum computing: Nielsen and Chuang, *Quantum Computation and Quantum Information*, and other standard texts."
+      ]
+    },
+    {
+      "id": "res-tsp", "type": "research", "show": "cv",
+      "heading": "[Talented Students Program](https://www.unsw.edu.au/science/student-life-resources/student-opportunities/talented-students-program), UNSW",
+      "org": "UNSW",
+      "place": "Sydney, Australia",
+      "supervisors": [
+        { "name": "Quoc Le Gia", "url": "https://research.unsw.edu.au/people/dr-quoc-thong-le-gia" }
+      ],
+      "dates": "Term 1, 2025",
+      "points": [
+        "Supervised reading of selected literature in large language models; practice in extracting technical assumptions and presenting mathematical and algorithmic ideas."
+      ]
+    },
+
+    {
+      "id": "ms-itcs27", "type": "manuscript", "show": "both",
+      "authors": ["Murray Elder", "Chang He", "Luke Mathieson", "Euan Mendoza", "Youming Qiao"],
+      "title": "On isomorphism and automorphism problems for tensors, groups, algebras, and polynomials.",
+      "status": "Submitted to ITCS 2027, under review (authors in alphabetical order)."
+    },
+
+    {
+      "id": "skill-prog", "type": "skill", "show": "cv",
+      "area": "Programming",
+      "text": "Python, C/C++, JavaScript/TypeScript; Git, LaTeX, Unix shell."
+    },
+    {
+      "id": "skill-qai", "type": "skill", "show": "cv",
+      "area": "Quantum and AI",
+      "text": "Qiskit (working knowledge); building and using LLM agents."
+    },
+
+    {
+      "id": "act-sact", "type": "activity", "show": "cv",
+      "text": "Member, Sydney Algorithms and Computing Theory (SACT) group, University of Sydney."
+    },
+    {
+      "id": "act-mathquest", "type": "activity", "show": "cv",
+      "text": "[MathQuEST Reading Group on Quantum Computing](https://www.maths.usyd.edu.au/s/scnitm/pieter-QuantumComputingReadingGr), University of Sydney, 2026."
+    },
+    {
+      "id": "act-winter", "type": "activity", "show": "cv",
+      "text": "[Sydney TCS Winter School](https://sites.google.com/view/sydney-tcs-winter-school-2026/home): Interactive Proofs and the PCP Theorem, University of Sydney, July 2026."
+    },
+
+    { "id": "fact-programme",  "type": "fact", "show": "web", "label": "Programme",    "value": "{edu-unsw.degree}, {profile.institution.name}" },
+    { "id": "fact-research",   "type": "fact", "show": "web", "label": "Research",     "value": "Quantum computing, theoretical computer science, algebra" },
+    { "id": "fact-supervisor", "type": "fact", "show": "web", "label": "Supervisor",   "value": "{res-lce.supervisors.0}, {res-lce.org}" },
+    { "id": "fact-current",    "type": "fact", "show": "web", "label": "Current work", "value": "Linear and matrix code equivalence (LCE, MCE)" },
+    { "id": "fact-contact",    "type": "fact", "show": "web", "label": "Contact",      "html": "<a href=\"#\" data-contact-link>Email</a>" },
+    { "id": "fact-code",       "type": "fact", "show": "web", "label": "Code",         "html": "<a href=\"{profile.contact.github.url}\" rel=\"noopener me\">{profile.contact.github.label}</a>" }
+  ],
+
+  "layout": {
+    "cv": {
+      "enabled": true,
+      "file": "CV/main.tex",
+      "sections": [
+        { "id": "header",      "show": true, "style": "header" },
+        { "id": "education",   "show": true, "style": "entries",     "title": "Education",           "types": ["education"] },
+        { "id": "interests",   "show": true, "style": "description", "title": "Research Interests",  "types": ["interest"] },
+        { "id": "research",    "show": true, "style": "entries",     "title": "Research Experience", "types": ["research"] },
+        { "id": "manuscripts", "show": true, "style": "manuscripts", "title": "Manuscripts",         "types": ["manuscript"] },
+        { "id": "skills",      "show": true, "style": "description", "title": "Technical Skills",    "types": ["skill"] },
+        { "id": "activities",  "show": true, "style": "list",        "title": "Academic Activities", "types": ["activity"] }
+      ]
+    },
+    "web": {
+      "enabled": true,
+      "file": "index.html",
+      "regions": {
+        "research": [
+          { "id": "web-interests",   "show": true, "style": "interests",   "types": ["interest"] },
+          { "id": "web-research",    "show": true, "style": "entries",     "title": "Research experience", "types": ["research"] },
+          { "id": "web-manuscripts", "show": true, "style": "manuscripts", "title": "Manuscript",          "types": ["manuscript"] }
+        ],
+        "cv-facts": [
+          { "id": "web-facts", "show": true, "style": "facts", "types": ["fact"] }
+        ]
+      }
+    }
+  }
+}

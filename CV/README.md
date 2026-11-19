@@ -2,12 +2,15 @@
 
 My curriculum vitae (CV) written in LaTeX.
 
-The source file is [main.tex](main.tex), and the generated PDF is [Aaron_He_CV.pdf](Aaron_He_CV.pdf).
+The content lives in [../db.json](../db.json); `python3 scripts/render.py` (from
+the repository root) writes it into the generated block of [main.tex](main.tex),
+whose preamble and styling are edited by hand. The generated PDF is
+[Aaron_He_CV.pdf](Aaron_He_CV.pdf).
 
 ## Build
 
 `make publish-build` in the Emacs configuration compiles it and copies the PDF
-here. To compile by hand, keeping intermediates out of the repository:
+here, rendering `db.json` first. To compile by hand (after rendering), keeping intermediates out of the repository:
 
 ```sh
 latexmk -xelatex -interaction=nonstopmode -halt-on-error \
