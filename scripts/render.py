@@ -218,7 +218,27 @@ def render_cv(db: Db, layout: dict) -> str:
             add(f"    {{{to_tex(t.field(e, key))}}}")
         add(r"\end{description}")
 
-    def header(_items) -> None:
+    def contact_line(sec: dict) -> str:
+        """Contact links per sec["contact_style"]: icon-text (default), icon, text."""
+        style = sec.get("contact_style", "icon-text")
+        if style not in ("icon-text", "icon", "text"):
+            raise RenderError(f"cv header: contact_style must be icon-text|icon|text, not {style!r}")
+        parts = []
+        for c in p["contact"].values():
+            label = to_tex(t.md(c["label"]))
+            if style == "text" or not c.get("icon"):
+                body = label
+            else:
+                glyph = rf'{{\cvicon\symbol{{"{c["icon"].upper()}}}}}'
+                body = glyph if style == "icon" else rf"{glyph}\hspace{{0.4em}}{label}"
+            parts.append(rf"\href{{{c['url']}}}{{{body}}}")
+        sep = "%\n   \\sep\n" if style == "text" else "%\n   \\hspace{1.6em}%\n"
+        return sep.join(f"   {x}" for x in parts)
+
+    def header(sec: dict) -> None:
+        if sec.get("contact_style", "icon-text") != "text":
+            font = sec.get("icon_font", "Symbols Nerd Font")
+            add(rf"\newfontfamily\cvicon{{{font}}}[Scale=MatchUppercase]")
         add(r"\begin{center}")
         full = tex_escape(f"{p['given']} {p['family']}".lower())
         add(rf"  {{\huge\scshape\addfontfeatures{{LetterSpace=8.0}}{full}}}%")
@@ -226,9 +246,8 @@ def render_cv(db: Db, layout: dict) -> str:
         add(r"  {\small\color{quietink}%")
         add(f"   {to_tex(t.md(p['role']) + ', ' + link_md(p['institution']))}%")
         add(rf"   \sep {to_tex(t.md(p['location']))}}}\\[5pt]")
-        links = [to_tex(link_md(c)) for c in p["contact"].values()]
         add(r"  {\small")
-        add("%\n   \\sep\n".join(f"   {x}" for x in links) + "}")
+        add(contact_line(sec) + "}")
         add(r"\end{center}")
 
     def entries(items) -> None:
@@ -256,7 +275,7 @@ def render_cv(db: Db, layout: dict) -> str:
         add(r"\end{itemize}")
 
     styles = {
-        "header": header,
+        "header": None,  # takes the section config; handled below
         "entries": entries,
         "description": lambda items: description(items, "text"),
         "manuscripts": manuscripts,
@@ -281,7 +300,9 @@ def render_cv(db: Db, layout: dict) -> str:
         if style != "header":
             add(rf"\section{{{tex_escape(title)}}}")
             add("")
-        styles[style](items)
+            styles[style](items)
+        else:
+            header(sec)
     return "\n".join(L)
 
 # ------------------------------------------------------------------------ HTML

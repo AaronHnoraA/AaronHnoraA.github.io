@@ -5,6 +5,7 @@
     "entries[].slot: {\"cv\": \"<section id>\", \"web\": \"<block id>\"}  optional; overrides placement by type",
     "Any text field may be a string, or {\"cv\": \"...\", \"web\": \"...\"} to word it differently per side.",
     "Inline markup: [text](url), **bold**, *italic*, $math$.  Templates: {entry-id.field} or {profile.field}, e.g. {res-lce.supervisors.0}",
+    "profile.contact.*.icon: Nerd Font codepoint in hex (https://www.nerdfonts.com/cheat-sheet). CV header contact_style: icon-text | icon | text; icon_font: an installed Nerd Font.",
     "layout.<target>.enabled turns a whole output off; sections/blocks have their own show: true|false and render in list order."
   ],
 
@@ -16,10 +17,10 @@
     "institution": { "name": "UNSW Sydney", "url": "https://www.unsw.edu.au" },
     "location": "Sydney, Australia",
     "contact": {
-      "email":    { "label": "aaron.he@student.unsw.edu.au", "url": "mailto:aaron.he@student.unsw.edu.au" },
-      "homepage": { "label": "aaronhnoraa.github.io",        "url": "https://aaronhnoraa.github.io" },
-      "github":   { "label": "github.com/AaronHnoraA",       "url": "https://github.com/AaronHnoraA" },
-      "wiki":     { "label": "wiki.pwo101.top",              "url": "https://wiki.pwo101.top/wiki" }
+      "email":    { "label": "aaron.he@student.unsw.edu.au", "url": "mailto:aaron.he@student.unsw.edu.au", "icon": "f01ee" },
+      "homepage": { "label": "aaronhnoraa.github.io",        "url": "https://aaronhnoraa.github.io", "icon": "f059f" },
+      "github":   { "label": "github.com/AaronHnoraA",       "url": "https://github.com/AaronHnoraA", "icon": "f02a4" },
+      "wiki":     { "label": "wiki.pwo101.top",              "url": "https://wiki.pwo101.top/wiki", "icon": "f05da" }
     }
   },
 
@@ -32,7 +33,7 @@
       "code": { "name": "UNSW 3779", "url": "https://www.handbook.unsw.edu.au/undergraduate/programs/2026/3779" },
       "dates": "Term 3, 2024 – Present",
       "points": [
-        "Expected graduation: Term 3, 2028. Transferred from Bachelor of Science in Mathematics ([UNSW 3956](https://www.handbook.unsw.edu.au/undergraduate/programs/2026/3956)).",
+        "Expected graduation: Term 3, 2028.",
         "Academic standing: WAM 83.5; admitted to the UNSW [Talented Students Program](https://www.unsw.edu.au/science/student-life-resources/student-opportunities/talented-students-program) (TSP) in 2025."
       ]
     },
@@ -40,7 +41,10 @@
     {
       "id": "int-qc", "type": "interest", "show": "both",
       "area": "Quantum computing",
-      "text": "Quantum algorithms and quantum simulation."
+      "text": {
+        "cv":  "Quantum error correction, quantum tomography, quantum simulation, and quantum communication.",
+        "web": "Quantum algorithms and quantum simulation."
+      }
     },
     {
       "id": "int-tcs", "type": "interest", "show": "both",
@@ -51,7 +55,7 @@
       }
     },
     {
-      "id": "int-alg", "type": "interest", "show": "both",
+      "id": "int-alg", "type": "interest", "show": "web",
       "area": "Algebra",
       "text": {
         "cv":  "Multilinear algebra and tensor spaces, group actions, canonical forms and invariants.",
@@ -113,12 +117,40 @@
         "Supervised reading of selected literature in large language models; practice in extracting technical assumptions and presenting mathematical and algorithmic ideas."
       ]
     },
+    {
+      "id": "res-hkustgz", "type": "research", "show": "cv",
+      "heading": "Research Visit (incoming), [HKUST (Guangzhou)](https://www.hkust-gz.edu.cn)",
+      "org": "HKUST(GZ)",
+      "place": "Guangzhou, China",
+      "supervisors": [
+        { "name": "Xin Wang", "url": "https://www.xinwang.info/" }
+      ],
+      "role": "Hosted by [Xin Wang](https://www.xinwang.info/)",
+      "dates": "December 2026 – February 2027",
+      "points": [
+        "Will join Xin Wang's research group."
+      ]
+    },
+    {
+      "id": "res-hill", "type": "research", "show": "cv",
+      "heading": "Research, [University of New South Wales (UNSW)](https://www.unsw.edu.au)",
+      "org": "UNSW",
+      "place": "Sydney, Australia",
+      "supervisors": [
+        { "name": "Charles Hill", "url": "https://www.unsw.edu.au/staff/charles-hill" }
+      ],
+      "role": "Supervised by [Charles Hill](https://www.unsw.edu.au/staff/charles-hill), [School of Physics](https://www.unsw.edu.au/science/our-schools/physics)",
+      "dates": "October 2026 – Present",
+      "points": [
+        "Reading the literature on tensors in quantum information, together with the physics background it requires; the specific research problem is being settled with the supervisor."
+      ]
+    },
 
     {
       "id": "ms-itcs27", "type": "manuscript", "show": "both",
       "authors": ["Murray Elder", "Chang He", "Luke Mathieson", "Euan Mendoza", "Youming Qiao"],
       "title": "On isomorphism and automorphism problems for tensors, groups, algebras, and polynomials.",
-      "status": "Submitted to ITCS 2027, under review (authors in alphabetical order)."
+      "status": "Manuscript, 2026. Authors in alphabetical order."
     },
 
     {
@@ -134,7 +166,7 @@
 
     {
       "id": "act-sact", "type": "activity", "show": "cv",
-      "text": "Member, Sydney Algorithms and Computing Theory (SACT) group, University of Sydney."
+      "text": "Member, [Sydney Algorithms and Computing Theory (SACT)](https://usyd-sact.github.io) group, University of Sydney."
     },
     {
       "id": "act-mathquest", "type": "activity", "show": "cv",
@@ -143,6 +175,10 @@
     {
       "id": "act-winter", "type": "activity", "show": "cv",
       "text": "[Sydney TCS Winter School](https://sites.google.com/view/sydney-tcs-winter-school-2026/home): Interactive Proofs and the PCP Theorem, University of Sydney, July 2026."
+    },
+    {
+      "id": "act-godfrey", "type": "activity", "show": "cv",
+      "text": "[2025 Gordon Godfrey Workshop](https://newt.phys.unsw.edu.au/Godfrey/2025/Godfrey): Spins, Topology and Strong Electron Correlations, School of Physics, UNSW, November 2025."
     },
 
     { "id": "fact-programme",  "type": "fact", "show": "web", "label": "Programme",    "value": "{edu-unsw.degree}, {profile.institution.name}" },
@@ -158,7 +194,7 @@
       "enabled": true,
       "file": "CV/main.tex",
       "sections": [
-        { "id": "header",      "show": true, "style": "header" },
+        { "id": "header",      "show": true, "style": "header", "contact_style": "icon-text", "icon_font": "JetBrainsMono Nerd Font Propo" },
         { "id": "education",   "show": true, "style": "entries",     "title": "Education",           "types": ["education"] },
         { "id": "interests",   "show": true, "style": "description", "title": "Research Interests",  "types": ["interest"] },
         { "id": "research",    "show": true, "style": "entries",     "title": "Research Experience", "types": ["research"] },
